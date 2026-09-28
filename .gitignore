@@ -13,8 +13,6 @@ coverage/
 # Variables de entorno: nunca se versionan (ni .env ni .env.*)
 .env
 .env.*
-**/.env
-**/.env.*
 
 # Supabase local
 supabase/.temp/
