@@ -38,13 +38,18 @@ Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent
 Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra lateral con selector de organización y de alcance (organización/región/local), búsqueda y ⌘K, navegación principal, agentes, registros, vistas guardadas, favoritos y recientes; panel principal con los 7 patrones de pantalla (P1–P7). Toda pantalla nueva encaja en uno de esos patrones y usa los componentes de `packages/ui`. Se copia la estructura, nunca la identidad visual de esas marcas.
 
 ## Comandos
-> PENDIENTE: se rellenan en cuanto exista el scaffold del monorepo (primera tarea de la Fase 0). No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
-- Instalar: `TODO`
-- Levantar en local (Supabase + web + worker): `TODO`
-- Tests unitarios: `TODO`
-- Tests de base de datos (pgTAP): `TODO`
-- Evals: `TODO`
-- Build: `TODO`
+> Requisitos: Node 24 LTS (`.nvmrc`; con nvm: `nvm use`) y pnpm 11 vía corepack (`corepack enable`; la versión exacta está en `packageManager` de `package.json`).
+> Todos los comandos se ejecutan desde la raíz y Turborepo los lanza en cada workspace. Para uno solo: `pnpm --filter @repo/<nombre> <script>`.
+> No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
+- Instalar: `pnpm install`
+- Levantar en local (Supabase + web + worker): PENDIENTE (tareas 2, 4 y 6 de la Fase 0)
+- Typecheck: `pnpm typecheck`
+- Lint: `pnpm lint`
+- Tests unitarios: `pnpm test`
+- Tests de base de datos (pgTAP): PENDIENTE (tarea 2 de la Fase 0)
+- Evals: PENDIENTE (cuando existan agentes)
+- Build: `pnpm build`
+- Todo lo que corre el CI (typecheck + lint + test + build): `pnpm check`
 
 ## Prohibido
 - Inventar credenciales, cuentas o proveedores de integración. Pídelos.
