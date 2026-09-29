@@ -26,3 +26,9 @@ pnpm-debug.log*
 
 # Credenciales generadas por el seed local (pnpm db:seed)
 .seed/
+
+# Next.js y Playwright
+.next/
+next-env.d.ts
+test-results/
+playwright-report/
