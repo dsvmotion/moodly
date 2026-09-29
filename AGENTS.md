@@ -43,8 +43,12 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 > Todos los comandos se ejecutan desde la raíz y Turborepo los lanza en cada workspace. Para uno solo: `pnpm --filter @repo/<nombre> <script>`.
 > No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
 - Instalar: `pnpm install`
-- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Web y worker: PENDIENTE (tareas 4 y 6 de la Fase 0)
-- Reaplicar migraciones desde cero: `pnpm db:reset`
+- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Worker: PENDIENTE (tarea 6 de la Fase 0)
+- Reaplicar migraciones desde cero: `pnpm db:reset` (borra también los usuarios de Auth: vuelve a ejecutar `pnpm db:seed`)
+- Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
+- Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`
+- Web en local: `pnpm --filter @repo/web env:local` (escribe `apps/web/.env.local` con la URL y la clave publicable) y después `pnpm --filter @repo/web dev` → http://127.0.0.1:3000
+- Tests e2e (Playwright; con Supabase levantado, seed aplicado y la web compilada con `pnpm build`): `pnpm --filter @repo/web e2e`. La primera vez: `pnpm --filter @repo/web exec playwright install chromium`
 - Typecheck: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
@@ -52,7 +56,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
-- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`
+- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
 
 ## Prohibido
 - Inventar credenciales, cuentas o proveedores de integración. Pídelos.

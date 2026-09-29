@@ -54,3 +54,45 @@ jobs:
       - run: supabase db start
       - run: supabase db lint --level warning --fail-on warning
       - run: supabase test db
+
+  e2e:
+    name: e2e · Playwright por rol
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.118.0
+
+      - run: pnpm install --frozen-lockfile
+
+      # Solo lo que usa la app: Postgres, Auth (gotrue), PostgREST y Kong.
+      - name: Supabase local (mínimo)
+        working-directory: packages/db
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      # Usuarios de prueba con contraseñas generadas en el propio run.
+      - run: pnpm db:seed
+      - run: pnpm --filter @repo/web env:local
+
+      - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
+      - run: pnpm turbo run build --filter=@repo/web...
+      - run: pnpm --filter @repo/web e2e
+
+      # Informe y capturas por rol. Las trazas de un test fallido pueden
+      # incluir el login con la contraseña generada en este run: solo sirve en
+      # la base de datos efímera del runner, que desaparece al terminar.
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 14
