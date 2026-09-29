@@ -11,7 +11,12 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "check": "turbo run typecheck lint test build"
+    "check": "turbo run typecheck lint test build",
+    "db:start": "pnpm --filter @repo/db db:start",
+    "db:stop": "pnpm --filter @repo/db db:stop",
+    "db:reset": "pnpm --filter @repo/db db:reset",
+    "db:lint": "pnpm --filter @repo/db db:lint",
+    "test:db": "pnpm --filter @repo/db test:db"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
