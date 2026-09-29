@@ -1,9 +1,10 @@
 -- Alcance por local y región dentro de una organización (MANUAL §4.4):
 -- un location_manager del local 1 no ve el local 2; un region_manager solo
--- ve los locales de sus regiones; los roles no admin no escriben estructura.
+-- ve los locales de sus regiones. Los managers editan la operativa de sus
+-- locales pero no su estructura, y nadie salvo el org_admin toca memberships.
 begin;
 \ir _fixtures/tenants.psql
-select plan(22);
+select plan(32);
 
 -- ---------------------------------------------------------------------------
 -- location_manager de A1
@@ -26,8 +27,8 @@ select results_eq(
 );
 select results_eq(
   'select user_id from public.memberships order by user_id',
-  format('values (%L::uuid), (%L::uuid)', :a_loc1_mgr, :a_staff1),
-  'location_manager A1: ve su membership y la del staff de A1, no la de A2'
+  format('values (%L::uuid), (%L::uuid), (%L::uuid)', :a_admin, :a_loc1_mgr, :a_staff1),
+  'location_manager A1: ve al org_admin, a sí mismo y al staff de A1; no al de A2'
 );
 select is_empty(
   format('select 1 from public.users where id = %L', :a_staff2),
@@ -38,13 +39,29 @@ select isnt_empty(
   'location_manager A1: ve el perfil del staff de A1'
 );
 
+-- Operativa de su local: sí. Estructura: no.
+with u as (
+  update public.locations set opening_hours = '{"mon": ["09:00", "20:00"]}', timezone = 'Atlantic/Canary'
+  where id = :loc_a1 returning 1
+)
+select is(count(*)::int, 1, 'location_manager A1: puede cambiar horario y zona horaria de A1') from u;
+with u as (update public.locations set opening_hours = '{}' where id = :loc_a2 returning 1)
+select is(count(*)::int, 0, 'location_manager A1: no puede modificar A2') from u;
+select throws_ok(
+  format('update public.locations set name = %L where id = %L', 'renombrado', :loc_a1),
+  '42501', null,
+  'location_manager A1: no puede renombrar su local'
+);
+select throws_ok(
+  format('update public.locations set region_id = %L where id = %L', :region_a_s, :loc_a1),
+  '42501', null,
+  'location_manager A1: no puede mover su local de región'
+);
 select throws_ok(
   format('insert into public.locations (organization_id, name) values (%L, %L)', :org_a, 'nuevo'),
   '42501', null,
   'location_manager A1: no puede crear locales'
 );
-with u as (update public.locations set name = 'renombrado' returning 1)
-select is(count(*)::int, 0, 'location_manager A1: no puede modificar locales, ni el suyo') from u;
 
 -- Escalada de privilegios: no puede ampliar su alcance ni cambiar su rol.
 with u as (
@@ -65,8 +82,17 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- staff de A2
+-- staff de A1 y de A2
 -- ---------------------------------------------------------------------------
+reset role;
+select pg_temp.login(:a_staff1);
+
+select results_eq(
+  'select user_id from public.memberships order by user_id',
+  format('values (%L::uuid), (%L::uuid), (%L::uuid)', :a_admin, :a_loc1_mgr, :a_staff1),
+  'staff A1: ve a sus compañeros de A1 y al org_admin; no al staff de A2'
+);
+
 reset role;
 select pg_temp.login(:a_staff2);
 
@@ -76,15 +102,17 @@ select results_eq(
   'staff A2: solo ve el local A2'
 );
 select results_eq(
-  'select user_id from public.memberships',
-  format('values (%L::uuid)', :a_staff2),
-  'staff A2: solo ve su propia membership'
+  'select user_id from public.memberships order by user_id',
+  format('values (%L::uuid), (%L::uuid)', :a_admin, :a_staff2),
+  'staff A2: ve su membership y la del org_admin'
 );
 select results_eq(
-  'select id from public.users',
-  format('values (%L::uuid)', :a_staff2),
-  'staff A2: solo ve su propio perfil'
+  'select id from public.users order by id',
+  format('values (%L::uuid), (%L::uuid)', :a_admin, :a_staff2),
+  'staff A2: ve su perfil y el del org_admin'
 );
+with u as (update public.locations set opening_hours = '{}' where id = :loc_a2 returning 1)
+select is(count(*)::int, 0, 'staff A2: no puede modificar su local') from u;
 
 -- ---------------------------------------------------------------------------
 -- region_manager de A-Norte
@@ -108,8 +136,18 @@ select results_eq(
 );
 select results_eq(
   'select user_id from public.memberships order by user_id',
-  format('values (%L::uuid), (%L::uuid), (%L::uuid), (%L::uuid)', :a_region_mgr, :a_loc1_mgr, :a_staff1, :a_staff2),
-  'region_manager A-Norte: ve las memberships de los locales de su región, no la del org_admin'
+  format('values (%L::uuid), (%L::uuid), (%L::uuid), (%L::uuid), (%L::uuid)',
+         :a_admin, :a_region_mgr, :a_loc1_mgr, :a_staff1, :a_staff2),
+  'region_manager A-Norte: ve al org_admin y a las personas de los locales de su región'
+);
+with u as (update public.locations set status = 'inactive' where id = :loc_a2 returning 1)
+select is(count(*)::int, 1, 'region_manager A-Norte: puede desactivar A2') from u;
+with u as (update public.locations set opening_hours = '{}' where id = :loc_a3 returning 1)
+select is(count(*)::int, 0, 'region_manager A-Norte: no puede modificar A3') from u;
+select throws_ok(
+  format('update public.locations set region_id = %L where id = %L', :region_a_s, :loc_a2),
+  '42501', null,
+  'region_manager A-Norte: no puede mover un local de región'
 );
 select throws_ok(
   format('insert into public.regions (organization_id, name) values (%L, %L)', :org_a, 'nueva'),
@@ -118,12 +156,14 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- Tras volver a superusuario: nada ha cambiado
+-- Tras volver a superusuario: solo han cambiado los campos operativos
 -- ---------------------------------------------------------------------------
 reset role;
-select is((select role from public.memberships where user_id = :a_loc1_mgr), 'location_manager', 'rol del location_manager intacto');
-select is((select scope_location_ids from public.memberships where user_id = :a_loc1_mgr), array[:loc_a1]::uuid[], 'alcance del location_manager intacto');
+select is((select timezone from public.locations where id = :loc_a1), 'Atlantic/Canary', 'A1: zona horaria cambiada por su manager');
+select is((select status from public.locations where id = :loc_a2), 'inactive', 'A2: desactivado por su region_manager');
 select is((select count(*)::int from public.locations where name = 'renombrado'), 0, 'ningún local renombrado');
+select is((select region_id from public.locations where id = :loc_a1), :region_a_n::uuid, 'A1 sigue en A-Norte');
+select is((select role from public.memberships where user_id = :a_loc1_mgr), 'location_manager', 'rol del location_manager intacto');
 
 select * from finish();
 rollback;

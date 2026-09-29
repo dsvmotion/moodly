@@ -2,7 +2,7 @@
 -- integridad impide colar alcances o regiones de otra organización.
 begin;
 \ir _fixtures/tenants.psql
-select plan(14);
+select plan(21);
 
 select pg_temp.login(:a_admin);
 
@@ -75,13 +75,57 @@ select throws_ok(
   'rol y alcance deben ser coherentes (region_manager sin locales → location_manager rechazado)'
 );
 
--- El usuario promovido ya ve lo que le toca.
+-- ---------------------------------------------------------------------------
+-- Regiones y locales no se borran desde la app: se desactivan
+-- ---------------------------------------------------------------------------
+with d as (delete from public.locations where id = :loc_a3 returning 1)
+select is(count(*)::int, 0, 'org_admin A: no puede borrar locales (se desactivan)') from d;
+with d as (delete from public.regions where id = :region_a_s returning 1)
+select is(count(*)::int, 0, 'org_admin A: no puede borrar regiones') from d;
+
+-- El usuario dado de alta ya ve lo que le toca.
 reset role;
 select pg_temp.login(:outsider);
 select results_eq(
   'select id from public.locations',
   format('values (%L::uuid)', :loc_a3),
   'el usuario dado de alta como staff de A3 ve solo A3'
+);
+
+-- ---------------------------------------------------------------------------
+-- La organización nunca se queda sin org_admin
+-- ---------------------------------------------------------------------------
+reset role;
+select pg_temp.login(:a_admin);
+
+select throws_ok(
+  format($$update public.memberships set role = 'staff', scope_location_ids = array[%L]::uuid[] where user_id = %L$$, :loc_a1, :a_admin),
+  '23514', null,
+  'último org_admin: no puede degradarse'
+);
+select throws_ok(
+  format('delete from public.memberships where user_id = %L', :a_admin),
+  '23514', null,
+  'último org_admin: no puede borrar su membership'
+);
+
+-- Con un segundo org_admin, ya puede.
+with u as (
+  update public.memberships set role = 'org_admin', scope_location_ids = '{}'
+  where user_id = :outsider returning 1
+)
+select is(count(*)::int, 1, 'org_admin A: puede nombrar a otro org_admin') from u;
+with u as (
+  update public.memberships set role = 'staff', scope_location_ids = array[:loc_a1]::uuid[]
+  where user_id = :a_admin returning 1
+)
+select is(count(*)::int, 1, 'con otro org_admin, el primero sí puede degradarse') from u;
+
+-- La plataforma (fuera del rol authenticated) no queda bloqueada.
+reset role;
+select lives_ok(
+  format($$delete from public.memberships where organization_id = %L and role = 'org_admin'$$, :org_a),
+  'plataforma: puede retirar al último org_admin'
 );
 
 select * from finish();

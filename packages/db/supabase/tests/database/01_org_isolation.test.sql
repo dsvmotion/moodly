@@ -77,11 +77,16 @@ select throws_ok(
   '42501', null,
   'org_admin A: no puede mover un local suyo a B'
 );
+-- Con un segundo org_admin en A para que no salte antes la guarda del último
+-- admin (savepoint: el alta se deshace después).
+savepoint segundo_admin;
+insert into public.memberships (user_id, organization_id, role) values (:outsider, :org_a, 'org_admin');
 select throws_ok(
-  format('update public.memberships set organization_id = %L where user_id = %L', :org_b, :a_admin),
+  format('update public.memberships set organization_id = %L where user_id = %L', :org_b, :outsider),
   '42501', null,
   'org_admin A: no puede mover una membership suya a B'
 );
+rollback to savepoint segundo_admin;
 
 -- ---------------------------------------------------------------------------
 -- La otra dirección: el location_manager de B no ve nada de A
