@@ -10,7 +10,8 @@
   - Configuración de Supabase en `packages/db/supabase`.
   - Migración `20260929105448_tenants_rls.sql`: `organizations`, `regions`, `locations`, `users` y `memberships`, con RLS activado y forzado, 15 políticas, helpers `security definer` en `private` y guardas de negocio (estructura del local editable solo por el `org_admin`, la organización nunca se queda sin `org_admin`, locales y regiones sin borrado desde la app).
   - Rollback probado.
-  - 86 tests pgTAP en verde (aislamiento A/B, alcance por local y región, operativa de los managers, visibilidad de personas, org_admin y último admin, garantías estructurales).
+  - 135 tests pgTAP en verde (aislamiento A/B, alcance por local y región, operativa de los managers, visibilidad de personas, org_admin y último admin, escalada, alcance cruzado, WITH CHECK, anon, funciones security definer, columnas de users, índices y garantías estructurales).
+  - Revisión de seguridad previa al merge (7 puntos) respondida en el PR, con una prueba negativa por punto.
   - Pruebas negativas: sin `locations_select` fallan 14 tests; con `using (true)` fallan 10; sin la guarda del último admin, 4; sin la guarda de estructura, 7.
   - Supabase CLI actualizado a 2.118.0 (local y CI).
   - `supabase db lint` limpio.

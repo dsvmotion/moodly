@@ -32,7 +32,15 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
    - Un `location_manager` o `staff` ve también el nombre de la región de su local.
 7. **Pruebas:**
    - pgTAP con un fixture de dos organizaciones y un usuario por rol, en `packages/db/supabase/tests/database`.
-   - Un test estructural genérico que falla si una tabla nueva de `public` no tiene RLS activado y forzado, alguna política y los privilegios de `anon` revocados.
+   - Tests estructurales genéricos que fallan si algo nuevo rompe una garantía:
+     - tabla sin RLS activado y forzado, o sin políticas;
+     - política de INSERT/UPDATE sin WITH CHECK, o que no sea solo para `authenticated`;
+     - privilegios para `anon`;
+     - función de `private` sin `search_path` fijado o ejecutable por PUBLIC/`anon`;
+     - `auth.uid()` sin envolver en `(select ...)`;
+     - FK sin índice;
+     - columna nueva en `public.users` (obliga a revisar datos personales).
+   - Un UPDATE sin `WHERE` no aplica la política de SELECT a la fila nueva, así que el WITH CHECK de cada UPDATE se prueba así, de forma aislada.
    - Todo corre en CI.
 
 ## Alternativas consideradas
@@ -48,13 +56,19 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
 - Supabase CLI fijado a 2.118.0 en local y en el CI.
 
 ## Verificación
-- `supabase test db`: 86 tests en 4 archivos, en verde (CLI 2.118.0).
-- Pruebas negativas, cada una restaurada después con `supabase db reset`:
-  - Borrar `locations_select`: fallan 14 tests.
-  - Sustituirla por `using (true)`: fallan 10, entre ellos los de aislamiento A/B.
-  - Quitar el trigger del último admin: fallan 4.
-  - Quitar el trigger de estructura: fallan 7.
-- Tras restaurar: 86/86.
+- `supabase test db`: 135 tests en 5 archivos, en verde (CLI 2.118.0).
+- Pruebas negativas, cada una restaurada después con `supabase db reset`; todas hacen fallar algún test:
+  - Política de SELECT eliminada o permisiva.
+  - Guardas de estructura y del último admin eliminadas.
+  - Escalada: memberships editables por su dueño o creables por cualquier miembro.
+  - Trigger de alcance eliminado.
+  - Helpers sin anclaje a la organización.
+  - WITH CHECK permisivo o ausente en `locations`, `regions` y `memberships`.
+  - `anon` con SELECT.
+  - Helper con EXECUTE para PUBLIC o sin `search_path`.
+  - Columna nueva en `users`.
+  - Índice de FK eliminado.
+  - `auth.uid()` sin envolver.
 - El rollback `supabase/rollbacks/20260929105448_tenants_rls.down.sql` se probó en local: deja 0 tablas en `public`, y la migración se vuelve a aplicar sin errores.
 - `supabase db lint --fail-on warning`: sin errores.
 - Evidencia completa en el PR #2.
