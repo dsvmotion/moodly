@@ -7,13 +7,14 @@
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 
 ## En curso
-- Auth + seed (Fase 0 · tarea 3) — PR abierto en `feat/fase0-auth-seed`, pendiente de revisión humana (auth y secretos, AGENTS.md). Hecho:
+- Auth + seed (Fase 0 · tarea 3) — PR #3 abierto, pendiente de revisión humana (auth y secretos, AGENTS.md). Hecho:
   - Seed idempotente `pnpm db:seed` (`packages/db/src/seed`): Demo A con 1 región, 3 locales (2 en la región, 1 sin región) y un usuario por rol; Demo B con 1 local y su `org_admin`. Contraseñas generadas en cada ejecución, guardadas solo en `packages/db/.seed/` (ignorado por git, 0600). Solo corre contra Supabase local.
   - `apps/web` en Next.js 16.3.6 con Supabase Auth (`@supabase/ssr`): login por email y contraseña, cierre de sesión, `proxy.ts` con `getClaims()` y rutas protegidas; sin service role en la app (hay un test que lo comprueba).
   - Página "Mi organización" (`/app/settings/organization`) con consultas normales vía RLS.
   - Tipos de la base de datos generados (`pnpm db:types`) y `BRAND_NAME` en `packages/config`.
   - 11 tests e2e con Playwright (5 roles + auth) y prueba negativa (política de locales permisiva → fallan los 6 tests de roles).
   - Job `e2e` en el CI.
+  - CI en verde con los jobs `check`, `db` y `e2e` (run 36570055914: 158 pgTAP + 11 e2e; capturas por rol en el artefacto `playwright`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/3
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md).
