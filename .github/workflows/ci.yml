@@ -34,3 +34,23 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  db:
+    name: db · migraciones · pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/db
+    steps:
+      - uses: actions/checkout@v7
+
+      # Misma versión que en local (ver AGENTS.md → Requisitos).
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.118.0
+
+      # Solo Postgres (no hace falta el resto del stack): aplica las migraciones.
+      - run: supabase db start
+      - run: supabase db lint --level warning --fail-on warning
+      - run: supabase test db

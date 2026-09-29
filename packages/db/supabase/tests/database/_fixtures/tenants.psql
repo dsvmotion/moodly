@@ -1,0 +1,87 @@
+-- Fixture compartido de los tests de RLS de tenants. Se incluye con \ir desde
+-- cada *.test.sql (dentro de su begin/rollback). Extensión .psql para que
+-- pg_prove no lo ejecute como test.
+--
+-- Organización A
+--   Región A-Norte: Local A1, Local A2
+--   Región A-Sur:   Local A3
+-- Organización B
+--   Región B-Centro: Local B1
+--
+-- Usuarios (uno por rol):
+--   a_admin       org_admin        de A
+--   a_region_mgr  region_manager   de A-Norte
+--   a_loc1_mgr    location_manager de A1
+--   a_staff1      staff            de A1
+--   a_staff2      staff            de A2
+--   b_admin       org_admin        de B
+--   b_loc_mgr     location_manager de B1
+--   outsider      sin membership
+
+create extension if not exists pgtap with schema extensions;
+
+-- Suplanta a un usuario autenticado igual que lo hace PostgREST:
+-- rol authenticated + claims del JWT en la transacción.
+create function pg_temp.login(p_user uuid) returns void language sql as $$
+  select set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+$$;
+
+-- Ids legibles
+\set org_a         '''a0000000-0000-4000-8000-000000000000'''
+\set org_b         '''b0000000-0000-4000-8000-000000000000'''
+\set region_a_n    '''a1000000-0000-4000-8000-000000000001'''
+\set region_a_s    '''a1000000-0000-4000-8000-000000000002'''
+\set region_b_c    '''b1000000-0000-4000-8000-000000000001'''
+\set loc_a1        '''a2000000-0000-4000-8000-000000000001'''
+\set loc_a2        '''a2000000-0000-4000-8000-000000000002'''
+\set loc_a3        '''a2000000-0000-4000-8000-000000000003'''
+\set loc_b1        '''b2000000-0000-4000-8000-000000000001'''
+\set a_admin       '''a3000000-0000-4000-8000-000000000001'''
+\set a_region_mgr  '''a3000000-0000-4000-8000-000000000002'''
+\set a_loc1_mgr    '''a3000000-0000-4000-8000-000000000003'''
+\set a_staff1      '''a3000000-0000-4000-8000-000000000004'''
+\set a_staff2      '''a3000000-0000-4000-8000-000000000005'''
+\set b_admin       '''b3000000-0000-4000-8000-000000000001'''
+\set b_loc_mgr     '''b3000000-0000-4000-8000-000000000002'''
+\set outsider      '''c3000000-0000-4000-8000-000000000001'''
+
+insert into auth.users (id, email, aud, role)
+select id::uuid, email, 'authenticated', 'authenticated'
+from (values
+  (:a_admin,      'a_admin@test.local'),
+  (:a_region_mgr, 'a_region_mgr@test.local'),
+  (:a_loc1_mgr,   'a_loc1_mgr@test.local'),
+  (:a_staff1,     'a_staff1@test.local'),
+  (:a_staff2,     'a_staff2@test.local'),
+  (:b_admin,      'b_admin@test.local'),
+  (:b_loc_mgr,    'b_loc_mgr@test.local'),
+  (:outsider,     'outsider@test.local')
+) as u(id, email);
+
+insert into public.users (id, full_name)
+select id, email from auth.users where email like '%@test.local';
+
+insert into public.organizations (id, name) values
+  (:org_a, 'Org A'),
+  (:org_b, 'Org B');
+
+insert into public.regions (id, organization_id, name) values
+  (:region_a_n, :org_a, 'A-Norte'),
+  (:region_a_s, :org_a, 'A-Sur'),
+  (:region_b_c, :org_b, 'B-Centro');
+
+insert into public.locations (id, organization_id, region_id, name) values
+  (:loc_a1, :org_a, :region_a_n, 'Local A1'),
+  (:loc_a2, :org_a, :region_a_n, 'Local A2'),
+  (:loc_a3, :org_a, :region_a_s, 'Local A3'),
+  (:loc_b1, :org_b, :region_b_c, 'Local B1');
+
+insert into public.memberships (user_id, organization_id, role, scope_region_ids, scope_location_ids) values
+  (:a_admin,      :org_a, 'org_admin',        '{}',                     '{}'),
+  (:a_region_mgr, :org_a, 'region_manager',   array[:region_a_n]::uuid[], '{}'),
+  (:a_loc1_mgr,   :org_a, 'location_manager', '{}',                     array[:loc_a1]::uuid[]),
+  (:a_staff1,     :org_a, 'staff',            '{}',                     array[:loc_a1]::uuid[]),
+  (:a_staff2,     :org_a, 'staff',            '{}',                     array[:loc_a2]::uuid[]),
+  (:b_admin,      :org_b, 'org_admin',        '{}',                     '{}'),
+  (:b_loc_mgr,    :org_b, 'location_manager', '{}',                     array[:loc_b1]::uuid[]);
