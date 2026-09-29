@@ -65,11 +65,6 @@ select throws_ok(
 
 -- Escalada de privilegios: no puede ampliar su alcance ni cambiar su rol.
 with u as (
-  update public.memberships set role = 'org_admin', scope_location_ids = '{}'
-  where user_id = :a_loc1_mgr returning 1
-)
-select is(count(*)::int, 0, 'location_manager A1: no puede ascenderse a org_admin') from u;
-with u as (
   update public.memberships set scope_location_ids = array[:loc_a1, :loc_a2]::uuid[]
   where user_id = :a_loc1_mgr returning 1
 )
@@ -80,6 +75,11 @@ select throws_ok(
   '42501', null,
   'location_manager A1: no puede dar de alta memberships'
 );
+with u as (
+  update public.memberships set role = 'org_admin', scope_location_ids = '{}'
+  where user_id = :a_loc1_mgr returning 1
+)
+select is(count(*)::int, 0, 'location_manager A1: no puede ascenderse a org_admin') from u;
 
 -- ---------------------------------------------------------------------------
 -- staff de A1 y de A2

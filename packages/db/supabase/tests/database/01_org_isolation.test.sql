@@ -2,7 +2,7 @@
 -- leer ni escribir datos de B, en ninguna de las tablas de tenants.
 begin;
 \ir _fixtures/tenants.psql
-select plan(27);
+select plan(31);
 
 -- ---------------------------------------------------------------------------
 -- Lectura: el org_admin de A solo ve A
@@ -78,15 +78,14 @@ select throws_ok(
   'org_admin A: no puede mover un local suyo a B'
 );
 -- Con un segundo org_admin en A para que no salte antes la guarda del último
--- admin (savepoint: el alta se deshace después).
-savepoint segundo_admin;
+-- admin; se da de baja justo después.
 insert into public.memberships (user_id, organization_id, role) values (:outsider, :org_a, 'org_admin');
 select throws_ok(
   format('update public.memberships set organization_id = %L where user_id = %L', :org_b, :outsider),
   '42501', null,
   'org_admin A: no puede mover una membership suya a B'
 );
-rollback to savepoint segundo_admin;
+delete from public.memberships where user_id = :outsider;
 
 -- ---------------------------------------------------------------------------
 -- La otra dirección: el location_manager de B no ve nada de A
@@ -125,7 +124,11 @@ select results_eq(
 reset role;
 set local role anon;
 select throws_ok('select 1 from public.organizations', '42501', null, 'anon: sin acceso a organizations');
+select throws_ok('select 1 from public.regions',       '42501', null, 'anon: sin acceso a regions');
+select throws_ok('select 1 from public.locations',     '42501', null, 'anon: sin acceso a locations');
+select throws_ok('select 1 from public.users',         '42501', null, 'anon: sin acceso a users');
 select throws_ok('select 1 from public.memberships',   '42501', null, 'anon: sin acceso a memberships');
+select throws_ok($$insert into public.organizations (name) values ('anon')$$, '42501', null, 'anon: no puede insertar');
 
 -- ---------------------------------------------------------------------------
 -- Comprobación final como superusuario: B sigue intacta
