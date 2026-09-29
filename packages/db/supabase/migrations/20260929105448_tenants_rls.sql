@@ -316,22 +316,82 @@ grant execute on function private.can_see_user(uuid)                            
 -- ---------------------------------------------------------------------------
 -- Guardas de negocio para usuarios de la app. Solo actúan cuando quien
 -- escribe es el rol authenticated: la plataforma (service role, migraciones,
--- cascadas de auth) no queda bloqueada.
+-- cascadas de auth) no queda bloqueada. Son listas blancas: una columna nueva
+-- queda protegida por defecto hasta que se decida quién puede cambiarla.
 -- ---------------------------------------------------------------------------
 
--- Los managers editan la operativa de sus locales (horario, dirección, zona
--- horaria, estado); nombre, organización y región solo los cambia el org_admin.
+-- Columnas que ningún usuario de la app puede cambiar (tg_argv: nombres).
+-- Mover filas entre organizaciones o reasignar una membership a otra persona
+-- es solo de la plataforma.
+create function private.guard_immutable_columns()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  col text;
+begin
+  if current_user = 'authenticated' then
+    foreach col in array tg_argv loop
+      if (to_jsonb(new) -> col) is distinct from (to_jsonb(old) -> col) then
+        raise exception 'la columna %.% no se puede cambiar desde la app', tg_table_name, col
+          using errcode = '42501';
+      end if;
+    end loop;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.guard_immutable_columns() from public;
+
+create trigger guard_immutable before update on public.regions
+  for each row execute function private.guard_immutable_columns('organization_id');
+create trigger guard_immutable before update on public.locations
+  for each row execute function private.guard_immutable_columns('organization_id');
+create trigger guard_immutable before update on public.memberships
+  for each row execute function private.guard_immutable_columns('organization_id', 'user_id');
+
+-- Un org_admin solo cambia name, vertical y default_locale de su organización;
+-- plan, contract_type, status, kind y data_region son de la plataforma.
+create function private.guard_organization_fields()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  editable constant text[] := array['name', 'vertical', 'default_locale', 'updated_at'];
+begin
+  if current_user = 'authenticated'
+     and (to_jsonb(new) - editable) is distinct from (to_jsonb(old) - editable)
+  then
+    raise exception 'desde la app solo se pueden cambiar name, vertical y default_locale de la organización'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.guard_organization_fields() from public;
+
+create trigger guard_fields before update on public.organizations
+  for each row execute function private.guard_organization_fields();
+
+-- Los managers solo editan la operativa de sus locales: horario, dirección y
+-- zona horaria. Nombre, región y estado (activar/desactivar) son del org_admin.
 create function private.guard_location_structure()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  editable constant text[] := array['opening_hours', 'address', 'timezone', 'updated_at'];
 begin
   if current_user = 'authenticated'
-     and (new.organization_id, new.region_id, new.name) is distinct from (old.organization_id, old.region_id, old.name)
+     and (to_jsonb(new) - editable) is distinct from (to_jsonb(old) - editable)
      and not private.has_org_role(old.organization_id, array['org_admin'])
   then
-    raise exception 'solo un org_admin puede cambiar el nombre, la organización o la región de un local'
+    raise exception 'los managers solo pueden cambiar horario, dirección y zona horaria de un local'
       using errcode = '42501';
   end if;
   return new;
@@ -395,6 +455,12 @@ alter table public.users         force row level security;
 alter table public.memberships   force row level security;
 
 revoke all on public.organizations, public.regions, public.locations, public.users, public.memberships from anon;
+-- TRUNCATE no pasa por RLS: con él, cualquier usuario autenticado podría
+-- vaciar la tabla de todas las organizaciones. REFERENCES y TRIGGER no los
+-- necesita la app.
+revoke truncate, references, trigger
+  on public.organizations, public.regions, public.locations, public.users, public.memberships
+  from authenticated;
 
 -- organizations
 create policy organizations_select on public.organizations
@@ -429,8 +495,8 @@ create policy locations_insert on public.locations
   for insert to authenticated
   with check (private.has_org_role(organization_id, array['org_admin']));
 
--- Managers con el local en su alcance también; los campos estructurales los
--- protege el trigger guard_structure.
+-- Managers con el local en su alcance también; qué columnas puede cambiar cada
+-- rol lo deciden los triggers guard_structure y guard_immutable.
 create policy locations_update on public.locations
   for update to authenticated
   using (private.can_access_location(organization_id, id, array['org_admin', 'region_manager', 'location_manager']))

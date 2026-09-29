@@ -18,6 +18,8 @@ drop function if exists private.can_access_location(uuid, uuid, text[]);
 drop function if exists private.has_org_role(uuid, text[]);
 drop function if exists private.guard_last_org_admin();
 drop function if exists private.guard_location_structure();
+drop function if exists private.guard_organization_fields();
+drop function if exists private.guard_immutable_columns();
 drop function if exists private.validate_membership_scope();
 drop function if exists private.set_updated_at();
 
