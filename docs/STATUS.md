@@ -6,7 +6,7 @@
 - Scaffold del monorepo (Fase 0 · tarea 1): pnpm 11 + Turborepo, 13 workspaces vacíos `@repo/*` (`apps/{web,worker}`, `packages/*`), TypeScript strict, ESLint (typescript-eslint strict), Vitest con un test trivial, CI en GitHub Actions y comandos en `AGENTS.md`/`CLAUDE.md` — verificado con una instalación limpia en local (`pnpm install --frozen-lockfile`, `pnpm typecheck`/`lint`/`test`/`build`: 13/13 tareas OK, 1 test pasando), una prueba negativa de las tres puertas (tsc exit 2, eslint exit 1, vitest exit 1) y el CI en verde en el PR (run 36454243122, Node 24.21.0) — 2026-09-28 — https://github.com/dsvmotion/moodly/pull/1
 
 ## En curso
-- Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2) — PR abierto, **pendiente de revisión humana** (migración + políticas RLS, AGENTS.md) antes de mergear. Hecho:
+- Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2) — PR #2 abierto, **pendiente de revisión humana** (migración + políticas RLS, AGENTS.md) antes de mergear. Hecho:
   - Configuración de Supabase en `packages/db/supabase`.
   - Migración `20260929105448_tenants_rls.sql`: `organizations`, `regions`, `locations`, `users` y `memberships`, con RLS activado y forzado, 17 políticas y helpers `security definer` en `private`.
   - Rollback probado.
@@ -15,7 +15,7 @@
   - `supabase db lint` limpio.
   - Job `db` en el CI.
   - ADR 0003 (propuesto).
-  - Enlace al PR y run de CI: ver el PR de `feat/fase0-tenants-rls`.
+  - CI en verde en el PR, jobs `check` y `db` (run 36559375428, 69/69 pgTAP) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md).
