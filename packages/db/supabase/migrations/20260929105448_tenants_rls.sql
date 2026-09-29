@@ -97,9 +97,9 @@ create table public.memberships (
   )
 );
 
--- Índices para FKs y para las búsquedas de los helpers de RLS.
--- memberships (user_id, organization_id) ya está cubierto por el unique.
-create index regions_organization_id_idx      on public.regions (organization_id);
+-- Índices para FKs y para las búsquedas de los helpers de RLS. Ya cubiertos
+-- por unique: regions (organization_id, id) y memberships (user_id,
+-- organization_id), que es la búsqueda de todos los helpers.
 create index locations_organization_id_idx    on public.locations (organization_id, region_id);
 create index memberships_organization_id_idx  on public.memberships (organization_id);
 
