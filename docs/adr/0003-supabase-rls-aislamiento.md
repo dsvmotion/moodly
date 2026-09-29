@@ -19,11 +19,16 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
    - FK compuesta `locations (organization_id, region_id) → regions (organization_id, id)`.
    - Trigger que exige que los ids de alcance de una membership pertenezcan a su organización.
 5. **Escritura de la estructura:**
-   - Crear regiones y locales, y gestionar memberships y los datos de la organización: solo `org_admin`.
-   - `region_manager` y `location_manager` pueden editar la operativa de los locales de su alcance: horario, dirección, zona horaria y estado. Nombre, organización y región solo los cambia el `org_admin`; lo garantiza el trigger `guard_structure`, porque RLS no restringe columnas.
+   - Crear regiones y locales y gestionar memberships: solo `org_admin`.
+   - Organización: el `org_admin` solo cambia `name`, `vertical` y `default_locale`. `plan`, `contract_type`, `status`, `kind` y `data_region` son de la plataforma (trigger `guard_fields`).
+   - Locales: `region_manager` y `location_manager` solo editan horario, dirección y zona horaria de los locales de su alcance. Nombre, región y estado (activar o desactivar) son del `org_admin` (trigger `guard_structure`).
+   - `organization_id` es inmutable desde la app en `regions`, `locations` y `memberships`, y `user_id` también en `memberships` (trigger `guard_immutable`). Mover filas entre organizaciones o reasignar una membership es solo de la plataforma.
    - Regiones y locales no se borran desde la app: se desactivan con `status`. El borrado físico (RGPD) lo hace la plataforma.
    - El alta y la baja de organizaciones no tienen política: las hace la plataforma con la service role.
-   - Un trigger con bloqueo consultivo por organización impide que una organización se quede sin `org_admin` por acción de sus usuarios. La plataforma no queda bloqueada.
+   - Un trigger con bloqueo consultivo por organización impide que una organización se quede sin `org_admin` por acción de sus usuarios.
+   - Las guardas son listas blancas (comparan la fila en `jsonb` quitando las columnas editables), así que una columna nueva queda protegida por defecto.
+   - **Regla:** las guardas solo actúan con `current_user = 'authenticated'`. La plataforma no queda bloqueada, y el código que la usa debe respetar esas reglas por su cuenta. Una función `SECURITY DEFINER` se ejecuta como su dueño y dentro de ella no actúan ni RLS ni las guardas, así que **ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin revisión humana**. Los helpers de `private` solo leen. Recogido también en `AGENTS.md`/`CLAUDE.md`.
+   - **Mínimo privilegio:** `authenticated` no tiene `TRUNCATE` (no pasa por RLS: vaciaría la tabla de todas las organizaciones), `REFERENCES` ni `TRIGGER`. `anon` no tiene ningún privilegio.
 6. **Visibilidad de personas:**
    - Cada uno ve su membership y su perfil, y los de los `org_admin` de su organización (a quién escalar).
    - `org_admin` ve a toda la organización.
@@ -40,7 +45,7 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
      - `auth.uid()` sin envolver en `(select ...)`;
      - FK sin índice;
      - columna nueva en `public.users` (obliga a revisar datos personales).
-   - Un UPDATE sin `WHERE` no aplica la política de SELECT a la fila nueva, así que el WITH CHECK de cada UPDATE se prueba así, de forma aislada.
+   - Un UPDATE sin `WHERE` no aplica la política de SELECT a la fila nueva. Por eso el WITH CHECK de cada UPDATE se prueba así, con las guardas desactivadas dentro del test y comprobando el mensaje, para saber qué capa ha frenado.
    - Todo corre en CI.
 
 ## Alternativas consideradas
@@ -56,7 +61,7 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
 - Supabase CLI fijado a 2.118.0 en local y en el CI.
 
 ## Verificación
-- `supabase test db`: 135 tests en 5 archivos, en verde (CLI 2.118.0).
+- `supabase test db`: 158 tests en 6 archivos, en verde (CLI 2.118.0).
 - Pruebas negativas, cada una restaurada después con `supabase db reset`; todas hacen fallar algún test:
   - Política de SELECT eliminada o permisiva.
   - Guardas de estructura y del último admin eliminadas.
@@ -69,6 +74,8 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
   - Columna nueva en `users`.
   - Índice de FK eliminado.
   - `auth.uid()` sin envolver.
+  - Guardas de organización, de columnas inmutables y de estado del local vaciadas o eliminadas.
+  - `TRUNCATE`, `REFERENCES` o `TRIGGER` concedidos de nuevo.
 - El rollback `supabase/rollbacks/20260929105448_tenants_rls.down.sql` se probó en local: deja 0 tablas en `public`, y la migración se vuelve a aplicar sin errores.
 - `supabase db lint --fail-on warning`: sin errores.
 - Evidencia completa en el PR #2.

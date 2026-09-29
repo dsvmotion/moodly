@@ -61,10 +61,17 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Desactivar RLS, saltarse tests o bajar umbrales de evals para que algo pase.
 - Escribir el nombre de la marca a mano (usa `BRAND_NAME`) o IDs de modelo LLM en código de negocio (usa `packages/config`).
 - Tomar `organization_id`, `location_id` o destinatarios de los argumentos que genera el LLM.
+- Escribir en tablas de tenants desde una función `SECURITY DEFINER` sin revisión humana (ver "Base de datos: guardas").
 - Mergear tu propio PR.
 
 ## Requiere revisión humana siempre
-Migraciones · políticas RLS · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts.
+Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts.
+
+## Base de datos: guardas (ADR 0003)
+- Las reglas que RLS no puede expresar por columna viven en triggers `guard_*` de `packages/db`. Ejemplos: qué campos puede cambiar cada rol, `organization_id` inmutable, que nunca falte un `org_admin`.
+- Esas guardas **solo actúan cuando `current_user = 'authenticated'`**. La plataforma (service role, migraciones, cascadas de `auth`) no queda bloqueada, y el código que la usa debe respetar esas reglas por su cuenta.
+- Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin revisión humana. Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
+- Las guardas son listas blancas: una columna nueva queda protegida hasta que se decida explícitamente quién puede cambiarla.
 
 ## Trabajo en paralelo (Claude Code + Codex)
 Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
