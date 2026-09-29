@@ -39,7 +39,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 
 ## Comandos
 > Requisitos: Node 24 LTS (`.nvmrc`; con nvm: `nvm use`) y pnpm 11 vía corepack (`corepack enable`; la versión exacta está en `packageManager` de `package.json`).
-> Base de datos: Docker en marcha y Supabase CLI 2.75.0 (la misma versión que fija el CI en `.github/workflows/ci.yml`). La configuración de Supabase vive en `packages/db/supabase`.
+> Base de datos: Docker en marcha y Supabase CLI 2.118.0 (la misma versión que fija el CI en `.github/workflows/ci.yml`). La configuración de Supabase vive en `packages/db/supabase`.
 > Todos los comandos se ejecutan desde la raíz y Turborepo los lanza en cada workspace. Para uno solo: `pnpm --filter @repo/<nombre> <script>`.
 > No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
 - Instalar: `pnpm install`

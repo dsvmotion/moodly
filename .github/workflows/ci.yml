@@ -48,7 +48,7 @@ jobs:
       # Misma versión que en local (ver AGENTS.md → Requisitos).
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.75.0
+          version: 2.118.0
 
       # Solo Postgres (no hace falta el resto del stack): aplica las migraciones.
       - run: supabase db start
