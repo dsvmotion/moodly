@@ -8,14 +8,15 @@
 ## En curso
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2) — PR #2 abierto, **pendiente de revisión humana** (migración + políticas RLS, AGENTS.md) antes de mergear. Hecho:
   - Configuración de Supabase en `packages/db/supabase`.
-  - Migración `20260929105448_tenants_rls.sql`: `organizations`, `regions`, `locations`, `users` y `memberships`, con RLS activado y forzado, 17 políticas y helpers `security definer` en `private`.
+  - Migración `20260929105448_tenants_rls.sql`: `organizations`, `regions`, `locations`, `users` y `memberships`, con RLS activado y forzado, 15 políticas, helpers `security definer` en `private` y guardas de negocio (estructura del local editable solo por el `org_admin`, la organización nunca se queda sin `org_admin`, locales y regiones sin borrado desde la app).
   - Rollback probado.
-  - 69 tests pgTAP en verde (aislamiento A/B, alcance por local y región, org_admin, garantías estructurales).
-  - Pruebas negativas: sin `locations_select` fallan 7 tests; con `using (true)` fallan 10.
+  - 86 tests pgTAP en verde (aislamiento A/B, alcance por local y región, operativa de los managers, visibilidad de personas, org_admin y último admin, garantías estructurales).
+  - Pruebas negativas: sin `locations_select` fallan 14 tests; con `using (true)` fallan 10; sin la guarda del último admin, 4; sin la guarda de estructura, 7.
+  - Supabase CLI actualizado a 2.118.0 (local y CI).
   - `supabase db lint` limpio.
   - Job `db` en el CI.
   - ADR 0003 (propuesto).
-  - CI en verde en el PR, jobs `check` y `db` (run 36559375428, 69/69 pgTAP) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
+  - PR: https://github.com/dsvmotion/moodly/pull/2 — CI: ver el último run del PR.
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md).

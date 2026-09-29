@@ -18,8 +18,19 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
 4. **Integridad entre tenants con la propia base de datos, no solo con RLS:**
    - FK compuesta `locations (organization_id, region_id) → regions (organization_id, id)`.
    - Trigger que exige que los ids de alcance de una membership pertenezcan a su organización.
-5. **Escritura de la estructura** (regiones, locales, memberships, datos de la organización): solo `org_admin`. El alta y la baja de organizaciones no tienen política: las hace la plataforma con la service role.
-6. **Pruebas:**
+5. **Escritura de la estructura:**
+   - Crear regiones y locales, y gestionar memberships y los datos de la organización: solo `org_admin`.
+   - `region_manager` y `location_manager` pueden editar la operativa de los locales de su alcance: horario, dirección, zona horaria y estado. Nombre, organización y región solo los cambia el `org_admin`; lo garantiza el trigger `guard_structure`, porque RLS no restringe columnas.
+   - Regiones y locales no se borran desde la app: se desactivan con `status`. El borrado físico (RGPD) lo hace la plataforma.
+   - El alta y la baja de organizaciones no tienen política: las hace la plataforma con la service role.
+   - Un trigger con bloqueo consultivo por organización impide que una organización se quede sin `org_admin` por acción de sus usuarios. La plataforma no queda bloqueada.
+6. **Visibilidad de personas:**
+   - Cada uno ve su membership y su perfil, y los de los `org_admin` de su organización (a quién escalar).
+   - `org_admin` ve a toda la organización.
+   - `region_manager` ve a las personas de los locales de su región.
+   - `location_manager` y `staff` ven a quien comparte local con ellos (para pasar conversaciones o asignar tareas).
+   - Un `location_manager` o `staff` ve también el nombre de la región de su local.
+7. **Pruebas:**
    - pgTAP con un fixture de dos organizaciones y un usuario por rol, en `packages/db/supabase/tests/database`.
    - Un test estructural genérico que falla si una tabla nueva de `public` no tiene RLS activado y forzado, alguna política y los privilegios de `anon` revocados.
    - Todo corre en CI.
@@ -32,14 +43,18 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
 ## Consecuencias
 - Toda tabla nueva con datos de cliente debe llevar `organization_id` y (cuando aplique) `location_id`, y reutilizar estos helpers en sus políticas. El test estructural lo vigila.
 - Los helpers se evalúan por fila. Con volúmenes grandes habrá que medirlo con `EXPLAIN ANALYZE` y, si hace falta, cambiar a helpers que devuelvan los ids accesibles una sola vez por consulta.
-- Un `org_admin` puede quitarse su propia membership y dejar la organización sin administrador. La recuperación la hace la plataforma. Queda pendiente decidir si se bloquea.
-- Visibilidad de personas: un `location_manager` ve las memberships y los perfiles que comparten local con él; un `staff` solo se ve a sí mismo. Es una decisión de producto que conviene revisar.
+- Las guardas de negocio (estructura del local y último admin) solo actúan cuando escribe el rol `authenticated`. La plataforma (service role, migraciones, cascadas de `auth`) debe respetar esas reglas por su cuenta.
+- Invitar staff desde el `location_manager` queda para la tarea 3 (auth e invitaciones).
+- Supabase CLI fijado a 2.118.0 en local y en el CI.
 
 ## Verificación
-- `supabase test db`: 69 tests en 4 archivos, en verde.
-- Prueba negativa 1: borrar `locations_select` hace fallar 7 tests.
-- Prueba negativa 2: sustituirla por `using (true)` hace fallar 10 tests, entre ellos los de aislamiento A/B.
-- Tras restaurar (`supabase db reset`), otra vez en verde.
+- `supabase test db`: 86 tests en 4 archivos, en verde (CLI 2.118.0).
+- Pruebas negativas, cada una restaurada después con `supabase db reset`:
+  - Borrar `locations_select`: fallan 14 tests.
+  - Sustituirla por `using (true)`: fallan 10, entre ellos los de aislamiento A/B.
+  - Quitar el trigger del último admin: fallan 4.
+  - Quitar el trigger de estructura: fallan 7.
+- Tras restaurar: 86/86.
 - El rollback `supabase/rollbacks/20260929105448_tenants_rls.down.sql` se probó en local: deja 0 tablas en `public`, y la migración se vuelve a aplicar sin errores.
 - `supabase db lint --fail-on warning`: sin errores.
-- Evidencia completa en el PR de la tarea 2.
+- Evidencia completa en el PR #2.
