@@ -178,8 +178,10 @@ as $$
   );
 $$;
 
--- ¿El usuario actual puede ver este local?
-create function private.can_access_location(p_org uuid, p_location uuid)
+-- ¿El usuario actual tiene este local en su alcance?
+-- p_roles null = cualquier rol (ver); con roles, solo si su rol está en la lista
+-- (p. ej. gestionar = org_admin, region_manager o location_manager).
+create function private.can_access_location(p_org uuid, p_location uuid, p_roles text[] default null)
 returns boolean
 language sql
 stable
@@ -194,6 +196,7 @@ as $$
      and l.organization_id = m.organization_id
     where m.user_id = (select auth.uid())
       and m.organization_id = p_org
+      and (p_roles is null or m.role = any (p_roles))
       and (
         m.role = 'org_admin'
         or (m.role = 'region_manager' and l.region_id = any (m.scope_region_ids))
@@ -235,15 +238,17 @@ as $$
   );
 $$;
 
--- ¿El usuario actual puede ver la membership (p_org, p_user, alcance)?
+-- ¿El usuario actual puede ver la membership (p_org, p_user, p_role, alcance)?
 -- - La propia: siempre.
+-- - Las de los org_admin de su organización: cualquier miembro (a quién escalar).
 -- - org_admin: todas las de su organización.
 -- - region_manager: las que tocan sus regiones o locales de sus regiones.
--- - location_manager: las que comparten algún local con él.
--- - staff: solo la propia.
+-- - location_manager y staff: las que comparten algún local con él
+--   (compañeros a los que pasar una conversación o asignar una tarea).
 create function private.can_see_membership(
   p_org uuid,
   p_user uuid,
+  p_role text,
   p_region_ids uuid[],
   p_location_ids uuid[]
 )
@@ -260,7 +265,8 @@ as $$
       where viewer.user_id = (select auth.uid())
         and viewer.organization_id = p_org
         and (
-          viewer.role = 'org_admin'
+          p_role = 'org_admin'
+          or viewer.role = 'org_admin'
           or (
             viewer.role = 'region_manager'
             and (
@@ -273,7 +279,7 @@ as $$
               )
             )
           )
-          or (viewer.role = 'location_manager' and p_location_ids && viewer.scope_location_ids)
+          or (viewer.role in ('location_manager', 'staff') and p_location_ids && viewer.scope_location_ids)
         )
     );
 $$;
@@ -292,24 +298,89 @@ as $$
       select 1
       from public.memberships m
       where m.user_id = p_user
-        and private.can_see_membership(m.organization_id, m.user_id, m.scope_region_ids, m.scope_location_ids)
+        and private.can_see_membership(m.organization_id, m.user_id, m.role, m.scope_region_ids, m.scope_location_ids)
     );
 $$;
 
 revoke all on function private.has_org_role(uuid, text[])                     from public;
-revoke all on function private.can_access_location(uuid, uuid)                from public;
+revoke all on function private.can_access_location(uuid, uuid, text[])                from public;
 revoke all on function private.can_access_region(uuid, uuid)                  from public;
-revoke all on function private.can_see_membership(uuid, uuid, uuid[], uuid[]) from public;
+revoke all on function private.can_see_membership(uuid, uuid, text, uuid[], uuid[]) from public;
 revoke all on function private.can_see_user(uuid)                             from public;
 grant execute on function private.has_org_role(uuid, text[])                     to authenticated, service_role;
-grant execute on function private.can_access_location(uuid, uuid)                to authenticated, service_role;
+grant execute on function private.can_access_location(uuid, uuid, text[])                to authenticated, service_role;
 grant execute on function private.can_access_region(uuid, uuid)                  to authenticated, service_role;
-grant execute on function private.can_see_membership(uuid, uuid, uuid[], uuid[]) to authenticated, service_role;
+grant execute on function private.can_see_membership(uuid, uuid, text, uuid[], uuid[]) to authenticated, service_role;
 grant execute on function private.can_see_user(uuid)                             to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Guardas de negocio para usuarios de la app. Solo actúan cuando quien
+-- escribe es el rol authenticated: la plataforma (service role, migraciones,
+-- cascadas de auth) no queda bloqueada.
+-- ---------------------------------------------------------------------------
+
+-- Los managers editan la operativa de sus locales (horario, dirección, zona
+-- horaria, estado); nombre, organización y región solo los cambia el org_admin.
+create function private.guard_location_structure()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user = 'authenticated'
+     and (new.organization_id, new.region_id, new.name) is distinct from (old.organization_id, old.region_id, old.name)
+     and not private.has_org_role(old.organization_id, array['org_admin'])
+  then
+    raise exception 'solo un org_admin puede cambiar el nombre, la organización o la región de un local'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.guard_location_structure() from public;
+
+create trigger guard_structure before update on public.locations
+  for each row execute function private.guard_location_structure();
+
+-- Una organización nunca se queda sin org_admin por acción de sus usuarios.
+-- El bloqueo consultivo por organización serializa bajas simultáneas (dos
+-- admins degradándose a la vez); cada consulta posterior ve lo ya confirmado.
+create function private.guard_last_org_admin()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user = 'authenticated'
+     and old.role = 'org_admin'
+     and (tg_op = 'DELETE' or new.role <> 'org_admin' or new.organization_id <> old.organization_id)
+  then
+    perform pg_advisory_xact_lock(hashtextextended(old.organization_id::text, 0));
+    if not exists (
+      select 1 from public.memberships m
+      where m.organization_id = old.organization_id
+        and m.role = 'org_admin'
+        and m.id <> old.id
+    ) then
+      raise exception 'la organización % se quedaría sin org_admin', old.organization_id
+        using errcode = '23514';
+    end if;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+revoke all on function private.guard_last_org_admin() from public;
+
+create trigger guard_last_admin before update or delete on public.memberships
+  for each row execute function private.guard_last_org_admin();
 
 -- ---------------------------------------------------------------------------
 -- RLS: activado y forzado en todas las tablas. anon no tiene acceso.
 -- Alta y baja de organizaciones: solo plataforma (service role), sin política.
+-- Regiones y locales no se borran desde la app (sin política de delete): se
+-- desactivan con status. El borrado físico (RGPD) lo hace la plataforma.
 -- ---------------------------------------------------------------------------
 alter table public.organizations enable row level security;
 alter table public.regions       enable row level security;
@@ -349,10 +420,6 @@ create policy regions_update on public.regions
   using (private.has_org_role(organization_id, array['org_admin']))
   with check (private.has_org_role(organization_id, array['org_admin']));
 
-create policy regions_delete on public.regions
-  for delete to authenticated
-  using (private.has_org_role(organization_id, array['org_admin']));
-
 -- locations
 create policy locations_select on public.locations
   for select to authenticated
@@ -362,14 +429,12 @@ create policy locations_insert on public.locations
   for insert to authenticated
   with check (private.has_org_role(organization_id, array['org_admin']));
 
+-- Managers con el local en su alcance también; los campos estructurales los
+-- protege el trigger guard_structure.
 create policy locations_update on public.locations
   for update to authenticated
-  using (private.has_org_role(organization_id, array['org_admin']))
-  with check (private.has_org_role(organization_id, array['org_admin']));
-
-create policy locations_delete on public.locations
-  for delete to authenticated
-  using (private.has_org_role(organization_id, array['org_admin']));
+  using (private.can_access_location(organization_id, id, array['org_admin', 'region_manager', 'location_manager']))
+  with check (private.can_access_location(organization_id, id, array['org_admin', 'region_manager', 'location_manager']));
 
 -- users (perfiles)
 create policy users_select on public.users
@@ -388,7 +453,7 @@ create policy users_update_self on public.users
 -- memberships
 create policy memberships_select on public.memberships
   for select to authenticated
-  using (private.can_see_membership(organization_id, user_id, scope_region_ids, scope_location_ids));
+  using (private.can_see_membership(organization_id, user_id, role, scope_region_ids, scope_location_ids));
 
 create policy memberships_insert on public.memberships
   for insert to authenticated

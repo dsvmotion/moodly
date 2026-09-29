@@ -12,10 +12,12 @@ drop table if exists public.regions;
 drop table if exists public.organizations;
 
 drop function if exists private.can_see_user(uuid);
-drop function if exists private.can_see_membership(uuid, uuid, uuid[], uuid[]);
+drop function if exists private.can_see_membership(uuid, uuid, text, uuid[], uuid[]);
 drop function if exists private.can_access_region(uuid, uuid);
-drop function if exists private.can_access_location(uuid, uuid);
+drop function if exists private.can_access_location(uuid, uuid, text[]);
 drop function if exists private.has_org_role(uuid, text[]);
+drop function if exists private.guard_last_org_admin();
+drop function if exists private.guard_location_structure();
 drop function if exists private.validate_membership_scope();
 drop function if exists private.set_updated_at();
 
