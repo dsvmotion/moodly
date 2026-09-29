@@ -63,8 +63,9 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
-enabled = true
+# Desactivado: el seed crea usuarios de Auth con contraseñas generadas y lo
+# ejecuta `pnpm db:seed` (packages/db/src/seed/run.ts) tras `db reset`.
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]

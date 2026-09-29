@@ -18,6 +18,10 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:lint": "supabase db lint --level warning --fail-on warning",
-    "test:db": "supabase test db"
+    "test:db": "supabase test db",
+    "db:seed": "node src/seed/run.ts"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.117.2"
   }
 }

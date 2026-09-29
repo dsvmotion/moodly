@@ -16,7 +16,8 @@
     "db:stop": "pnpm --filter @repo/db db:stop",
     "db:reset": "pnpm --filter @repo/db db:reset",
     "db:lint": "pnpm --filter @repo/db db:lint",
-    "test:db": "pnpm --filter @repo/db test:db"
+    "test:db": "pnpm --filter @repo/db test:db",
+    "db:seed": "pnpm --filter @repo/db db:seed"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
