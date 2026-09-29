@@ -4,7 +4,7 @@
 -- locales pero no su estructura, y nadie salvo el org_admin toca memberships.
 begin;
 \ir _fixtures/tenants.psql
-select plan(32);
+select plan(35);
 
 -- ---------------------------------------------------------------------------
 -- location_manager de A1
@@ -49,13 +49,18 @@ with u as (update public.locations set opening_hours = '{}' where id = :loc_a2 r
 select is(count(*)::int, 0, 'location_manager A1: no puede modificar A2') from u;
 select throws_ok(
   format('update public.locations set name = %L where id = %L', 'renombrado', :loc_a1),
-  '42501', null,
+  '42501', 'los managers solo pueden cambiar horario, dirección y zona horaria de un local',
   'location_manager A1: no puede renombrar su local'
 );
 select throws_ok(
   format('update public.locations set region_id = %L where id = %L', :region_a_s, :loc_a1),
   '42501', null,
   'location_manager A1: no puede mover su local de región'
+);
+select throws_ok(
+  format($$update public.locations set status = 'inactive' where id = %L$$, :loc_a1),
+  '42501', 'los managers solo pueden cambiar horario, dirección y zona horaria de un local',
+  'location_manager A1: no puede desactivar su local'
 );
 select throws_ok(
   format('insert into public.locations (organization_id, name) values (%L, %L)', :org_a, 'nuevo'),
@@ -140,8 +145,13 @@ select results_eq(
          :a_admin, :a_region_mgr, :a_loc1_mgr, :a_staff1, :a_staff2),
   'region_manager A-Norte: ve al org_admin y a las personas de los locales de su región'
 );
-with u as (update public.locations set status = 'inactive' where id = :loc_a2 returning 1)
-select is(count(*)::int, 1, 'region_manager A-Norte: puede desactivar A2') from u;
+with u as (update public.locations set address = 'Calle Norte 2' where id = :loc_a2 returning 1)
+select is(count(*)::int, 1, 'region_manager A-Norte: puede cambiar la dirección de A2') from u;
+select throws_ok(
+  format($$update public.locations set status = 'inactive' where id = %L$$, :loc_a2),
+  '42501', 'los managers solo pueden cambiar horario, dirección y zona horaria de un local',
+  'region_manager A-Norte: no puede desactivar A2'
+);
 with u as (update public.locations set opening_hours = '{}' where id = :loc_a3 returning 1)
 select is(count(*)::int, 0, 'region_manager A-Norte: no puede modificar A3') from u;
 select throws_ok(
@@ -160,7 +170,8 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 reset role;
 select is((select timezone from public.locations where id = :loc_a1), 'Atlantic/Canary', 'A1: zona horaria cambiada por su manager');
-select is((select status from public.locations where id = :loc_a2), 'inactive', 'A2: desactivado por su region_manager');
+select is((select address from public.locations where id = :loc_a2), 'Calle Norte 2', 'A2: dirección cambiada por su region_manager');
+select is((select count(*)::int from public.locations where status <> 'active'), 0, 'ningún local desactivado por un manager');
 select is((select count(*)::int from public.locations where name = 'renombrado'), 0, 'ningún local renombrado');
 select is((select region_id from public.locations where id = :loc_a1), :region_a_n::uuid, 'A1 sigue en A-Norte');
 select is((select role from public.memberships where user_id = :a_loc1_mgr), 'location_manager', 'rol del location_manager intacto');

@@ -1,10 +1,10 @@
 -- Revisión de seguridad previa al merge del PR #2:
 --   1. Escalada de rol y de alcance por parte de roles no admin.
 --   2. Alcance cruzado entre organizaciones (integridad + defensa en SELECT).
---   3. WITH CHECK: no se pueden crear ni mover filas a otra organización.
+--   3. WITH CHECK (aislado de las guardas): no se crean ni mueven filas a otra organización.
 begin;
 \ir _fixtures/tenants.psql
-select plan(33);
+select plan(32);
 
 -- ===========================================================================
 -- 1. Escalada: staff, location_manager y region_manager
@@ -143,72 +143,77 @@ with u as (update public.locations set status = 'inactive' where id = :loc_b1 re
 select is(count(*)::int, 0, 'alcance corrupto → región de B: no puede modificar B1') from u;
 
 -- ===========================================================================
--- 3. WITH CHECK: nada se crea ni se mueve a otra organización
---    (INSERT en B y mover locales/memberships están en 01_org_isolation)
+-- 3. WITH CHECK, aislado: las guardas de columnas inmutables
+--    (05_review_guards) frenan antes cualquier cambio de organization_id, así
+--    que aquí se desactivan a propósito para probar que el WITH CHECK de cada
+--    política, por sí solo, tampoco deja crear ni mover filas a B. Se comprueba
+--    el mensaje para saber qué capa ha frenado.
 -- ===========================================================================
 reset role;
-select pg_temp.login(:a_admin);
-
+alter table public.organizations disable trigger guard_fields;
+alter table public.regions       disable trigger guard_immutable;
+alter table public.locations     disable trigger guard_immutable;
+alter table public.memberships   disable trigger guard_immutable;
 insert into public.regions (id, organization_id, name)
 values ('a1000000-0000-4000-8000-0000000000ff', :org_a, 'Temporal');
-select throws_ok(
+
+select pg_temp.login(:a_admin);
+
+select throws_like(
   format($$update public.regions set organization_id = %L where id = 'a1000000-0000-4000-8000-0000000000ff'$$, :org_b),
-  '42501', null,
-  'org_admin A: no puede mover una región a B'
+  '%row-level security%',
+  'WITH CHECK: org_admin A no puede mover una región a B'
 );
-select throws_ok(
+select throws_like(
   format('insert into public.locations (organization_id, name) values (%L, %L)', :org_b, 'fuera'),
-  '42501', null,
-  'org_admin A: no puede crear un local en B'
+  '%row-level security%',
+  'WITH CHECK: org_admin A no puede crear un local en B'
 );
-select throws_ok(
-  format($$update public.organizations set id = %L where id = %L$$, gen_random_uuid(), :org_a),
-  '42501', null,
-  'org_admin A: no puede cambiar el id de su organización'
+select throws_like(
+  'update public.organizations set id = gen_random_uuid()',
+  '%row-level security%',
+  'WITH CHECK: UPDATE sin WHERE no cambia el id de su organización'
 );
 
 -- Sin WHERE, la política de SELECT no se aplica a la fila nueva: el WITH CHECK
 -- es la única barrera contra mover toda la organización a B.
-select throws_ok(
+select throws_like(
   format('update public.locations set organization_id = %L, region_id = null', :org_b),
-  '42501', null,
-  'org_admin A: UPDATE sin WHERE no mueve sus locales a B'
+  '%row-level security%',
+  'WITH CHECK: UPDATE sin WHERE no mueve los locales de A a B'
 );
-select throws_ok(
+select throws_like(
   format('update public.regions set organization_id = %L', :org_b),
-  '42501', null,
-  'org_admin A: UPDATE sin WHERE no mueve sus regiones a B'
+  '%row-level security%',
+  'WITH CHECK: UPDATE sin WHERE no mueve las regiones de A a B'
 );
 -- Su propia membership la ve también en B (política de SELECT), así que aquí
 -- solo frena el WITH CHECK. Hace falta un segundo admin para que no salte
 -- antes la guarda del último admin.
 insert into public.memberships (user_id, organization_id, role) values (:outsider, :org_a, 'org_admin');
-select throws_ok(
+select throws_like(
   format('update public.memberships set organization_id = %L where user_id = %L', :org_b, :a_admin),
-  '42501', null,
-  'org_admin A: no puede mover su propia membership a B'
+  '%row-level security%',
+  'WITH CHECK: org_admin A no puede mover su propia membership a B'
 );
 delete from public.memberships where user_id = :outsider;
 
 reset role;
-select pg_temp.login(:a_loc1_mgr);
-select throws_ok(
-  format('update public.locations set organization_id = %L where id = %L', :org_b, :loc_a1),
-  '42501', null,
-  'location_manager A1: no puede mover su local a B'
-);
+alter table public.organizations enable trigger guard_fields;
+alter table public.regions       enable trigger guard_immutable;
+alter table public.locations     enable trigger guard_immutable;
+alter table public.memberships   enable trigger guard_immutable;
 
-reset role;
 select pg_temp.login(:outsider);
-select throws_ok(
+select throws_like(
   format('update public.users set id = %L where id = %L', gen_random_uuid(), :outsider),
-  '42501', null,
-  'usuario: no puede cambiar el id de su perfil'
+  '%row-level security%',
+  'WITH CHECK: un usuario no puede cambiar el id de su perfil'
 );
-select throws_ok(
+select throws_like(
   format('insert into public.users (id, full_name) values (%L, %L)', :b_admin, 'suplantado'),
-  '42501', null,
-  'usuario: no puede crear el perfil de otro'
+  '%row-level security%',
+  'WITH CHECK: un usuario no puede crear el perfil de otro'
 );
 
 reset role;
