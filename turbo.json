@@ -21,6 +21,16 @@
       "dependsOn": [
         "^build"
       ]
+    },
+    "@repo/web#build": {
+      "dependsOn": [
+        "^build",
+        "typecheck"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ]
     }
   }
 }
