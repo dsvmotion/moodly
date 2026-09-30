@@ -1,0 +1,10 @@
+/*
+ * Estilos base de @repo/ui. La app los importa después de Tailwind:
+ *   @import "tailwindcss"; @import "tw-animate-css"; @import "@repo/ui/globals.css";
+ *
+ * Los tokens de diseño (color, tipografía, espaciado, radios, sombras; claro
+ * y oscuro) llegan en el PR de tokens y componentes base (tarea 4, MANUAL §9.9).
+ */
+
+/* Tailwind genera las clases que aparecen en el código fuente de este paquete. */
+@source "../";

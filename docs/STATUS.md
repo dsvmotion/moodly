@@ -9,7 +9,9 @@
 - Revocación real de sesiones (Fase 0 · tarea 3c-1): `private.session_is_active()` (sesión viva en `auth.sessions`, usuario no borrado ni baneado) como primera condición, en forma de InitPlan, de las 15 políticas de las 5 tablas de tenants; un token copiado antes del logout ya no lee datos por la API REST — verificado con 186 pgTAP, 29 e2e, pruebas negativas, `EXPLAIN ANALYZE` (1 llamada frente a 2.004 sin envolver), rollback probado y CI en verde (run 36703604922); tras el merge, sobre `main` (`d64cdc0`) pasan `pnpm check` 52/52, pgTAP 186/186 y e2e 29/29 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/4
 
 ## En curso
-- Regla de mergeo autónomo en `AGENTS.md`/`CLAUDE.md` y MANUAL §16.3 — PR abierto; **lo revisa y lo mergea producto** (toca `AGENTS.md`).
+- App shell (Fase 0 · tarea 4), en varios PRs:
+  - **PR A (dependencias y configuración, zona sensible: lo revisa producto):** librerías de la interfaz, esqueleto de `packages/ui` (código fuente, ADR 0018), Tailwind v4, i18n con `next-intl` (español por defecto e inglés), axe en los e2e y regla de ADR 0003 sobre versiones de Supabase.
+  - **Después, con mergeo autónomo si cumplen la regla:** tokens y componentes base, barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
@@ -21,6 +23,7 @@
    - Invitar staff por parte del `location_manager` (en sus locales), sobre el mismo flujo.
    - Alta del perfil `public.users` al aceptar la invitación (hoy solo lo crea el seed). Si se hace con un trigger `SECURITY DEFINER` sobre `auth.users`, requiere revisión humana (AGENTS.md).
 3c-2. Configuración de Auth de producción, cuando exista el proyecto alojado de staging: límites de intentos (`sign_in_sign_ups`, `token_refresh`, `token_verifications`), captcha en el login, longitud mínima y requisitos de contraseña, y `jwt_expiry`. `config.toml` solo aplica en local: hay que fijarlo en el proyecto alojado y verificarlo allí.
+3d. Cuando se use Supabase Realtime (bandeja, conversaciones, aprobaciones: MANUAL §9.9): verificar que `private.session_is_active()` también se aplica en las suscripciones, es decir, que una sesión cerrada deja de recibir eventos, con un test que lo demuestre.
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
 6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.
