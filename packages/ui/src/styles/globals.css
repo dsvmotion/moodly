@@ -1,10 +1,126 @@
 /*
- * Estilos base de @repo/ui. La app los importa después de Tailwind:
+ * Estilos base y tokens de diseño de @repo/ui (MANUAL §9.9).
+ * La app los importa después de Tailwind:
  *   @import "tailwindcss"; @import "tw-animate-css"; @import "@repo/ui/globals.css";
  *
- * Los tokens de diseño (color, tipografía, espaciado, radios, sombras; claro
- * y oscuro) llegan en el PR de tokens y componentes base (tarea 4, MANUAL §9.9).
+ * Tokens NEUTROS: la marca está pendiente (MANUAL §18 #1). La identidad visual
+ * definitiva se aplica cambiando estos valores, nunca los componentes.
+ *
+ * Cada color se define una sola vez con light-dark(claro, oscuro). El tema lo
+ * decide color-scheme: el del sistema por defecto, o el que fije
+ * <html data-theme="light|dark"> (preferencia del usuario, en cookie).
+ * Los pares texto/fondo cumplen WCAG 2.1 AA (≥ 4,5:1) en ambos modos: lo
+ * comprueba src/styles/tokens.test.ts.
  */
 
 /* Tailwind genera las clases que aparecen en el código fuente de este paquete. */
 @source "../";
+
+:root {
+  color-scheme: light dark;
+
+  /* Superficies y texto */
+  --background: light-dark(oklch(1 0 0), oklch(0.16 0 0));
+  --foreground: light-dark(oklch(0.18 0 0), oklch(0.96 0 0));
+  --muted: light-dark(oklch(0.965 0 0), oklch(0.23 0 0));
+  --muted-foreground: light-dark(oklch(0.48 0 0), oklch(0.74 0 0));
+  --surface: light-dark(oklch(0.985 0 0), oklch(0.19 0 0));
+  --surface-foreground: light-dark(oklch(0.18 0 0), oklch(0.96 0 0));
+
+  /* Interacción */
+  --primary: light-dark(oklch(0.25 0 0), oklch(0.93 0 0));
+  --primary-foreground: light-dark(oklch(0.99 0 0), oklch(0.18 0 0));
+  --accent: light-dark(oklch(0.95 0 0), oklch(0.27 0 0));
+  --accent-foreground: light-dark(oklch(0.18 0 0), oklch(0.97 0 0));
+  --destructive: light-dark(oklch(0.5 0.19 27), oklch(0.72 0.16 25));
+  --border: light-dark(oklch(0.9 0 0), oklch(0.3 0 0));
+  --input: light-dark(oklch(0.64 0 0), oklch(0.52 0 0));
+  --ring: light-dark(oklch(0.45 0 0), oklch(0.8 0 0));
+
+  /* Barra lateral */
+  --sidebar: light-dark(oklch(0.975 0 0), oklch(0.19 0 0));
+  --sidebar-foreground: light-dark(oklch(0.22 0 0), oklch(0.93 0 0));
+  --sidebar-muted-foreground: light-dark(oklch(0.48 0 0), oklch(0.72 0 0));
+  --sidebar-accent: light-dark(oklch(0.93 0 0), oklch(0.27 0 0));
+  --sidebar-accent-foreground: light-dark(oklch(0.16 0 0), oklch(0.98 0 0));
+  --sidebar-border: light-dark(oklch(0.91 0 0), oklch(0.27 0 0));
+
+  /* Forma, tipografía y profundidad */
+  --radius: 0.5rem;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --shadow-panel: 0 8px 24px -8px light-dark(oklch(0 0 0 / 0.18), oklch(0 0 0 / 0.6));
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --shadow-panel: var(--shadow-panel);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco visible siempre con teclado (WCAG 2.4.7). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
