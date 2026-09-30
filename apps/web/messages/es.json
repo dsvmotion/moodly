@@ -99,14 +99,6 @@
     "memory": {
       "title": "Memoria",
       "description": "Lo que los agentes aprendan del negocio aparecerá aquí."
-    },
-    "locations": {
-      "title": "Locales",
-      "description": "La lista de locales llega en el siguiente paso."
-    },
-    "people": {
-      "title": "Personas",
-      "description": "La lista de personas llega en el siguiente paso."
     }
   },
   "scope": {
@@ -115,5 +107,60 @@
     "mine": "Todos mis locales",
     "regions": "Regiones",
     "locations": "Locales"
+  },
+  "records": {
+    "search": "Buscar",
+    "columns": "Columnas",
+    "selectAll": "Seleccionar todas las filas",
+    "selectRow": "Seleccionar {name}",
+    "openRow": "Abrir {name}",
+    "noResults": "Sin resultados.",
+    "rowCount": "{visible} de {total}",
+    "selectedCount": "{count} seleccionadas",
+    "sortAscending": "orden ascendente",
+    "sortDescending": "orden descendente",
+    "close": "Cerrar vista previa",
+    "locations": {
+      "title": "Locales",
+      "name": "Nombre",
+      "region": "Región",
+      "status": "Estado",
+      "timezone": "Zona horaria",
+      "address": "Dirección",
+      "openingHours": "Horario",
+      "people": "Personas con acceso",
+      "noRegion": "Sin región",
+      "noAddress": "Sin dirección",
+      "noHours": "Sin horario definido",
+      "empty": "No hay locales en este alcance."
+    },
+    "people": {
+      "title": "Personas",
+      "name": "Nombre",
+      "role": "Rol",
+      "scope": "Alcance",
+      "wholeOrganization": "Toda la organización",
+      "noName": "(sin nombre)",
+      "empty": "No hay personas en este alcance."
+    },
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "roles": {
+      "org_admin": "Administración",
+      "region_manager": "Responsable de región",
+      "location_manager": "Responsable de local",
+      "staff": "Personal"
+    },
+    "days": {
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mié",
+      "thu": "Jue",
+      "fri": "Vie",
+      "sat": "Sáb",
+      "sun": "Dom"
+    }
   }
 }
