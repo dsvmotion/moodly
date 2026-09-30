@@ -43,8 +43,12 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 > Todos los comandos se ejecutan desde la raíz y Turborepo los lanza en cada workspace. Para uno solo: `pnpm --filter @repo/<nombre> <script>`.
 > No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
 - Instalar: `pnpm install`
-- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Web y worker: PENDIENTE (tareas 4 y 6 de la Fase 0)
-- Reaplicar migraciones desde cero: `pnpm db:reset`
+- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Worker: PENDIENTE (tarea 6 de la Fase 0)
+- Reaplicar migraciones desde cero: `pnpm db:reset` (borra también los usuarios de Auth: vuelve a ejecutar `pnpm db:seed`)
+- Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
+- Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`
+- Web en local: `pnpm --filter @repo/web env:local` (escribe `apps/web/.env.local` con la URL y la clave publicable) y después `pnpm --filter @repo/web dev` → http://127.0.0.1:3000
+- Tests e2e (Playwright; con Supabase levantado, seed aplicado y la web compilada con `pnpm build`): `pnpm --filter @repo/web e2e`. La primera vez: `pnpm --filter @repo/web exec playwright install chromium`
 - Typecheck: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
@@ -52,7 +56,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
-- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`
+- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
 
 ## Prohibido
 - Inventar credenciales, cuentas o proveedores de integración. Pídelos.
@@ -72,6 +76,11 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 - Esas guardas **solo actúan cuando `current_user = 'authenticated'`**. La plataforma (service role, migraciones, cascadas de `auth`) no queda bloqueada, y el código que la usa debe respetar esas reglas por su cuenta.
 - Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin revisión humana. Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
 - Las guardas son listas blancas: una columna nueva queda protegida hasta que se decida explícitamente quién puede cambiarla.
+
+## Web: autenticación (apps/web)
+- El acceso a datos se decide en el servidor, cerca de los datos: cada página o Server Action protegida llama a `requireUser()` (`src/lib/auth/session.ts`), que usa `getUser()` y detecta sesiones cerradas. El proxy (`getClaims()`) solo hace la redirección optimista. Nunca `getSession()` en servidor.
+- El parámetro de vuelta tras el login pasa siempre por `safeNextPath()`.
+- Registro público cerrado con `[auth] enable_signup = false`. No toques `[auth.email] enable_signup`: en la CLI desactiva el proveedor de email entero, también el login.
 
 ## Trabajo en paralelo (Claude Code + Codex)
 Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
