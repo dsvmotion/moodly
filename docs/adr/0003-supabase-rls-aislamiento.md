@@ -35,7 +35,12 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
    - `region_manager` ve a las personas de los locales de su región.
    - `location_manager` y `staff` ven a quien comparte local con ellos (para pasar conversaciones o asignar tareas).
    - Un `location_manager` o `staff` ve también el nombre de la región de su local.
-7. **Pruebas:**
+7. **Revocación real de sesiones** (tarea 3c-1, migración `20260930101908_session_revocation`):
+   - Tras cerrar sesión, el access token sigue siendo un JWT con firma válida hasta que caduca; Supabase Auth borra la fila de `auth.sessions` pero no puede invalidar el token. Por eso todas las políticas de las tablas de tenants exigen, como primera condición, `(select private.session_is_active()) AND …`.
+   - `private.session_is_active()` comprueba que el `session_id` del JWT existe en `auth.sessions`, que es del mismo `sub`, que no ha pasado su `not_after` y que el usuario no está borrado (`deleted_at`) ni baneado (`banned_until`). Un `session_id` ausente o mal formado cuenta como "sin sesión", sin error.
+   - La función no recibe argumentos ni depende de la fila, así que envuelta en `(select …)` Postgres la evalúa una sola vez por consulta (InitPlan), no por fila. Tiene `search_path` vacío, es `STABLE` y `SECURITY DEFINER` (para leer `auth`, que `authenticated` no puede), y solo la ejecutan `authenticated` y `service_role`.
+   - Alternativa descartada: bajar `jwt_expiry`. Solo acorta la ventana (Supabase desaconseja bajar de 5 minutos) y multiplica los refrescos.
+8. **Pruebas:**
    - pgTAP con un fixture de dos organizaciones y un usuario por rol, en `packages/db/supabase/tests/database`.
    - Tests estructurales genéricos que fallan si algo nuevo rompe una garantía:
      - tabla sin RLS activado y forzado, o sin políticas;
@@ -44,7 +49,8 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
      - función de `private` sin `search_path` fijado o ejecutable por PUBLIC/`anon`;
      - `auth.uid()` sin envolver en `(select ...)`;
      - FK sin índice;
-     - columna nueva en `public.users` (obliga a revisar datos personales).
+     - columna nueva en `public.users` (obliga a revisar datos personales);
+     - política cuyo `USING` o `WITH CHECK` no empiece por `(select private.session_is_active()) AND` (si falta, si va dentro de un `OR` o si se llama sin envolver y dejaría de ser InitPlan).
    - Un UPDATE sin `WHERE` no aplica la política de SELECT a la fila nueva. Por eso el WITH CHECK de cada UPDATE se prueba así, con las guardas desactivadas dentro del test y comprobando el mensaje, para saber qué capa ha frenado.
    - Todo corre en CI.
 
@@ -55,13 +61,15 @@ La plataforma es multi-tenant (organización → región → local) y la autoriz
 
 ## Consecuencias
 - Toda tabla nueva con datos de cliente debe llevar `organization_id` y (cuando aplique) `location_id`, y reutilizar estos helpers en sus políticas. El test estructural lo vigila.
-- Los helpers se evalúan por fila. Con volúmenes grandes habrá que medirlo con `EXPLAIN ANALYZE` y, si hace falta, cambiar a helpers que devuelvan los ids accesibles una sola vez por consulta.
+- Los helpers de alcance se evalúan por fila. Con volúmenes grandes habrá que medirlo con `EXPLAIN ANALYZE` y, si hace falta, cambiar a helpers que devuelvan los ids accesibles una sola vez por consulta. La comprobación de sesión no tiene ese coste: es un InitPlan (medido: 1 llamada para 2.004 filas recorridas, frente a 2.004 llamadas, una por fila, sin envolver).
+- Cerrar sesión, caducar la sesión, banear o borrar a un usuario corta su acceso a los datos en la siguiente consulta, sin esperar a que caduque el JWT. Cada consulta hace una búsqueda más por clave primaria en `auth.sessions`.
+- Toda política nueva debe empezar por `(select private.session_is_active()) AND` (lo vigila un test estructural).
 - Las guardas de negocio (estructura del local y último admin) solo actúan cuando escribe el rol `authenticated`. La plataforma (service role, migraciones, cascadas de `auth`) debe respetar esas reglas por su cuenta.
 - Invitar staff desde el `location_manager` queda para la tarea 3 (auth e invitaciones).
 - Supabase CLI fijado a 2.118.0 en local y en el CI.
 
 ## Verificación
-- `supabase test db`: 158 tests en 6 archivos, en verde (CLI 2.118.0).
+- `supabase test db`: 186 tests en 7 archivos, en verde (CLI 2.118.0), incluida la revocación de sesiones (sesión borrada o caducada, usuario baneado o borrado, JWT sin `session_id` o con el de otro usuario). E2E: un token copiado antes del logout ya no lee filas por la API REST. Pruebas negativas de la 3c-1: función siempre `true`, política sin la comprobación, comprobación sin envolver y comprobación dentro de un `OR`; todas hacen fallar tests.
 - Pruebas negativas, cada una restaurada después con `supabase db reset`; todas hacen fallar algún test:
   - Política de SELECT eliminada o permisiva.
   - Guardas de estructura y del último admin eliminadas.
