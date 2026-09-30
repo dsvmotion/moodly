@@ -1,0 +1,6 @@
+# Checks que deben existir y estar en SUCCESS sobre el head commit antes de
+# mergear (scripts/safe-merge.sh). Un nombre por línea, tal como los muestra GitHub.
+typecheck · lint · test · build
+db · migraciones · pgTAP
+e2e · Playwright por rol
+sensitive-paths

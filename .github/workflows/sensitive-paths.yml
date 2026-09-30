@@ -1,0 +1,85 @@
+name: sensitive-paths
+
+# Falla si el PR toca zonas sensibles (scripts/merge-guard/sensitive-paths.txt,
+# los mismos patrones que usa scripts/safe-merge.sh) o debilita tests, salvo
+# que producto le haya puesto la etiqueta "revisado-humano". Se vuelve a
+# ejecutar al poner o quitar etiquetas. Los agentes nunca ponen ni quitan esa
+# etiqueta (AGENTS.md → "Mergeo autónomo").
+#
+# La etiqueta aprueba un commit concreto: un commit nuevo (synchronize) o una
+# reapertura (reopened) la invalidan. En ese run cuenta como ausente y el job
+# invalidate-review la quita del PR; hay que volver a revisar y ponerla.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sensitive-paths-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sensitive-paths:
+    name: sensitive-paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      remove_label: ${{ steps.gate.outputs.remove_label }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Los tests de la propia guarda (safe-merge.sh, check-sensitive.sh y sensitive-gate.sh).
+      - name: Tests de la guarda de mergeo
+        run: bash scripts/merge-guard/tests/run.sh
+
+      - name: Zonas sensibles y tests debilitados
+        id: gate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_ACTION: ${{ github.event.action }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'revisado-humano') }}
+        run: |
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/files.txt"
+          git diff "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/diff.patch"
+          echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
+          result=0
+          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" || result=$?
+          # La decisión se escribe siempre (este paso no falla) para que
+          # invalidate-review pueda leerla aunque el veredicto sea "fail".
+          bash scripts/merge-guard/sensitive-gate.sh "$result" "$EVENT_ACTION" "$HAS_LABEL" | tee -a "$GITHUB_OUTPUT" || true
+
+      - name: Veredicto
+        env:
+          VERDICT: ${{ steps.gate.outputs.verdict }}
+          REMOVE_LABEL: ${{ steps.gate.outputs.remove_label }}
+        run: |
+          if [ "$REMOVE_LABEL" = "true" ]; then
+            echo "::warning::Commit nuevo o reapertura: la etiqueta revisado-humano ya no vale para este commit y se quita del PR."
+          fi
+          if [ "$VERDICT" = "pass" ]; then
+            echo "OK: sin zonas sensibles, o con revisión humana vigente para este commit."
+          else
+            echo "::error::El PR toca zonas sensibles o debilita tests: necesita revisión humana y la etiqueta revisado-humano sobre este commit (la pone producto, nunca un agente)."
+            exit 1
+          fi
+
+  invalidate-review:
+    name: invalidate-review
+    needs: sensitive-paths
+    if: always() && needs.sensitive-paths.outputs.remove_label == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Quitar revisado-humano (commit nuevo tras la revisión)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR_NUMBER" --remove-label revisado-humano

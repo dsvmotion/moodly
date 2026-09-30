@@ -10,8 +10,17 @@
 
 ## En curso
 - App shell (Fase 0 · tarea 4), en varios PRs:
-  - **PR A (dependencias y configuración, zona sensible: lo revisa producto):** librerías de la interfaz, esqueleto de `packages/ui` (código fuente, ADR 0018), Tailwind v4, i18n con `next-intl` (español por defecto e inglés), axe en los e2e y regla de ADR 0003 sobre versiones de Supabase.
-  - **Después, con mergeo autónomo si cumplen la regla:** tokens y componentes base, barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
+  - Hecho: PR A (dependencias y configuración, #6, mergeado por producto) y PR 1 (tokens de diseño y componentes base, #7).
+  - Pendiente: barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
+  - Aparte, con revisión humana: Inicio (P1) en `/app` (redirección tras el login) y traducción del login.
+  - En pausa hasta que se mergee el endurecimiento del mergeo autónomo.
+
+- Endurecimiento del mergeo autónomo — PR abierto; **lo revisa y lo mergea producto** (toca `AGENTS.md` y `.github/workflows`). Incluye:
+  - `scripts/safe-merge.sh` con sus tests;
+  - lista única de zonas sensibles en `scripts/merge-guard/sensitive-paths.txt`;
+  - job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo.
+
+  Motivo: en el PR #7 se mergeó después de que `gh pr checks` devolviera un error, y se verificó a posteriori.
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
@@ -24,6 +33,7 @@
    - Alta del perfil `public.users` al aceptar la invitación (hoy solo lo crea el seed). Si se hace con un trigger `SECURITY DEFINER` sobre `auth.users`, requiere revisión humana (AGENTS.md).
 3c-2. Configuración de Auth de producción, cuando exista el proyecto alojado de staging: límites de intentos (`sign_in_sign_ups`, `token_refresh`, `token_verifications`), captcha en el login, longitud mínima y requisitos de contraseña, y `jwt_expiry`. `config.toml` solo aplica en local: hay que fijarlo en el proyecto alojado y verificarlo allí.
 3d. Cuando se use Supabase Realtime (bandeja, conversaciones, aprobaciones: MANUAL §9.9): verificar que `private.session_is_active()` también se aplica en las suscripciones, es decir, que una sesión cerrada deja de recibir eventos, con un test que lo demuestre.
+3e. Identidad de GitHub separada para el agente, con permisos limitados (p. ej. una GitHub App o una cuenta de máquina con acceso de escritura a ramas y PRs, pero sin permiso para gestionar etiquetas ni para mergear sin checks). Hoy el agente usa la cuenta de producto: técnicamente podría poner la etiqueta `revisado-humano`, y solo lo impide la regla de AGENTS.md. Con la identidad separada, además, se pueden exigir revisiones de una persona distinta del autor.
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
 6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.
