@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertLocalSupabaseUrl } from "./local-only.ts";
 import { seedLocations, seedOrganizations, seedRegions, seedUsers, type SeedUser } from "./data.ts";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -33,10 +34,7 @@ function readLocalSupabase(): LocalSupabase {
   const secretKey = status["SECRET_KEY"] ?? status["SERVICE_ROLE_KEY"];
   if (!apiUrl || !secretKey) throw new Error("supabase status no devuelve API_URL/SECRET_KEY: ¿está levantado (pnpm db:start)?");
 
-  const host = new URL(apiUrl).hostname;
-  if (host !== "127.0.0.1" && host !== "localhost") {
-    throw new Error(`El seed solo se ejecuta contra Supabase local; API_URL apunta a ${host}`);
-  }
+  assertLocalSupabaseUrl(apiUrl);
   return { apiUrl, secretKey };
 }
 

@@ -10,9 +10,10 @@ out/
 coverage/
 *.tsbuildinfo
 
-# Variables de entorno: nunca se versionan (ni .env ni .env.*)
+# Variables de entorno: nunca se versionan (ni .env ni .env.*), salvo las plantillas .env.example
 .env
 .env.*
+!.env.example
 
 # Supabase local
 supabase/.temp/

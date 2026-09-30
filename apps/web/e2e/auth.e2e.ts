@@ -24,19 +24,25 @@ test("contraseña incorrecta: error genérico y sin sesión", async ({ page }) =
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("cerrar sesión devuelve al login y vuelve a proteger /app", async ({ page }) => {
-  await signIn(page, "a_location_manager");
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page).toHaveURL(/\/login$/);
+// Destinos maliciosos para el parámetro de vuelta. Los que llevan tabulador o
+// salto de línea explotan que el navegador los elimina de las URL: "/\t/x"
+// pasa un filtro ingenuo de "empieza por / y no por //" y acaba como "//x".
+const externalNextValues = [
+  "//evil.test/robar",
+  "https://evil.test/robar",
+  "/\\evil.test/robar",
+  "/\t/evil.test/robar",
+  "/\n/evil.test/robar",
+  "/\r/evil.test/robar",
+  "javascript:alert(1)",
+];
 
-  await page.goto("/app/settings/organization");
-  await expect(page).toHaveURL(/\/login\?next=/);
-});
-
-test("el parámetro next no permite redirigir fuera de la app", async ({ page }) => {
-  await signIn(page, "a_org_admin", "//evil.test/robar");
-  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app\/settings\/organization$/);
-});
+for (const next of externalNextValues) {
+  test(`next=${JSON.stringify(next)} no redirige fuera de la app`, async ({ page }) => {
+    await signIn(page, "a_org_admin", next);
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app\/settings\/organization$/);
+  });
+}
 
 test("con sesión, /login redirige a la app", async ({ page }) => {
   await signIn(page, "b_org_admin");

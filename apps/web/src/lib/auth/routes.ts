@@ -12,23 +12,41 @@ export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(pathname);
 }
 
+const INTERNAL_ORIGIN = "http://app.internal";
+// Caracteres de control, espacios y barras invertidas: el navegador elimina
+// tabuladores y saltos de línea de las URL y trata "\" como "/", así que
+// "/\t/evil.test" o "/\evil.test" acabarían siendo "//evil.test" (externo).
+// eslint-disable-next-line no-control-regex -- buscar caracteres de control es justo el objetivo
+const UNSAFE_CHARS = /[\u0000-\u001F\u007F\s\\]/;
+
 /**
- * Destino tras el login, solo si es una ruta interna. Evita redirecciones
- * abiertas (`//evil.test`, `https://…`, `/\evil.test`).
+ * Destino tras el login, solo si es una ruta interna de la app. Evita
+ * redirecciones abiertas: se resuelve contra un origen interno ficticio y se
+ * exige que el origen no cambie.
  */
 export function safeNextPath(next: unknown): string {
-  if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
+  if (typeof next !== "string" || next.length === 0 || next.length > 2048) return HOME_PATH;
+  if (UNSAFE_CHARS.test(next) || !next.startsWith("/") || next.startsWith("//")) return HOME_PATH;
+
+  let url: URL;
+  try {
+    url = new URL(next, INTERNAL_ORIGIN);
+  } catch {
     return HOME_PATH;
   }
-  return next;
+  if (url.origin !== INTERNAL_ORIGIN) return HOME_PATH;
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
-/** `null` = dejar pasar; string = redirigir a esa ruta. */
-export function routeRedirect(pathname: string, search: string, isAuthenticated: boolean): string | null {
-  if (!isAuthenticated && !isPublicPath(pathname)) {
+/**
+ * Comprobación optimista del proxy (solo mira si hay un JWT válido en la
+ * cookie). `null` = dejar pasar; string = redirigir a esa ruta. La
+ * comprobación que decide el acceso a los datos es requireUser() (DAL).
+ */
+export function routeRedirect(pathname: string, search: string, hasValidToken: boolean): string | null {
+  if (!hasValidToken && !isPublicPath(pathname)) {
     const next = `${pathname}${search}`;
     return next === "/" ? LOGIN_PATH : `${LOGIN_PATH}?next=${encodeURIComponent(next)}`;
   }
-  if (isAuthenticated && pathname === LOGIN_PATH) return HOME_PATH;
   return null;
 }

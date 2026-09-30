@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 function rows<T>(label: string, result: { data: T[] | null; error: { message: string } | null }): T[] {
@@ -9,6 +10,7 @@ function rows<T>(label: string, result: { data: T[] | null; error: { message: st
 // consultas normales con su JWT, sin filtros propios: si RLS no dejara ver
 // una fila, aquí no aparece. Sin diseño (tarea 4).
 export default async function OrganizationPage() {
+  await requireUser();
   const supabase = await createClient();
 
   const [organizationsResult, locationsResult, peopleResult] = await Promise.all([

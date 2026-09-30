@@ -4,6 +4,14 @@ import { defineConfig, devices } from "@playwright/test";
 // compilada (pnpm --filter @repo/web build). Ver AGENTS.md → Comandos.
 const baseURL = "http://127.0.0.1:3000";
 
+// URL y clave publicable de Supabase (las mismas que usa la app) para los
+// tests que hablan directamente con la API de Auth, como el de registro.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Sin .env.local: los tests que lo necesitan fallan con un mensaje claro.
+}
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.e2e.ts",
