@@ -8,12 +8,13 @@
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3
 
 ## En curso
-- Revocación real de sesiones (Fase 0 · tarea 3c-1) — PR abierto en `feat/fase0-session-revocation`, **pendiente de revisión humana** (migración y políticas RLS). Hecho:
+- Revocación real de sesiones (Fase 0 · tarea 3c-1) — PR #4 abierto, **pendiente de revisión humana** (migración y políticas RLS). Hecho:
   - `private.session_is_active()` y comprobación de sesión en las 15 políticas de las 5 tablas de tenants (migración `20260930101908_session_revocation`, con rollback probado).
   - Verificado con `EXPLAIN ANALYZE`: es un InitPlan (1 llamada para 2.004 filas recorridas; sin envolver, 2.004 llamadas, una por fila).
   - 186 tests pgTAP (+28) y 29 e2e (+2), con pruebas negativas.
   - El seed espera a Auth y a la API REST tras `db reset` (antes fallaba si se lanzaba justo después).
   - ADR 0003 actualizado.
+  - CI en verde en los jobs `check`, `db` y `e2e` (run 36703185757) — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/4
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md).
