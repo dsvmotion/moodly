@@ -99,14 +99,6 @@
     "memory": {
       "title": "Memory",
       "description": "What the agents learn about the business will appear here."
-    },
-    "locations": {
-      "title": "Locations",
-      "description": "The list of locations comes in the next step."
-    },
-    "people": {
-      "title": "People",
-      "description": "The list of people comes in the next step."
     }
   },
   "scope": {
@@ -115,5 +107,60 @@
     "mine": "All my locations",
     "regions": "Regions",
     "locations": "Locations"
+  },
+  "records": {
+    "search": "Search",
+    "columns": "Columns",
+    "selectAll": "Select all rows",
+    "selectRow": "Select {name}",
+    "openRow": "Open {name}",
+    "noResults": "No results.",
+    "rowCount": "{visible} of {total}",
+    "selectedCount": "{count} selected",
+    "sortAscending": "ascending",
+    "sortDescending": "descending",
+    "close": "Close preview",
+    "locations": {
+      "title": "Locations",
+      "name": "Name",
+      "region": "Region",
+      "status": "Status",
+      "timezone": "Time zone",
+      "address": "Address",
+      "openingHours": "Opening hours",
+      "people": "People with access",
+      "noRegion": "No region",
+      "noAddress": "No address",
+      "noHours": "No opening hours set",
+      "empty": "No locations in this scope."
+    },
+    "people": {
+      "title": "People",
+      "name": "Name",
+      "role": "Role",
+      "scope": "Scope",
+      "wholeOrganization": "Whole organization",
+      "noName": "(no name)",
+      "empty": "No people in this scope."
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "roles": {
+      "org_admin": "Administrator",
+      "region_manager": "Region manager",
+      "location_manager": "Location manager",
+      "staff": "Staff"
+    },
+    "days": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
   }
 }
