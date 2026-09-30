@@ -18,7 +18,7 @@
 - Endurecimiento del mergeo autónomo — PR abierto; **lo revisa y lo mergea producto** (toca `AGENTS.md` y `.github/workflows`). Incluye:
   - `scripts/safe-merge.sh` con sus tests;
   - lista única de zonas sensibles en `scripts/merge-guard/sensitive-paths.txt`;
-  - job de CI `sensitive-paths` con la etiqueta `revisado-humano`.
+  - job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo.
 
   Motivo: en el PR #7 se mergeó después de que `gh pr checks` devolviera un error, y se verificó a posteriori.
 
@@ -33,6 +33,7 @@
    - Alta del perfil `public.users` al aceptar la invitación (hoy solo lo crea el seed). Si se hace con un trigger `SECURITY DEFINER` sobre `auth.users`, requiere revisión humana (AGENTS.md).
 3c-2. Configuración de Auth de producción, cuando exista el proyecto alojado de staging: límites de intentos (`sign_in_sign_ups`, `token_refresh`, `token_verifications`), captcha en el login, longitud mínima y requisitos de contraseña, y `jwt_expiry`. `config.toml` solo aplica en local: hay que fijarlo en el proyecto alojado y verificarlo allí.
 3d. Cuando se use Supabase Realtime (bandeja, conversaciones, aprobaciones: MANUAL §9.9): verificar que `private.session_is_active()` también se aplica en las suscripciones, es decir, que una sesión cerrada deja de recibir eventos, con un test que lo demuestre.
+3e. Identidad de GitHub separada para el agente, con permisos limitados (p. ej. una GitHub App o una cuenta de máquina con acceso de escritura a ramas y PRs, pero sin permiso para gestionar etiquetas ni para mergear sin checks). Hoy el agente usa la cuenta de producto: técnicamente podría poner la etiqueta `revisado-humano`, y solo lo impide la regla de AGENTS.md. Con la identidad separada, además, se pueden exigir revisiones de una persona distinta del autor.
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
 6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.

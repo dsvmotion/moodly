@@ -122,6 +122,12 @@ expect_refused "job ausente (falta e2e)"
 setup skipped; set_run "sensitive-paths" completed skipped
 expect_refused "job saltado (skipped)"
 
+setup missing-sensitive; jq '.check_runs |= map(select(.name != "sensitive-paths"))' "$FAKE_DIR/check-runs.json" > "$FAKE_DIR/r" && mv "$FAKE_DIR/r" "$FAKE_DIR/check-runs.json"
+expect_refused "job sensitive-paths ausente"
+
+setup red-sensitive; set_run "sensitive-paths" completed failure
+expect_refused "job sensitive-paths en rojo"
+
 setup old-commit; set_run "typecheck · lint · test · build" completed success "$other_sha"
 expect_refused "check en verde pero de otro commit"
 
@@ -184,6 +190,37 @@ for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/rollbac
   package.json apps/web/package.json pnpm-lock.yaml pnpm-workspace.yaml AGENTS.md CLAUDE.md docs/MANUAL.md; do
   check_case "sensible: $path" 1 "$path"
 done
+
+echo "== required-checks.txt"
+for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "sensitive-paths"; do
+  if grep -qxF -- "$required" "$root/scripts/merge-guard/required-checks.txt"; then
+    echo "✓ exige \"$required\""; passed=$((passed + 1))
+  else
+    echo "✗ falta \"$required\" en required-checks.txt"; failed=$((failed + 1))
+  fi
+done
+
+echo "== sensitive-gate.sh (decisión del job de CI)"
+gate="$root/scripts/merge-guard/sensitive-gate.sh"
+gate_case() { # descripción resultado acción etiqueta → exit esperado, remove_label esperado
+  local desc="$1" result="$2" action="$3" label="$4" want_exit="$5" want_remove="$6" out status=0
+  out="$(bash "$gate" "$result" "$action" "$label")" || status=$?
+  if [[ $status -eq $want_exit && "$out" == *"remove_label=$want_remove"* ]]; then
+    echo "✓ $desc → exit $status, remove_label=$want_remove"; passed=$((passed + 1))
+  else
+    echo "✗ $desc → exit $status (esperado $want_exit), salida: $(echo "$out" | tr '\n' ' ')"; failed=$((failed + 1))
+  fi
+}
+gate_case "limpio, sin etiqueta" 0 opened false 0 false
+gate_case "limpio, commit nuevo con etiqueta (se quita igual)" 0 synchronize true 0 true
+gate_case "sensible, sin etiqueta" 1 opened false 1 false
+gate_case "sensible, producto pone la etiqueta (labeled)" 1 labeled true 0 false
+gate_case "sensible, etiqueta quitada (unlabeled)" 1 unlabeled false 1 false
+gate_case "sensible, COMMIT NUEVO tras la revisión (synchronize con etiqueta)" 1 synchronize true 1 true
+gate_case "sensible, commit nuevo sin etiqueta" 1 synchronize false 1 false
+gate_case "sensible, PR reabierto con etiqueta" 1 reopened true 1 true
+gate_case "sensible, otro cambio de etiquetas con revisado-humano puesta" 1 labeled true 0 false
+gate_case "error de check-sensitive, aunque tenga etiqueta" 2 labeled true 1 false
 
 echo
 echo "Resultado: $passed pasan, $failed fallan"

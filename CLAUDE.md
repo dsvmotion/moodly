@@ -95,7 +95,7 @@ Después del merge: `git checkout main && git pull` y verifica `pnpm check`, `pn
 
 **Lo que el script no puede detectar sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, no lo mergees: pide revisión.
 
-**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Sin ella, el job `sensitive-paths` falla en los PRs que tocan zonas sensibles. Aunque la tenga, un PR sensible nunca se mergea de forma autónoma: `safe-merge.sh` lo rechaza igual.
+**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Sin ella, el job `sensitive-paths` falla en los PRs que tocan zonas sensibles. **Aprueba un commit concreto:** con cada commit nuevo en el PR (`synchronize`) o al reabrirlo (`reopened`), el workflow la quita automáticamente (job `invalidate-review`). En ese mismo run ya cuenta como ausente, así que un commit subido después de la revisión no hereda la aprobación: hay que volver a revisar y a ponerla. Aunque la tenga, un PR sensible nunca se mergea de forma autónoma: `safe-merge.sh` lo rechaza igual.
 
 Nunca desactives, relajes ni saltes tests o checks para conseguir un CI en verde.
 
