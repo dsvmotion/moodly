@@ -108,5 +108,12 @@
       "title": "Personas",
       "description": "La lista de personas llega en el siguiente paso."
     }
+  },
+  "scope": {
+    "label": "Alcance",
+    "organization": "Toda la organización",
+    "mine": "Todos mis locales",
+    "regions": "Regiones",
+    "locations": "Locales"
   }
 }

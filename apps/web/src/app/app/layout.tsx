@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { AppScopeSwitcher } from "@/components/app-scope-switcher";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { requireUser } from "@/lib/auth/session";
 import { parseSidebarCollapsed, parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
+import { getScopeContext } from "@/lib/scope-data";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 
@@ -18,6 +20,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   // Organizaciones que el usuario ve según RLS (hoy, una por usuario del seed).
   const { data: organizations } = await supabase.from("organizations").select("id, name").order("name");
+  const { options } = await getScopeContext();
 
   return (
     <AppFrame
@@ -29,9 +32,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           theme={parseTheme(cookieStore.get(THEME_COOKIE)?.value)}
           defaultCollapsed={parseSidebarCollapsed(cookieStore.get(SIDEBAR_COOKIE)?.value)}
           header={
-            <div data-testid="org-name" className="truncate px-2 py-1.5 text-sm font-semibold">
-              {organizations?.map((organization) => organization.name).join(" · ")}
-            </div>
+            <>
+              <div data-testid="org-name" className="truncate px-2 py-1.5 text-sm font-semibold">
+                {organizations?.map((organization) => organization.name).join(" · ")}
+              </div>
+              <AppScopeSwitcher options={options} />
+            </>
           }
         />
       }
