@@ -1013,7 +1013,7 @@ Entrega: PR + evidencia (salida de tests, log o captura) + STATUS.md actualizado
 ### 16.3 Reglas de colaboración entre agentes
 
 - Una tarea, una rama. Si Claude Code y Codex trabajan en paralelo, lo hacen en ramas o worktrees separados y **nunca** sobre la misma migración a la vez.
-- Ningún agente mergea su propio PR: hace falta CI en verde y, en zonas sensibles, revisión humana.
+- Un agente solo mergea su propio PR con el **mergeo autónomo** de `AGENTS.md`/`CLAUDE.md`: CI en verde en todos los jobs, ninguna zona sensible tocada (las del §14 y las que enumera `AGENTS.md`) y un comentario previo en el PR con evidencia y lista de archivos. En cualquier otro caso, o si hay dudas, el PR espera revisión y merge humanos.
 - Se puede usar un agente para revisar el PR del otro, como segunda opinión. No sustituye a la revisión humana en las zonas del §14.
 - Si un agente no puede verificar algo (falta una credencial, un entorno o datos), lo deja escrito en el PR y en `docs/STATUS.md` como **bloqueado** y no lo marca como hecho.
 
