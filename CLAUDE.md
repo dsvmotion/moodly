@@ -81,7 +81,7 @@ Permitido **solo si se cumplen TODAS** estas condiciones. Si falla cualquiera, o
    - CI: `.github/workflows/**`.
    - Configuración de tests, checks o umbrales: `**/vitest.config.*`, `**/playwright.config.*`, `**/eslint.config.*`, `**/tsconfig*.json`, `turbo.json`, el `config.toml` de pgTAP/Supabase y cualquier umbral de evals.
    - Tests debilitados: borrar o reescribir a la baja tests existentes, o añadir `.skip`/`.only`/`todo`.
-   - Reglas del repo: `AGENTS.md` y `CLAUDE.md`.
+   - Reglas del repo y fuente de verdad: `AGENTS.md`, `CLAUDE.md` y `docs/MANUAL.md`. `docs/STATUS.md` y `docs/adr/**` no son sensibles por sí mismos.
    - Supabase: `packages/db/supabase/config.toml`.
    - Dependencias: añadir, quitar o actualizar dependencias. Cualquier cambio en `package.json` (dependencias o scripts), `pnpm-lock.yaml` o `pnpm-workspace.yaml`.
 3. **Comentario previo en el PR.** Antes de mergear, publica un comentario con:
