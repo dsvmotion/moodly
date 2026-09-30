@@ -70,8 +70,35 @@ interface SeedCredential {
   organizationId: string;
 }
 
+// Tras `supabase db reset` se reinician los contenedores y Auth y PostgREST
+// tardan unos segundos en responder: sin esperar, el seed fallaba justo
+// después del reset (primero en Auth y después en la API REST).
+async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60_000): Promise<void> {
+  const endpoints = [`${apiUrl}/auth/v1/health`, `${apiUrl}/rest/v1/organizations?select=id&limit=1`];
+  const deadline = Date.now() + timeoutMs;
+  let lastError = "sin respuesta";
+  while (Date.now() < deadline) {
+    const results = await Promise.all(
+      endpoints.map(async (endpoint) => {
+        try {
+          const response = await fetch(endpoint, { headers: { apikey: secretKey, Authorization: `Bearer ${secretKey}` } });
+          return response.ok ? null : `${new URL(endpoint).pathname} → HTTP ${response.status}`;
+        } catch (error) {
+          return `${new URL(endpoint).pathname} → ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }),
+    );
+    const pending = results.filter((r): r is string => r !== null);
+    if (pending.length === 0) return;
+    lastError = pending.join("; ");
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
+}
+
 async function main(): Promise<void> {
   const { apiUrl, secretKey } = readLocalSupabase();
+  await waitForServices(apiUrl, secretKey);
   const admin = createClient(apiUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const orgs = await admin.from("organizations").upsert(

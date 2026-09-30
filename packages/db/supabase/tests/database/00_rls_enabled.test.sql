@@ -2,7 +2,7 @@
 -- para que cualquier tabla, política o función nueva quede cubierta sola.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 -- ---------------------------------------------------------------------------
 -- RLS en todas las tablas
@@ -43,6 +43,31 @@ select is(
    where schemaname = 'public' and cmd in ('INSERT', 'UPDATE', 'ALL') and with_check is null),
   null,
   'toda política de INSERT/UPDATE de public tiene WITH CHECK'
+);
+
+-- ---------------------------------------------------------------------------
+-- Tarea 3c-1: toda política exige sesión viva, como primera condición AND y
+-- envuelta en (select …) para que se evalúe una vez por consulta (InitPlan).
+-- Falla si falta, si va dentro de un OR o si se llama sin envolver.
+-- ---------------------------------------------------------------------------
+select is(
+  (select array_agg(policyname::text order by policyname)
+   from pg_policies
+   where schemaname = 'public'
+     and qual is not null
+     and qual not like '(( SELECT private.session_is_active() AS session_is_active) AND %'),
+  null,
+  'toda política (USING) de public empieza por (select private.session_is_active()) AND'
+);
+
+select is(
+  (select array_agg(policyname::text order by policyname)
+   from pg_policies
+   where schemaname = 'public'
+     and with_check is not null
+     and with_check not like '(( SELECT private.session_is_active() AS session_is_active) AND %'),
+  null,
+  'toda política (WITH CHECK) de public empieza por (select private.session_is_active()) AND'
 );
 
 -- ---------------------------------------------------------------------------
