@@ -1,5 +1,112 @@
 {
   "common": {
     "loading": "Cargando…"
+  },
+  "shell": {
+    "skipToContent": "Saltar al contenido",
+    "openMenu": "Abrir menú",
+    "menu": "Menú",
+    "sidebar": "Navegación principal",
+    "collapse": "Compactar barra lateral",
+    "expand": "Expandir barra lateral",
+    "search": "Buscar",
+    "searchShortcut": "Atajo: Cmd K o Ctrl K"
+  },
+  "nav": {
+    "home": "Inicio",
+    "coach": "Coach",
+    "approvals": "Aprobaciones",
+    "inbox": "Bandeja",
+    "tasks": "Tareas",
+    "activity": "Actividad",
+    "analytics": "Analítica",
+    "agents": "Agentes",
+    "records": "Registros",
+    "contacts": "Clientes",
+    "conversations": "Conversaciones",
+    "recommendations": "Recomendaciones",
+    "goals": "Objetivos",
+    "knowledge": "Conocimiento",
+    "memory": "Memoria",
+    "locations": "Locales",
+    "people": "Personas",
+    "savedViews": "Vistas guardadas",
+    "favorites": "Favoritos",
+    "recent": "Recientes",
+    "settings": "Ajustes",
+    "signOut": "Cerrar sesión",
+    "theme": "Tema",
+    "themeSystem": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "pendingCount": "{count} pendientes"
+  },
+  "sidebarEmpty": {
+    "agents": "Los agentes aparecerán aquí cuando se configuren.",
+    "savedViews": "Aún no hay vistas guardadas.",
+    "favorites": "Aún no hay favoritos.",
+    "recent": "Aún no hay actividad reciente."
+  },
+  "sections": {
+    "home": {
+      "title": "Inicio",
+      "description": "Aquí verás la bandeja del día: lo que se resolvió solo y lo que necesita tu atención. Aparecerá cuando los agentes empiecen a trabajar."
+    },
+    "coach": {
+      "title": "Coach",
+      "description": "Las revisiones y recomendaciones del coach aparecerán aquí."
+    },
+    "approvals": {
+      "title": "Aprobaciones",
+      "description": "No hay nada pendiente de aprobar."
+    },
+    "inbox": {
+      "title": "Bandeja",
+      "description": "Las conversaciones con tus clientes aparecerán aquí cuando conectes un canal."
+    },
+    "tasks": {
+      "title": "Tareas",
+      "description": "No hay tareas todavía."
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "El registro de lo que hacen los agentes aparecerá aquí."
+    },
+    "analytics": {
+      "title": "Analítica",
+      "description": "Los paneles con métricas aparecerán cuando haya actividad."
+    },
+    "contacts": {
+      "title": "Clientes",
+      "description": "Tus clientes aparecerán aquí."
+    },
+    "conversations": {
+      "title": "Conversaciones",
+      "description": "No hay conversaciones todavía."
+    },
+    "recommendations": {
+      "title": "Recomendaciones",
+      "description": "No hay recomendaciones todavía."
+    },
+    "goals": {
+      "title": "Objetivos",
+      "description": "No hay objetivos definidos todavía."
+    },
+    "knowledge": {
+      "title": "Conocimiento",
+      "description": "Las fuentes de conocimiento del negocio aparecerán aquí."
+    },
+    "memory": {
+      "title": "Memoria",
+      "description": "Lo que los agentes aprendan del negocio aparecerá aquí."
+    },
+    "locations": {
+      "title": "Locales",
+      "description": "La lista de locales llega en el siguiente paso."
+    },
+    "people": {
+      "title": "Personas",
+      "description": "La lista de personas llega en el siguiente paso."
+    }
   }
 }
