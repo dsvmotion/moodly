@@ -14,6 +14,11 @@
   - Tipos de la base de datos generados (`pnpm db:types`) y `BRAND_NAME` en `packages/config`.
   - 11 tests e2e con Playwright (5 roles + auth) y prueba negativa (política de locales permisiva → fallan los 6 tests de roles).
   - Job `e2e` en el CI.
+  - Revisión de seguridad de la autenticación (9 puntos), respondida en el PR. Tres huecos encontrados y corregidos, cada uno con test y prueba negativa:
+    - el registro público estaba abierto;
+    - cerrar sesión no invalidaba las cookies copiadas antes (ahora hay una DAL con `getUser()`);
+    - había una redirección abierta con tabulador o salto de línea en `next`.
+  - 27 tests e2e y `.env.example`.
   - CI en verde con los jobs `check`, `db` y `e2e` (run 36570055914: 158 pgTAP + 11 e2e; capturas por rol en el artefacto `playwright`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/3
 
 ## Bloqueado
@@ -21,6 +26,9 @@
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
 
 ## Próximo (Fase 0 — Cimientos, MANUAL §17)
+3c. Decisiones pendientes de la revisión de autenticación del PR #3:
+   - Tokens tras el logout en la API de datos: la app ya rechaza la sesión cerrada, pero un access token copiado sigue sirviendo contra la API REST de Supabase hasta que caduca (`jwt_expiry` = 1 h). Opciones documentadas por Supabase: comprobar `session_id` contra `auth.sessions` en los helpers de RLS (migración con revisión humana y coste por fila) o reducir `jwt_expiry`, sin bajar de 5 minutos.
+   - Límites de Auth en producción: `config.toml` solo aplica en local. Cuando exista el proyecto alojado, hay que fijar ahí los mismos límites y la política de contraseñas, y valorar un captcha en el login.
 3b. Invitaciones de miembros (sale de la revisión del PR #2 y del alcance de la tarea 3):
    - El alta de miembros tiene que pasar por invitaciones (email, caducidad, aceptación por el invitado), no por un INSERT directo del `org_admin` en `memberships` con cualquier `user_id`. Hoy la política `memberships_insert` permite al `org_admin` dar de alta a cualquier usuario existente sin su consentimiento; al introducir las invitaciones hay que retirar o restringir ese INSERT y cubrirlo con tests pgTAP.
    - Invitar staff por parte del `location_manager` (en sus locales), sobre el mismo flujo.

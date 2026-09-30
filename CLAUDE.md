@@ -77,5 +77,10 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 - Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin revisión humana. Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
 - Las guardas son listas blancas: una columna nueva queda protegida hasta que se decida explícitamente quién puede cambiarla.
 
+## Web: autenticación (apps/web)
+- El acceso a datos se decide en el servidor, cerca de los datos: cada página o Server Action protegida llama a `requireUser()` (`src/lib/auth/session.ts`), que usa `getUser()` y detecta sesiones cerradas. El proxy (`getClaims()`) solo hace la redirección optimista. Nunca `getSession()` en servidor.
+- El parámetro de vuelta tras el login pasa siempre por `safeNextPath()`.
+- Registro público cerrado con `[auth] enable_signup = false`. No toques `[auth.email] enable_signup`: en la CLI desactiva el proveedor de email entero, también el login.
+
 ## Trabajo en paralelo (Claude Code + Codex)
 Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
