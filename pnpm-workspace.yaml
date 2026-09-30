@@ -1,3 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Scripts de instalación de dependencias (pnpm 11 exige decidir cada uno).
+# Denegados: llegan por next-intl (herramienta de extracción de mensajes) y
+# traen binarios precompilados por plataforma; la build no los necesita (ADR 0018).
+allowBuilds:
+  "@swc/core": false
+  "@parcel/watcher": false
