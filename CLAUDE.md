@@ -54,6 +54,8 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Tests unitarios: `pnpm test`
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
+- Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
+- Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>` (ver "Mergeo autónomo")
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
 - Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
@@ -66,37 +68,34 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Escribir el nombre de la marca a mano (usa `BRAND_NAME`) o IDs de modelo LLM en código de negocio (usa `packages/config`).
 - Tomar `organization_id`, `location_id` o destinatarios de los argumentos que genera el LLM.
 - Escribir en tablas de tenants desde una función `SECURITY DEFINER` sin revisión humana (ver "Base de datos: guardas").
-- Mergear tu propio PR, salvo con el mergeo autónomo permitido (siguiente sección) y cumpliendo todas sus condiciones.
+- Mergear tu propio PR, salvo con `scripts/safe-merge.sh` (siguiente sección). Poner o quitar la etiqueta `revisado-humano`.
 
 ## Mergeo autónomo de tus propios PRs
-Permitido **solo si se cumplen TODAS** estas condiciones. Si falla cualquiera, o tienes cualquier duda, **no mergees**: para y pide revisión humana.
+**Solo con `scripts/safe-merge.sh <n>`.** Nunca con `gh pr merge` directamente ni con scripts fuera del repo. Si el script falla por cualquier motivo, **no mergees**: para y avisa a producto con la salida del script. Con cualquier duda, tampoco mergees.
 
-1. **CI en verde en todos los jobs.** `gh pr checks <n> --watch --fail-fast` termina con código 0, y en la lista aparecen y pasan todos los jobs del CI (hoy: `typecheck · lint · test · build`, `db · migraciones · pgTAP` y `e2e · Playwright por rol`). Si falta alguno, se ha saltado o sigue pendiente, no está en verde.
-2. **El PR no toca ninguna zona sensible.** Se comprueba con la lista completa de archivos del PR (`gh pr diff <n> --name-only`). Son sensibles:
-   - Migraciones y rollbacks: `packages/db/supabase/migrations/**` y `packages/db/supabase/rollbacks/**`.
-   - Cualquier SQL que defina o cambie políticas RLS, funciones SQL o funciones `SECURITY DEFINER`, esté donde esté.
-   - Autenticación y sesión: `apps/web/src/proxy.ts`, `apps/web/src/lib/auth/**`, `apps/web/src/lib/supabase/**`, `apps/web/src/app/login/**`, el logout (`apps/web/src/app/app/actions.ts`) y cualquier código de redirecciones tras el login.
-   - Secretos, credenciales y variables de entorno: `**/.env*`, `apps/web/scripts/local-env.ts` y el seed (`packages/db/src/seed/**`, que usa la clave secreta local).
-   - Motor de políticas y techos de autonomía de los agentes (MANUAL §5.4 y §5.6), cuando existan.
-   - CI: `.github/workflows/**`.
-   - Configuración de tests, checks o umbrales: `**/vitest.config.*`, `**/playwright.config.*`, `**/eslint.config.*`, `**/tsconfig*.json`, `turbo.json`, el `config.toml` de pgTAP/Supabase y cualquier umbral de evals.
-   - Tests debilitados: borrar o reescribir a la baja tests existentes, o añadir `.skip`/`.only`/`todo`.
-   - Reglas del repo y fuente de verdad: `AGENTS.md`, `CLAUDE.md` y `docs/MANUAL.md`. `docs/STATUS.md` y `docs/adr/**` no son sensibles por sí mismos.
-   - Supabase: `packages/db/supabase/config.toml`.
-   - Dependencias: añadir, quitar o actualizar dependencias. Cualquier cambio en `package.json` (dependencias o scripts), `pnpm-lock.yaml` o `pnpm-workspace.yaml`.
-3. **Comentario previo en el PR.** Antes de mergear, publica un comentario con:
-   - el resumen del cambio;
-   - la evidencia (tests y CI);
-   - la lista completa de archivos tocados;
-   - la confirmación explícita de que ninguno está en la lista del punto 2.
+El script aborta ante cualquier error (`set -euo pipefail`) y solo mergea si se cumple todo lo siguiente:
+1. **CI en verde sobre el head commit actual.** Espera con `gh pr checks <n> --watch` y después confirma con la API de GitHub que cada check de `scripts/merge-guard/required-checks.txt` existe, que su ejecución más reciente sobre ese commit exacto está en `SUCCESS`, y que el head no ha cambiado durante la espera.
+2. **Ninguna zona sensible ni test debilitado.** Compara los archivos del PR con `scripts/merge-guard/sensitive-paths.txt` y busca en el diff `.skip`/`.only`/`.todo`/`.fixme`, pgTAP sin plan y tests borrados. Ese archivo es la **lista única** de zonas sensibles: la usan el script y el job de CI `sensitive-paths`. Incluye, entre otras:
+   - migraciones, rollbacks y cualquier `.sql`;
+   - `config.toml` de Supabase;
+   - autenticación y sesión: proxy, `lib/auth`, `lib/supabase`, login, logout y redirecciones tras el login;
+   - secretos: `.env*`, `local-env.ts` y el seed;
+   - motor de políticas y techos de autonomía;
+   - `.github/` y `scripts/` (incluida la propia guarda);
+   - configuración de tests, lint, TypeScript, turbo y build;
+   - dependencias (`package.json`, lockfile y workspace);
+   - `AGENTS.md`, `CLAUDE.md` y `docs/MANUAL.md`.
 
-Si se cumplen las tres, mergea fijando el commit revisado:
+   `docs/STATUS.md` y `docs/adr/**` no son sensibles por sí mismos.
+3. **Merge fijando el commit revisado:** `gh pr merge <n> --squash --delete-branch --match-head-commit <sha>`.
 
-```
-gh pr merge <n> --squash --delete-branch --match-head-commit <SHA del head con el CI en verde>
-```
+Antes de lanzar el script, publica en el PR un comentario con el resumen, la evidencia y la lista de archivos tocados.
 
-Después: `git checkout main && git pull`, y verifica que todo pasa sobre `main`: `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`). Si algo falla sobre `main`, avisa enseguida.
+Después del merge: `git checkout main && git pull` y verifica `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`) sobre `main`. Si algo falla, avisa enseguida.
+
+**Lo que el script no puede detectar sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, no lo mergees: pide revisión.
+
+**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Sin ella, el job `sensitive-paths` falla en los PRs que tocan zonas sensibles. Aunque la tenga, un PR sensible nunca se mergea de forma autónoma: `safe-merge.sh` lo rechaza igual.
 
 Nunca desactives, relajes ni saltes tests o checks para conseguir un CI en verde.
 

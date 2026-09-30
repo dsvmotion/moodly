@@ -10,8 +10,17 @@
 
 ## En curso
 - App shell (Fase 0 · tarea 4), en varios PRs:
-  - **PR A (dependencias y configuración, zona sensible: lo revisa producto):** librerías de la interfaz, esqueleto de `packages/ui` (código fuente, ADR 0018), Tailwind v4, i18n con `next-intl` (español por defecto e inglés), axe en los e2e y regla de ADR 0003 sobre versiones de Supabase.
-  - **Después, con mergeo autónomo si cumplen la regla:** tokens y componentes base, barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
+  - Hecho: PR A (dependencias y configuración, #6, mergeado por producto) y PR 1 (tokens de diseño y componentes base, #7).
+  - Pendiente: barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
+  - Aparte, con revisión humana: Inicio (P1) en `/app` (redirección tras el login) y traducción del login.
+  - En pausa hasta que se mergee el endurecimiento del mergeo autónomo.
+
+- Endurecimiento del mergeo autónomo — PR abierto; **lo revisa y lo mergea producto** (toca `AGENTS.md` y `.github/workflows`). Incluye:
+  - `scripts/safe-merge.sh` con sus tests;
+  - lista única de zonas sensibles en `scripts/merge-guard/sensitive-paths.txt`;
+  - job de CI `sensitive-paths` con la etiqueta `revisado-humano`.
+
+  Motivo: en el PR #7 se mergeó después de que `gh pr checks` devolviera un error, y se verificó a posteriori.
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.

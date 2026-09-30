@@ -1,0 +1,54 @@
+name: sensitive-paths
+
+# Falla si el PR toca zonas sensibles (scripts/merge-guard/sensitive-paths.txt,
+# los mismos patrones que usa scripts/safe-merge.sh) o debilita tests, salvo
+# que producto le haya puesto la etiqueta "revisado-humano". Se vuelve a
+# ejecutar al poner o quitar etiquetas. Los agentes nunca ponen ni quitan esa
+# etiqueta (AGENTS.md → "Mergeo autónomo").
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sensitive-paths-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sensitive-paths:
+    name: sensitive-paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Los tests de la propia guarda (safe-merge.sh y check-sensitive.sh).
+      - name: Tests de la guarda de mergeo
+        run: bash scripts/merge-guard/tests/run.sh
+
+      - name: Zonas sensibles y tests debilitados
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HUMAN_REVIEWED: ${{ contains(github.event.pull_request.labels.*.name, 'revisado-humano') }}
+        run: |
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/files.txt"
+          git diff "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/diff.patch"
+          echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
+          status=0
+          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "Sin zonas sensibles ni tests debilitados."
+          elif [ "$status" -eq 1 ] && [ "$HUMAN_REVIEWED" = "true" ]; then
+            echo "::notice::Toca zonas sensibles, pero tiene la etiqueta revisado-humano."
+          elif [ "$status" -eq 1 ]; then
+            echo "::error::El PR toca zonas sensibles o debilita tests: necesita revisión humana y la etiqueta revisado-humano (la pone producto, nunca un agente)."
+            exit 1
+          else
+            echo "::error::check-sensitive.sh terminó con un error inesperado ($status)."
+            exit "$status"
+          fi
