@@ -1,5 +1,7 @@
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { locationsInScope, membershipInScope } from "@/lib/scope";
+import { resolveScope } from "@/lib/scope-data";
 
 function rows<T>(label: string, result: { data: T[] | null; error: { message: string } | null }): T[] {
   if (result.error || !result.data) throw new Error(`No se pudo cargar ${label}: ${result.error?.message ?? "sin datos"}`);
@@ -9,18 +11,32 @@ function rows<T>(label: string, result: { data: T[] | null; error: { message: st
 // "Mi organización": lo que el usuario conectado puede ver según RLS. Son
 // consultas normales con su JWT, sin filtros propios: si RLS no dejara ver
 // una fila, aquí no aparece. Sin diseño (tarea 4).
-export default async function OrganizationPage() {
+export default async function OrganizationPage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
   await requireUser();
   const supabase = await createClient();
+  const { scope, context } = await resolveScope((await searchParams).scope);
 
   const [organizationsResult, locationsResult, peopleResult] = await Promise.all([
     supabase.from("organizations").select("id, name").order("name"),
-    supabase.from("locations").select("id, name, status, region:regions(name)").order("name"),
-    supabase.from("memberships").select("id, role, user:users(full_name)").order("role"),
+    supabase.from("locations").select("id, name, status, region_id, region:regions(name)").order("name"),
+    supabase
+      .from("memberships")
+      .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
+      .order("role"),
   ]);
   const organizations = rows("organizaciones", organizationsResult);
-  const locations = rows("locales", locationsResult);
-  const people = rows("personas", peopleResult);
+  // El alcance (?scope=) acota lo que RLS ya deja ver.
+  const locations = locationsInScope(
+    scope,
+    rows("locales", locationsResult).map((location) => ({ ...location, regionId: location.region_id })),
+  );
+  const people = rows("personas", peopleResult).filter((person) =>
+    membershipInScope(
+      { role: person.role, scopeRegionIds: person.scope_region_ids, scopeLocationIds: person.scope_location_ids },
+      scope,
+      context.locations,
+    ),
+  );
 
   return (
     <main>

@@ -108,5 +108,12 @@
       "title": "People",
       "description": "The list of people comes in the next step."
     }
+  },
+  "scope": {
+    "label": "Scope",
+    "organization": "Whole organization",
+    "mine": "All my locations",
+    "regions": "Regions",
+    "locations": "Locations"
   }
 }

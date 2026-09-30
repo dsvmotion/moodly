@@ -2,13 +2,14 @@
 
 import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from "@repo/ui/lib/icons";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTransition, type ReactNode } from "react";
 import { Sidebar, SidebarItem, SidebarSection, useSidebar } from "@repo/ui/components/sidebar";
 import { cn } from "@repo/ui/lib/utils";
 import { isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
 import type { Theme } from "@/lib/preferences";
+import { SCOPE_PARAM, withScope } from "@/lib/scope";
 import { setSidebarCollapsed, setTheme } from "@/app/preferences-actions";
 
 /**
@@ -32,10 +33,12 @@ export function AppSidebar({
 }) {
   const t = useTranslations();
   const pathname = usePathname();
+  // El alcance elegido viaja con la navegación (MANUAL §9.4: estado en la URL).
+  const scope = useSearchParams().get(SCOPE_PARAM);
 
   const item = (entry: NavItem) => (
     <SidebarItem key={entry.key} icon={<entry.icon />} active={isActive(pathname, entry.href)}>
-      <Link href={entry.href} data-testid={`nav-${entry.key}`}>
+      <Link href={withScope(entry.href, scope)} data-testid={`nav-${entry.key}`}>
         {t(`nav.${entry.key}`)}
       </Link>
     </SidebarItem>
