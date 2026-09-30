@@ -66,7 +66,39 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Escribir el nombre de la marca a mano (usa `BRAND_NAME`) o IDs de modelo LLM en código de negocio (usa `packages/config`).
 - Tomar `organization_id`, `location_id` o destinatarios de los argumentos que genera el LLM.
 - Escribir en tablas de tenants desde una función `SECURITY DEFINER` sin revisión humana (ver "Base de datos: guardas").
-- Mergear tu propio PR.
+- Mergear tu propio PR, salvo con el mergeo autónomo permitido (siguiente sección) y cumpliendo todas sus condiciones.
+
+## Mergeo autónomo de tus propios PRs
+Permitido **solo si se cumplen TODAS** estas condiciones. Si falla cualquiera, o tienes cualquier duda, **no mergees**: para y pide revisión humana.
+
+1. **CI en verde en todos los jobs.** `gh pr checks <n> --watch --fail-fast` termina con código 0, y en la lista aparecen y pasan todos los jobs del CI (hoy: `typecheck · lint · test · build`, `db · migraciones · pgTAP` y `e2e · Playwright por rol`). Si falta alguno, se ha saltado o sigue pendiente, no está en verde.
+2. **El PR no toca ninguna zona sensible.** Se comprueba con la lista completa de archivos del PR (`gh pr diff <n> --name-only`). Son sensibles:
+   - Migraciones y rollbacks: `packages/db/supabase/migrations/**` y `packages/db/supabase/rollbacks/**`.
+   - Cualquier SQL que defina o cambie políticas RLS, funciones SQL o funciones `SECURITY DEFINER`, esté donde esté.
+   - Autenticación y sesión: `apps/web/src/proxy.ts`, `apps/web/src/lib/auth/**`, `apps/web/src/lib/supabase/**`, `apps/web/src/app/login/**`, el logout (`apps/web/src/app/app/actions.ts`) y cualquier código de redirecciones tras el login.
+   - Secretos, credenciales y variables de entorno: `**/.env*`, `apps/web/scripts/local-env.ts` y el seed (`packages/db/src/seed/**`, que usa la clave secreta local).
+   - Motor de políticas y techos de autonomía de los agentes (MANUAL §5.4 y §5.6), cuando existan.
+   - CI: `.github/workflows/**`.
+   - Configuración de tests, checks o umbrales: `**/vitest.config.*`, `**/playwright.config.*`, `**/eslint.config.*`, `**/tsconfig*.json`, `turbo.json`, el `config.toml` de pgTAP/Supabase y cualquier umbral de evals.
+   - Tests debilitados: borrar o reescribir a la baja tests existentes, o añadir `.skip`/`.only`/`todo`.
+   - Reglas del repo: `AGENTS.md` y `CLAUDE.md`.
+   - Supabase: `packages/db/supabase/config.toml`.
+   - Dependencias: añadir, quitar o actualizar dependencias. Cualquier cambio en `package.json` (dependencias o scripts), `pnpm-lock.yaml` o `pnpm-workspace.yaml`.
+3. **Comentario previo en el PR.** Antes de mergear, publica un comentario con:
+   - el resumen del cambio;
+   - la evidencia (tests y CI);
+   - la lista completa de archivos tocados;
+   - la confirmación explícita de que ninguno está en la lista del punto 2.
+
+Si se cumplen las tres, mergea fijando el commit revisado:
+
+```
+gh pr merge <n> --squash --delete-branch --match-head-commit <SHA del head con el CI en verde>
+```
+
+Después: `git checkout main && git pull`, y verifica que todo pasa sobre `main`: `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`). Si algo falla sobre `main`, avisa enseguida.
+
+Nunca desactives, relajes ni saltes tests o checks para conseguir un CI en verde.
 
 ## Requiere revisión humana siempre
 Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts.
