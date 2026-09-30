@@ -1,0 +1,25 @@
+// Iconos disponibles para la app. @repo/ui es el dueño del set de iconos
+// (lucide-react): la app los importa desde aquí, no directamente de lucide.
+export {
+  ActivityIcon,
+  BarChart3Icon,
+  BookOpenIcon,
+  BrainIcon,
+  CheckSquareIcon,
+  ContactIcon,
+  HomeIcon,
+  InboxIcon,
+  LightbulbIcon,
+  LogOutIcon,
+  MessagesSquareIcon,
+  MonitorIcon,
+  MoonIcon,
+  SettingsIcon,
+  SparklesIcon,
+  StampIcon,
+  StoreIcon,
+  SunIcon,
+  TargetIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";

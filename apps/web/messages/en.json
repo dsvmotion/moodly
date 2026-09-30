@@ -1,5 +1,112 @@
 {
   "common": {
     "loading": "Loading…"
+  },
+  "shell": {
+    "skipToContent": "Skip to content",
+    "openMenu": "Open menu",
+    "menu": "Menu",
+    "sidebar": "Main navigation",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "search": "Search",
+    "searchShortcut": "Shortcut: Cmd K or Ctrl K"
+  },
+  "nav": {
+    "home": "Home",
+    "coach": "Coach",
+    "approvals": "Approvals",
+    "inbox": "Inbox",
+    "tasks": "Tasks",
+    "activity": "Activity",
+    "analytics": "Analytics",
+    "agents": "Agents",
+    "records": "Records",
+    "contacts": "Customers",
+    "conversations": "Conversations",
+    "recommendations": "Recommendations",
+    "goals": "Goals",
+    "knowledge": "Knowledge",
+    "memory": "Memory",
+    "locations": "Locations",
+    "people": "People",
+    "savedViews": "Saved views",
+    "favorites": "Favorites",
+    "recent": "Recent",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "pendingCount": "{count} pending"
+  },
+  "sidebarEmpty": {
+    "agents": "Agents will appear here once they are set up.",
+    "savedViews": "No saved views yet.",
+    "favorites": "No favorites yet.",
+    "recent": "No recent activity yet."
+  },
+  "sections": {
+    "home": {
+      "title": "Home",
+      "description": "Your daily inbox will show here: what was handled automatically and what needs your attention. It appears once agents start working."
+    },
+    "coach": {
+      "title": "Coach",
+      "description": "The coach's reviews and recommendations will appear here."
+    },
+    "approvals": {
+      "title": "Approvals",
+      "description": "Nothing is waiting for approval."
+    },
+    "inbox": {
+      "title": "Inbox",
+      "description": "Conversations with your customers will appear here once you connect a channel."
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "No tasks yet."
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "A log of what the agents do will appear here."
+    },
+    "analytics": {
+      "title": "Analytics",
+      "description": "Metric dashboards will appear once there is activity."
+    },
+    "contacts": {
+      "title": "Customers",
+      "description": "Your customers will appear here."
+    },
+    "conversations": {
+      "title": "Conversations",
+      "description": "No conversations yet."
+    },
+    "recommendations": {
+      "title": "Recommendations",
+      "description": "No recommendations yet."
+    },
+    "goals": {
+      "title": "Goals",
+      "description": "No goals defined yet."
+    },
+    "knowledge": {
+      "title": "Knowledge",
+      "description": "Your business knowledge sources will appear here."
+    },
+    "memory": {
+      "title": "Memory",
+      "description": "What the agents learn about the business will appear here."
+    },
+    "locations": {
+      "title": "Locations",
+      "description": "The list of locations comes in the next step."
+    },
+    "people": {
+      "title": "People",
+      "description": "The list of people comes in the next step."
+    }
   }
 }
