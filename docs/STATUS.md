@@ -10,9 +10,16 @@
 - Mergeo autónomo endurecido: `scripts/safe-merge.sh` (checks sobre el head exacto, zonas sensibles y tests debilitados), lista única de zonas sensibles y job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo — verificado con 65 tests del script, pruebas negativas, la etiqueta comprobada en GitHub (de rojo a verde sobre el mismo commit) y 6 PRs mergeados después con el script — 2026-10-01 — https://github.com/dsvmotion/moodly/pull/8
 
 ## En curso
-- App shell (Fase 0 · tarea 4):
-  - **Hecho y mergeado** (los PRs #9 a #14 con `scripts/safe-merge.sh`): dependencias y configuración (#6, por producto); tokens de diseño y componentes base (#7); barra lateral §9.2 con estados vacíos, tema claro/oscuro y modo compacto (#9); selector de alcance según RLS y en la URL (#10); Registros → Locales y Personas con `DataTable` y vista previa (#11); paleta ⌘K (#12); i18n es/en, navegación con teclado y axe WCAG 2.1 AA (#13); e2e por rol con capturas en claro y oscuro (#14).
-  - **Pendiente de revisión humana (zonas sensibles):** traducción de la página de login e Inicio (P1) en `/app`. Hoy `/app` sigue llevando a "Mi organización".
+- App shell (Fase 0 · tarea 4) — estado a 2026-10-01, `main` en `ebaf37b`, verificado (`pnpm check` 51/51, pgTAP 186/186, e2e 83/83):
+  - **Mergeado:** #6 (dependencias, por producto), #7 (tokens y componentes base), #9 (barra lateral), #10 (selector de alcance), #11 (Registros con vista previa), #12 (paleta ⌘K), #13 (i18n, teclado y axe) y #14 (e2e por rol con capturas). Del #9 al #14, con `scripts/safe-merge.sh`.
+  - **PRs abiertos:** ninguno, salvo el de esta actualización de STATUS.
+  - **Siguiente, en este orden:**
+    1. PR sensible: traducción de la página de login (`apps/web/src/app/login/**`). No lo mergea el agente.
+    2. PR sensible: Inicio (P1) en `/app` (redirección tras el login), ajustando las expectativas de URL de los e2e. No lo mergea el agente.
+    3. Resumen final de la tarea 4 para producto, con las capturas por rol en `~/Developer/moodly-capturas/tarea-4/` (40 PNG, en claro y oscuro, fuera del repo).
+  - **Al retomar:**
+    1. `pnpm db:start && pnpm db:seed && pnpm --filter @repo/web env:local`.
+    2. Si los e2e fallan al lanzar el navegador: `pnpm --filter @repo/web exec playwright install chromium` (macOS borró la caché del navegador una vez).
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
