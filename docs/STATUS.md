@@ -7,20 +7,12 @@
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3
 - Revocación real de sesiones (Fase 0 · tarea 3c-1): `private.session_is_active()` (sesión viva en `auth.sessions`, usuario no borrado ni baneado) como primera condición, en forma de InitPlan, de las 15 políticas de las 5 tablas de tenants; un token copiado antes del logout ya no lee datos por la API REST — verificado con 186 pgTAP, 29 e2e, pruebas negativas, `EXPLAIN ANALYZE` (1 llamada frente a 2.004 sin envolver), rollback probado y CI en verde (run 36703604922); tras el merge, sobre `main` (`d64cdc0`) pasan `pnpm check` 52/52, pgTAP 186/186 y e2e 29/29 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/4
+- Mergeo autónomo endurecido: `scripts/safe-merge.sh` (checks sobre el head exacto, zonas sensibles y tests debilitados), lista única de zonas sensibles y job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo — verificado con 65 tests del script, pruebas negativas, la etiqueta comprobada en GitHub (de rojo a verde sobre el mismo commit) y 6 PRs mergeados después con el script — 2026-10-01 — https://github.com/dsvmotion/moodly/pull/8
 
 ## En curso
-- App shell (Fase 0 · tarea 4), en varios PRs:
-  - Hecho: PR A (dependencias y configuración, #6, mergeado por producto) y PR 1 (tokens de diseño y componentes base, #7).
-  - Pendiente: barra lateral, selector de alcance, Registros (Locales y Personas con vista previa), ⌘K, i18n y accesibilidad, y e2e con capturas por rol.
-  - Aparte, con revisión humana: Inicio (P1) en `/app` (redirección tras el login) y traducción del login.
-  - En pausa hasta que se mergee el endurecimiento del mergeo autónomo.
-
-- Endurecimiento del mergeo autónomo — PR abierto; **lo revisa y lo mergea producto** (toca `AGENTS.md` y `.github/workflows`). Incluye:
-  - `scripts/safe-merge.sh` con sus tests;
-  - lista única de zonas sensibles en `scripts/merge-guard/sensitive-paths.txt`;
-  - job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo.
-
-  Motivo: en el PR #7 se mergeó después de que `gh pr checks` devolviera un error, y se verificó a posteriori.
+- App shell (Fase 0 · tarea 4):
+  - **Hecho y mergeado** (los PRs #9 a #14 con `scripts/safe-merge.sh`): dependencias y configuración (#6, por producto); tokens de diseño y componentes base (#7); barra lateral §9.2 con estados vacíos, tema claro/oscuro y modo compacto (#9); selector de alcance según RLS y en la URL (#10); Registros → Locales y Personas con `DataTable` y vista previa (#11); paleta ⌘K (#12); i18n es/en, navegación con teclado y axe WCAG 2.1 AA (#13); e2e por rol con capturas en claro y oscuro (#14).
+  - **Pendiente de revisión humana (zonas sensibles):** traducción de la página de login e Inicio (P1) en `/app`. Hoy `/app` sigue llevando a "Mi organización".
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
