@@ -10,7 +10,9 @@
     "collapse": "Compactar barra lateral",
     "expand": "Expandir barra lateral",
     "search": "Buscar",
-    "searchShortcut": "Atajo: Cmd K o Ctrl K"
+    "searchShortcut": "Atajo: Cmd K o Ctrl K",
+    "breadcrumb": "Ruta de navegación",
+    "closeMenu": "Cerrar menú"
   },
   "nav": {
     "home": "Inicio",
@@ -171,5 +173,17 @@
     "navigation": "Navegación",
     "records": "Registros",
     "settings": "Ajustes"
+  },
+  "language": {
+    "label": "Idioma",
+    "es": "Español",
+    "en": "English"
+  },
+  "organizationPage": {
+    "title": "Mi organización",
+    "organization": "Organización",
+    "locations": "Locales",
+    "people": "Personas",
+    "noRegion": "sin región"
   }
 }

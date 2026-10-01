@@ -3,14 +3,15 @@
 import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from "@repo/ui/lib/icons";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useTransition, type ReactNode } from "react";
 import { Sidebar, SidebarItem, SidebarSection, useSidebar } from "@repo/ui/components/sidebar";
 import { cn } from "@repo/ui/lib/utils";
 import { isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
 import type { Theme } from "@/lib/preferences";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
-import { setSidebarCollapsed, setTheme } from "@/app/preferences-actions";
+import { setLocale, setSidebarCollapsed, setTheme } from "@/app/preferences-actions";
+import { LOCALES } from "@/i18n/config";
 
 /**
  * Barra lateral de la app (MANUAL §9.2). Control (organización y alcance) y
@@ -127,6 +128,7 @@ function SidebarFooter({
           </button>
         ))}
       </div>
+      <LanguageSwitcher />
       <div className={cn("flex items-center gap-2 px-2 py-1", collapsed && "flex-col px-0")}>
         <span data-testid="current-user" className={cn("min-w-0 flex-1 truncate text-xs text-sidebar-muted-foreground", collapsed && "sr-only")}>
           {userEmail}
@@ -143,5 +145,42 @@ function SidebarFooter({
         </form>
       </div>
     </>
+  );
+}
+
+/** Idioma de la interfaz (MANUAL §9.9): cada opción en su propio idioma. */
+function LanguageSwitcher() {
+  const t = useTranslations("language");
+  const locale = useLocale();
+  const { collapsed } = useSidebar();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t("label")}
+      data-testid="language-switcher"
+      className={cn("flex gap-0.5 rounded-md bg-sidebar-accent/60 p-0.5", collapsed && "flex-col")}
+    >
+      {LOCALES.map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          lang={option}
+          aria-checked={locale === option}
+          aria-label={t(option)}
+          title={t(option)}
+          disabled={pending}
+          onClick={() => startTransition(() => setLocale(option))}
+          className={cn(
+            "flex h-7 flex-1 items-center justify-center rounded text-xs font-medium uppercase text-sidebar-muted-foreground hover:text-sidebar-accent-foreground",
+            locale === option && "bg-sidebar text-sidebar-accent-foreground shadow-sm",
+          )}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
   );
 }

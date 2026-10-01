@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope } from "@/lib/scope";
@@ -15,6 +16,8 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   await requireUser();
   const supabase = await createClient();
   const { scope, context } = await resolveScope((await searchParams).scope);
+  const t = await getTranslations("organizationPage");
+  const tRecords = await getTranslations("records");
 
   const [organizationsResult, locationsResult, peopleResult] = await Promise.all([
     supabase.from("organizations").select("id, name").order("name"),
@@ -39,11 +42,11 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   );
 
   return (
-    <main>
-      <h1>Mi organización</h1>
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 [&_h2]:mt-2 [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
+      <h1 className="text-xl font-semibold">{t("title")}</h1>
 
       <section aria-labelledby="orgs">
-        <h2 id="orgs">Organización</h2>
+        <h2 id="orgs">{t("organization")}</h2>
         <ul>
           {organizations.map((org) => (
             <li key={org.id} data-testid="organization">
@@ -54,32 +57,32 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       </section>
 
       <section aria-labelledby="locations">
-        <h2 id="locations">Locales</h2>
+        <h2 id="locations">{t("locations")}</h2>
         <ul>
           {locations.map((location) => (
             <li key={location.id} data-testid="location">
               <span data-testid="location-name">{location.name}</span>
               {" · "}
-              {location.region?.name ?? "sin región"}
+              {location.region?.name ?? t("noRegion")}
               {" · "}
-              {location.status}
+              {location.status === "active" || location.status === "inactive" ? tRecords(`status.${location.status}`) : location.status}
             </li>
           ))}
         </ul>
       </section>
 
       <section aria-labelledby="people">
-        <h2 id="people">Personas</h2>
+        <h2 id="people">{t("people")}</h2>
         <ul>
           {people.map((person) => (
             <li key={person.id} data-testid="person">
               <span data-testid="person-name">{person.user.full_name ?? "(sin nombre)"}</span>
               {" · "}
-              {person.role}
+              {["org_admin", "region_manager", "location_manager", "staff"].includes(person.role) ? tRecords(`roles.${person.role}`) : person.role}
             </li>
           ))}
         </ul>
       </section>
-    </main>
+    </div>
   );
 }

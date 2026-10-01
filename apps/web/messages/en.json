@@ -10,7 +10,9 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "search": "Search",
-    "searchShortcut": "Shortcut: Cmd K or Ctrl K"
+    "searchShortcut": "Shortcut: Cmd K or Ctrl K",
+    "breadcrumb": "Breadcrumb",
+    "closeMenu": "Close menu"
   },
   "nav": {
     "home": "Home",
@@ -171,5 +173,17 @@
     "navigation": "Navigation",
     "records": "Records",
     "settings": "Settings"
+  },
+  "language": {
+    "label": "Language",
+    "es": "Español",
+    "en": "English"
+  },
+  "organizationPage": {
+    "title": "My organization",
+    "organization": "Organization",
+    "locations": "Locations",
+    "people": "People",
+    "noRegion": "no region"
   }
 }

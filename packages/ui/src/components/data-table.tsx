@@ -187,7 +187,9 @@ export function DataTable<TData extends RowData>({
           />
         </div>
         {toolbar}
-        <DropdownMenu>
+        {/* No modal: un menú modal marca el resto de la página con aria-hidden
+            aunque siga siendo enfocable (axe: aria-hidden-focus, WCAG 4.1.2). */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto" data-testid={`${testId}-columns`}>
               <Columns3Icon aria-hidden="true" />
