@@ -110,3 +110,15 @@ test("?record= de algo que no está en la tabla no abre nada", async ({ page }) 
   await expect(page.getByTestId("preview-drawer")).toBeHidden();
   await expect(page.getByText("A2 Norte")).toHaveCount(0);
 });
+
+test("al cerrar la vista previa, el foco vuelve a la fila que la abrió", async ({ page }) => {
+  await signIn(page, "a_org_admin");
+  await page.goto("/app/records/people");
+  const row = page.getByTestId("people-table-row").filter({ hasText: "Staff A2" });
+  await row.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("preview-drawer")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("preview-drawer")).toBeHidden();
+  await expect(row).toBeFocused();
+});

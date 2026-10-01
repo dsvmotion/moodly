@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
+import { AppSearchButton } from "@/components/app-command-center";
 import { AppFrame } from "@/components/app-frame";
 import { AppScopeSwitcher } from "@/components/app-scope-switcher";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 {organizations?.map((organization) => organization.name).join(" · ")}
               </div>
               <AppScopeSwitcher options={options} />
+              <AppSearchButton />
             </>
           }
         />

@@ -162,5 +162,14 @@
       "sat": "Sáb",
       "sun": "Dom"
     }
+  },
+  "command": {
+    "title": "Paleta de comandos",
+    "description": "Busca una sección y pulsa Enter para ir a ella.",
+    "placeholder": "Buscar secciones…",
+    "empty": "Sin resultados.",
+    "navigation": "Navegación",
+    "records": "Registros",
+    "settings": "Ajustes"
   }
 }

@@ -162,5 +162,14 @@
       "sat": "Sat",
       "sun": "Sun"
     }
+  },
+  "command": {
+    "title": "Command palette",
+    "description": "Search for a section and press Enter to go there.",
+    "placeholder": "Search sections…",
+    "empty": "No results.",
+    "navigation": "Navigation",
+    "records": "Records",
+    "settings": "Settings"
   }
 }

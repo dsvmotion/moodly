@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/sheet";
+import { useRestoreFocus } from "@repo/ui/hooks/use-restore-focus";
 
 /**
  * Panel lateral de vista previa (P4, MANUAL §9.3): abre el detalle de un
@@ -25,9 +26,11 @@ export function PreviewDrawer({
   closeLabel?: string | undefined;
   children: ReactNode;
 }) {
+  // Se abre desde una fila de la tabla (sin Trigger): al cerrar, el foco vuelve a la fila.
+  const restoreFocus = useRestoreFocus(open);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent data-testid="preview-drawer" closeLabel={closeLabel}>
+      <SheetContent data-testid="preview-drawer" closeLabel={closeLabel} onCloseAutoFocus={restoreFocus}>
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           {description ? <SheetDescription>{description}</SheetDescription> : <SheetDescription className="sr-only">{title}</SheetDescription>}

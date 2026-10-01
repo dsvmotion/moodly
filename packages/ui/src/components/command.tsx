@@ -4,6 +4,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { SearchIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ComponentProps, ReactNode } from "react";
+import { useRestoreFocus } from "@repo/ui/hooks/use-restore-focus";
 import { cn } from "@repo/ui/lib/utils";
 
 export function Command({ className, ...props }: ComponentProps<typeof CommandPrimitive>) {
@@ -32,12 +33,14 @@ export function CommandDialog({
   label: string;
   children: ReactNode;
 }) {
+  const restoreFocus = useRestoreFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           data-slot="command-dialog"
+          onCloseAutoFocus={restoreFocus}
           className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-background shadow-panel data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
