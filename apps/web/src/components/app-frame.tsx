@@ -13,7 +13,7 @@ export function AppFrame({ sidebar, topbar, children }: { sidebar: ReactNode; to
       <AppShell
         sidebar={sidebar}
         topbar={topbar}
-        labels={{ skipToContent: t("skipToContent"), openMenu: t("openMenu"), menu: t("menu") }}
+        labels={{ skipToContent: t("skipToContent"), openMenu: t("openMenu"), menu: t("menu"), closeMenu: t("closeMenu") }}
       >
         {children}
       </AppShell>

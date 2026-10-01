@@ -46,7 +46,9 @@ export function ScopeSwitcher({
     kind === "all" ? <Building2Icon aria-hidden="true" /> : kind === "region" ? <MapIcon aria-hidden="true" /> : <StoreIcon aria-hidden="true" />;
 
   return (
-    <DropdownMenu>
+    // No modal: un menú modal marca el resto de la página con aria-hidden aunque
+    // siga siendo enfocable (axe: aria-hidden-focus, WCAG 4.1.2).
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         data-testid="scope-switcher"
         aria-label={`${labels.trigger}: ${current?.label ?? ""}`}

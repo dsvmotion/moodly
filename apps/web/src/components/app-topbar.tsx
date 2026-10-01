@@ -7,6 +7,7 @@ import { isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV } from "@/lib/navigation"
 /** Migas de la barra superior (MANUAL §9.2): sección y, si aplica, grupo. */
 export function AppTopbar() {
   const t = useTranslations("nav");
+  const tShell = useTranslations("shell");
   const pathname = usePathname();
   const record = RECORDS_NAV.find((entry) => isActive(pathname, entry.href));
   const main = MAIN_NAV.find((entry) => isActive(pathname, entry.href));
@@ -21,7 +22,7 @@ export function AppTopbar() {
         : [];
 
   return (
-    <nav aria-label="breadcrumb" data-testid="breadcrumbs">
+    <nav aria-label={tShell("breadcrumb")} data-testid="breadcrumbs">
       <ol className="flex min-w-0 items-center gap-1.5 text-sm">
         {crumbs.map((crumb, index) => (
           <li key={crumb} className="flex min-w-0 items-center gap-1.5">

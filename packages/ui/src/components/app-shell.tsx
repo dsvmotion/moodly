@@ -19,7 +19,7 @@ export function AppShell({
   sidebar: ReactNode;
   topbar?: ReactNode;
   children: ReactNode;
-  labels: { skipToContent: string; openMenu: string; menu: string };
+  labels: { skipToContent: string; openMenu: string; menu: string; closeMenu: string };
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -35,7 +35,7 @@ export function AppShell({
       <div className="hidden md:flex">{sidebar}</div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 max-w-[85vw] p-0" onClick={(event) => {
+        <SheetContent side="left" closeLabel={labels.closeMenu} className="w-72 max-w-[85vw] p-0" onClick={(event) => {
           // Cerrar al navegar desde el menú móvil.
           if ((event.target as HTMLElement).closest("a")) setMobileOpen(false);
         }}>
