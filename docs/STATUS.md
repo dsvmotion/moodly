@@ -21,6 +21,19 @@
     1. `pnpm db:start && pnpm db:seed && pnpm --filter @repo/web env:local`.
     2. Si los e2e fallan al lanzar el navegador: `pnpm --filter @repo/web exec playwright install chromium` (macOS borró la caché del navegador una vez).
 
+- Web pública, prototipo de plataforma y auditoría — rama `feat/site-landings`, **sin commitear**, estado a 2026-10-07:
+  - `apps/site` (nuevo workspace, puerto 3001):
+    - web pública en es/en/fr/de con detección de idioma (`src/proxy.js`);
+    - 8 verticales y 47 subsectores, precios fijo + variable + implantación, 121 integraciones con logos oficiales;
+    - páginas de seguridad, enterprise, modelos, producto, app móvil y legales en borrador;
+    - prototipo navegable de la plataforma en `/plataforma` (escritorio y móvil). Es **prototipo**: datos fijos y botones `data-demo`, sin backend.
+  - Verificado: `pnpm check` 52/52 (incluida `apps/site`), pgTAP 186/186 y build de `apps/site` (111 páginas).
+  - Documentos nuevos:
+    - `docs/design/` (benchmark Langdock, modelo de precios con fuentes, nombres SEO de verticales, arquitectura de agentes enterprise);
+    - `docs/audits/2026-10-07-auditoria-plataforma.md`: brechas por dominio y plan en 13 pasos.
+  - Prototipo: panel responsive (el shell llena el viewport con `100dvh` en vez de `minHeight: 960px`; la barra lateral se estira a toda la altura) y **datos por sede** (`SedeProvider` + `localStorage` + `sede-data.js`): el selector de sede cambia los datos del Inicio y de las páginas clave (conversaciones, clientes, agenda, facturas, informes, leads); «Todas las sedes» agrega la organización. Modela el alcance (`location_id`) del backend. Verificado en localhost (Centro/Norte/Todas, build 117 páginas).
+  - Pendiente: regenerar capturas de las landings (`public/shots/*`, home/producto/app-movil) y poner al día los tableros del canvas con el panel actual. PR de `apps/site`: toca `package.json` y el lockfile (zona sensible), así que necesita `revisado-humano`.
+
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
