@@ -4,6 +4,9 @@
 
 export type MembershipRole = "org_admin" | "region_manager" | "location_manager" | "staff";
 
+/** Roles del equipo interno (platform_staff). Nunca "staff" a secas: ese es un rol tenant. */
+export type PlatformStaffRole = "platform_admin" | "platform_operator";
+
 export interface SeedOrganization {
   id: string;
   name: string;
@@ -32,6 +35,20 @@ export interface SeedUser {
   role: MembershipRole;
   scopeRegionIds: readonly string[];
   scopeLocationIds: readonly string[];
+}
+
+/**
+ * Cuenta del equipo interno (ADR 0019, D4: en local y CI se concede por el
+ * seed). Cuenta dedicada: sin membership en ninguna organización (D2).
+ */
+export interface SeedPlatformStaff {
+  /** Clave estable para localizar al usuario en tests (no es un secreto). */
+  key: string;
+  email: string;
+  fullName: string;
+  role: PlatformStaffRole;
+  /** Fecha fija (no now()) para que el seed sea idempotente; null = acceso vigente. */
+  revokedAt: string | null;
 }
 
 const ORG_A = "5eed0000-0000-4000-8000-00000000000a";
@@ -103,5 +120,29 @@ export const seedUsers: readonly SeedUser[] = [
     role: "org_admin",
     scopeRegionIds: [],
     scopeLocationIds: [],
+  },
+];
+
+export const seedPlatformStaff: readonly SeedPlatformStaff[] = [
+  {
+    key: "platform_admin",
+    email: "ops.admin@demo.test",
+    fullName: "Ops Admin",
+    role: "platform_admin",
+    revokedAt: null,
+  },
+  {
+    key: "platform_operator",
+    email: "ops.operator@demo.test",
+    fullName: "Ops Operator",
+    role: "platform_operator",
+    revokedAt: null,
+  },
+  {
+    key: "platform_revoked",
+    email: "ops.revocado@demo.test",
+    fullName: "Ops Revocado",
+    role: "platform_operator",
+    revokedAt: "2026-10-01T00:00:00.000Z",
   },
 ];

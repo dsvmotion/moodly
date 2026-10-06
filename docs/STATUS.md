@@ -13,9 +13,13 @@
 - App shell (Fase 0 · tarea 4):
   - **Hecho y mergeado** (los PRs #9 a #14 con `scripts/safe-merge.sh`): dependencias y configuración (#6, por producto); tokens de diseño y componentes base (#7); barra lateral §9.2 con estados vacíos, tema claro/oscuro y modo compacto (#9); selector de alcance según RLS y en la URL (#10); Registros → Locales y Personas con `DataTable` y vista previa (#11); paleta ⌘K (#12); i18n es/en, navegación con teclado y axe WCAG 2.1 AA (#13); e2e por rol con capturas en claro y oscuro (#14).
   - **Pendiente de revisión humana (zonas sensibles):** traducción de la página de login e Inicio (P1) en `/app`. Hoy `/app` sigue llevando a "Mi organización".
+- Panel `/ops` mínimo (Fase 0, MANUAL §17; ADR 0019, decisiones D1–D14 cerradas por producto el 2026-10-06). Se entrega en 4 PRs (+1 condicional):
+  - **PR 1 · base de datos — abierto, pendiente de revisión humana** (zonas sensibles; rama `feat/ops-platform-staff-audit`): `platform_staff`, `private.is_platform_staff()`, identidades separadas (trigger), `audit_logs` de solo inserción con `at` fijado por la base de datos, políticas SELECT del equipo interno en las 5 tablas de tenants, seed con 1 `platform_admin`, 1 `platform_operator` y 1 interno revocado, y ADR 0019. Verificado en local: pgTAP 301/301 (115 nuevos), 4 pruebas negativas (+1 extra), rollback probado, `supabase db lint` limpio, `pnpm check` 51/51 y e2e 83/83 con el seed nuevo. Falta el CI del PR y la revisión.
+  - **Pendiente:** PR 2 (`requirePlatformStaff()` y `withPlatformStaffAudit()`, puerta 404 en `/ops`, regla en AGENTS.md/CLAUDE.md), PR 3 (`/ops/organizations` y detalle, con una fila de auditoría por vista), PR 4 (`/ops/audit`) y, si la tarea 5 ya está mergeada, PR 5 (`/ops/agent-types`). `^apps/web/src/app/ops/` pasa a `sensitive-paths.txt` con los PRs web (D13).
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
+- Uso alojado o en producción de `/ops`: requiere antes MFA (AAL2) para el equipo interno (ADR 0019, D12), a verificar contra el plan de Supabase (MANUAL §18 #11). En local no se exige en la Fase 0.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
 
 ## Próximo (Fase 0 — Cimientos, MANUAL §17)
@@ -29,4 +33,5 @@
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
 6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.
-7. Redactar ADRs 0001–0017 (MANUAL §19). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.
+7. Borrado RGPD frente a `audit_logs` de solo inserción (ADR 0019, D6): decidir con el trabajo de §11 si se seudonimiza `actor_id`/`target` o se borra. Mientras tanto, borrar una organización con auditoría falla (`on delete restrict`).
+8. Redactar ADRs 0001–0017 (MANUAL §19). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.

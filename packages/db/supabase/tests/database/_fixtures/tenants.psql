@@ -17,6 +17,11 @@
 --   b_admin       org_admin        de B
 --   b_loc_mgr     location_manager de B1
 --   outsider      sin membership
+--
+-- Equipo interno (platform_staff, cuentas dedicadas sin membership):
+--   p_admin       platform_admin
+--   p_operator    platform_operator
+--   p_revoked     platform_operator con el acceso retirado (revoked_at)
 
 create extension if not exists pgtap with schema extensions;
 
@@ -60,6 +65,9 @@ $$;
 \set b_admin       '''b3000000-0000-4000-8000-000000000001'''
 \set b_loc_mgr     '''b3000000-0000-4000-8000-000000000002'''
 \set outsider      '''c3000000-0000-4000-8000-000000000001'''
+\set p_admin       '''e3000000-0000-4000-8000-000000000001'''
+\set p_operator    '''e3000000-0000-4000-8000-000000000002'''
+\set p_revoked     '''e3000000-0000-4000-8000-000000000003'''
 
 insert into auth.users (id, email, aud, role)
 select id::uuid, email, 'authenticated', 'authenticated'
@@ -71,7 +79,10 @@ from (values
   (:a_staff2,     'a_staff2@test.local'),
   (:b_admin,      'b_admin@test.local'),
   (:b_loc_mgr,    'b_loc_mgr@test.local'),
-  (:outsider,     'outsider@test.local')
+  (:outsider,     'outsider@test.local'),
+  (:p_admin,      'p_admin@test.local'),
+  (:p_operator,   'p_operator@test.local'),
+  (:p_revoked,    'p_revoked@test.local')
 ) as u(id, email);
 
 insert into public.users (id, full_name)
@@ -100,3 +111,8 @@ insert into public.memberships (user_id, organization_id, role, scope_region_ids
   (:a_staff2,     :org_a, 'staff',            '{}',                     array[:loc_a2]::uuid[]),
   (:b_admin,      :org_b, 'org_admin',        '{}',                     '{}'),
   (:b_loc_mgr,    :org_b, 'location_manager', '{}',                     array[:loc_b1]::uuid[]);
+
+insert into public.platform_staff (user_id, role, revoked_at) values
+  (:p_admin,    'platform_admin',    null),
+  (:p_operator, 'platform_operator', null),
+  (:p_revoked,  'platform_operator', now() - interval '1 day');

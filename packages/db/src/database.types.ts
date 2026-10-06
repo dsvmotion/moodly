@@ -5,7 +5,26 @@ export type Database = {
   
   "public": {
           Tables: {
-            "locations": {
+            "audit_logs": {
+                  Row: {
+                    "action": string,"actor_id": string | null,"actor_type": string,"at": string,"id": string,"metadata": NonNullable<Json>,"organization_id": string | null,"target": NonNullable<Json>
+                  }
+                  Insert: {
+                    "action": string,"actor_id"?: string | null,"actor_type": string,"at"?: string,"id"?: string,"metadata"?: NonNullable<Json>,"organization_id"?: string | null,"target"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "action"?: string,"actor_id"?: string | null,"actor_type"?: string,"at"?: string,"id"?: string,"metadata"?: NonNullable<Json>,"organization_id"?: string | null,"target"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "audit_logs_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"locations": {
                   Row: {
                     "address": string | null,"created_at": string,"id": string,"name": string,"opening_hours": NonNullable<Json>,"organization_id": string,"region_id": string | null,"status": string,"timezone": string,"updated_at": string
                   }
@@ -67,6 +86,25 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"platform_staff": {
+                  Row: {
+                    "created_at": string,"id": string,"revoked_at": string | null,"role": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"revoked_at"?: string | null,"role": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"revoked_at"?: string | null,"role"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "platform_staff_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"regions": {
                   Row: {
