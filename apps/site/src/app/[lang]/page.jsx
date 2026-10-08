@@ -1,5 +1,7 @@
 "use client";
+import { useEffect, useState } from "react";
 import LangLink from "@/components/lang-link";
+import PhoneDemo from "@/components/phone-demo";
 import { PRICING as P, eur } from "@/components/pricing";
 import { getVerticals } from "@/components/verticals";
 import SiteHeader from "@/components/site-header";
@@ -12,6 +14,16 @@ import { COPY } from "./copy";
 export default function Page() {
   const lang = useLang();
   const t = COPY[lang] || COPY.es;
+  // En escritorio, el teléfono del hero cobra vida (demo en vivo); en móvil se
+  // queda la captura estática para no romper la composición ni gastar batería.
+  const [liveHero, setLiveHero] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 900px)");
+    const sync = () => setLiveHero(m.matches);
+    sync();
+    m.addEventListener("change", sync);
+    return () => m.removeEventListener("change", sync);
+  }, []);
   const VERTICALS = getVerticals(lang);
   const A = t.agents;
   const arrow = (stroke) => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>);
@@ -45,7 +57,13 @@ export default function Page() {
             <img className="collage-back" src="/shots/inicio.png" alt="" style={{ position: "absolute", left: 0, top: "56px", width: "52%", borderRadius: "12px", boxShadow: "0 12px 32px #0000001f", opacity: 0.92 }} />
             <img className="collage-back" src="/shots/informes.png" alt="" style={{ position: "absolute", right: 0, top: "56px", width: "52%", borderRadius: "12px", boxShadow: "0 12px 32px #0000001f", opacity: 0.92 }} />
             <img src="/shots/conversaciones.png" alt={t.altInbox} style={{ position: "absolute", left: "50%", top: 0, transform: "translateX(-50%)", width: "min(84%, 900px)", borderRadius: "12px 12px 0 0", boxShadow: "0 24px 64px #00000033, 0 0 0 1px #0000000f", zIndex: 2 }} />
-            <img src="/shots/movil-aprobar.png" alt={t.altMobile} style={{ position: "absolute", right: "clamp(0px, 3vw, 40px)", bottom: "-8%", width: "clamp(110px, 19%, 210px)", borderRadius: "clamp(18px, 2.6vw, 34px)", border: "clamp(4px, 0.6vw, 7px) solid #000000", boxShadow: "0 24px 48px #00000040", zIndex: 3 }} />
+            {liveHero ? (
+              <div style={{ position: "absolute", right: "clamp(0px, 3vw, 40px)", bottom: "-7%", zIndex: 3, filter: "drop-shadow(0 24px 48px #00000040)" }}>
+                <PhoneDemo scale={0.62} />
+              </div>
+            ) : (
+              <img src="/shots/movil-aprobar.png" alt={t.altMobile} style={{ position: "absolute", right: "clamp(0px, 3vw, 40px)", bottom: "-8%", width: "clamp(110px, 19%, 210px)", borderRadius: "clamp(18px, 2.6vw, 34px)", border: "clamp(4px, 0.6vw, 7px) solid #000000", boxShadow: "0 24px 48px #00000040", zIndex: 3 }} />
+            )}
           </div>
         </div>
       </section>

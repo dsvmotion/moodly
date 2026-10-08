@@ -1,6 +1,7 @@
 import PageShell, { h2, muted, pillBtn, section, wrap } from "@/components/page-shell";
 import LangLink from "@/components/lang-link";
 import { PhoneFrame } from "@/components/screen-frame";
+import PhoneDemo from "@/components/phone-demo";
 import { COPY } from "./copy";
 
 const SHOTS = ["m-inicio", "m-aprobaciones", "m-chats", "m-conversacion", "m-agenda", "m-agentes"];
@@ -19,6 +20,11 @@ export default async function AppMovil({ params }) {
       intro={c.intro}
       actions={<><LangLink href="/#demo" style={pillBtn(true)}>{c.demo}</LangLink><LangLink href="/producto" style={pillBtn(false)}>{c.platform}</LangLink></>}
     >
+      <section style={{ ...section, paddingTop: "clamp(28px, 4vw, 56px)" }}>
+        <div style={{ ...wrap, display: "flex", justifyContent: "center" }}>
+          <PhoneDemo />
+        </div>
+      </section>
       <section style={{ ...section, paddingTop: "clamp(40px, 6vw, 72px)" }}>
         <div className="phone-grid" style={{ ...wrap, display: "grid", gap: "56px 40px" }}>
           {c.screens.map(([title, text], i) => (

@@ -55,6 +55,22 @@ Todo esto ya está en el diseño o en los documentos; lo que falta son **decisio
 - **Barrera de salida sana**: cuanto más aprende tu voz, más cuesta cambiarte (lock-in por valor, no por candado).
 - **Medible y vendible**: «tus agentes suenan un 92% como tú» es una métrica de producto y un gancho comercial que un bot genérico no puede dar.
 
+### Dos voces, no una
+La «voz del negocio» tiene **dos capas** que hay que modelar juntas:
+- **Voz escrita** (chat, WhatsApp texto, email): el tono, léxico y guardarraíles de arriba.
+- **Voz hablada** (skill de voz: llamadas telefónicas y notas de voz de WhatsApp): una **persona de voz TTS** configurable — **sexo, edad aparente, tono, estilo, velocidad, acento** — y, lo más diferenciador, **clonada a partir de audios propios del negocio** (la voz de la recepcionista real, o una voz de marca). Así la llamada suena como *ellos*, no como un robot de centralita.
+
+Ambas heredan por el mismo árbol (red → organización → región → local → agente → canal) y se versionan igual. Un agente con la skill de voz activa resuelve su persona de voz de ese árbol.
+
+### Proveedores de voz (clonación + TTS en tiempo real)
+Sí existe este servicio; **no conviene atarse a uno** — igual que con los modelos de texto, la capa de voz debe ser **agnóstica de proveedor** con política «solo UE» y *fallback*. Panorama (datos a confirmar con un test propio de latencia y una prueba de clonación):
+- **ElevenLabs**: clonación de voz (instantánea y profesional) y Conversational AI para teléfono; calidad de clonación muy alta. **Residencia UE solo en Enterprise**, y el almacenamiento en la UE **no garantiza** que el procesado no salga de la UE salvo «Zero Retention Mode» — y un LLM propio o webhooks pueden romper esa garantía. A vigilar para nuestro requisito UE.
+- **Cartesia (Sonic)**: latencia muy baja y **optimizado para telefonía (8 kHz)**, clonación instantánea desde ~3 s de audio, y **despliegue on-prem/on-device** (clave para controlar la residencia UE). Buen encaje con «solo UE» + llamadas.
+- **PlayHT / Rime / Azure / OpenAI TTS**: alternativas; Azure exige mucho audio para clonar y más latencia; Rime es barato y rápido pero con menos datos verificables.
+- **Clonación = consentimiento**: clonar una voz exige que el negocio tenga derecho a usarla (consentimiento de la persona, no una voz cualquiera de un cliente). Es requisito legal y de producto (riesgo de suplantación).
+
+**Recomendación:** capa de voz **agnóstica de proveedor** (un adaptador, como el enrutador de modelos), arrancar el piloto con **uno** (Cartesia o ElevenLabs según la prueba de latencia UE y calidad de clonación), y medir latencia de extremo a extremo con un número de teléfono UE propio antes de decidir. Decisión al nivel de los proveedores LLM/BSP, no bloquea el resto del backend.
+
 ---
 
 ## 3. Otros edges (ya en el diseño; subrayarlos en producto y web)
@@ -79,10 +95,11 @@ Todo esto ya está en el diseño o en los documentos; lo que falta son **decisio
 
 No es una arquitectura nueva — **extiende** la herencia y el versionado que ya están en el plan (`config_overrides`, `config_snapshots`, `agent_versions`). Entidades nuevas:
 
-- `voice_profiles` — perfil de voz **resuelto por herencia** (red → organización → región → local → agente → canal), **versionado**.
+- `voice_profiles` — perfil de voz **escrita** resuelto por herencia (red → organización → región → local → agente → canal), **versionado**.
 - `voice_rules` / `lexicon` — do/don't, términos propios y prohibidos, formalidad por canal/segmento, firma, política de emojis.
-- `voice_samples` — few-shot: mensajes reales del negocio, **con consentimiento y retención propias**.
-- `voice_eval_runs` — «¿suena a ellos? ¿respeta los guardarraíles?» como **puerta de publicación** (igual que las evals de agente).
+- `voice_personas` — persona de voz **hablada** para la skill de voz: proveedor (agnóstico), `voice_id` o referencia a voz clonada, ajustes (sexo, tono, velocidad, estilo, acento), canal. Hereda por el mismo árbol.
+- `voice_samples` — ejemplos para personalizar: mensajes reales (few-shot de texto) **y audios** para clonación de voz, **con consentimiento, anonimización y retención propias**.
+- `voice_eval_runs` — «¿suena a ellos? ¿respeta los guardarraíles?» (texto y, para voz, calidad/semejanza) como **puerta de publicación**.
 - Señales de voz en el ciclo de aprendizaje (una edición que cambia el tono → propuesta de ajuste).
 
 Implicaciones para `packages/agent-core`: el montaje de contexto trata **ESTILO (voz)** como capa propia, distinta de **CONTENIDO (conocimiento)** y **POLÍTICA (autonomía)**. El pipeline de publicación añade una **eval de voz**.
@@ -93,16 +110,17 @@ Implicaciones para `packages/agent-core`: el montaje de contexto trata **ESTILO 
 
 ## 6. Decisiones a cerrar antes del backend
 
-Nuevas (de este documento):
-1. **¿La «Voz del negocio» es capa de primer nivel desde el día 1?** (recomendado sí) — define `voice_profiles` y el paso de voz en el onboarding.
-2. **¿Guardamos mensajes reales del negocio como few-shot?** (consentimiento, anonimización, retención) — decisión de datos/RGPD.
-3. **¿La central (franquicia) puede bloquear la voz para toda la red?** (encaja con la herencia; recomendado sí).
+Decididas (2026-10-08, con producto):
+1. **Voz = capa de primer nivel desde el día 1.** Cubre voz **escrita** (tono/léxico) y voz **hablada** (persona TTS configurable: sexo, tono, estilo… y clonación desde audios propios). Se definen `voice_profiles` + `voice_personas` y el paso de voz en el onboarding desde el inicio; el motor de aprendizaje de voz puede llegar en fase posterior.
+2. **Guardamos ejemplos reales (texto y audio) para personalizar, con consentimiento + anonimización + retención propias** (recomendación aceptada). Es mejor calidad de voz y, bien hecho, un argumento de venta (tus datos, UE, borrables). El audio de clonación debe ser una voz que el negocio tenga derecho a usar.
+3. **La central (franquicia) puede bloquear la voz para toda la red** (heredado con claves bloqueadas, como el resto de la configuración de red).
 
-Ya abiertas (de las auditorías anteriores, siguen bloqueando):
+Ya abiertas (siguen bloqueando partes del backend):
 4. Mecanismo de secretos de cliente (Vault vs KMS).
-5. Proveedores LLM + embeddings, y si hay modelo UE con calidad suficiente para la «voz».
-6. Vertical y cliente piloto; pymes o cadenas primero.
-7. GitHub Team (proteger `main`).
+5. Proveedores LLM + embeddings, y si hay modelo UE con calidad suficiente para la «voz» escrita.
+6. **Proveedor de voz (TTS + clonación)**: capa agnóstica; arrancar el piloto con uno (Cartesia o ElevenLabs) tras una prueba propia de latencia UE y calidad de clonación. Vigilar la residencia UE (en ElevenLabs es Enterprise y con matices). Nivel de decisión: igual que LLM/BSP, no bloquea el resto.
+7. Vertical y cliente piloto; pymes o cadenas primero.
+8. GitHub Team (proteger `main`).
 
 ---
 
