@@ -61,6 +61,14 @@ const TEXT_PAIRS: Array<[text: string, background: string]> = [
   ["sidebar-muted-foreground", "sidebar"],
   ["sidebar-accent-foreground", "sidebar-accent"],
   ["sidebar-muted-foreground", "sidebar-accent"],
+  // Marca: el texto -foreground sobre cada color de agente y el naranja de marca.
+  ["agent-reception-foreground", "agent-reception"],
+  ["agent-customer-foreground", "agent-customer"],
+  ["agent-sales-foreground", "agent-sales"],
+  ["agent-admin-foreground", "agent-admin"],
+  ["brand-foreground", "brand"],
+  // Enlace: texto sobre el fondo de la página (se aclara en oscuro).
+  ["link", "background"],
 ];
 
 const UI_PAIRS: Array<[component: string, background: string]> = [

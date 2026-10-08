@@ -1,0 +1,63 @@
+// /privacidad — borrador legal en los cuatro idiomas. Revisar con asesoría legal.
+export const COPY = {
+  es: {
+    title: "Política de privacidad", updated: "[fecha]",
+    intro: "Cómo tratamos tus datos personales en moodly.ai y en la plataforma Moodly.",
+    sections: [
+      ["Quién es el responsable", ["[Razón social], con NIF [NIF] y domicilio en [dirección], es el responsable de los datos que nos facilitas en moodly.ai. Contacto de privacidad: [privacidad@moodly.ai]. Delegado de protección de datos: [nombre o «no aplica»]."]],
+      ["Dos papeles distintos", ["En la web (formularios de demo, contacto y cookies) Moodly actúa como responsable del tratamiento.", "En la plataforma, cuando nuestros agentes atienden a los clientes de tu negocio, tú eres el responsable y Moodly es el encargado del tratamiento. Esa relación se regula en el Contrato de Encargo de Tratamiento (DPA) que firmamos con cada cliente."]],
+      ["Qué datos tratamos", [["Datos de contacto que nos envías: nombre, email de trabajo, empresa, teléfono.", "Datos de uso de la web, según tu elección de cookies.", "Si eres cliente: datos de facturación y de los usuarios de tu equipo.", "Como encargado: los mensajes, citas y documentos que tus agentes procesan por tu cuenta."]]],
+      ["Para qué y con qué base legal", [["Responder a tu solicitud de demo o contacto (medidas precontractuales).", "Prestar el servicio y facturarlo (ejecución del contrato).", "Enviarte novedades del producto si das tu consentimiento (consentimiento, revocable en cualquier momento).", "Seguridad y prevención del fraude (interés legítimo)."]]],
+      ["Inteligencia artificial", ["Usamos las APIs empresariales de proveedores de IA para que los agentes funcionen. Tus datos y los de tus clientes no se usan para entrenar modelos. [Confirmar condiciones de cada proveedor antes de publicar].", "Las acciones sensibles de los agentes (cobros, cambios de citas, envíos de documentos) se pueden configurar para requerir la aprobación de una persona."]],
+      ["Con quién los compartimos", ["Solo con proveedores necesarios para prestar el servicio (alojamiento, proveedores de IA, email, pagos), con contrato de encargo y garantías adecuadas. La lista actualizada de subencargados está en [enlace a subencargados]."]],
+      ["Dónde están los datos", ["Alojamos los datos en la Unión Europea [por confirmar región y proveedor]. Si algún proveedor trata datos fuera del EEE, lo hace con cláusulas contractuales tipo u otra garantía válida."]],
+      ["Cuánto tiempo los guardamos", ["Los datos de contacto, hasta 12 meses tras el último contacto si no llegas a ser cliente. Los de clientes, mientras dure el contrato y después durante los plazos legales. [Revisar plazos]."]],
+      ["Tus derechos", ["Puedes pedir acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a [privacidad@moodly.ai]. También puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es)."]],
+    ],
+  },
+  en: {
+    title: "Privacy policy", updated: "[date]",
+    intro: "How we handle your personal data on moodly.ai and in the Moodly platform.",
+    sections: [
+      ["Who is the controller", ["[Legal name], with tax ID [tax ID] and address at [address], is the controller of the data you provide on moodly.ai. Privacy contact: [privacidad@moodly.ai]. Data Protection Officer: [name or «not applicable»]."]],
+      ["Two different roles", ["On the website (demo, contact and cookie forms) Moodly acts as data controller.", "On the platform, when our agents serve your business's customers, you are the controller and Moodly is the processor. That relationship is governed by the Data Processing Agreement (DPA) we sign with each customer."]],
+      ["What data we process", [["Contact data you send us: name, work email, company, phone.", "Website usage data, depending on your cookie choice.", "If you are a customer: billing data and data of your team's users.", "As processor: the messages, appointments and documents your agents process on your behalf."]]],
+      ["Why and on what legal basis", [["Respond to your demo or contact request (pre-contractual measures).", "Provide the service and invoice it (performance of the contract).", "Send you product news if you consent (consent, revocable at any time).", "Security and fraud prevention (legitimate interest)."]]],
+      ["Artificial intelligence", ["We use AI providers' enterprise APIs so the agents work. Your data and your customers' data are not used to train models. [Confirm each provider's terms before publishing].", "Sensitive agent actions (collections, appointment changes, document sending) can be configured to require a person's approval."]],
+      ["Who we share it with", ["Only with providers needed to deliver the service (hosting, AI providers, email, payments), under a processing agreement and with adequate safeguards. The up-to-date list of sub-processors is at [sub-processors link]."]],
+      ["Where the data is", ["We host data in the European Union [region and provider to be confirmed]. If any provider processes data outside the EEA, it does so under standard contractual clauses or another valid safeguard."]],
+      ["How long we keep it", ["Contact data, up to 12 months after the last contact if you do not become a customer. Customer data, for the duration of the contract and afterwards during the legal periods. [Review periods]."]],
+      ["Your rights", ["You can request access, rectification, erasure, objection, restriction and portability by writing to [privacidad@moodly.ai]. You can also lodge a complaint with your data protection authority (in Spain, the AEPD, aepd.es)."]],
+    ],
+  },
+  fr: {
+    title: "Politique de confidentialité", updated: "[date]",
+    intro: "Comment nous traitons vos données personnelles sur moodly.ai et dans la plateforme Moodly.",
+    sections: [
+      ["Qui est le responsable", ["[Raison sociale], numéro d'identification [SIREN] et siège à [adresse], est le responsable des données que vous nous fournissez sur moodly.ai. Contact confidentialité : [privacidad@moodly.ai]. Délégué à la protection des données : [nom ou « non applicable »]."]],
+      ["Deux rôles distincts", ["Sur le site (formulaires de démo, contact et cookies), Moodly agit en tant que responsable du traitement.", "Sur la plateforme, lorsque nos agents servent les clients de votre entreprise, vous êtes le responsable et Moodly le sous-traitant. Cette relation est régie par le Contrat de sous-traitance (DPA) que nous signons avec chaque client."]],
+      ["Quelles données nous traitons", [["Données de contact que vous envoyez : nom, e-mail professionnel, entreprise, téléphone.", "Données d'usage du site, selon votre choix de cookies.", "Si vous êtes client : données de facturation et des utilisateurs de votre équipe.", "En tant que sous-traitant : les messages, rendez-vous et documents que vos agents traitent pour votre compte."]]],
+      ["Pourquoi et sur quelle base légale", [["Répondre à votre demande de démo ou de contact (mesures précontractuelles).", "Fournir le service et le facturer (exécution du contrat).", "Vous envoyer des actualités produit si vous y consentez (consentement, révocable à tout moment).", "Sécurité et prévention de la fraude (intérêt légitime)."]]],
+      ["Intelligence artificielle", ["Nous utilisons les API d'entreprise de fournisseurs d'IA pour faire fonctionner les agents. Vos données et celles de vos clients ne servent pas à entraîner des modèles. [Confirmer les conditions de chaque fournisseur avant publication].", "Les actions sensibles des agents (encaissements, changements de rendez-vous, envois de documents) peuvent être configurées pour exiger la validation d'une personne."]],
+      ["Avec qui nous les partageons", ["Uniquement avec les prestataires nécessaires à la prestation (hébergement, fournisseurs d'IA, e-mail, paiements), sous contrat de sous-traitance et avec des garanties adéquates. La liste à jour des sous-traitants ultérieurs est sur [lien vers les sous-traitants]."]],
+      ["Où se trouvent les données", ["Nous hébergeons les données dans l'Union européenne [région et fournisseur à confirmer]. Si un prestataire traite des données hors de l'EEE, il le fait sous clauses contractuelles types ou une autre garantie valable."]],
+      ["Combien de temps nous les conservons", ["Les données de contact, jusqu'à 12 mois après le dernier contact si vous ne devenez pas client. Les données des clients, pendant la durée du contrat puis durant les délais légaux. [Vérifier les délais]."]],
+      ["Vos droits", ["Vous pouvez demander l'accès, la rectification, l'effacement, l'opposition, la limitation et la portabilité en écrivant à [privacidad@moodly.ai]. Vous pouvez aussi saisir votre autorité de protection des données (en France, la CNIL, cnil.fr)."]],
+    ],
+  },
+  de: {
+    title: "Datenschutzerklärung", updated: "[Datum]",
+    intro: "Wie wir deine personenbezogenen Daten auf moodly.ai und in der Moodly-Plattform verarbeiten.",
+    sections: [
+      ["Wer ist verantwortlich", ["[Firmenname], mit Steuernummer [Steuernr.] und Sitz in [Adresse], ist der Verantwortliche für die Daten, die du uns auf moodly.ai übermittelst. Datenschutzkontakt: [privacidad@moodly.ai]. Datenschutzbeauftragter: [Name oder „nicht zutreffend“]."]],
+      ["Zwei verschiedene Rollen", ["Auf der Website (Demo-, Kontakt- und Cookie-Formulare) handelt Moodly als Verantwortlicher.", "Auf der Plattform, wenn unsere Agenten die Kunden deines Geschäfts betreuen, bist du der Verantwortliche und Moodly der Auftragsverarbeiter. Dieses Verhältnis regelt der Auftragsverarbeitungsvertrag (AVV), den wir mit jedem Kunden schließen."]],
+      ["Welche Daten wir verarbeiten", [["Kontaktdaten, die du uns sendest: Name, geschäftliche E-Mail, Unternehmen, Telefon.", "Nutzungsdaten der Website, je nach deiner Cookie-Auswahl.", "Als Kunde: Abrechnungsdaten und Daten der Nutzer deines Teams.", "Als Auftragsverarbeiter: die Nachrichten, Termine und Dokumente, die deine Agenten in deinem Auftrag verarbeiten."]]],
+      ["Wozu und auf welcher Rechtsgrundlage", [["Deine Demo- oder Kontaktanfrage beantworten (vorvertragliche Maßnahmen).", "Den Dienst erbringen und abrechnen (Vertragserfüllung).", "Dir Produktneuigkeiten senden, wenn du einwilligst (Einwilligung, jederzeit widerrufbar).", "Sicherheit und Betrugsprävention (berechtigtes Interesse)."]]],
+      ["Künstliche Intelligenz", ["Wir nutzen die Enterprise-APIs von KI-Anbietern, damit die Agenten funktionieren. Deine Daten und die deiner Kunden werden nicht zum Training von Modellen verwendet. [Bedingungen jedes Anbieters vor Veröffentlichung bestätigen].", "Sensible Agentenaktionen (Inkasso, Terminänderungen, Dokumentversand) können so konfiguriert werden, dass sie die Freigabe einer Person erfordern."]],
+      ["Mit wem wir sie teilen", ["Nur mit Anbietern, die für die Leistungserbringung nötig sind (Hosting, KI-Anbieter, E-Mail, Zahlungen), unter Auftragsverarbeitungsvertrag und mit angemessenen Garantien. Die aktuelle Liste der Unterauftragsverarbeiter findest du unter [Link zu den Unterauftragsverarbeitern]."]],
+      ["Wo die Daten liegen", ["Wir hosten die Daten in der Europäischen Union [Region und Anbieter zu bestätigen]. Verarbeitet ein Anbieter Daten außerhalb des EWR, geschieht dies unter Standardvertragsklauseln oder einer anderen gültigen Garantie."]],
+      ["Wie lange wir sie aufbewahren", ["Kontaktdaten bis zu 12 Monate nach dem letzten Kontakt, falls du kein Kunde wirst. Kundendaten für die Dauer des Vertrags und danach während der gesetzlichen Fristen. [Fristen prüfen]."]],
+      ["Deine Rechte", ["Du kannst Auskunft, Berichtigung, Löschung, Widerspruch, Einschränkung und Übertragbarkeit verlangen, indem du an [privacidad@moodly.ai] schreibst. Du kannst dich auch bei deiner Datenschutzbehörde beschweren (in Deutschland bei der zuständigen Landesbehörde)."]],
+    ],
+  },
+};
