@@ -22,7 +22,50 @@ const PROVIDERS = [
   ["googlegemini", "Google Gemini", false, ""],
   ["mistralai", "Mistral AI", false, ""],
 ];
-const USAGE = [["Recepción", 41, "#004c39"], ["Atención al cliente", 33, "#9dbecc"], ["Comercial", 14, "#a30042"], ["Administración", 12, "#8e4e00"]];
+const USAGE = [["Recepción", 41, "#004c39", "52 €"], ["Atención al cliente", 33, "#9dbecc", "42 €"], ["Comercial", 14, "#a30042", "18 €"], ["Administración", 12, "#8e4e00", "16 €"]];
+
+// Catálogo de modelos permitidos, agrupado por residencia de datos (como Langdock).
+// Precios de referencia por millón de tokens (entrada / salida), orientativos.
+const TYPES = { chat: ["Chat", "#e8edff", "#2457f5"], razon: ["Razonamiento", "#efe6ff", "#6b3fd4"], vision: ["Visión", "#dcebdd", "#004c39"], imagen: ["Imagen", "#ffe8d6", "#8e4e00"] };
+const CATALOG = [
+  {
+    region: "Operado en la UE", note: "Cumple tu política «solo UE».",
+    providers: [
+      { name: "Mistral AI", logo: "mistralai", models: [
+        { id: "mistral-large", n: "Mistral Large", type: "razon", ctx: "128k", in: "2,00", out: "6,00", on: true },
+        { id: "mistral-small", n: "Mistral Small", type: "chat", ctx: "128k", in: "0,20", out: "0,60", on: true },
+      ] },
+      { name: "Teuken (OpenGPT-X)", logo: "openai", models: [
+        { id: "teuken", n: "Teuken 7B · UE", type: "chat", ctx: "32k", in: "0,15", out: "0,45", on: false },
+      ] },
+    ],
+  },
+  {
+    region: "Operado en EE. UU.", note: "Datos procesados fuera de la UE.",
+    providers: [
+      { name: "Anthropic", logo: "anthropic", models: [
+        { id: "claude-haiku", n: "Claude Haiku", type: "chat", ctx: "200k", in: "0,80", out: "4,00", on: true },
+        { id: "claude-sonnet", n: "Claude Sonnet", type: "razon", ctx: "200k", in: "3,00", out: "15,00", on: true },
+        { id: "claude-opus", n: "Claude Opus", type: "razon", ctx: "200k", in: "15,00", out: "75,00", on: false },
+      ] },
+      { name: "OpenAI", logo: "openai", models: [
+        { id: "gpt-mini", n: "GPT · mini", type: "chat", ctx: "128k", in: "0,15", out: "0,60", on: true },
+        { id: "gpt-adv", n: "GPT · avanzado", type: "vision", ctx: "128k", in: "2,50", out: "10,00", on: true },
+      ] },
+    ],
+  },
+  {
+    region: "Despliegue global", note: "Región variable según disponibilidad.",
+    providers: [
+      { name: "Google", logo: "googlegemini", models: [
+        { id: "gemini-flash", n: "Gemini Flash", type: "chat", ctx: "1M", in: "0,10", out: "0,40", on: true },
+        { id: "gemini-pro", n: "Gemini Pro", type: "vision", ctx: "1M", in: "1,25", out: "5,00", on: false },
+        { id: "imagen", n: "Imagen 3", type: "imagen", ctx: "—", in: "0,03 €/img", out: "", on: false },
+      ] },
+    ],
+  },
+];
+const DEFAULT_ON = new Set(CATALOG.flatMap((g) => g.providers.flatMap((p) => p.models.filter((m) => m.on).map((m) => m.id))));
 
 const box = { background: "#ffffff", borderRadius: "12px", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px" };
 const h2 = { margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" };
@@ -42,6 +85,9 @@ export default function Modelos() {
   const [fallback, setFallback] = useState(true);
   const [euOnly, setEuOnly] = useState(true);
   const [mask, setMask] = useState(true);
+  const [enabled, setEnabled] = useState(DEFAULT_ON);
+  const toggleModel = (id) => setEnabled((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const count = (p) => p.models.filter((m) => enabled.has(m.id)).length;
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
@@ -104,6 +150,45 @@ export default function Modelos() {
           </table>
         </section>
 
+        <section style={{ ...box, gap: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
+            <h2 style={h2}>Modelos permitidos</h2>
+            <span style={{ fontSize: "13px", ...muted }}>{enabled.size} activados · el enrutador elige el mejor por tarea</span>
+          </div>
+          {CATALOG.map((g) => (
+            <div key={g.region} style={{ display: "flex", flexDirection: "column", gap: "2px", marginTop: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "13px", fontWeight: 500 }}>{g.region}</span>
+                <span style={{ fontSize: "12px", ...muted }}>{g.note}</span>
+                {g.region === "Operado en la UE" && <span style={{ padding: "1px 8px", borderRadius: "800px", background: "#dcebdd", color: "#004c39", fontSize: "11px" }}>Recomendado</span>}
+              </div>
+              {g.providers.map((p) => (
+                <div key={p.name} style={{ border: "1px solid #0000000f", borderRadius: "12px", overflow: "hidden", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "#fafafa", borderBottom: "1px solid #0000000f" }}>
+                    <img src={`/logos/${p.logo}.svg`} alt="" width="18" height="18" style={{ borderRadius: "4px" }} />
+                    <span style={{ fontSize: "14px", fontWeight: 500, flex: 1 }}>{p.name}</span>
+                    <span style={{ fontSize: "12px", ...muted }}>{count(p)}/{p.models.length} activados</span>
+                  </div>
+                  {p.models.map((m) => {
+                    const [label, bg, fg] = TYPES[m.type];
+                    const on = enabled.has(m.id);
+                    return (
+                      <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderTop: "1px solid #0000000a", flexWrap: "wrap" }}>
+                        <span style={{ flex: "1 1 150px", fontSize: "14px", fontWeight: 500 }}>{m.n}</span>
+                        <span style={{ padding: "2px 9px", borderRadius: "800px", background: bg, color: fg, fontSize: "11px", lineHeight: "16px", flex: "none" }}>{label}</span>
+                        <span style={{ fontSize: "12px", width: "56px", textAlign: "right", ...muted }}>{m.ctx}</span>
+                        <span style={{ fontSize: "12px", width: "120px", textAlign: "right", ...muted }}>{m.out ? `${m.in} / ${m.out}` : m.in}<span style={{ fontSize: "10px" }}> €/M</span></span>
+                        <Switch label={`Activar ${m.n}`} on={on} onClick={() => toggleModel(m.id)} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          ))}
+          <span style={{ fontSize: "12px", ...muted }}>Precios de referencia por millón de tokens (entrada / salida), orientativos. «Gestionar acceso» por grupo disponible en Enterprise.</span>
+        </section>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
           <section style={box}>
             <h2 style={h2}>Privacidad y continuidad</h2>
@@ -119,9 +204,13 @@ export default function Modelos() {
             ))}
           </section>
           <section style={box}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 style={h2}>Consumo de IA este mes</h2><span style={{ fontSize: "13px", ...muted }}>62 % del incluido</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}><h2 style={h2}>Consumo de IA este mes</h2><span style={{ fontSize: "14px" }}><strong style={{ fontWeight: 500 }}>128 €</strong><span style={muted}> de 300 € incluidos</span></span></div>
             <div aria-hidden="true" style={{ height: "10px", borderRadius: "800px", background: "#ebebed", display: "flex", overflow: "hidden" }}>{USAGE.map(([n, pct, c]) => (<span key={n} style={{ width: `${pct * 0.62}%`, background: c }} />))}</div>
-            {USAGE.map(([n, pct, c]) => (<div key={n} style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "20px" }}><span style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ width: "8px", height: "8px", borderRadius: "800px", background: c }} />{n}</span><span style={muted}>{pct} %</span></div>))}
+            {USAGE.map(([n, pct, c, eur]) => (<div key={n} style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "20px" }}><span style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ width: "8px", height: "8px", borderRadius: "800px", background: c }} />{n}</span><span style={muted}>{eur} · {pct} %</span></div>))}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #0000000f", paddingTop: "14px" }}>
+              <span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontWeight: 500 }}>Tope de gasto</span><span style={{ fontSize: "13px", ...muted }}>300 €/mes · aviso al 80 %. Al llegar, pasa al equipo.</span></span>
+              <button data-demo="" type="button" style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", font: "400 13px/18px var(--font-display)", cursor: "pointer" }}>Cambiar</button>
+            </div>
             <a href="/plataforma/configuracion/plan" style={{ fontSize: "14px", color: "#2457f5" }}>Ver plan y consumo →</a>
           </section>
         </div>
