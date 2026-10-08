@@ -10,6 +10,7 @@ export const TYPES = {
   vision: ["Visión", "#dcebdd", "#004c39"],
   codigo: ["Código", "#fff1d6", "#8e4e00"],
   imagen: ["Imagen", "#ffe8d6", "#8e4e00"],
+  voz: ["Voz", "#fbe1ea", "#a30042"],
 };
 
 export const CATALOG = [
@@ -59,6 +60,22 @@ export const CATALOG = [
           { id: "gemini-31-flash-lite", n: "Gemini 3.1 Flash Lite", type: "chat", ctx: "1M", in: "0,25", out: "1,50", on: true },
           { id: "gemini-35-flash", n: "Gemini 3.5 Flash", type: "vision", ctx: "1M", in: "1,50", out: "9,00", on: true },
           { id: "gemini-31-pro", n: "Gemini 3.1 Pro", type: "razon", ctx: "1M", in: "2,00", out: "12,00", on: false },
+        ],
+      },
+    ],
+  },
+  {
+    region: "Voz (síntesis y clonación)",
+    note: "Para la skill de voz: llamadas y notas de voz. El coste es por minuto, no por token.",
+    providers: [
+      {
+        name: "Cartesia", logo: "", models: [
+          { id: "cartesia-sonic", n: "Cartesia Sonic", type: "voz", ctx: "Telefonía 8 kHz · clon 3 s", in: "0,06 €/min", out: "", on: true },
+        ],
+      },
+      {
+        name: "ElevenLabs", logo: "elevenlabs", models: [
+          { id: "elevenlabs-clone", n: "ElevenLabs · clonación", type: "voz", ctx: "Clon instant. y pro · UE en Enterprise", in: "~0,12 €/min", out: "", on: false },
         ],
       },
     ],

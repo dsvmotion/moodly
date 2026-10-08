@@ -75,7 +75,7 @@ export default function Modelos() {
                   {g.providers.map((p) => (
                     <div key={p.name}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 24px", borderTop: "1px solid #0000000a" }}>
-                        <img src={`/logos/${p.logo}.svg`} alt="" width="18" height="18" style={{ borderRadius: "4px" }} />
+                        {p.logo ? <img src={`/logos/${p.logo}.svg`} alt="" width="18" height="18" style={{ borderRadius: "4px" }} /> : <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "#ebebed", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: 600 }}>{p.name[0]}</span>}
                         <span style={{ fontSize: "13px", ...muted }}>{p.name}</span>
                       </div>
                       {p.models.map((m) => {
