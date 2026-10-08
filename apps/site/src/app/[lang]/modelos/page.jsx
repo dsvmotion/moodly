@@ -1,6 +1,7 @@
 "use client";
 import LangLink from "@/components/lang-link";
 import PageShell, { card, h2, h3, muted, pillBtn, section, wrap } from "@/components/page-shell";
+import { CATALOG, TYPES } from "@/components/models-catalog";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
 
@@ -54,6 +55,47 @@ export default function Modelos() {
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section style={section}>
+        <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
+          <h2 style={h2}>{t.cat.a} <span style={muted}>{t.cat.b}</span></h2>
+          <div style={{ ...card, padding: 0, overflowX: "auto" }}>
+            <div style={{ minWidth: "560px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto 72px 136px", gap: "12px", padding: "12px 24px", background: "#f2f2f4", fontSize: "13px", ...muted }}>
+                <span>{t.cat.cols[0]}</span><span>{t.cat.cols[1]}</span><span style={{ textAlign: "right" }}>{t.cat.cols[2]}</span><span style={{ textAlign: "right" }}>{t.cat.cols[3]}</span>
+              </div>
+              {CATALOG.map((g) => (
+                <div key={g.region}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 24px", borderTop: "1px solid #0000000f", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 500 }}>{t.cat.regions[g.region]}</span>
+                    {g.region === "Operado en la UE" && <span style={{ padding: "1px 8px", borderRadius: "800px", background: "#dcebdd", color: "#004c39", fontSize: "11px" }}>UE</span>}
+                  </div>
+                  {g.providers.map((p) => (
+                    <div key={p.name}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 24px", borderTop: "1px solid #0000000a" }}>
+                        <img src={`/logos/${p.logo}.svg`} alt="" width="18" height="18" style={{ borderRadius: "4px" }} />
+                        <span style={{ fontSize: "13px", ...muted }}>{p.name}</span>
+                      </div>
+                      {p.models.map((m) => {
+                        const [label, bg, fg] = TYPES[m.type];
+                        return (
+                          <div key={m.id} style={{ display: "grid", gridTemplateColumns: "1fr auto 72px 136px", gap: "12px", alignItems: "center", padding: "10px 24px", borderTop: "1px solid #0000000a", fontSize: "14px" }}>
+                            <span style={{ fontWeight: 500 }}>{m.n}</span>
+                            <span style={{ padding: "2px 9px", borderRadius: "800px", background: bg, color: fg, fontSize: "11px", lineHeight: "16px", justifySelf: "start" }}>{t.cat.types[m.type]}</span>
+                            <span style={{ textAlign: "right", ...muted }}>{m.ctx}</span>
+                            <span style={{ textAlign: "right", ...muted }}>{m.out ? `${m.in} / ${m.out}` : m.in}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <span style={{ fontSize: "13px", ...muted }}>{t.cat.note}</span>
         </div>
       </section>
 

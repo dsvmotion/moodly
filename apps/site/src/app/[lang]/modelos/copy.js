@@ -16,6 +16,7 @@ export const COPY = {
       ["Voz y agentes de voz", "Llamadas con voz natural"],
       ["Modelos abiertos", "Modelos de nicho y embeddings"],
     ],
+    cat: { a: "Catálogo completo.", b: "Todos los modelos disponibles, por residencia de datos.", note: "Precios de referencia por millón de tokens (entrada / salida), orientativos.", cols: ["Modelo", "Tipo", "Contexto", "Coste ref."], regions: { "Operado en la UE": "Operado en la UE", "Operado en EE. UU.": "Operado en EE. UU.", "Despliegue global": "Despliegue global" }, types: { chat: "Chat", razon: "Razonamiento", vision: "Visión", codigo: "Código", imagen: "Imagen" } },
     taskA: "El modelo adecuado para cada tarea.", taskB: "Elegido automáticamente o fijado por ti.",
     th: ["Agente", "Tarea típica", "Tipo de modelo", "Por qué"],
     tasks: [
@@ -59,6 +60,7 @@ export const COPY = {
       ["Voice and voice agents", "Calls with natural voice"],
       ["Open models", "Niche models and embeddings"],
     ],
+    cat: { a: "Full catalogue.", b: "Every available model, by data residency.", note: "Reference prices per million tokens (in / out), indicative.", cols: ["Model", "Type", "Context", "Ref. cost"], regions: { "Operado en la UE": "Operated in the EU", "Operado en EE. UU.": "Operated in the US", "Despliegue global": "Global deployment" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Image" } },
     taskA: "The right model for each task.", taskB: "Chosen automatically or set by you.",
     th: ["Agent", "Typical task", "Model type", "Why"],
     tasks: [
@@ -102,6 +104,7 @@ export const COPY = {
       ["Voix et agents vocaux", "Appels avec voix naturelle"],
       ["Modèles ouverts", "Modèles de niche et embeddings"],
     ],
+    cat: { a: "Catalogue complet.", b: "Tous les modèles disponibles, par résidence des données.", note: "Prix de référence par million de tokens (entrée / sortie), indicatifs.", cols: ["Modèle", "Type", "Contexte", "Coût réf."], regions: { "Operado en la UE": "Opéré dans l'UE", "Operado en EE. UU.": "Opéré aux États-Unis", "Despliegue global": "Déploiement global" }, types: { chat: "Chat", razon: "Raisonnement", vision: "Vision", codigo: "Code", imagen: "Image" } },
     taskA: "Le bon modèle pour chaque tâche.", taskB: "Choisi automatiquement ou défini par vous.",
     th: ["Agent", "Tâche typique", "Type de modèle", "Pourquoi"],
     tasks: [
@@ -145,6 +148,7 @@ export const COPY = {
       ["Sprache und Sprach-Agenten", "Anrufe mit natürlicher Stimme"],
       ["Offene Modelle", "Nischenmodelle und Embeddings"],
     ],
+    cat: { a: "Vollständiger Katalog.", b: "Alle verfügbaren Modelle, nach Datenresidenz.", note: "Referenzpreise pro Million Token (Ein- / Ausgabe), Richtwerte.", cols: ["Modell", "Typ", "Kontext", "Ref.-Kosten"], regions: { "Operado en la UE": "In der EU betrieben", "Operado en EE. UU.": "In den USA betrieben", "Despliegue global": "Globale Bereitstellung" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Bild" } },
     taskA: "Das richtige Modell für jede Aufgabe.", taskB: "Automatisch gewählt oder von dir festgelegt.",
     th: ["Agent", "Typische Aufgabe", "Modelltyp", "Warum"],
     tasks: [

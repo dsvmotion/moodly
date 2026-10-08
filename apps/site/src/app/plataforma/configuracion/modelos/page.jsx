@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import SettingsNav from "@/components/settings-nav";
+import { CATALOG, DEFAULT_ON, TYPES } from "@/components/models-catalog";
 
 // Ajustes › Modelos de IA: cómo se conecta la organización a los proveedores.
 // TODO(backend): leer y guardar en la configuración del enrutador de modelos de la organización.
@@ -9,12 +10,12 @@ const MODES = [
   ["byok", "Tus propias claves", "El consumo se factura en tu cuenta del proveedor."],
   ["nube", "Tu nube", "Azure, AWS o Google Cloud (Enterprise)."],
 ];
-const OPTIONS = ["Automático (recomendado)", "OpenAI · rápido", "OpenAI · avanzado", "Anthropic · rápido", "Anthropic · avanzado", "Google · Gemini Flash", "Google · Gemini Pro", "Mistral · Large"];
+const OPTIONS = ["Automático (recomendado)", "Claude Haiku 5.5", "Claude Sonnet 5.5", "Claude Opus 5.5", "GPT-5.6 Luna", "GPT-5.6 Sol", "Gemini 3.5 Flash", "Gemini 3.1 Pro", "Mistral Large"];
 const AGENTS = [
   ["Recepción", "#004c39", "Automático (recomendado)", "Rápido y económico"],
   ["Atención al cliente", "#9dbecc", "Automático (recomendado)", "Equilibrado + tus documentos"],
-  ["Comercial", "#a30042", "Anthropic · avanzado", "Redacción de calidad"],
-  ["Administración", "#8e4e00", "Google · Gemini Pro", "Visión para facturas"],
+  ["Comercial", "#a30042", "Claude Opus 5.5", "Redacción de calidad"],
+  ["Administración", "#8e4e00", "Gemini 3.5 Flash", "Visión para facturas"],
 ];
 const PROVIDERS = [
   ["openai", "OpenAI", true, "Conectada el 2 oct"],
@@ -24,48 +25,7 @@ const PROVIDERS = [
 ];
 const USAGE = [["Recepción", 41, "#004c39", "52 €"], ["Atención al cliente", 33, "#9dbecc", "42 €"], ["Comercial", 14, "#a30042", "18 €"], ["Administración", 12, "#8e4e00", "16 €"]];
 
-// Catálogo de modelos permitidos, agrupado por residencia de datos (como Langdock).
-// Precios de referencia por millón de tokens (entrada / salida), orientativos.
-const TYPES = { chat: ["Chat", "#e8edff", "#2457f5"], razon: ["Razonamiento", "#efe6ff", "#6b3fd4"], vision: ["Visión", "#dcebdd", "#004c39"], imagen: ["Imagen", "#ffe8d6", "#8e4e00"] };
-const CATALOG = [
-  {
-    region: "Operado en la UE", note: "Cumple tu política «solo UE».",
-    providers: [
-      { name: "Mistral AI", logo: "mistralai", models: [
-        { id: "mistral-large", n: "Mistral Large", type: "razon", ctx: "128k", in: "2,00", out: "6,00", on: true },
-        { id: "mistral-small", n: "Mistral Small", type: "chat", ctx: "128k", in: "0,20", out: "0,60", on: true },
-      ] },
-      { name: "Teuken (OpenGPT-X)", logo: "openai", models: [
-        { id: "teuken", n: "Teuken 7B · UE", type: "chat", ctx: "32k", in: "0,15", out: "0,45", on: false },
-      ] },
-    ],
-  },
-  {
-    region: "Operado en EE. UU.", note: "Datos procesados fuera de la UE.",
-    providers: [
-      { name: "Anthropic", logo: "anthropic", models: [
-        { id: "claude-haiku", n: "Claude Haiku", type: "chat", ctx: "200k", in: "0,80", out: "4,00", on: true },
-        { id: "claude-sonnet", n: "Claude Sonnet", type: "razon", ctx: "200k", in: "3,00", out: "15,00", on: true },
-        { id: "claude-opus", n: "Claude Opus", type: "razon", ctx: "200k", in: "15,00", out: "75,00", on: false },
-      ] },
-      { name: "OpenAI", logo: "openai", models: [
-        { id: "gpt-mini", n: "GPT · mini", type: "chat", ctx: "128k", in: "0,15", out: "0,60", on: true },
-        { id: "gpt-adv", n: "GPT · avanzado", type: "vision", ctx: "128k", in: "2,50", out: "10,00", on: true },
-      ] },
-    ],
-  },
-  {
-    region: "Despliegue global", note: "Región variable según disponibilidad.",
-    providers: [
-      { name: "Google", logo: "googlegemini", models: [
-        { id: "gemini-flash", n: "Gemini Flash", type: "chat", ctx: "1M", in: "0,10", out: "0,40", on: true },
-        { id: "gemini-pro", n: "Gemini Pro", type: "vision", ctx: "1M", in: "1,25", out: "5,00", on: false },
-        { id: "imagen", n: "Imagen 3", type: "imagen", ctx: "—", in: "0,03 €/img", out: "", on: false },
-      ] },
-    ],
-  },
-];
-const DEFAULT_ON = new Set(CATALOG.flatMap((g) => g.providers.flatMap((p) => p.models.filter((m) => m.on).map((m) => m.id))));
+// Catálogo de modelos: fuente única en components/models-catalog.js.
 
 const box = { background: "#ffffff", borderRadius: "12px", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px" };
 const h2 = { margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" };
@@ -85,7 +45,7 @@ export default function Modelos() {
   const [fallback, setFallback] = useState(true);
   const [euOnly, setEuOnly] = useState(true);
   const [mask, setMask] = useState(true);
-  const [enabled, setEnabled] = useState(DEFAULT_ON);
+  const [enabled, setEnabled] = useState(() => new Set(DEFAULT_ON));
   const toggleModel = (id) => setEnabled((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const count = (p) => p.models.filter((m) => enabled.has(m.id)).length;
 
