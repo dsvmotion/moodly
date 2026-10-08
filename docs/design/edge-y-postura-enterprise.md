@@ -80,6 +80,20 @@ Sí existe este servicio; **no conviene atarse a uno** — igual que con los mod
 - **Memoria que compone** (del cliente final y del negocio): contexto acumulado que ningún proveedor nuevo tiene.
 - **Residencia UE sin fugas**: si no hay modelo UE con calidad, **paso a humano**, nunca cruzar región en silencio. Compliance como producto.
 - **Multi-agente coordinado** (recepción/atención/comercial/admin comparten memoria) frente a un único bot.
+- **Copiloto de la plataforma (orquestador)** — ver §3.bis.
+
+### 3.bis El copiloto de la plataforma (orquestador)
+
+Por encima de los 4 agentes de cara al cliente hay un **asistente que trabaja PARA el owner y su equipo**: un copiloto para **gestionar Moodly por conversación**. No atiende a los clientes del negocio; ayuda a quien gestiona la plataforma.
+
+- **Configura**: «pon un tope de gasto de 200 €», «activa el agente Comercial», «conecta WhatsApp», «crea una regla para…». Cambia ajustes, reglas, modelos e integraciones.
+- **Opera**: lanza tareas («recuérdale por WhatsApp a las citas de mañana», «dame el resumen de la semana»).
+- **Diagnostica**: «¿por qué no se envió la factura F-0412?» → encuentra la causa y propone la solución.
+- **Enseña**: recomienda la mejor configuración para ese negocio (asistente de setup permanente).
+
+Por qué es edge: convierte una plataforma potente pero con muchos ajustes en algo que se gobierna **hablando**. Baja la barrera de adopción (el miedo a «no sé configurarlo») y es un asistente de setup que ningún bot vertical ofrece. Pantalla: `/plataforma/asistente`, con entrada propia arriba del todo en la barra lateral (y, a futuro, accesible desde ⌘K en cualquier pantalla).
+
+**Seguridad (clave, porque actúa sobre la plataforma):** es un **meta-agente limitado por el rol** del usuario; **propone y previsualiza** cada cambio; las acciones sensibles (dinero, seguridad, borrar, techos de autonomía) **necesitan confirmación** y **todo queda en `audit_logs`**. Nunca hace más de lo que el rol permite.
 
 ---
 
@@ -121,6 +135,7 @@ Ya abiertas (siguen bloqueando partes del backend):
 6. **Proveedor de voz (TTS + clonación)**: capa agnóstica; arrancar el piloto con uno (Cartesia o ElevenLabs) tras una prueba propia de latencia UE y calidad de clonación. Vigilar la residencia UE (en ElevenLabs es Enterprise y con matices). Nivel de decisión: igual que LLM/BSP, no bloquea el resto.
 7. Vertical y cliente piloto; pymes o cadenas primero.
 8. GitHub Team (proteger `main`).
+9. **Copiloto/orquestador (§3.bis)**: diseñado como meta-agente con acceso a **acciones de plataforma** (tools sobre ajustes, reglas, integraciones, tareas), **limitado por el rol**, con **confirmación** de acciones sensibles y **registro en `audit_logs`**. Reutiliza el motor de políticas y el techo de autonomía; no es una arquitectura nueva. Decidir si entra en el piloto o en una fase posterior (la pantalla ya está en el prototipo).
 
 ---
 

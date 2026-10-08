@@ -1,11 +1,11 @@
 "use client";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Activity, BookOpen, Bot, Brain, CalendarDays, ChartColumn, Clock, Contact, Cpu, CreditCard, ExternalLink, House, LogOut, MessagesSquare, Network, Phone, Plug, Receipt, Settings, ShieldCheck, Sparkles, Stamp, Store, Target, User, Users, Zap } from "lucide-react";
+import { Activity, BookOpen, Bot, Brain, CalendarDays, ChartColumn, Clock, Contact, Cpu, CreditCard, ExternalLink, House, LogOut, MessagesSquare, Network, Phone, Plug, Receipt, Settings, ShieldCheck, Sparkles, Stamp, Store, Target, User, Users, WandSparkles, Zap } from "lucide-react";
 import { SEDES, useSede } from "@/components/use-sede";
 import { approvalsCount } from "@/components/sede-data";
 
 // Iconos del menú lateral (lucide, trazo fino), estilo de la referencia Langdock.
-const ICONS = { inicio: House, conversaciones: MessagesSquare, aprobaciones: Stamp, agenda: CalendarDays, clientes: Contact, leads: Target, facturas: Receipt, llamadas: Phone, informes: ChartColumn, agentes: Bot, conocimiento: BookOpen, memoria: Brain, reglas: ShieldCheck, flujos: Zap, horarios: Clock, coach: Sparkles, equipo: Users, sedes: Store, integraciones: Plug, modelos: Cpu, plan: CreditCard, ajustes: Settings, configuracion: Settings, red: Network };
+const ICONS = { asistente: WandSparkles, inicio: House, conversaciones: MessagesSquare, aprobaciones: Stamp, agenda: CalendarDays, clientes: Contact, leads: Target, facturas: Receipt, llamadas: Phone, informes: ChartColumn, agentes: Bot, conocimiento: BookOpen, memoria: Brain, reglas: ShieldCheck, flujos: Zap, horarios: Clock, coach: Sparkles, equipo: Users, sedes: Store, integraciones: Plug, modelos: Cpu, plan: CreditCard, ajustes: Settings, configuracion: Settings, red: Network };
 const Ico = ({ k, active }) => { const C = ICONS[k]; return C ? <C size={18} strokeWidth={1.75} aria-hidden="true" style={{ flex: "none", color: active ? "#000000" : "#5f5f63" }} /> : null; };
 
 export default function Sidebar(props) {
@@ -18,6 +18,7 @@ const active = this.props.active ?? 'inicio';
 const H = (label) => ({ header: true, label });
 const L = (key, label, href, badge) => ({ key, label, href, badge: badge || '' });
 const list = [
+L('asistente', 'Asistente', '/plataforma/asistente'),
 H('Red'),
 L('red', 'Red de franquicias', '/plataforma/red'),
 H('Operación'),
