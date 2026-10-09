@@ -50,7 +50,13 @@
     - **Asistente/orquestador** (`/plataforma/asistente`): meta-agente copiloto del owner para gestionar la plataforma (configura/opera/diagnostica/enseña), limitado por rol, con confirmación de lo sensible y registro. Entrada propia en la barra lateral. Doc: `docs/design/edge-y-postura-enterprise.md` §3.bis.
     - **Capa de Voz** (voz escrita + hablada con persona TTS y clonación) y **orquestador** documentados como ampliación de scope del backend (edge doc §3.bis, §5-6).
   - **Artifact «Moodly Landing Pages»** (`BoLfJGSVxG4tGv6DmLYQfv`) en **Versión 66**: 16 tableros = capturas de página completa del diseño actual (todas las landings + Modelos/Enterprise/Sobre-nosotros/Contacto nuevas + Asistente/Red). Método reproducible (Playwright → assets del artifact → tableros enmarcados).
-  - **Pendiente:** etiqueta `revisado-humano` (producto) para el PR #17; opcional, refrescar los tableros móviles `M-*` del artifact y el artifact de sistema de diseño (`QJ3fALw4...`); e2e sobre `main` tras el merge.
+  - **Artifact completo (v69):** todas las pantallas Web, **plataforma (App-\*, 30)** y móviles (M-\*) son capturas del localhost actual. Es el espejo visual de referencia.
+  - **Auditoría de cierre diseño → backend** (`docs/audits/2026-10-09-cierre-diseno-backend.md`): el hueco es de **contratos**, no de pantallas — mapeo prototipo→`apps/web`, datos por pantalla, flujos sin diseñar e inconsistencias canónicas.
+  - **Implementado del audit (verificado, `pnpm check` 52/52):**
+    - **Claves de agente canónicas** en `@repo/config` `AGENT_TYPES` (reception/customer/sales/admin + nombre + token de color), con tests. Resuelve la inconsistencia #1.
+    - **Mapa pantalla→ruta→componentes→datos** (`docs/design/mapa-pantallas-datos.md`): el contrato que desbloquea el backend (entidades/campos/acciones/permiso/tiempo real por pantalla) + vocabulario de ruta objetivo para `apps/web`.
+    - Informes: controles de export (CSV/PDF), agrupar por y rango de fechas.
+  - **Pendiente:** etiqueta `revisado-humano` (producto) para el PR #17; diseñar los flujos que faltan y los estados por pantalla (§3 del audit); e2e sobre `main` tras el merge.
 
 ## Bloqueado
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.

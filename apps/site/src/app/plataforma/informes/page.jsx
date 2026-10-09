@@ -22,9 +22,12 @@ export default function Screen() {
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
           <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Informes. <span style={{ color: "#5f5f63" }}>Lo que tus agentes han hecho por ti.</span></h1>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ display: "flex", padding: "4px", borderRadius: "800px", background: "#ffffff", fontSize: "14px", lineHeight: "20px" }}><span style={{ padding: "7px 14px", borderRadius: "800px" }}>Semana</span><span style={{ padding: "7px 14px", borderRadius: "800px", background: "#000000", color: "#ffffff" }}>Mes</span><span style={{ padding: "7px 14px", borderRadius: "800px" }}>Año</span></span>
-            <button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/21px var(--font-display)" }}>Descargar PDF</button>
+            <button data-demo="" type="button" style={{ padding: "10px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>1–30 sep ⌄</button>
+            <button data-demo="" type="button" style={{ padding: "10px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>Agrupar por: día ⌄</button>
+            <button data-demo="" type="button" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>CSV</button>
+            <button data-demo="" type="button" style={{ padding: "10px 16px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 14px/20px var(--font-display)" }}>PDF</button>
           </div>
         </div>
 
