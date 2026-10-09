@@ -5,6 +5,7 @@ import { getLocale } from "next-intl/server";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { parseTheme, THEME_COOKIE, themeAttribute } from "@/lib/preferences";
+import { jakarta, labil } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const theme = themeAttribute(parseTheme((await cookies()).get(THEME_COOKIE)?.value));
 
   return (
-    <html lang={locale} data-theme={theme}>
+    <html lang={locale} data-theme={theme} className={`${jakarta.variable} ${labil.variable}`}>
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

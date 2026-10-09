@@ -1,0 +1,71 @@
+/* Tipografía de Moodly: Labil Grotesk (principal: titulares, navegación, botones, cifras)
+   y Plus Jakarta Sans (secundaria: textos largos). Labil no tiene SemiBold: se usa Medium (500). */
+@font-face { font-family: "Labil Grotesk"; src: url("/fonts/LabilGrotesk-Thin.woff2") format("woff2"); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: "Labil Grotesk"; src: url("/fonts/LabilGrotesk-Light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Labil Grotesk"; src: url("/fonts/LabilGrotesk-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Labil Grotesk"; src: url("/fonts/LabilGrotesk-Medium.woff2") format("woff2"); font-weight: 500 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Labil Grotesk"; src: url("/fonts/LabilGrotesk-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/fonts/PlusJakartaSans-ExtraLight.woff2") format("woff2"); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/fonts/PlusJakartaSans-Light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/fonts/PlusJakartaSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/fonts/PlusJakartaSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/fonts/PlusJakartaSans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+
+:root {
+  --font-display: "Labil Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+body { font-family: var(--font-display); }
+p, li, td, dd, blockquote, textarea { font-family: var(--font-body); }
+
+/* Estilos base de la web pública (tokens del sistema de diseño Moodly AI). */
+html, body { margin: 0; background: #f7f7f8; }
+a { color: #000000; text-decoration: none; }
+a:hover { color: #2457f5; }
+summary { cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+:focus-visible { outline: 2px solid #2457f5; outline-offset: 2px; }
+
+/* Cabecera responsive */
+.nav-burger { display: none !important; }
+@media (max-width: 1080px) {
+  .nav-desktop, .nav-desktop-panel { display: none !important; }
+  .nav-burger { display: flex !important; }
+}
+
+/* Collage de la portada: en pantallas pequeñas solo la pantalla central y el móvil */
+@media (max-width: 760px) {
+  .collage-back { display: none; }
+}
+
+/* Fila de logos de la home: 7 columnas → 2 filas simétricas */
+.logo-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .logo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Columnas fijas al hacer scroll solo cuando hay sitio al lado */
+@media (min-width: 900px) { .sticky-wide { position: sticky; top: 80px; } }
+
+/* Verticales en la home: 4 × 2 en escritorio, 2 × 4 en tablet, 1 columna en móvil */
+.vertical-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .vertical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .vertical-grid { grid-template-columns: 1fr; } }
+
+/* Beneficios con pictogramas de marca: 6 / 3 / 2 columnas */
+.benefit-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .benefit-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .benefit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Mockups de la app móvil: 3 + 3 en escritorio */
+.phone-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 960px !important; }
+@media (max-width: 900px) { .phone-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .phone-grid { grid-template-columns: 1fr; } }
+
+/* Menú lateral de la plataforma: hover suave como la referencia */
+.side-link:hover { background: #0000000a; color: #000000 !important; }
+
+/* Pie de página: 5 columnas (4 de enlaces + idiomas) → 3 → 2 */
+.footer-cols { grid-template-columns: 1fr 1.5fr 1.15fr 1fr 0.8fr; }
+@media (max-width: 1100px) { .footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.footer-link:hover { color: #2457f5 !important; }
