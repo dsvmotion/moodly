@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Sidebar from "@/components/app-sidebar";
+import SettingsNav from "@/components/settings-nav";
+import ModelosTabs from "@/components/modelos-tabs";
 
 // A6 — Topes de gasto y circuit breaker (ADR 0019). Tope € por ámbito con aviso
 // al acercarse y corte al alcanzarlo; panel de fiabilidad que degrada a fallback
@@ -30,13 +31,13 @@ export default function Topes() {
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
-      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="configuracion" /></div>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-        <a href="/plataforma/proveedores" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Proveedores y vías</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Topes de gasto y fiabilidad</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>Pon un techo al gasto de IA por ámbito; avisamos al 80 % y cortamos al llegar. Si un proveedor falla, el enrutador pasa al siguiente sin que lo notes.</span>
         </div>
+        <ModelosTabs active="topes" />
 
         <section style={{ ...CARD, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #0000000f", fontSize: "16px", fontWeight: 500 }}>Topes de gasto (mes en curso)</div>

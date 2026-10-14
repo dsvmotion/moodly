@@ -62,6 +62,11 @@ coherencia del mensaje (multi-región), gobierno de agentes (B1–B4) e infra de
 
 ---
 
+> **Resuelto (2026-10-14):** cableado de navegación hecho — las pantallas de infra viven en
+> Configuración → Modelos con pestañas (`ModelosTabs`), y los flujos de agentes y acción se
+> enlazan desde sus pantallas madre (`/agente`, Reglas, Integraciones, Conocimiento, Plan,
+> Clientes, Aprobaciones, Conversaciones). Todo es alcanzable sin escribir la URL.
+
 ## 3. Hueco real de navegación (accionable antes de cerrar el prototipo)
 
 Las 18 pantallas existen pero **varias no están enlazadas** desde su pantalla madre ni desde el

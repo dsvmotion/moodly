@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Sidebar from "@/components/app-sidebar";
+import SettingsNav from "@/components/settings-nav";
+import ModelosTabs from "@/components/modelos-tabs";
 
 // A4 — Residencia y fallback (ADR 0019). La residencia es una política por
 // tenant: "sin restricción" por defecto (máxima disponibilidad), o acotada a una
@@ -39,13 +40,13 @@ export default function Residencia() {
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
-      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="configuracion" /></div>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-        <a href="/plataforma/proveedores" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Proveedores y vías</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Residencia y fallback</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>Dónde se pueden procesar los datos. El enrutador y sus alternativas respetan siempre esta frontera; nunca cruzan de región en silencio.</span>
         </div>
+        <ModelosTabs active="residencia" />
 
         <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
           <span style={{ fontSize: "16px", fontWeight: 500 }}>Política de residencia</span>

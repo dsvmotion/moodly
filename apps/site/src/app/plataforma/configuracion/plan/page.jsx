@@ -10,6 +10,7 @@ export default function Screen() {
 
 <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
 <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Plan y consumo. <span style={{ color: "#5f5f63" }}>Sin sorpresas a fin de mes.</span></h1>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}><a href="/plataforma/checkout" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Cambiar de plan</a><a href="/plataforma/topes" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Topes de gasto</a></div>
 
 <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
 <section style={{ flex: "1 1 300px", borderRadius: "12px", border: "1px solid #2457f5", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", lineHeight: "21px" }}>

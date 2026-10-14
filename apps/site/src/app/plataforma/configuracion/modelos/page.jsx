@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import SettingsNav from "@/components/settings-nav";
+import ModelosTabs from "@/components/modelos-tabs";
 import { CATALOG, DEFAULT_ON, TYPES } from "@/components/models-catalog";
 
 // Ajustes › Modelos de IA: cómo se conecta la organización a los proveedores.
@@ -54,6 +55,7 @@ export default function Modelos() {
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <h1 style={{ margin: 0, fontSize: "32px", lineHeight: "35.2px", fontWeight: 400, letterSpacing: "-0.64px" }}>Modelos de IA. <span style={muted}>Qué inteligencia usa cada agente.</span></h1>
+        <ModelosTabs active="catalogo" />
 
         <section style={box}>
           <h2 style={h2}>Cómo te conectas a la IA</h2>

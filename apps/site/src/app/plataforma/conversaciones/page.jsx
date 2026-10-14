@@ -32,7 +32,7 @@ export default function Screen() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", padding: "0 8px", gap: "2px", fontSize: "14px", lineHeight: "21px" }}>
           {d.list.map((c, i) => (
-            <a key={i} href="#" data-demo="" style={{ padding: "12px", borderRadius: "12px", background: c.active ? "#ffffff" : "transparent", border: c.active ? "1px solid #0000001a" : "none", display: "flex", flexDirection: "column", gap: "2px", textDecoration: "none", color: "#000000" }}>
+            <a key={i} href="/plataforma/tomar" style={{ padding: "12px", borderRadius: "12px", background: c.active ? "#ffffff" : "transparent", border: c.active ? "1px solid #0000001a" : "none", display: "flex", flexDirection: "column", gap: "2px", textDecoration: "none", color: "#000000" }}>
               <span style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: "500" }}>{c.name}</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>{c.time}</span></span>
               <span style={{ color: "#5f5f63" }}>{c.preview}</span>
               <span style={{ fontSize: "12px", lineHeight: "18px", color: c.metaColor || "#6b6b70" }}>{c.meta}{c.sede ? ` · ${c.sede}` : ""}</span>

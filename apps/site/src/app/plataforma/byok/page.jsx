@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/app-sidebar";
+import SettingsNav from "@/components/settings-nav";
 
 // A2 — Conectar BYOK / nube propia (ADR 0019). Pega la clave del proveedor (o
 // conecta un rol de tu nube), se valida con una llamada de prueba y se guarda
@@ -52,7 +52,7 @@ export default function Byok() {
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
       <style>{`@keyframes mo-spin{to{transform:rotate(360deg)}}@keyframes mo-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion: reduce){.mo-spin{animation:none!important}.mo-rise{animation:none!important}}`}</style>
-      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="configuracion" /></div>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 460px", minWidth: 0, maxWidth: "720px", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <a href="/plataforma/proveedores" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Proveedores y vías</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>

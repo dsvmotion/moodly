@@ -15,7 +15,7 @@ export default function Screen() {
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
           <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Clientes. <span style={{ color: "#5f5f63" }}>{d.count} fichas, actualizadas por tus agentes.</span></h1>
-          <div style={{ display: "flex", gap: "8px" }}><button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/21px var(--font-display)" }}>Importar</button><button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 14px/21px var(--font-display)" }}>Añadir cliente</button></div>
+          <div style={{ display: "flex", gap: "8px" }}><a href="/plataforma/privacidad" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/21px var(--font-display)", textDecoration: "none" }}>Privacidad (RGPD)</a><button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 14px/21px var(--font-display)" }}>Añadir cliente</button></div>
         </div>
 
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>

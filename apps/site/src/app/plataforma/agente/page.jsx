@@ -42,6 +42,10 @@ return { skills, activeCount: skills.filter((s) => s.on).length, totalCount: ski
 </div>
 </div>
 
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+{[["Nuevo agente", "/plataforma/agente-nuevo"], ["Probar y activar", "/plataforma/probar"], ["Techo de autonomía", "/plataforma/autonomia"], ["Voz del agente", "/plataforma/voz"], ["Publicar versión", "/plataforma/publicar"]].map(([l, h]) => (<a key={l} href={h} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>{l}</a>))}
+</div>
+
 <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid #0000001a", fontSize: "14px", lineHeight: "21px", overflowX: "auto" }} role="tablist" aria-label="Configuración">
 <button data-demo="" type="button" role="tab" aria-selected="true" style={{ padding: "10px 14px", border: "0", borderBottom: "2px solid #000000", background: "transparent", font: "500 14px/21px var(--font-display)", color: "#000000" }}>Skills</button>
 <button data-demo="" type="button" role="tab" aria-selected="false" style={{ padding: "10px 14px", border: "0", background: "transparent", font: "400 14px/21px var(--font-display)", color: "#5f5f63" }}>Tono</button>

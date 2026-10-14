@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Sidebar from "@/components/app-sidebar";
+import SettingsNav from "@/components/settings-nav";
+import ModelosTabs from "@/components/modelos-tabs";
 
 // A9 — DPA y lista de subencargados (ADR 0019; MANUAL §11). Aceptar el DPA (🔒) y
 // ver la lista pública de subencargados, que se genera según los proveedores,
@@ -30,12 +31,13 @@ export default function Subprocesadores() {
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
-      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="configuracion" /></div>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Protección de datos (RGPD)</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>El acuerdo de tratamiento (DPA) y la lista de subencargados que tratan datos por ti. La lista se actualiza sola según los proveedores y regiones que tengas activos.</span>
         </div>
+        <ModelosTabs active="datos" />
 
         <section style={{ ...CARD, padding: "20px 22px", display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: "14px", alignItems: "center", minWidth: 0 }}>

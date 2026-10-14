@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Sidebar from "@/components/app-sidebar";
+import SettingsNav from "@/components/settings-nav";
+import ModelosTabs from "@/components/modelos-tabs";
 
 // A1 — Proveedores y vías de servicio (ADR 0019). Por cada proveedor de IA se
 // elige CÓMO se sirve: gestionado por Moodly (multi-región), BYOK (claves del
@@ -27,29 +28,20 @@ const PROVIDERS = [
   { id: "cartesia", name: "Cartesia (voz)", logo: "", models: "Sonic · clonación", vias: ["API", "On-prem UE"], regions: ["UE", "EE. UU."], mode: "managed", status: "active" },
 ];
 
-const SubNav = ({ here }) => {
-  const tabs = [["Catálogo", "/plataforma/configuracion/modelos"], ["Proveedores y vías", "/plataforma/proveedores"], ["Residencia y fallback", "/plataforma/residencia"], ["Consumo y topes", "/plataforma/configuracion/plan"]];
-  return (
-    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", borderBottom: "1px solid #0000000f", paddingBottom: "2px" }}>
-      {tabs.map(([l, h]) => <a key={l} href={h} aria-current={l === here ? "page" : undefined} style={{ padding: "8px 12px", borderRadius: "8px 8px 0 0", fontSize: "14px", textDecoration: "none", color: l === here ? "#000000" : "#5f5f63", fontWeight: l === here ? 500 : 400, boxShadow: l === here ? "inset 0 -2px 0 #000000" : "none" }}>{l}</a>)}
-    </div>
-  );
-};
-
 export default function Proveedores() {
   const [prov, setProv] = useState(PROVIDERS);
   const setMode = (id, mode) => setProv((p) => p.map((x) => (x.id === id ? { ...x, mode, status: mode === "managed" ? "active" : "pending" } : x)));
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
-      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="configuracion" /></div>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="modelos" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Proveedores y vías de servicio</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>Elige cómo se sirve cada proveedor: gestionado por nosotros, con tus claves o en tu propia nube. Dónde se procesan los datos lo decide tu <a href="/plataforma/residencia" style={{ color: "#2457f5" }}>política de residencia</a>.</span>
         </div>
 
-        <SubNav here="Proveedores y vías" />
+        <ModelosTabs active="proveedores" />
 
         <div style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 16px", borderRadius: "10px", background: "#eef1f6", color: "#3a4a63", fontSize: "13px", lineHeight: "19px", fontFamily: "var(--font-body)", flexWrap: "wrap" }}>
           <span aria-hidden="true">🌍</span>
