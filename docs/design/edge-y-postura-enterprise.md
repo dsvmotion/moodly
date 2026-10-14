@@ -18,12 +18,12 @@ Todo esto ya está en el diseño o en los documentos; lo que falta son **decisio
 |---|---|---|
 | Aislamiento por cliente | RLS forzada por tenant + revocación de sesión real (hecho en BD) | Extender a cada tabla nueva con su pgTAP |
 | Confidencialidad frente al LLM | Diseñado: enmascarado de PII antes de la llamada; lo entrante siempre como datos | Implementar en `agent-core`; elegir proveedores con no-entrenamiento |
-| Secretos de cliente (BYOK, OAuth) | Diseñado: bóveda cifrada, nunca legible desde el navegador | **Mecanismo: Supabase Vault vs KMS** (abierto) |
-| Residencia de datos | UE-only, pantalla de Modelos con residencia UE/US/Global | Confirmar proveedor y región de alojamiento |
+| Secretos de cliente (BYOK, OAuth) | Diseñado: bóveda cifrada con **KMS** (envelope, clave por tenant), nunca legible desde el navegador (ADR 0019) | Implementar KMS en `agent-core` |
+| Residencia de datos | **Todas las regiones disponibles; residencia = política por tenant** (sin restricción / solo UE / solo US), fallback que no cruza y paso a humano (ADR 0019; pantalla `/plataforma/residencia`) | Confirmar región de alojamiento por proveedor/vía |
 | Derechos RGPD | Exportar/borrar, retención por tipo, audit log (pantalla Auditoría) | `data_requests` + jobs de purga |
 | Gobierno y auditoría | Roles/permisos, registro de auditoría, separación por sede/franquicia | `audit_logs` de solo inserción |
 | Despliegue por escala | Nube compartida / dedicada / tu nube / on-prem (`arquitectura-agentes-enterprise.md`) | Umbrales por nº de sedes |
-| Modelos de IA | Enrutador multi-proveedor, BYOK, «solo UE», fallback (pantalla Modelos) | Proveedores LLM + embeddings |
+| Modelos de IA | Enrutador multi-proveedor y **multi-región**, BYOK/BYOC, residencia por tenant, fallback (ADR 0019; pantallas Proveedores/Residencia) | Fijar AI Gateway + embeddings en piloto |
 | Cloud / servidores | Workers stateless + colas; sin VPS por agente; celdas dedicadas enterprise | Proveedor del worker (Fly/Railway/Hetzner) |
 | Auth enterprise | SSO SAML, SCIM, allowlist de IP, invalidación global (pantalla Seguridad) | Plan de Supabase para SSO |
 
@@ -78,7 +78,7 @@ Sí existe este servicio; **no conviene atarse a uno** — igual que con los mod
 - **Agentes que ACTÚAN con techo de autonomía + aprobación** — reservan, facturan, mueven agenda; no solo responden. La aprobación humana es *feature*, no límite.
 - **Aprenden y mejoran** (coach + señales + versiones + publicación gradual + vuelta atrás). Un bot normal es estático.
 - **Memoria que compone** (del cliente final y del negocio): contexto acumulado que ningún proveedor nuevo tiene.
-- **Residencia UE sin fugas**: si no hay modelo UE con calidad, **paso a humano**, nunca cruzar región en silencio. Compliance como producto.
+- **Residencia configurable sin fugas**: el cliente elige su región (sin restricción por defecto; solo UE u otra como garantía por plan). Dentro de su política, si no hay modelo con calidad, **paso a humano**, nunca cruzar región en silencio. Compliance como producto (ADR 0019).
 - **Multi-agente coordinado** (recepción/atención/comercial/admin comparten memoria) frente a un único bot.
 - **Copiloto de la plataforma (orquestador)** — ver §3.bis.
 
