@@ -185,5 +185,9 @@
     "locations": "Locations",
     "people": "People",
     "noRegion": "no region"
+  },
+  "pwa": {
+    "updateAvailable": "A new version is available.",
+    "reload": "Reload"
   }
 }
