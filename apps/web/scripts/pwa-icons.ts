@@ -13,7 +13,8 @@ const iconsDir = resolve(scriptDir, "../public/icons");
 const source = readFileSync(resolve(scriptDir, "pwa-icons/app-icon.png")).toString("base64");
 
 // La baldosa dentro del maestro (px del maestro): fuera de ella es transparente.
-const TILE = { x: 93, y: 94, size: 1063 };
+// No es del todo cuadrada; se encaja en el lienzo sin deformarla.
+const TILE = { x: 90, y: 105, w: 1075, h: 1047 };
 
 // - any: la baldosa tal cual, con sus esquinas transparentes.
 // - full-bleed: opaco para iOS. La baldosa ocupa todo el icono y las esquinas
@@ -48,10 +49,11 @@ try {
         if (!ctx) throw new Error("El canvas no ofrece contexto 2d");
         ctx.imageSmoothingQuality = "high";
         const drawTile = (scale: number, blur = 0) => {
-          const side = size * scale;
-          const offset = (size - side) / 2;
+          const k = (size * scale) / Math.max(tile.w, tile.h);
+          const w = tile.w * k;
+          const h = tile.h * k;
           ctx.filter = blur ? `blur(${blur}px)` : "none";
-          ctx.drawImage(image, tile.x, tile.y, tile.size, tile.size, offset, offset, side, side);
+          ctx.drawImage(image, tile.x, tile.y, tile.w, tile.h, (size - w) / 2, (size - h) / 2, w, h);
         };
         if (kind !== "any") drawTile(1.6, size / 12);
         drawTile(kind === "maskable" ? 0.8 : 1);
