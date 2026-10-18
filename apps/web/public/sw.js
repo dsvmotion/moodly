@@ -1,7 +1,9 @@
 /* global self, caches */
 // Service worker de la PWA (Fase 0). Solo hace la app instalable y muestra
 // una página sin conexión. Nunca guarda páginas ni datos: en caché solo van
-// assets públicos de build, los iconos, el manifest y /offline.html.
+// los iconos, el manifest y /offline.html. Los chunks de /_next/static no:
+// ya los cachea el navegador (immutable) y, sin páginas guardadas, no sirven
+// offline; en la caché del SW solo se acumularían de despliegue en despliegue.
 
 const CACHE = "moodly-shell-v1";
 const OFFLINE_URL = "/offline.html";
@@ -10,7 +12,7 @@ const PRECACHE = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192.png", "
 /**
  * Decide qué hace el SW con una petición. Pura, para poder probarla.
  * - "passthrough": el SW no interviene (la petición va a la red tal cual).
- * - "cache-first": asset público; se sirve de caché y se refresca en segundo plano.
+ * - "cache-first": icono, manifest u offline; de caché, y se refresca en segundo plano.
  * - "network-first": navegación; red, y si no hay conexión, /offline.html.
  */
 function pickStrategy(request, origin) {
@@ -22,8 +24,7 @@ function pickStrategy(request, origin) {
   const isAuth = path === "/login" || path.startsWith("/login/") || path === "/auth" || path.startsWith("/auth/");
   if (isAuth) return "passthrough";
 
-  const isPublicAsset =
-    path.startsWith("/_next/static/") || path.startsWith("/icons/") || path === "/manifest.webmanifest" || path === OFFLINE_URL;
+  const isPublicAsset = path.startsWith("/icons/") || path === "/manifest.webmanifest" || path === OFFLINE_URL;
   if (isPublicAsset) return "cache-first";
 
   if (request.mode === "navigate") return "network-first";
@@ -33,8 +34,12 @@ function pickStrategy(request, origin) {
 async function cacheFirst(event) {
   const cache = await caches.open(CACHE);
   const cached = await cache.match(event.request);
-  const refresh = fetch(event.request).then(async (response) => {
-    if (response.ok && response.type === "basic") await cache.put(event.request, response.clone());
+  // Guardar es lo de menos: si put falla (cuota llena, respuesta parcial), la
+  // respuesta de red se entrega igual.
+  const refresh = fetch(event.request).then((response) => {
+    if (response.ok && response.type === "basic") {
+      event.waitUntil(cache.put(event.request, response.clone()).catch(() => undefined));
+    }
     return response;
   });
   if (!cached) return refresh;

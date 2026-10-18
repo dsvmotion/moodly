@@ -188,6 +188,7 @@
   },
   "pwa": {
     "updateAvailable": "Hay una versión nueva disponible.",
-    "reload": "Recargar"
+    "reload": "Recargar",
+    "later": "Más tarde"
   }
 }

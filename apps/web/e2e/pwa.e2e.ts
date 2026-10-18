@@ -66,5 +66,10 @@ test("tras usar la app con sesión no queda ninguna página en caché, y sin con
   await page.context().setOffline(true);
   await page.goto("/app/settings/organization");
   await expect(page.getByRole("heading", { name: "Sin conexión" })).toBeVisible();
+
+  // Al volver la conexión, "Reintentar" carga la página que se pedía.
   await page.context().setOffline(false);
+  await page.getByRole("link", { name: "Reintentar" }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/organization$/);
+  await expect(page.getByTestId("current-user")).toBeVisible();
 });

@@ -1,15 +1,21 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 type SwRequest = { method: string; url: string; mode: string };
 
+type FakeResponse = { ok: boolean; type: string; clone: () => FakeResponse };
+type FakeEvent = { request: SwRequest; waitUntil: (promise: Promise<unknown>) => void };
+
 // Fuente única: se evalúa public/sw.js con un `self` vacío, de modo que no se
-// registran los listeners del SW y solo se recupera la función pura.
+// registran los listeners del SW. `caches` y `fetch` se inyectan como dobles.
 const source = readFileSync(new URL("../../../public/sw.js", import.meta.url), "utf8");
-const pickStrategy = new Function("self", `${source}\nreturn pickStrategy;`)({}) as (
-  request: SwRequest,
-  origin: string,
-) => string;
+function loadSw(caches?: unknown, fetch?: unknown) {
+  return new Function("self", "caches", "fetch", `${source}\nreturn { pickStrategy, cacheFirst };`)({}, caches, fetch) as {
+    pickStrategy: (request: SwRequest, origin: string) => string;
+    cacheFirst: (event: FakeEvent) => Promise<FakeResponse>;
+  };
+}
+const { pickStrategy } = loadSw();
 
 const ORIGIN = "https://app.moodly.test";
 const req = (method: string, path: string, mode = "cors"): SwRequest => ({
@@ -27,6 +33,10 @@ describe("pickStrategy del service worker", () => {
     ["login con destino", req("GET", "/login?next=%2Fapp", "navigate")],
     ["callback de auth", req("GET", "/auth/callback")],
     ["petición de API", req("GET", "/api/anything")],
+    // Chunks con hash: ya los cachea el navegador (immutable) y, como las
+    // páginas no se guardan, en caché del SW solo crecerían sin servir offline.
+    ["chunk de build", req("GET", "/_next/static/chunks/main.js")],
+    ["fuente de build", req("GET", "/_next/static/media/font.woff2")],
   ])("%s → passthrough (nunca se cachea)", (_, request) => {
     expect(pickStrategy(request, ORIGIN)).toBe("passthrough");
   });
@@ -40,13 +50,30 @@ describe("pickStrategy del service worker", () => {
   });
 
   it.each([
-    "/_next/static/chunks/main.js",
-    "/_next/static/media/font.woff2",
     "/icons/icon-192.png",
     "/manifest.webmanifest",
     "/offline.html",
   ])("asset público %s → cache-first", (path) => {
     expect(pickStrategy(req("GET", path), ORIGIN)).toBe("cache-first");
+  });
+});
+
+describe("cacheFirst del service worker", () => {
+  it("si guardar en caché falla (p. ej. cuota llena), la respuesta de red se entrega igual", async () => {
+    const response: FakeResponse = { ok: true, type: "basic", clone: () => response };
+    const cache = {
+      match: vi.fn(async () => undefined),
+      put: vi.fn(async () => {
+        throw new Error("QuotaExceededError");
+      }),
+    };
+    const { cacheFirst } = loadSw({ open: async () => cache }, async () => response);
+    const pending: Promise<unknown>[] = [];
+    const event: FakeEvent = { request: req("GET", "/icons/icon-192.png"), waitUntil: (p) => void pending.push(p) };
+
+    await expect(cacheFirst(event)).resolves.toBe(response);
+    expect(cache.put).toHaveBeenCalledTimes(1);
+    await expect(Promise.all(pending)).resolves.toBeDefined();
   });
 });
 
@@ -56,5 +83,10 @@ describe("página sin conexión", () => {
   it("avisa de que no hay conexión y no ejecuta código", () => {
     expect(html).toContain("Sin conexión");
     expect(html).not.toContain("<script");
+  });
+
+  it("permite reintentar sin JavaScript: el enlace vacío recarga la URL actual", () => {
+    // En la app instalada (standalone) no hay barra ni botón de recarga.
+    expect(html).toMatch(/<a href="">Reintentar<\/a>/);
   });
 });
