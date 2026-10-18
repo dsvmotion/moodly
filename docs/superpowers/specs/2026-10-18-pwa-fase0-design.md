@@ -268,5 +268,10 @@ producto junto al plan:
    commiteados. El comando se documenta en `AGENTS.md`/`CLAUDE.md` (zona
    sensible).
 
+**Actualización (2026-10-18):** producto facilitó el icono definitivo de la
+app (baldosa azul con el símbolo). Sustituye a la "M": la fuente maestra es
+`apps/web/scripts/pwa-icons/app-icon.png` y el mismo script genera el icono
+general (con transparencia) y los opacos para iOS y Android.
+
 Además, la lógica de registro/actualización se separa del componente en
 `src/lib/pwa/register.ts` para poder testearla.
