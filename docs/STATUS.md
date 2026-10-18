@@ -58,7 +58,14 @@
     - Informes: controles de export (CSV/PDF), agrupar por y rango de fechas.
   - **Pendiente:** etiqueta `revisado-humano` (producto) para el PR #17; diseñar los flujos que faltan y los estados por pantalla (§3 del audit); e2e sobre `main` tras el merge.
 
+- App móvil · Fase 0 (fontanería PWA) — rama `feat/pwa-movil-fase0`, estado a 2026-10-18. Spec `docs/superpowers/specs/2026-10-18-pwa-fase0-design.md`, plan `docs/superpowers/plans/2026-10-18-pwa-fase0.md`:
+  - `apps/web` instalable como PWA: manifest (`src/app/manifest.ts`, con `BRAND_NAME`), service worker mínimo escrito a mano (`public/sw.js`: solo cachea assets públicos y `/offline.html`; nunca navegaciones, POST, auth ni Supabase), iconos con la "M" del logo, aviso de versión nueva, y los assets PWA fuera del matcher del proxy.
+  - Verificado en local: `pnpm check` 52/52, tests de `apps/web` 108/108 y e2e 86/86 (los 3 nuevos de la PWA, comprobados también en negativo rompiendo proxy y SW).
+  - **Zonas sensibles tocadas:** `apps/web/src/proxy.ts` (matcher), `apps/web/next.config.ts` (cabeceras de `/sw.js`), `AGENTS.md` y `CLAUDE.md` (comando de iconos). Necesita `revisado-humano`; no lo mergea el agente.
+  - Siguiente: Fase 1 (chasis móvil responsive con la barra de pestañas del diseño `M-*`).
+
 ## Bloqueado
+- App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS de la rama y un iPhone; la hace producto. Hasta entonces la fase no pasa a "Hecho y verificado".
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
 
