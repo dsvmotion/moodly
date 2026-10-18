@@ -243,3 +243,30 @@ test + build) en verde; e2e existentes sin regresión.
 4. **Fase 4+ — Resto de pestañas**, por disponibilidad de datos.
 
 Cada fase: su propio spec → plan → implementación verificable.
+
+## 14. Adenda tras explorar el código (al escribir el plan)
+
+Tres cambios respecto a lo de arriba, todos pendientes de visto bueno de
+producto junto al plan:
+
+1. **Se toca el proxy (zona sensible).** `src/proxy.ts` aplica la sesión a
+   todo salvo `_next/static`, `_next/image` y `favicon.ico`. Sin sesión,
+   `/sw.js`, `/manifest.webmanifest`, `/icons/*` y `/offline.html` se
+   redirigirían a `/login`, y desde `/login` (donde se instala la app) el
+   iPhone no podría leer el manifest ni registrar el SW. Solución: añadirlos
+   a la exclusión del `matcher`. Son estáticos sin datos; la lógica de
+   sesión y redirección no cambia. Corrige lo dicho en §3 y §8 ("no se toca
+   el proxy").
+2. **Manifest como ruta de Next** (`src/app/manifest.ts`, servida en
+   `/manifest.webmanifest`) en lugar de `public/manifest.webmanifest`: usa
+   `BRAND_NAME` directamente y Next añade el `<link rel="manifest">`. Mismos
+   campos que §6. Ya no hace falta cabecera de tipo en `next.config.ts`.
+3. **Icono:** el último trazo del wordmark es el símbolo ®, no un punto de
+   marca. El isotipo es la "M" blanca del wordmark sobre tinta `#000000`,
+   con dos fuentes SVG (normal y *maskable*) y un script
+   `apps/web/scripts/pwa-icons.sh` (ImageMagick) que genera los PNG
+   commiteados. El comando se documenta en `AGENTS.md`/`CLAUDE.md` (zona
+   sensible).
+
+Además, la lógica de registro/actualización se separa del componente en
+`src/lib/pwa/register.ts` para poder testearla.
