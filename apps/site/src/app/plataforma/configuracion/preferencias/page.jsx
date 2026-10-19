@@ -1,19 +1,20 @@
 "use client";
 import { useState } from "react";
+import { useTheme } from "@/components/theme";
 import SettingsShell from "@/components/settings-shell";
 
-const card = { background: "#ffffff", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontSize: "14px", lineHeight: "21px" };
+const card = { background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontSize: "14px", lineHeight: "21px" };
 const h2 = { margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" };
-const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", borderTop: "1px solid #0000000f", paddingTop: "14px" };
-const sub = { fontSize: "13px", color: "#5f5f63" };
-const field = { padding: "8px 12px", borderRadius: "10px", border: "1px solid #0000001a", background: "#ffffff", font: "400 14px/20px var(--font-display)" };
+const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", borderTop: "1px solid var(--line-soft)", paddingTop: "14px" };
+const sub = { fontSize: "13px", color: "var(--muted)" };
+const field = { padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--paper)", font: "400 14px/20px var(--font-display)" };
 
 function Switch({ on, onClick, label }) {
-  return <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} style={{ flex: "none", width: "40px", height: "24px", borderRadius: "800px", border: 0, padding: "3px", background: on ? "#004c39" : "#d9d9de", cursor: "pointer", display: "flex", justifyContent: on ? "flex-end" : "flex-start" }}><span style={{ width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }} /></button>;
+  return <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} style={{ flex: "none", width: "40px", height: "24px", borderRadius: "800px", border: 0, padding: "3px", background: on ? "#004c39" : "var(--track-2)", cursor: "pointer", display: "flex", justifyContent: on ? "flex-end" : "flex-start" }}><span style={{ width: "18px", height: "18px", borderRadius: "800px", background: "var(--paper)" }} /></button>;
 }
 
 export default function Preferencias() {
-  const [theme, setTheme] = useState("system");
+  const [theme, setTheme] = useTheme();
   const [feats, setFeats] = useState({ web: true, voz: true, resumen: false });
   return (
     <SettingsShell active="preferencias" title="Preferencias." intro="Tu experiencia en la plataforma.">
@@ -25,9 +26,9 @@ export default function Preferencias() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <span style={sub}>Tema</span>
-          <div style={{ display: "flex", gap: "4px", padding: "4px", borderRadius: "800px", background: "#f2f2f4", maxWidth: "360px" }}>
+          <div style={{ display: "flex", gap: "4px", padding: "4px", borderRadius: "800px", background: "var(--paper-2c)", maxWidth: "360px" }}>
             {[["system", "Sistema"], ["light", "Claro"], ["dark", "Oscuro"]].map(([id, label]) => (
-              <button key={id} type="button" aria-pressed={theme === id} onClick={() => setTheme(id)} style={{ flex: 1, padding: "8px", borderRadius: "800px", border: 0, background: theme === id ? "#ffffff" : "transparent", boxShadow: theme === id ? "0 1px 2px #0000001a" : "none", font: "400 13px/18px var(--font-display)", cursor: "pointer" }}>{label}</button>
+              <button key={id} type="button" aria-pressed={theme === id} onClick={() => setTheme(id)} style={{ flex: 1, padding: "8px", borderRadius: "800px", border: 0, background: theme === id ? "var(--paper)" : "transparent", boxShadow: theme === id ? "0 1px 2px var(--line)" : "none", font: "400 13px/18px var(--font-display)", cursor: "pointer" }}>{label}</button>
             ))}
           </div>
         </div>

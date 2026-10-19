@@ -17,22 +17,22 @@ export default function MobileFrame({ active, title, back, right, children }) {
   const { sede } = useSede();
   const badge = approvalsCount(sede);
   return (
-    <div style={{ minHeight: "100vh", background: "#e9e9ec", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "32px 16px", boxSizing: "border-box" }}>
-      <div style={{ borderRadius: "40px", overflow: "hidden", boxShadow: "0 24px 64px #00000033", border: "8px solid #000000" }}>
-        <div style={{ width: "390px", maxWidth: "calc(100vw - 48px)", height: "844px", boxSizing: "border-box", fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "var(--backdrop)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "32px 16px", boxSizing: "border-box" }}>
+      <div style={{ borderRadius: "40px", overflow: "hidden", boxShadow: "0 24px 64px #00000033", border: "8px solid var(--ink)" }}>
+        <div style={{ width: "390px", maxWidth: "calc(100vw - 48px)", height: "844px", boxSizing: "border-box", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <header style={{ padding: "56px 20px 12px", display: "flex", alignItems: "center", gap: "12px" }}>
-            {back && <a href={back} aria-label="Volver" style={{ display: "flex", color: "#000000" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></a>}
+            {back && <a href={back} aria-label="Volver" style={{ display: "flex", color: "var(--ink)" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></a>}
             <h1 style={{ margin: 0, flex: 1, minWidth: 0, fontSize: "24px", lineHeight: "26.4px", fontWeight: 400, letterSpacing: "-0.48px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</h1>
             {right}
           </header>
           <main style={{ flex: 1, overflowY: "auto", padding: "4px 16px 12px", display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", lineHeight: "20px" }}>{children}</main>
-          <nav aria-label="Principal" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", padding: "8px 6px 28px", background: "#ffffff", borderTop: "1px solid #0000001a", fontSize: "11px", lineHeight: "14px", textAlign: "center" }}>
+          <nav aria-label="Principal" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", padding: "8px 6px 28px", background: "var(--paper)", borderTop: "1px solid var(--line)", fontSize: "11px", lineHeight: "14px", textAlign: "center" }}>
             {TABS.map(([key, label, href, icon]) => {
               const on = key === active;
               return (
-                <a key={key} href={href} aria-current={on ? "page" : undefined} style={{ fontWeight: on ? 500 : 400, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: on ? "#000000" : "#5f5f63", position: "relative", textDecoration: "none" }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={on ? "#000000" : "#5f5f63"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>
-                  {key === "aprobar" && badge > 0 && <span style={{ position: "absolute", top: 0, left: "56%", minWidth: "16px", height: "16px", borderRadius: "800px", background: "#ff6301", color: "#000000", fontSize: "11px", lineHeight: "16px" }}>{badge}</span>}
+                <a key={key} href={href} aria-current={on ? "page" : undefined} style={{ fontWeight: on ? 500 : 400, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: on ? "var(--ink)" : "var(--muted)", position: "relative", textDecoration: "none" }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={on ? "var(--ink)" : "var(--muted)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>
+                  {key === "aprobar" && badge > 0 && <span style={{ position: "absolute", top: 0, left: "56%", minWidth: "16px", height: "16px", borderRadius: "800px", background: "#ff6301", color: "var(--ink)", fontSize: "11px", lineHeight: "16px" }}>{badge}</span>}
                   {label}
                 </a>
               );

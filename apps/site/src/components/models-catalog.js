@@ -8,12 +8,12 @@
 // oficial; OpenAI, Google y Mistral verificados en la web). Mistral opera en la UE.
 
 export const TYPES = {
-  chat: ["Chat", "#e8edff", "#2457f5"],
-  razon: ["Razonamiento", "#efe6ff", "#6b3fd4"],
-  vision: ["Visión", "#dcebdd", "#004c39"],
-  codigo: ["Código", "#fff1d6", "#8e4e00"],
-  imagen: ["Imagen", "#ffe8d6", "#8e4e00"],
-  voz: ["Voz", "#fbe1ea", "#a30042"],
+  chat: ["Chat", "var(--blue-bg)", "var(--blue-fg)"],
+  razon: ["Razonamiento", "var(--violet-bg-2)", "#6b3fd4"],
+  vision: ["Visión", "var(--green-bg)", "var(--green-fg)"],
+  codigo: ["Código", "var(--amber-bg-2)", "var(--amber-fg)"],
+  imagen: ["Imagen", "var(--amber-bg)", "var(--amber-fg)"],
+  voz: ["Voz", "var(--rose-bg)", "var(--rose-fg)"],
 };
 
 export const CATALOG = [

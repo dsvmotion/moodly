@@ -18,11 +18,11 @@ export default function Screen() {
   const [draft, setDraft] = useState("");
   const toggle = () => { setExtra((e) => [...e, { sys: human ? "Has devuelto la conversación al agente." : "Has tomado el control. El agente queda en pausa." }]); setHuman(!human); };
   const send = () => { const t = draft.trim(); if (!t) return; if (!human) { setHuman(true); setExtra((e) => [...e, { sys: "Al escribir tú, el agente queda en pausa." }]); } setExtra((e) => [...e, { mine: t }]); setDraft(""); };
-  const bubble = (mine) => ({ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%", padding: "10px 14px", borderRadius: "16px", background: mine ? "#000000" : "#ffffff", color: mine ? "#ffffff" : "#000000" });
+  const bubble = (mine) => ({ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%", padding: "10px 14px", borderRadius: "16px", background: mine ? "var(--ink)" : "var(--paper)", color: mine ? "var(--on-ink)" : "var(--ink)" });
   return (
     <MobileFrame active="chats" back="/plataforma/movil/chats" title={det.header.name}
-      right={<button type="button" onClick={toggle} style={{ padding: "8px 12px", borderRadius: "800px", border: human ? "1px solid #000000" : "1px solid #0000001a", background: human ? "#000000" : "#ffffff", color: human ? "#ffffff" : "#000000", font: "500 13px/13px var(--font-display)", cursor: "pointer", whiteSpace: "nowrap" }}>{human ? "Devolver" : "Tomar control"}</button>}>
-      <span style={{ alignSelf: "center", fontSize: "12px", color: human ? "#004c39" : "#6b6b70" }}>{det.header.channel} · {human ? "la llevas tú" : "la lleva el agente"}</span>
+      right={<button type="button" onClick={toggle} style={{ padding: "8px 12px", borderRadius: "800px", border: human ? "1px solid var(--ink)" : "1px solid var(--line)", background: human ? "var(--ink)" : "var(--paper)", color: human ? "var(--on-ink)" : "var(--ink)", font: "500 13px/13px var(--font-display)", cursor: "pointer", whiteSpace: "nowrap" }}>{human ? "Devolver" : "Tomar control"}</button>}>
+      <span style={{ alignSelf: "center", fontSize: "12px", color: human ? "var(--green-fg)" : "var(--muted-2)" }}>{det.header.channel} · {human ? "la llevas tú" : "la lleva el agente"}</span>
       {det.thread.map((m, i) => {
         if (m.from === "them") return <div key={i} style={bubble(false)}>{m.text}</div>;
         if (m.from === "agent") return <div key={i} style={bubble(true)}>{m.text}</div>;
@@ -33,17 +33,17 @@ export default function Screen() {
           </div>
         );
         if (m.from === "approval") return (
-          <div key={i} style={{ borderRadius: "12px", background: "#ffe8d6", color: "#8e4e00", padding: "12px 14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div key={i} style={{ borderRadius: "12px", background: "var(--amber-bg)", color: "var(--amber-fg)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: "10px" }}>
             <span><strong style={{ fontWeight: 500 }}>Necesita tu aprobación.</strong> {m.text}</span>
-            <a href="/plataforma/movil/aprobaciones" style={{ alignSelf: "flex-start", padding: "8px 14px", borderRadius: "800px", background: "#000000", color: "#ffffff", textDecoration: "none", fontSize: "13px" }}>Revisar y aprobar</a>
+            <a href="/plataforma/movil/aprobaciones" style={{ alignSelf: "flex-start", padding: "8px 14px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", textDecoration: "none", fontSize: "13px" }}>Revisar y aprobar</a>
           </div>
         );
         return null;
       })}
       {extra.map((m, i) => m.sys
-        ? <span key={`x${i}`} style={{ alignSelf: "center", textAlign: "center", fontSize: "12px", color: "#6b6b70", background: "#ebebed", borderRadius: "800px", padding: "5px 12px" }}>{m.sys}</span>
+        ? <span key={`x${i}`} style={{ alignSelf: "center", textAlign: "center", fontSize: "12px", color: "var(--muted-2)", background: "var(--sunken)", borderRadius: "800px", padding: "5px 12px" }}>{m.sys}</span>
         : <div key={`x${i}`} style={{ ...bubble(true), background: "#2457f5" }}>{m.mine}</div>)}
-      <div style={{ marginTop: "auto", display: "flex", gap: "8px", background: "#ffffff", borderRadius: "800px", padding: "6px 6px 6px 16px" }}>
+      <div style={{ marginTop: "auto", display: "flex", gap: "8px", background: "var(--paper)", borderRadius: "800px", padding: "6px 6px 6px 16px" }}>
         <label htmlFor="mmsg" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>Mensaje</label>
         <input id="mmsg" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }} placeholder="Escribe un mensaje…" style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "400 15px/20px var(--font-display)" }} />
         <button type="button" onClick={send} aria-label="Enviar" style={{ width: "36px", height: "36px", borderRadius: "800px", border: 0, background: "#2457f5", color: "#ffffff", cursor: "pointer" }}>↑</button>

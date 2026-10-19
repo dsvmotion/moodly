@@ -62,11 +62,11 @@ const AGENTS = [
   },
 ];
 
-const box = { background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px" };
+const box = { background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px" };
 const LIGHT = ["#9dbecc", "#a3c2a7", "#f6f2e8"];
 const AgentIcon = ({ color }) => (
   <span style={{ width: "56px", height: "56px", borderRadius: "800px", background: color, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={LIGHT.includes(color) ? "#000000" : "#ffffff"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={LIGHT.includes(color) ? "var(--ink)" : "#ffffff"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
   </span>
 );
 
@@ -87,57 +87,57 @@ export default function Screen() {
   const activeCount = a.skills.filter(isOn).length;
 
   return (
-    <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
+    <div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="agentes" /></div>
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 48px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "24px" }}>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>Agentes / {a.name}</span>
+          <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>Agentes / {a.name}</span>
           <div role="tablist" aria-label="Tus agentes" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {AGENTS.map((g, i) => {
               const cur = i === sel;
               return (
-                <button key={g.key} type="button" role="tab" aria-selected={cur} onClick={() => setSel(i)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", borderRadius: "800px", border: "1px solid", borderColor: cur ? "#000000" : "#0000001a", background: cur ? "#000000" : "#ffffff", color: cur ? "#ffffff" : "#000000", font: "500 13px/13px var(--font-display)", cursor: "pointer" }}>
-                  <span style={{ width: "9px", height: "9px", borderRadius: "800px", background: g.color, flex: "none", boxShadow: cur ? "0 0 0 2px #ffffff55" : "none" }} />{g.name}
+                <button key={g.key} type="button" role="tab" aria-selected={cur} onClick={() => setSel(i)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", borderRadius: "800px", border: "1px solid", borderColor: cur ? "var(--ink)" : "var(--line)", background: cur ? "var(--ink)" : "var(--paper)", color: cur ? "var(--on-ink)" : "var(--ink)", font: "500 13px/13px var(--font-display)", cursor: "pointer" }}>
+                  <span style={{ width: "9px", height: "9px", borderRadius: "800px", background: g.color, flex: "none", boxShadow: cur ? "0 0 0 2px var(--on-ink-55)" : "none" }} />{g.name}
                 </button>
               );
             })}
-            <a href="/plataforma/agente-nuevo" style={{ display: "inline-flex", alignItems: "center", padding: "8px 14px", borderRadius: "800px", border: "1px dashed #0000002a", background: "transparent", color: "#5f5f63", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>+ Nuevo agente</a>
+            <a href="/plataforma/agente-nuevo" style={{ display: "inline-flex", alignItems: "center", padding: "8px 14px", borderRadius: "800px", border: "1px dashed var(--line-strong)", background: "transparent", color: "var(--muted)", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>+ Nuevo agente</a>
           </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
             <AgentIcon color={a.color} />
-            <div><h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>{a.name}</h1><span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.sub}</span></div>
+            <div><h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>{a.name}</h1><span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{a.sub}</span></div>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <span style={{ padding: "6px 12px", borderRadius: "800px", background: isPaused ? "#ebebed" : "#dcebdd", color: isPaused ? "#5f5f63" : "#004c39", fontSize: "14px", lineHeight: "14px" }}>{isPaused ? "○ Pausado" : "● Activo"}</span>
-            <button type="button" onClick={() => setPaused((x) => ({ ...x, [a.key]: !isPaused }))} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>{isPaused ? "Reanudar" : "Pausar"}</button>
-            <a href={`/plataforma/probar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Probar</a>
-            <a href={`/plataforma/publicar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Publicar cambios</a>
+            <span style={{ padding: "6px 12px", borderRadius: "800px", background: isPaused ? "var(--sunken)" : "var(--green-bg)", color: isPaused ? "var(--muted)" : "var(--green-fg)", fontSize: "14px", lineHeight: "14px" }}>{isPaused ? "○ Pausado" : "● Activo"}</span>
+            <button type="button" onClick={() => setPaused((x) => ({ ...x, [a.key]: !isPaused }))} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>{isPaused ? "Reanudar" : "Pausar"}</button>
+            <a href={`/plataforma/probar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Probar</a>
+            <a href={`/plataforma/publicar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Publicar cambios</a>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {[["Techo de autonomía", `/plataforma/autonomia?a=${a.key}`], ["Voz del agente", `/plataforma/voz?a=${a.key}`], ["Conocimiento", "/plataforma/conocimiento"], ["Memoria del negocio", "/plataforma/memoria"]].map(([l, h]) => (<a key={l} href={h} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>{l}</a>))}
+          {[["Techo de autonomía", `/plataforma/autonomia?a=${a.key}`], ["Voz del agente", `/plataforma/voz?a=${a.key}`], ["Conocimiento", "/plataforma/conocimiento"], ["Memoria del negocio", "/plataforma/memoria"]].map(([l, h]) => (<a key={l} href={h} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>{l}</a>))}
         </div>
 
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
           <section style={{ ...box, flex: "3 1 460px", minWidth: "0", overflow: "hidden" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid #0000000f", gap: "12px", flexWrap: "wrap" }}>
-              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{activeCount} de {a.skills.length} activas · Configuradas de serie para clínicas</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid var(--line-soft)", gap: "12px", flexWrap: "wrap" }}>
+              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{activeCount} de {a.skills.length} activas · Configuradas de serie para clínicas</span></div>
             </div>
             {a.skills.map((s) => {
               const act = isOn(s);
               return (
-                <div key={s.id} style={{ display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #0000000f" }}>
+                <div key={s.id} style={{ display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--line-soft)" }}>
                   <div style={{ flex: "1", minWidth: "0" }}>
                     <div style={{ fontSize: "14px", lineHeight: "21px", fontWeight: "500" }}>{s.name}</div>
-                    <div style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{s.desc}</div>
+                    <div style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{s.desc}</div>
                   </div>
-                  {s.approval && <span style={{ padding: "4px 10px", borderRadius: "800px", background: "#ffe8d6", color: "#8e4e00", fontSize: "12px", lineHeight: "16px", whiteSpace: "nowrap" }}>Con aprobación</span>}
-                  <button type="button" role="switch" aria-checked={act} aria-label={s.name} onClick={() => toggle(s)} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: act ? "#000000" : "#d4d4d8", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", top: "3px", left: act ? "19px" : "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff", transition: "left .15s ease" }}></span></button>
+                  {s.approval && <span style={{ padding: "4px 10px", borderRadius: "800px", background: "var(--amber-bg)", color: "var(--amber-fg)", fontSize: "12px", lineHeight: "16px", whiteSpace: "nowrap" }}>Con aprobación</span>}
+                  <button type="button" role="switch" aria-checked={act} aria-label={s.name} onClick={() => toggle(s)} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: act ? "var(--ink)" : "var(--track)", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", top: "3px", left: act ? "19px" : "3px", width: "18px", height: "18px", borderRadius: "800px", background: "var(--paper)", transition: "left .15s ease" }}></span></button>
                 </div>
               );
             })}
@@ -147,16 +147,16 @@ export default function Screen() {
             <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Tono</h2>
               <Pills label={`Tono de ${a.name}`} options={[["Cercano", "Cercano"], ["Formal", "Formal"], ["Breve", "Breve"]]} value={curTone} onChange={(t) => setTone((x) => ({ ...x, [a.key]: t }))} />
-              <div style={{ background: "#f4f4f5", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.tonos[curTone]}</div>
+              <div style={{ background: "var(--canvas)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{a.tonos[curTone]}</div>
             </section>
             <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Canales</h2>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>WhatsApp Business</span><span style={{ color: "#004c39" }}>Conectado</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Teléfono (voz)</span><span style={{ color: "#004c39" }}>Conectado</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Google Calendar</span><a href="/plataforma/configuracion/integraciones" style={{ color: "#8e4e00" }}>! Reconectar</a></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Instagram</span><a href="/plataforma/configuracion/integraciones" style={{ color: "#2457f5" }}>Conectar</a></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>WhatsApp Business</span><span style={{ color: "var(--green-fg)" }}>Conectado</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Teléfono (voz)</span><span style={{ color: "var(--green-fg)" }}>Conectado</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Google Calendar</span><a href="/plataforma/configuracion/integraciones" style={{ color: "var(--amber-fg)" }}>! Reconectar</a></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Instagram</span><a href="/plataforma/configuracion/integraciones" style={{ color: "var(--blue-fg)" }}>Conectar</a></div>
             </section>
-            <section style={{ borderRadius: "12px", background: "#9dbecc", padding: "20px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>
+            <section style={{ borderRadius: "12px", background: "var(--mist)", padding: "20px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>
               <h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Lo que sabe de tu negocio</h2>
               <span>Horario: L–V 9:00–20:00 · 2 sedes · 4 profesionales · 5 servicios con precio.</span>
               <a href="/plataforma/memoria" style={{ fontWeight: "500" }}>Editar memoria →</a>

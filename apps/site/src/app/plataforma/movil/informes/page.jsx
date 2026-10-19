@@ -25,22 +25,22 @@ export default function Screen() {
   return (
     <MobileFrame active="mas" back="/plataforma/movil/mas" title="Informes">
       <Pills label="Periodo" variant="segmented" options={[["semana", "Semana"], ["mes", "Mes"], ["año", "Año"]]} value={period} onChange={setPeriod} size="sm" />
-      <div style={{ borderRadius: "12px", background: "#a3c2a7", padding: "18px", display: "flex", flexDirection: "column", gap: "4px" }}>
+      <div style={{ borderRadius: "12px", background: "var(--sage)", padding: "18px", display: "flex", flexDirection: "column", gap: "4px" }}>
         <span style={{ fontSize: "12px" }}>{TITLE[period]} · tiempo ahorrado</span>
         <span style={{ fontSize: "36px", lineHeight: "40px", letterSpacing: "-1px" }}>{scale(d.hours, f)}</span>
         <span style={{ fontSize: "13px" }}>{d.heroSub}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
         {Object.entries(d.stats).slice(0, 4).map(([k, v]) => (
-          <div key={k} style={{ background: "#ffffff", borderRadius: "12px", padding: "14px" }}><span style={{ display: "block", fontSize: "12px", color: "#5f5f63" }}>{k}</span><span style={{ fontSize: "22px", letterSpacing: "-0.4px" }}>{scale(v, f)}</span></div>
+          <div key={k} style={{ background: "var(--paper)", borderRadius: "12px", padding: "14px" }}><span style={{ display: "block", fontSize: "12px", color: "var(--muted)" }}>{k}</span><span style={{ fontSize: "22px", letterSpacing: "-0.4px" }}>{scale(v, f)}</span></div>
         ))}
       </div>
-      <div style={{ background: "#ffffff", borderRadius: "12px", padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div style={{ background: "var(--paper)", borderRadius: "12px", padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
         <span style={{ fontWeight: 500 }}>Por agente</span>
         {d.agents.map((a) => { const t = parseFloat(String(a.tasks).replace(/\./g, "")) || 0; return (
           <span key={a.key} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ display: "flex", justifyContent: "space-between" }}><span>{a.name}</span><span style={{ color: "#6b6b70" }}>{scale(a.tasks, f)} tareas</span></span>
-            <span style={{ height: "6px", borderRadius: "800px", background: "#ebebed" }}><span style={{ display: "block", width: `${max ? (t / max) * 100 : 0}%`, height: "6px", borderRadius: "800px", background: AGENT_TABLE_COLOR[a.key] }} /></span>
+            <span style={{ display: "flex", justifyContent: "space-between" }}><span>{a.name}</span><span style={{ color: "var(--muted-2)" }}>{scale(a.tasks, f)} tareas</span></span>
+            <span style={{ height: "6px", borderRadius: "800px", background: "var(--sunken)" }}><span style={{ display: "block", width: `${max ? (t / max) * 100 : 0}%`, height: "6px", borderRadius: "800px", background: AGENT_TABLE_COLOR[a.key] }} /></span>
           </span>
         ); })}
       </div>

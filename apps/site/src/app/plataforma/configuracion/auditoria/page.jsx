@@ -7,10 +7,10 @@ import Pills from "@/components/pills";
 // cada acción (antes/después, IP, enlace) y exportar a CSV lo que estás viendo.
 // TODO(backend): audit_logs (solo inserción) con filtros en servidor y retención
 // por plan; la exportación se genera en servidor.
-const card = { background: "#ffffff", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "14px", fontSize: "14px", lineHeight: "21px" };
-const muted = { color: "#5f5f63" };
-const btn = { padding: "9px 16px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/18px var(--font-display)", cursor: "pointer" };
-const TAG = { agente: ["#dcebdd", "#004c39", "Agente"], persona: ["#e8edff", "#2457f5", "Persona"], sistema: ["#ebebed", "#5f5f63", "Sistema"] };
+const card = { background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "14px", fontSize: "14px", lineHeight: "21px" };
+const muted = { color: "var(--muted)" };
+const btn = { padding: "9px 16px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/18px var(--font-display)", cursor: "pointer" };
+const TAG = { agente: ["var(--green-bg)", "var(--green-fg)", "Agente"], persona: ["var(--blue-bg)", "var(--blue-fg)", "Persona"], sistema: ["#ebebed", "var(--muted)", "Sistema"] };
 // [id, día (0 = hoy), hora, autor, tipo, acción, dónde, sede, ip, antes, después, enlace]
 const LOG = [
   ["a1", 0, "11:02", "Administración", "agente", "Preparó la factura F-0412 para Laura M. (75,00 €)", "Facturas", "Sede Centro", "—", null, "Borrador · pendiente de aprobación", "/plataforma/aprobaciones?i=f0412"],
@@ -51,20 +51,20 @@ export default function Auditoria() {
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
         <Pills label="Tipo de autor" options={KINDS} value={kind} onChange={setKind} size="sm" />
         <Pills label="Periodo" variant="segmented" options={PERIODS} value={period} onChange={setPeriod} size="sm" />
-        <label style={{ flex: "1 1 200px" }}><span style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>Buscar en el registro</span><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona, acción o sede" style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", font: "400 14px/18px var(--font-display)", color: "#000000" }} /></label>
+        <label style={{ flex: "1 1 200px" }}><span style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>Buscar en el registro</span><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona, acción o sede" style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", font: "400 14px/18px var(--font-display)", color: "var(--ink)" }} /></label>
       </div>
 
       <section style={{ ...card, padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse" }}>
-          <thead><tr style={{ textAlign: "left", background: "#ebebed" }}><th scope="col" style={{ padding: "12px 24px", fontWeight: 500 }}>Cuándo</th><th scope="col" style={{ padding: "12px", fontWeight: 500 }}>Autor</th><th scope="col" style={{ padding: "12px", fontWeight: 500 }}>Acción</th><th scope="col" style={{ padding: "12px 24px", fontWeight: 500 }}>Dónde</th></tr></thead>
+          <thead><tr style={{ textAlign: "left", background: "var(--sunken)" }}><th scope="col" style={{ padding: "12px 24px", fontWeight: 500 }}>Cuándo</th><th scope="col" style={{ padding: "12px", fontWeight: 500 }}>Autor</th><th scope="col" style={{ padding: "12px", fontWeight: 500 }}>Acción</th><th scope="col" style={{ padding: "12px 24px", fontWeight: 500 }}>Dónde</th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={4} style={{ padding: "20px 24px", ...muted }}>Nada en el registro con estos filtros.</td></tr>}
             {rows.map((r) => (
-              <tr key={r[0]} style={{ borderTop: "1px solid #0000000f" }}>
-                <td style={{ padding: "12px 24px", color: "#6b6b70", whiteSpace: "nowrap" }}>{WHEN(r[1], r[2])}</td>
+              <tr key={r[0]} style={{ borderTop: "1px solid var(--line-soft)" }}>
+                <td style={{ padding: "12px 24px", color: "var(--muted-2)", whiteSpace: "nowrap" }}>{WHEN(r[1], r[2])}</td>
                 <td style={{ padding: "12px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: "8px", whiteSpace: "nowrap" }}>{r[3]}<span style={{ padding: "1px 8px", borderRadius: "800px", background: TAG[r[4]][0], color: TAG[r[4]][1], fontSize: "11px" }}>{TAG[r[4]][2]}</span></span></td>
-                <td style={{ padding: "12px" }}><button type="button" onClick={() => setOpen(r[0])} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "inherit", textAlign: "left", cursor: "pointer", textDecoration: "underline", textDecorationColor: "#0000002a", textUnderlineOffset: "3px" }}>{r[5]}</button></td>
-                <td style={{ padding: "12px 24px", color: "#6b6b70" }}>{r[6]} · {r[7]}</td>
+                <td style={{ padding: "12px" }}><button type="button" onClick={() => setOpen(r[0])} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "inherit", textAlign: "left", cursor: "pointer", textDecoration: "underline", textDecorationColor: "var(--line-strong)", textUnderlineOffset: "3px" }}>{r[5]}</button></td>
+                <td style={{ padding: "12px 24px", color: "var(--muted-2)" }}>{r[6]} · {r[7]}</td>
               </tr>
             ))}
           </tbody>
@@ -74,20 +74,20 @@ export default function Auditoria() {
 
       {cur && (
         <div role="dialog" aria-modal="true" aria-label="Detalle de la acción" onClick={() => setOpen(null)} style={{ position: "fixed", inset: 0, zIndex: 40, background: "#00000040", display: "flex", justifyContent: "flex-end" }}>
-          <aside onClick={(e) => e.stopPropagation()} style={{ width: "min(440px, 100%)", height: "100%", background: "#ffffff", boxShadow: "-12px 0 40px #00000026", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", fontSize: "14px", lineHeight: "21px" }}>
+          <aside onClick={(e) => e.stopPropagation()} style={{ width: "min(440px, 100%)", height: "100%", background: "var(--paper)", boxShadow: "-12px 0 40px #00000026", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", fontSize: "14px", lineHeight: "21px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start" }}>
               <span style={{ fontSize: "18px", lineHeight: "24px" }}>{cur[5]}</span>
-              <button type="button" onClick={() => setOpen(null)} aria-label="Cerrar" style={{ width: "32px", height: "32px", flex: "none", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", cursor: "pointer" }}>×</button>
+              <button type="button" onClick={() => setOpen(null)} aria-label="Cerrar" style={{ width: "32px", height: "32px", flex: "none", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", cursor: "pointer" }}>×</button>
             </div>
             {[["Cuándo", WHEN(cur[1], cur[2])], ["Autor", `${cur[3]} (${TAG[cur[4]][2].toLowerCase()})`], ["Dónde", cur[6]], ["Sede", cur[7]], ["IP", cur[8]], ["ID", `evt_${cur[0]}_2026`]].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: "12px", borderTop: "1px solid #0000000f", paddingTop: "10px" }}><span style={muted}>{k}</span><span style={{ textAlign: "right" }}>{v}</span></div>
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: "12px", borderTop: "1px solid var(--line-soft)", paddingTop: "10px" }}><span style={muted}>{k}</span><span style={{ textAlign: "right" }}>{v}</span></div>
             ))}
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid #0000000f", paddingTop: "12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid var(--line-soft)", paddingTop: "12px" }}>
               <span style={muted}>Cambio</span>
-              {cur[9] && <span style={{ padding: "8px 12px", borderRadius: "8px", background: "#fbe1ea", color: "#a30042", textDecoration: "line-through" }}>{cur[9]}</span>}
-              <span style={{ padding: "8px 12px", borderRadius: "8px", background: "#dcebdd", color: "#004c39" }}>{cur[10]}</span>
+              {cur[9] && <span style={{ padding: "8px 12px", borderRadius: "8px", background: "var(--rose-bg)", color: "var(--rose-fg)", textDecoration: "line-through" }}>{cur[9]}</span>}
+              <span style={{ padding: "8px 12px", borderRadius: "8px", background: "var(--green-bg)", color: "var(--green-fg)" }}>{cur[10]}</span>
             </div>
-            <a href={cur[11]} style={{ marginTop: "auto", alignSelf: "flex-start", padding: "10px 16px", borderRadius: "800px", background: "#000000", color: "#ffffff", textDecoration: "none" }}>Ir al elemento →</a>
+            <a href={cur[11]} style={{ marginTop: "auto", alignSelf: "flex-start", padding: "10px 16px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", textDecoration: "none" }}>Ir al elemento →</a>
           </aside>
         </div>
       )}
