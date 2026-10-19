@@ -35,6 +35,9 @@ export async function proxy(request: NextRequest) {
   return redirect;
 }
 
+// Fuera del proxy quedan los estáticos sin datos. Los de la PWA (service
+// worker, manifest, página sin conexión e iconos) también: el iPhone los pide
+// sin sesión al instalar la app desde /login y no pueden redirigir al login.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|offline.html|icons/).*)"],
 };
