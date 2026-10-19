@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import ApprovalsBadge from "@/components/approvals-badge";
+import { PlatformLangSelect } from "@/components/plataforma-i18n";
 
 export default function Screen() {
   const [twofa, setTwofa] = useState(true);
-  const [lang, setLang] = useState("es");
   const [push, setPush] = useState({ aprobaciones: true, urgencias: true, resumen: false });
   const Switch = ({ on, onClick, label }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} style={{ flex: "none", width: "44px", height: "26px", borderRadius: "800px", border: 0, padding: "3px", background: on ? "#004c39" : "var(--track-2)", cursor: "pointer", display: "flex", justifyContent: on ? "flex-end" : "flex-start" }}><span style={{ width: "20px", height: "20px", borderRadius: "800px", background: "var(--paper)" }} /></button>
@@ -31,7 +31,7 @@ export default function Screen() {
 </div>
 <span style={{ padding: "0 4px", fontSize: "12px", color: "var(--muted-2)" }}>Cuenta</span>
 <div style={{ background: "var(--paper)", borderRadius: "12px", overflow: "hidden" }}>
-<label style={row}><span>Idioma</span><select value={lang} onChange={(e) => setLang(e.target.value)} style={{ border: 0, background: "transparent", font: "400 14px/20px var(--font-display)", color: "var(--muted)" }}><option value="es">Español</option><option value="en">English</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
+<label style={row}><span>Idioma</span><PlatformLangSelect style={{ border: 0, background: "transparent", font: "400 14px/20px var(--font-display)", color: "var(--muted)" }} /></label>
 <div style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Verificación en dos pasos</span><Switch label="Verificación en dos pasos" on={twofa} onClick={() => setTwofa(!twofa)} /></div>
 <a href="/plataforma/configuracion/perfil" style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Más ajustes del perfil</span><span style={{ color: "var(--muted-2)" }}>Escritorio ›</span></a>
 </div>

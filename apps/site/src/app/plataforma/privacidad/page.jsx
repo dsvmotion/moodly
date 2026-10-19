@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { usePlatformLang } from "@/components/plataforma-i18n";
 
 // Flujo: ejercer los derechos RGPD sobre los datos de un cliente — exportar
 // (portabilidad / acceso) y borrar (supresión). Con confirmación escrita y un
@@ -23,6 +24,9 @@ export default function Privacidad() {
   const [exp, setExp] = useState("idle"); // idle | working | ready
   const [del, setDel] = useState("idle"); // idle | confirming | scheduled
   const [typed, setTyped] = useState("");
+  // La palabra que hay que escribir para borrar va en el idioma de la plataforma.
+  const [lang] = usePlatformLang();
+  const word = { es: "BORRAR", en: "DELETE", fr: "SUPPRIMER", de: "LÖSCHEN" }[lang];
   const reduced = useRef(false);
   useEffect(() => { reduced.current = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false; }, []);
 
@@ -86,11 +90,11 @@ export default function Privacidad() {
         <div role="dialog" aria-modal="true" aria-label="Confirmar borrado" style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={() => { setDel("idle"); setTyped(""); }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "14px", boxShadow: "0 24px 64px #00000033" }}>
             <span style={{ fontSize: "17px", fontWeight: 500 }}>Borrar los datos de {name}</span>
-            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Se programará para dentro de 30 días (podrás cancelarlo hasta entonces). Para confirmar, escribe <strong style={{ fontWeight: 500, color: "var(--ink)" }}>BORRAR</strong>.</span>
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="BORRAR" aria-label="Escribe BORRAR para confirmar" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "500 15px/20px var(--font-body)", letterSpacing: "1px", color: "var(--ink)" }} />
+            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Se programará para dentro de 30 días (podrás cancelarlo hasta entonces). Para confirmar, escribe <strong translate="no" style={{ fontWeight: 500, color: "var(--ink)" }}>{word}</strong>.</span>
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={word} aria-label="Escribe BORRAR para confirmar" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "500 15px/20px var(--font-body)", letterSpacing: "1px", color: "var(--ink)" }} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button type="button" onClick={() => { setDel("idle"); setTyped(""); }} style={btnLight}>Cancelar</button>
-              <button type="button" disabled={typed.trim().toUpperCase() !== "BORRAR"} onClick={() => setDel("scheduled")} style={{ ...btnDark, background: "#a30042", borderColor: "var(--rose-fg)", opacity: typed.trim().toUpperCase() === "BORRAR" ? 1 : 0.5 }}>Programar borrado</button>
+              <button type="button" disabled={typed.trim().toUpperCase() !== word} onClick={() => setDel("scheduled")} style={{ ...btnDark, background: "#a30042", borderColor: "var(--rose-fg)", opacity: typed.trim().toUpperCase() === word ? 1 : 0.5 }}>Programar borrado</button>
             </div>
           </div>
         </div>

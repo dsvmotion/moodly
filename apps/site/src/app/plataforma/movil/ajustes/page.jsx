@@ -2,6 +2,7 @@
 import { useState } from "react";
 import MobileFrame from "@/components/mobile-frame";
 import { SEDES, useSede } from "@/components/use-sede";
+import { PlatformLangSelect } from "@/components/plataforma-i18n";
 
 // Ajustes (móvil): los avisos son interruptores reales; «Sede activa» cambia la
 // sede de toda la plataforma (la misma que el selector de escritorio).
@@ -31,7 +32,7 @@ export default function Screen() {
         <a href="/plataforma/movil/perfil" style={row}><span>Mi perfil</span><span style={{ color: "var(--muted-2)" }}>›</span></a>
         <button type="button" onClick={nextSede} style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Sede activa</span><span style={{ color: "var(--muted-2)" }}>{sede.replace("Sede ", "")} · cambiar</span></button>
         <button data-demo="" type="button" style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Verificación en dos pasos</span><span style={{ color: "var(--green-fg)" }}>Activada</span></button>
-        <button data-demo="" type="button" style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Idioma</span><span style={{ color: "var(--muted-2)" }}>Español ›</span></button>
+        <label style={{ ...row, borderTop: "1px solid var(--line-soft)", cursor: "default" }}><span>Idioma</span><PlatformLangSelect style={{ border: 0, background: "transparent", font: "inherit", color: "var(--muted-2)", textAlign: "right" }} /></label>
       </div>
       <span style={label}>Ayuda</span>
       <div style={card}>

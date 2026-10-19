@@ -21,6 +21,8 @@ p, li, td, dd, blockquote, textarea { font-family: var(--font-body); }
 
 /* Estilos base de la web pública (tokens del sistema de diseño Moodly AI). */
 html, body { margin: 0; background: #f7f7f8; }
+/* Mientras se aplica la traducción de la plataforma (ver components/lang-script.js). */
+html[data-i18n-pending] body { visibility: hidden; }
 a { color: #000000; text-decoration: none; }
 a:hover { color: #2457f5; }
 summary { cursor: pointer; list-style: none; }

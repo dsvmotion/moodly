@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import SettingsNav from "@/components/settings-nav";
+import { PlatformLangSelect } from "@/components/plataforma-i18n";
 
 // Perfil del usuario (prototipo con estado local). TODO(backend): leer/guardar en `profiles` y Supabase Auth.
 const NOTIFS = [
@@ -17,7 +18,7 @@ const box = { background: "var(--paper)", borderRadius: "12px", padding: "24px",
 const h2 = { margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" };
 
 export default function Perfil() {
-  const [data, setData] = useState({ name: "Marta Ruiz", email: "marta@clinicadentalsol.es", phone: "+34 600 000 000", lang: "es", tz: "Europe/Madrid" });
+  const [data, setData] = useState({ name: "Marta Ruiz", email: "marta@clinicadentalsol.es", phone: "+34 600 000 000", tz: "Europe/Madrid" });
   const [notif, setNotif] = useState({ approvals: ["App", "WhatsApp"], urgent: ["App", "WhatsApp"], daily: ["Email"], coach: ["Email"], billing: ["Email"] });
   const [twofa, setTwofa] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -45,7 +46,7 @@ export default function Perfil() {
               <label style={label}>Email<input type="email" value={data.email} onChange={set("email")} autoComplete="email" style={field} /></label>
               <label style={label}>Teléfono para avisos<input value={data.phone} onChange={set("phone")} autoComplete="tel" style={field} /></label>
               <label style={label}>Idioma de la plataforma
-                <select value={data.lang} onChange={set("lang")} style={field}><option value="es">Español</option><option value="en">English</option><option value="fr">Français</option><option value="de">Deutsch</option></select>
+                <PlatformLangSelect style={field} />
               </label>
               <label style={label}>Zona horaria
                 <select value={data.tz} onChange={set("tz")} style={field}><option value="Europe/Madrid">Madrid (CET)</option><option value="Atlantic/Canary">Canarias (WET)</option><option value="Europe/Paris">París (CET)</option><option value="Europe/Berlin">Berlín (CET)</option></select>

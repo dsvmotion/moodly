@@ -1,8 +1,9 @@
 "use client";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Activity, BookOpen, Bot, Brain, CalendarDays, ChartColumn, Clock, Contact, Cpu, CreditCard, ExternalLink, Moon, House, LogOut, MessagesSquare, Network, Phone, Plug, Receipt, Settings, ShieldCheck, Sparkles, Stamp, Store, Target, User, Users, WandSparkles, Zap } from "lucide-react";
+import { Activity, BookOpen, Bot, Brain, CalendarDays, ChartColumn, Clock, Contact, Cpu, CreditCard, ExternalLink, Languages, Moon, House, LogOut, MessagesSquare, Network, Phone, Plug, Receipt, Settings, ShieldCheck, Sparkles, Stamp, Store, Target, User, Users, WandSparkles, Zap } from "lucide-react";
 import { SEDES, useSede } from "@/components/use-sede";
 import { useTheme } from "@/components/theme";
+import { PLAT_LANGS, usePlatformLang } from "@/components/plataforma-i18n";
 import { approvalsCount } from "@/components/sede-data";
 
 // Iconos del menú lateral (lucide, trazo fino), estilo de la referencia Langdock.
@@ -71,6 +72,9 @@ function UserMenu() {
   const [theme, setTheme] = useTheme();
   const THEMES = { system: "Sistema", light: "Claro", dark: "Oscuro" };
   const nextTheme = { system: "light", light: "dark", dark: "system" };
+  const [lang, setLang] = usePlatformLang();
+  const langIds = Object.keys(PLAT_LANGS);
+  const nextLang = langIds[(langIds.indexOf(lang) + 1) % langIds.length];
   const ref = useRef(null);
   useEffect(() => {
     const close = (e) => { if (e.key === "Escape" || (e.type === "mousedown" && ref.current && !ref.current.contains(e.target))) setOpen(false); };
@@ -86,6 +90,7 @@ function UserMenu() {
           <a role="menuitem" href="/plataforma/configuracion/general" style={item}><Settings size={16} strokeWidth={1.75} aria-hidden="true" />Ajustes de la empresa</a>
           <a role="menuitem" href="/plataforma/configuracion/plan" style={item}><Activity size={16} strokeWidth={1.75} aria-hidden="true" />Plan y consumo</a>
           <button type="button" role="menuitem" onClick={() => setTheme(nextTheme[theme])} style={{ ...item, width: "100%", border: 0, background: "transparent", font: "inherit", cursor: "pointer", textAlign: "left" }}><Moon size={16} strokeWidth={1.75} aria-hidden="true" />Tema: {THEMES[theme]}</button>
+          <button type="button" role="menuitem" onClick={() => setLang(nextLang)} style={{ ...item, width: "100%", border: 0, background: "transparent", font: "inherit", cursor: "pointer", textAlign: "left" }}><Languages size={16} strokeWidth={1.75} aria-hidden="true" /><span>Idioma</span><span translate="no" lang={lang} style={{ marginLeft: "auto", color: "var(--muted-2)" }}>{PLAT_LANGS[lang]}</span></button>
           <a role="menuitem" href="/es" style={item}><ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />Ir a moodly.ai</a>
           <a role="menuitem" href="/es" style={{ ...item, color: "var(--rose-fg)", borderTop: "1px solid var(--line-soft)", borderRadius: 0 }}><LogOut size={16} strokeWidth={1.75} aria-hidden="true" />Cerrar sesión</a>
         </div>

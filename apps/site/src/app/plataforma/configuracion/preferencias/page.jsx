@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useTheme } from "@/components/theme";
+import { PlatformLangSelect } from "@/components/plataforma-i18n";
 import SettingsShell from "@/components/settings-shell";
 
 const card = { background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", fontSize: "14px", lineHeight: "21px" };
@@ -21,7 +22,7 @@ export default function Preferencias() {
       <section style={card}>
         <h2 style={h2}>General</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", ...sub }}>Idioma<select defaultValue="es" style={field}><option value="es">Español</option><option value="en">English</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", ...sub }}>Idioma<PlatformLangSelect style={field} /></label>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", ...sub }}>Modelo por defecto<select defaultValue="auto" style={field}><option value="auto">Automático (recomendado)</option><option>Anthropic · avanzado</option><option>OpenAI · rápido</option></select></label>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
