@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, Bot, Building2, CreditCard, KeyRound, Lock, Plug, Receipt, ScrollText, ShieldCheck, SlidersHorizontal, Store, User, Users } from "lucide-react";
+import { ArrowLeft, Bot, Braces, Building2, CreditCard, KeyRound, Lock, Plug, Receipt, ScrollText, ShieldCheck, SlidersHorizontal, Store, User, Users } from "lucide-react";
 
 // Menú lateral del modo Configuración (referencia: Langdock). Sustituye al menú
 // de operación; se vuelve a la plataforma con el enlace de arriba.
@@ -22,6 +22,7 @@ const GROUPS = [
   ["IA y conexiones", [
     ["modelos", "Modelos de IA", "/plataforma/configuracion/modelos", Bot],
     ["integraciones", "Integraciones", "/plataforma/configuracion/integraciones", Plug],
+    ["api", "Claves de API", "/plataforma/configuracion/api", Braces],
   ]],
   ["Seguridad", [
     ["seguridad", "Seguridad y acceso", "/plataforma/configuracion/seguridad", Lock],

@@ -1,37 +1,9 @@
 "use client";
 import { useState } from "react";
 import SettingsNav from "@/components/settings-nav";
+import { ALL, INITIAL } from "@/components/integrations-data";
 
 // Integraciones con estado local (prototipo). TODO(backend): OAuth real y estado en `integrations`.
-// Cada integración declara sus ACCIONES (lo que el agente puede hacer con ella),
-// su categoría y, si procede, el conjunto por defecto (Google / Microsoft).
-const ALL = [
-  { id: "whatsapp", name: "WhatsApp Business", logo: "whatsapp.svg", cat: "Mensajería", use: "Número +34 600 000 000", actions: "Responder, enviar plantillas, notas de voz", agents: "Recepción, Atención" },
-  { id: "gcal", name: "Google Calendar", logo: "googlecalendar.svg", cat: "Calendario", suite: "google", use: "Agenda de las 3 profesionales", actions: "Crear, mover y cancelar citas", agents: "Recepción" },
-  { id: "gmail", name: "Gmail", logo: "gmail.svg", cat: "Email", suite: "google", use: "info@clinicadentalsol.es", actions: "Leer y responder correos", agents: "Atención" },
-  { id: "holded", name: "Holded", logo: "holded.png", cat: "Facturación", use: "Facturas y cobros", actions: "Crear factura, registrar cobro", agents: "Administración" },
-  { id: "twilio", name: "Teléfono (Twilio)", logo: "twilio.svg", cat: "Voz", use: "Línea +34 910 000 000", actions: "Atender y hacer llamadas", agents: "Recepción" },
-  { id: "instagram", name: "Instagram", logo: "instagram.svg", cat: "Mensajería", use: "Mensajes directos", actions: "Responder DMs y comentarios", agents: "Atención" },
-  { id: "outlook", name: "Outlook / Microsoft 365", logo: "microsoftoutlook.svg", cat: "Email", suite: "microsoft", use: "Email y calendario", actions: "Correo y calendario", agents: "Recepción, Atención" },
-  { id: "maps", name: "Google Reviews", logo: "googlemaps.svg", cat: "Reseñas", use: "Reseñas de tu ficha", actions: "Leer y responder reseñas", agents: "Atención" },
-  { id: "hubspot", name: "HubSpot", logo: "hubspot.svg", cat: "CRM", use: "Contactos y presupuestos", actions: "Crear contactos, mover oportunidades", agents: "Comercial" },
-  { id: "salesforce", name: "Salesforce", logo: "salesforce.svg", cat: "CRM", use: "Cuentas y oportunidades", actions: "Crear y actualizar oportunidades", agents: "Comercial" },
-  { id: "pipedrive", name: "Pipedrive", logo: "pipedrive.svg", cat: "CRM", use: "Embudo de ventas", actions: "Mover tratos de etapa", agents: "Comercial" },
-  { id: "doctoralia", name: "Doctoralia", logo: "doctoralia.png", cat: "Calendario", use: "Citas de pacientes [vía partner]", actions: "Leer y crear citas", agents: "Recepción" },
-  { id: "calendly", name: "Calendly", logo: "calendly.svg", cat: "Calendario", use: "Reservas online", actions: "Crear y leer reservas", agents: "Recepción" },
-  { id: "stripe", name: "Stripe", logo: "stripe.svg", cat: "Facturación", use: "Cobros y enlaces de pago", actions: "Crear enlaces de pago, ver cobros", agents: "Administración" },
-  { id: "quickbooks", name: "QuickBooks", logo: "quickbooks.svg", cat: "Facturación", use: "Contabilidad", actions: "Emitir facturas", agents: "Administración" },
-  { id: "drive", name: "Google Drive", logo: "googledrive.svg", cat: "Almacenamiento", suite: "google", use: "Protocolos y tarifas", actions: "Leer documentos para responder", agents: "Todos" },
-  { id: "onedrive", name: "OneDrive / SharePoint", logo: "microsoftonedrive.svg", cat: "Almacenamiento", suite: "microsoft", use: "Documentos del equipo", actions: "Leer documentos", agents: "Todos" },
-  { id: "notion", name: "Notion", logo: "notion.svg", cat: "Almacenamiento", use: "Base de conocimiento", actions: "Leer páginas", agents: "Todos" },
-  { id: "shopify", name: "Shopify", logo: "shopify.svg", cat: "CRM", use: "Pedidos y clientes", actions: "Ver pedidos y estados", agents: "Atención, Comercial" },
-  { id: "messenger", name: "Facebook Messenger", logo: "messenger.svg", cat: "Mensajería", use: "Mensajes de la página", actions: "Responder mensajes", agents: "Atención" },
-  { id: "telegram", name: "Telegram", logo: "telegram.svg", cat: "Mensajería", use: "Canal y mensajes", actions: "Responder mensajes", agents: "Atención" },
-  { id: "elevenlabs", name: "ElevenLabs (voz)", logo: "elevenlabs.svg", cat: "Voz", use: "Voz del agente en llamadas", actions: "Síntesis y clonación de voz", agents: "Recepción" },
-  { id: "zendesk", name: "Zendesk", logo: "zendesk.svg", cat: "Mensajería", use: "Tickets de soporte", actions: "Crear y responder tickets", agents: "Atención" },
-  { id: "thefork", name: "TheFork", logo: "thefork.png", cat: "Calendario", use: "Reservas de mesa", actions: "Leer y gestionar reservas", agents: "Recepción" },
-];
-const INITIAL = { whatsapp: "on", gcal: "error", gmail: "on", holded: "on", twilio: "on" };
 const CATS = ["Todas", "Mensajería", "Calendario", "Email", "CRM", "Facturación", "Reseñas", "Almacenamiento", "Voz"];
 
 const btn = (dark) => ({ padding: "8px 14px", borderRadius: "800px", border: dark ? "1px solid #000000" : "1px solid #0000001a", background: dark ? "#000000" : "#ffffff", color: dark ? "#ffffff" : "#000000", font: "400 14px/20px var(--font-display)", cursor: "pointer" });
@@ -66,7 +38,7 @@ export default function Integraciones() {
         {broken.map((i) => (
           <div key={i.id} role="alert" style={{ borderRadius: "12px", background: "#fbe1ea", color: "#a30042", padding: "14px 20px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ flex: "1 1 320px" }}><strong style={{ fontWeight: 500 }}>× {i.name} se ha desconectado.</strong> {i.agents} no puede usarla hasta que la reconectes.</span>
-            <button type="button" onClick={() => set(i.id, "on")} style={btn(true)}>Reconectar</button>
+            <a href={`/plataforma/configuracion/integraciones/detalle?i=${i.id}`} style={{ ...btn(true), textDecoration: "none" }}>Reconectar</a>
           </div>
         ))}
 
@@ -104,8 +76,8 @@ export default function Integraciones() {
               <span style={{ fontSize: "12px", color: "#6b6b70" }}>La usa: {i.agents}</span>
               <span style={{ display: "flex", gap: "8px", marginTop: "auto" }}>
                 {state[i.id] === "error"
-                  ? <button type="button" onClick={() => set(i.id, "on")} style={btn(true)}>Reconectar</button>
-                  : <><button data-demo="" type="button" style={btn(false)}>Permisos</button><button type="button" onClick={() => set(i.id, undefined)} style={btn(false)}>Desconectar</button></>}
+                  ? <a href={`/plataforma/configuracion/integraciones/detalle?i=${i.id}`} style={{ ...btn(true), textDecoration: "none" }}>Reconectar</a>
+                  : <a href={`/plataforma/configuracion/integraciones/detalle?i=${i.id}`} style={{ ...btn(false), textDecoration: "none" }}>Gestionar</a>}
               </span>
             </div>
           ))}
