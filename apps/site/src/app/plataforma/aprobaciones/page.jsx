@@ -1,27 +1,23 @@
 "use client";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { useSede } from "@/components/use-sede";
+import { approvalsFor } from "@/components/sede-data";
 
-// Aprobaciones con estado local (prototipo). TODO(backend): leer y resolver `approvals`.
-const ITEMS = [
-  { id: "f0412", agent: "Administración", color: "#8e4e00", when: "hace 5 min", tag: "Factura", title: "Enviar factura F-0412 a Laura M. por WhatsApp", note: "La pidió en la conversación de esta mañana.", head: "Enviar factura a Laura M.",
-    lines: [["Limpieza dental", "45,00 €"], ["Revisión", "30,00 €"], ["IVA (exento, art. 20 LIVA)", "0,00 €"]], total: "75,00 €",
-    message: "¡Hola, Laura! Te adjunto la factura de tu última visita. Cualquier duda, aquí estoy.", rule: "«Enviar factura» requiere aprobación." },
-  { id: "resena", agent: "Atención al cliente", color: "#9dbecc", when: "hace 22 min", tag: "Reseña", title: "Responder a una reseña de 2 estrellas de Pedro G.", note: "Las reseñas negativas siempre pasan por ti.", head: "Respuesta a la reseña de Pedro G.",
-    quote: "«Tuve que esperar 25 minutos aunque tenía cita.» ★★☆☆☆",
-    message: "Hola, Pedro. Sentimos mucho la espera: ese día tuvimos una urgencia que retrasó la agenda. Nos gustaría compensarte con una revisión sin coste. ¿Te llamamos para buscar hueco?", rule: "Las reseñas de 3 estrellas o menos requieren aprobación." },
-  { id: "citas", agent: "Recepción", color: "#004c39", when: "hace 1 h", tag: "Agenda", title: "Mover 3 citas del viernes por la baja de la Dra. Ruiz", note: "Propone pasarlas al lunes con el Dr. Vidal.", head: "Reprogramar 3 citas",
-    lines: [["Ana P. · vie 10:00", "→ lun 10:00 · Dr. Vidal"], ["Marcos R. · vie 11:30", "→ lun 12:00 · Dr. Vidal"], ["Lucía G. · vie 17:00", "→ lun 16:30 · Dr. Vidal"]],
-    message: "Hola, te escribimos de Clínica Dental Sol: la Dra. Ruiz no podrá atenderte el viernes. ¿Te va bien el lunes a la hora indicada con el Dr. Vidal?", rule: "Cambios de varias citas a la vez requieren aprobación." },
-];
+// Aprobaciones por sede (fuente única en sede-data) con estado local. Admite ?i=id
+// para abrir una concreta (desde Inicio). TODO(backend): leer y resolver `approvals`.
 
 const pill = (on) => ({ padding: "8px 14px", borderRadius: "800px", border: 0, background: on ? "#000000" : "transparent", boxShadow: on ? "none" : "inset 0 0 0 1px #0000001a", color: on ? "#ffffff" : "#000000", font: "400 14px/14px var(--font-display)", cursor: "pointer" });
 const btn = (kind) => ({ padding: "10px 18px", borderRadius: "800px", border: kind === "primary" ? "1px solid #000000" : "1px solid #0000001a", background: kind === "primary" ? "#000000" : "#ffffff", color: kind === "primary" ? "#ffffff" : kind === "danger" ? "#a30042" : "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" });
 
 export default function Aprobaciones() {
+  const { sede } = useSede();
+  const ITEMS = approvalsFor(sede);
   const [status, setStatus] = useState({});
   const [tab, setTab] = useState("pending");
-  const [selected, setSelected] = useState(ITEMS[0].id);
+  const [selected, setSelected] = useState(null);
+  // ?i=id → abre esa aprobación (desde Inicio o una conversación).
+  useEffect(() => { const i = new URLSearchParams(window.location.search).get("i"); if (i) setSelected(i); }, []);
   const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState({});
   const list = ITEMS.filter((i) => (status[i.id] || "pending") === tab);
@@ -54,7 +50,7 @@ export default function Aprobaciones() {
             {list.length === 0 && <p style={{ margin: 0, padding: "24px", background: "#ffffff", borderRadius: "12px", color: "#5f5f63", fontSize: "14px" }}>No hay tareas en esta lista.</p>}
             {list.map((i) => (
               <button key={i.id} type="button" aria-pressed={current && current.id === i.id} onClick={() => { setSelected(i.id); setEditing(false); }} style={{ textAlign: "left", background: "#ffffff", border: current && current.id === i.id ? "2px solid #000000" : "1px solid #0000001a", borderRadius: "12px", padding: current && current.id === i.id ? "17px" : "18px", display: "flex", flexDirection: "column", gap: "8px", font: "inherit", color: "inherit", cursor: "pointer" }}>
-                <span style={{ display: "flex", justifyContent: "space-between", gap: "8px", width: "100%" }}><span style={{ display: "flex", gap: "8px", alignItems: "center" }}><span style={{ width: "20px", height: "20px", borderRadius: "800px", background: i.color }} /><span style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{i.agent} · {i.when}</span></span><span style={{ padding: "2px 10px", borderRadius: "800px", background: "#ffe8d6", color: "#8e4e00", fontSize: "12px", lineHeight: "18px" }}>! {i.tag}</span></span>
+                <span style={{ display: "flex", justifyContent: "space-between", gap: "8px", width: "100%" }}><span style={{ display: "flex", gap: "8px", alignItems: "center" }}><span style={{ width: "20px", height: "20px", borderRadius: "800px", background: i.color }} /><span style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{i.agent} · {i.when}{i.sede ? ` · ${i.sede}` : ""}</span></span><span style={{ padding: "2px 10px", borderRadius: "800px", background: "#ffe8d6", color: "#8e4e00", fontSize: "12px", lineHeight: "18px" }}>! {i.tag}</span></span>
                 <span style={{ fontSize: "14px", lineHeight: "21px", fontWeight: 500 }}>{i.title}</span>
                 <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{i.note}</span>
               </button>
@@ -63,9 +59,12 @@ export default function Aprobaciones() {
 
           {current && (
             <section aria-label="Detalle" style={{ flex: "3 1 460px", minWidth: 0, background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid #0000000f", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>Preparado por {current.agent}</span>
-                <h2 style={{ margin: 0, fontSize: "24px", lineHeight: "26.4px", fontWeight: 400, letterSpacing: "-0.48px" }}>{current.head}</h2>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid #0000000f", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
+                  <span style={{ fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>Preparado por {current.agent}</span>
+                  <h2 style={{ margin: 0, fontSize: "24px", lineHeight: "26.4px", fontWeight: 400, letterSpacing: "-0.48px" }}>{current.head}</h2>
+                </div>
+                {current.tag === "Factura" && <a href="/plataforma/revisar" style={{ fontSize: "14px", color: "#2457f5", textDecoration: "none", flex: "none" }}>Ver factura completa →</a>}
               </div>
               <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14px", lineHeight: "21px" }}>
                 {current.lines && (

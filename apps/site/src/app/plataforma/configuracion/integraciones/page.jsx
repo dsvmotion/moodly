@@ -61,6 +61,7 @@ export default function Integraciones() {
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><SettingsNav active="integraciones" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14px", lineHeight: "21px" }}>
         <h1 style={{ margin: 0, fontSize: "32px", lineHeight: "35.2px", fontWeight: 400, letterSpacing: "-0.64px", maxWidth: "720px" }}>Integraciones. <span style={muted}>Las herramientas donde trabajan tus agentes, y qué pueden hacer en cada una.</span></h1>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}><a href="/plataforma/conectar" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Conectar un canal</a></div>
 
         {broken.map((i) => (
           <div key={i.id} role="alert" style={{ borderRadius: "12px", background: "#fbe1ea", color: "#a30042", padding: "14px 20px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>

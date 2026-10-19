@@ -1,8 +1,11 @@
 // Catálogo de modelos — fuente única para la pantalla de ajustes y la landing.
-// Agrupado por residencia de datos (como Langdock). Precios de referencia por
-// millón de tokens (entrada / salida), orientativos — se confirman al elegir
-// proveedores. Lineup real a 2026 (Anthropic vía referencia oficial; OpenAI,
-// Google y Mistral verificados en la web). Mistral opera en la UE.
+// Agrupado por DÓNDE se opera cada modelo. Están todos disponibles: la residencia
+// es una política por cliente (ADR 0019), no un límite del producto. Por defecto
+// «sin restricción» (máxima disponibilidad); si el cliente fija «solo UE» u otra
+// región, el enrutador y su fallback se quedan dentro de esa frontera.
+// Precios de referencia por millón de tokens (entrada / salida), orientativos — se
+// confirman al elegir proveedores. Lineup real a 2026 (Anthropic vía referencia
+// oficial; OpenAI, Google y Mistral verificados en la web). Mistral opera en la UE.
 
 export const TYPES = {
   chat: ["Chat", "#e8edff", "#2457f5"],
@@ -16,7 +19,7 @@ export const TYPES = {
 export const CATALOG = [
   {
     region: "Operado en la UE",
-    note: "Cumple tu política «solo UE».",
+    note: "Si fijas residencia «solo UE», el enrutador se queda aquí.",
     providers: [
       {
         name: "Mistral AI", logo: "mistralai", models: [
