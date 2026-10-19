@@ -27,7 +27,7 @@ const CHAIN = [
   { n: "Claude Sonnet 5.5", role: "Avanzado · tareas marcadas", type: "razon", via: "Google Vertex", regions: ["eu", "us"] },
   { n: "GPT-6 Astra", role: "Avanzado · fallback", type: "razon", via: "API directa", regions: ["us"] },
 ];
-const TYPE = { chat: ["Chat", "var(--blue-bg)", "var(--blue-fg)"], razon: ["Razonamiento", "var(--violet-bg-2)", "#6b3fd4"] };
+const TYPE = { chat: ["Chat", "var(--blue-bg)", "var(--blue-fg)"], razon: ["Razonamiento", "var(--violet-bg-2)", "var(--violet-fg)"] };
 const REGION_LABEL = { eu: "UE", us: "EE. UU." };
 
 export default function Residencia() {

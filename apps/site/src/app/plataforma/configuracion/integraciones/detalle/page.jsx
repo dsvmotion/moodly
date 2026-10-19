@@ -107,7 +107,7 @@ export default function Detalle() {
             <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Afecta a: <strong style={{ fontWeight: 500, color: "var(--ink)" }}>{it.agents}</strong>. Sus acciones con {it.name} ({it.actions.toLowerCase()}) dejarán de estar disponibles. Queda registrado.</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button type="button" onClick={() => setDisc(null)} style={btn(false)}>Cancelar</button>
-              <button type="button" onClick={() => setDisc("done")} style={{ ...btn(true), background: "#a30042", borderColor: "var(--rose-fg)" }}>Desconectar</button>
+              <button type="button" onClick={() => setDisc("done")} style={{ ...btn(true), background: "#a30042", borderColor: "#a30042", color: "#ffffff" }}>Desconectar</button>
             </div>
           </div>
         </div>

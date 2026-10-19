@@ -405,7 +405,7 @@ const CONVS = {
       { from: "them", text: "Genial, gracias. ¿Me podéis mandar la factura de la última visita?" },
       { from: "approval", id: "f0412", text: "Administración ha preparado la factura F-0412 (75,00 €) para enviarla por WhatsApp." },
     ],
-    crm: { initials: "LM", color: "#a3c2a7", name: "Laura M.", since: "Paciente desde 2021", rows: { "Próxima cita": "Jue 10:30", "Visitas": "5", "Profesional": "Dra. Ruiz" }, notes: ["Prefiere citas por la mañana", "Pide factura después de cada visita"] },
+    crm: { initials: "LM", color: "var(--sage)", name: "Laura M.", since: "Paciente desde 2021", rows: { "Próxima cita": "Jue 10:30", "Visitas": "5", "Profesional": "Dra. Ruiz" }, notes: ["Prefiere citas por la mañana", "Pide factura después de cada visita"] },
   },
   "Sede Norte": {
     list: [
@@ -422,7 +422,7 @@ const CONVS = {
       { from: "agent-actions", chips: [ { bg: "var(--sage)", text: "CRM · Lead actualizado" } ], text: "Perfecto, lo preparo con financiación a 12 meses y te lo paso enseguida." },
       { from: "approval", id: "presu-javier", text: "Comercial ha preparado el presupuesto de ortodoncia (1.900 €) para enviarlo por WhatsApp." },
     ],
-    crm: { initials: "JR", color: "#a3c2a7", name: "Javier R.", since: "Cliente desde 2023", rows: { "Próxima cita": "—", "Visitas": "1", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible", "Prefiere pago a plazos"] },
+    crm: { initials: "JR", color: "var(--sage)", name: "Javier R.", since: "Cliente desde 2023", rows: { "Próxima cita": "—", "Visitas": "1", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible", "Prefiere pago a plazos"] },
   },
 };
 CONVS["Todas las sedes"] = {
@@ -543,7 +543,7 @@ const CONV_DETAILS = {
       { from: "them", text: "★★★☆☆ «Me atendieron bien, pero esperé 40 minutos en la sala.»" },
       { from: "approval", id: "resena", text: "Atención ha preparado una respuesta pública a la reseña de Pedro, disculpándose por la espera." },
     ],
-    crm: { initials: "PG", color: "#9dbecc", since: "Paciente desde 2019", rows: { "Próxima cita": "—", "Visitas": "18", "Profesional": "Dr. Vidal" }, notes: ["Le molestan las esperas", "Valora que le llamen por su nombre"] },
+    crm: { initials: "PG", color: "var(--mist)", since: "Paciente desde 2019", rows: { "Próxima cita": "—", "Visitas": "18", "Profesional": "Dr. Vidal" }, notes: ["Le molestan las esperas", "Valora que le llamen por su nombre"] },
   },
   "Ana T.": {
     client: "Ana Torres", channel: "Instagram",
@@ -552,7 +552,7 @@ const CONV_DETAILS = {
       { from: "agent", text: "¡Hola, Ana! El blanqueamiento en clínica está en 240 €. Si quieres, te lo valoran en tu próxima visita del jueves." },
       { from: "them", text: "Vale, lo hablo el jueves. ¡Gracias!" },
     ],
-    crm: { initials: "AT", color: "#ffbab5", since: "Paciente desde 2024", rows: { "Próxima cita": "Jue 12:00", "Visitas": "3", "Profesional": "Dr. Vidal" }, notes: ["Interesada en estética dental", "Tiene presupuesto de ortodoncia enviado"] },
+    crm: { initials: "AT", color: "var(--coral)", since: "Paciente desde 2024", rows: { "Próxima cita": "Jue 12:00", "Visitas": "3", "Profesional": "Dr. Vidal" }, notes: ["Interesada en estética dental", "Tiene presupuesto de ortodoncia enviado"] },
   },
   "+34 6•• ••• 812": {
     client: null, channel: "Teléfono",
@@ -560,7 +560,7 @@ const CONV_DETAILS = {
       { from: "them", text: "(Llamada) Quería confirmar las citas de mis dos hijos para el viernes." },
       { from: "agent-actions", chips: [{ bg: "var(--mist)", text: "Calendar · 2 citas confirmadas" }], text: "Confirmadas las dos citas del viernes a las 17:00 y 17:30. Os enviamos recordatorio el jueves." },
     ],
-    crm: { initials: "?", color: "#f6f2e8", since: "Contacto sin ficha", rows: { "Próxima cita": "Vie 17:00", "Visitas": "—", "Profesional": "Dra. Ruiz" }, notes: ["Crear ficha al llegar a la clínica"] },
+    crm: { initials: "?", color: "var(--linen)", since: "Contacto sin ficha", rows: { "Próxima cita": "Vie 17:00", "Visitas": "—", "Profesional": "Dra. Ruiz" }, notes: ["Crear ficha al llegar a la clínica"] },
   },
   "Seguros Salud+": {
     client: null, channel: "Gmail",
@@ -568,7 +568,7 @@ const CONV_DETAILS = {
       { from: "them", text: "Buenos días, necesitamos la factura agregada de septiembre de nuestros asegurados." },
       { from: "agent", text: "Buenos días. Administración la está preparando con el desglose por paciente; la tendréis hoy antes de las 14:00." },
     ],
-    crm: { initials: "S+", color: "#f6f2e8", since: "Aseguradora · convenio desde 2020", rows: { "Facturas pendientes": "1", "Asegurados": "38", "Contacto": "Admin." }, notes: ["Factura mensual agregada", "Pago a 30 días"] },
+    crm: { initials: "S+", color: "var(--linen)", since: "Aseguradora · convenio desde 2020", rows: { "Facturas pendientes": "1", "Asegurados": "38", "Contacto": "Admin." }, notes: ["Factura mensual agregada", "Pago a 30 días"] },
   },
   "Marta L.": {
     client: "Marta Lillo", channel: "Google Reviews",
@@ -576,7 +576,7 @@ const CONV_DETAILS = {
       { from: "them", text: "★★★☆☆ «Buen trato, pero me cambiaron la cita dos veces.»" },
       { from: "approval", id: "resena-marta", text: "Atención ha preparado una respuesta a la reseña de Marta, ofreciendo prioridad en su próxima cita." },
     ],
-    crm: { initials: "ML", color: "#9dbecc", since: "Paciente desde 2021", rows: { "Próxima cita": "—", "Visitas": "7", "Profesional": "Dr. Soler" }, notes: ["Evitar moverle citas", "Prefiere mañanas"] },
+    crm: { initials: "ML", color: "var(--mist)", since: "Paciente desde 2021", rows: { "Próxima cita": "—", "Visitas": "7", "Profesional": "Dr. Soler" }, notes: ["Evitar moverle citas", "Prefiere mañanas"] },
   },
   "Diego C.": {
     client: "Diego Cuevas", channel: "Instagram",
@@ -584,7 +584,7 @@ const CONV_DETAILS = {
       { from: "them", text: "¿Hacéis ortodoncia invisible?" },
       { from: "agent", text: "¡Sí, Diego! Trabajamos con alineadores invisibles. En tu cita del miércoles el Dr. Soler te hace una valoración sin coste." },
     ],
-    crm: { initials: "DC", color: "#ffbab5", since: "Paciente desde 2025", rows: { "Próxima cita": "Mié 17:00", "Visitas": "2", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible"] },
+    crm: { initials: "DC", color: "var(--coral)", since: "Paciente desde 2025", rows: { "Próxima cita": "Mié 17:00", "Visitas": "2", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible"] },
   },
   "+34 6•• ••• 204": {
     client: null, channel: "Teléfono",
@@ -592,7 +592,7 @@ const CONV_DETAILS = {
       { from: "them", text: "(Llamada) Quiero pedir una revisión para la semana que viene." },
       { from: "agent-actions", chips: [{ bg: "var(--mist)", text: "Calendar · Cita creada" }], text: "Hecho: martes a las 11:00 con el Dr. Soler. Te llegará la confirmación por SMS." },
     ],
-    crm: { initials: "?", color: "#f6f2e8", since: "Contacto sin ficha", rows: { "Próxima cita": "Mar 11:00", "Visitas": "—", "Profesional": "Dr. Soler" }, notes: ["Crear ficha al llegar a la clínica"] },
+    crm: { initials: "?", color: "var(--linen)", since: "Contacto sin ficha", rows: { "Próxima cita": "Mar 11:00", "Visitas": "—", "Profesional": "Dr. Soler" }, notes: ["Crear ficha al llegar a la clínica"] },
   },
 };
 
@@ -614,11 +614,11 @@ const CALLS = {
   "Sede Centro": [
     { name: "Sara Pérez", client: "Sara Pérez", time: "10:31", dur: "1:42", kind: "reserva", line: "Reservó revisión el martes 9:30", agent: "Recepción",
       summary: "Sara quería una revisión esta semana. Se le ofreció el martes a las 9:30 con el Dr. Vidal y aceptó.",
-      tags: [["var(--mist)", "Calendar · Cita creada"], ["var(--sage)", "CRM · Ficha actualizada"], ["#f4f4f5", "WhatsApp · Confirmación enviada"]],
+      tags: [["var(--mist)", "Calendar · Cita creada"], ["var(--sage)", "CRM · Ficha actualizada"], ["var(--sunken)", "WhatsApp · Confirmación enviada"]],
       transcript: [["Agente", "Clínica Dental Sol, buenos días. Soy el asistente de la clínica, ¿en qué puedo ayudarte?"], ["Sara", "Hola, quería pedir una revisión para esta semana si puede ser."], ["Agente", "Claro. Tengo el martes a las 9:30 o el jueves a las 18:00. ¿Cuál te va mejor?"], ["Sara", "El martes."]] },
     { name: "+34 6•• ••• 447", client: null, time: "10:12", dur: "0:58", kind: "info", line: "Preguntó horarios del sábado", agent: "Recepción",
       summary: "Preguntó si la clínica abre los sábados. Se le informó del horario de sábado (10:00–14:00) y no pidió cita.",
-      tags: [["#f4f4f5", "Sin acciones"]],
+      tags: [["var(--sunken)", "Sin acciones"]],
       transcript: [["Llamante", "Hola, ¿abrís los sábados?"], ["Agente", "Sí, los sábados abrimos de 10:00 a 14:00. ¿Quieres que te reserve un hueco?"], ["Llamante", "De momento no, gracias."]] },
     { name: "Jorge López", client: "Jorge López", time: "09:47", dur: "2:10", kind: "traspaso", line: "Pasada a Carmen: queja por una factura", agent: "Recepción",
       summary: "Jorge no estaba de acuerdo con el importe de su última factura. El agente lo pasó a Carmen (administración) al tratarse de una reclamación.",

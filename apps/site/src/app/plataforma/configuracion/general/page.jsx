@@ -14,7 +14,7 @@ export default function Screen() {
 <section style={{ background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px" }}>
 <h2 style={{ margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" }}>Contexto de la empresa</h2>
 <span style={{ fontSize: "13px", lineHeight: "19px", color: "var(--muted)" }}>Lo que todos los agentes deben saber de tu negocio. Se usa en cada conversación, así que ve al grano: a qué os dedicáis, horarios, tono y lo que nunca deben hacer.</span>
-<textarea rows={6} defaultValue={"Clínica Dental Sol, en el centro de la ciudad. 3 profesionales. Horario: L-V 9:00–20:00. Tono cercano y tranquilo; tratamos de usted a mayores. Nunca damos consejo clínico por chat: ante dolor o urgencia, derivamos y, si hace falta, indicamos llamar al 112."} style={{ font: "400 14px/22px var(--font-body)", padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--line)", resize: "vertical", color: "var(--ink)" }} />
+<textarea rows={6} aria-label="Contexto de la empresa" defaultValue={"Clínica Dental Sol, en el centro de la ciudad. 3 profesionales. Horario: L-V 9:00–20:00. Tono cercano y tranquilo; tratamos de usted a mayores. Nunca damos consejo clínico por chat: ante dolor o urgencia, derivamos y, si hace falta, indicamos llamar al 112."} style={{ font: "400 14px/22px var(--font-body)", padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--line)", resize: "vertical", color: "var(--ink)" }} />
 <span style={{ alignSelf: "flex-start", fontSize: "12px", color: "var(--muted-2)" }}>Esto es la base. Cada agente aprende además de las conversaciones (Memoria del negocio).</span>
 </section>
 

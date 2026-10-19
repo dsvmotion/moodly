@@ -7,7 +7,7 @@ import { convsFor, convStatus } from "@/components/sede-data";
 
 // Chats (móvil): misma bandeja que escritorio, por sede. Filtros y buscador reales;
 // cada fila abre SU conversación (?c=).
-const AV = ["var(--sage)", "var(--mist)", "var(--coral)", "var(--linen)", "#ebebed"];
+const AV = ["var(--sage)", "var(--mist)", "var(--coral)", "var(--linen)", "var(--sunken)"];
 
 export default function Screen() {
   const { sede } = useSede();

@@ -10,7 +10,7 @@ export default function Screen() {
 
 <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ff6301", color: "var(--ink)", fontSize: "12px", lineHeight: "14px" }}>Próximamente</span><h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px", maxWidth: "720px" }}>Modo coach. <span style={{ color: "var(--muted)" }}>Ideas para crecer, a partir de lo que tus agentes ven cada día.</span></h1></div>
+<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ff6301", color: "#000000", fontSize: "12px", lineHeight: "14px" }}>Próximamente</span><h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px", maxWidth: "720px" }}>Modo coach. <span style={{ color: "var(--muted)" }}>Ideas para crecer, a partir de lo que tus agentes ven cada día.</span></h1></div>
 <span style={{ padding: "11px 16px", borderRadius: "800px", background: "var(--paper)", fontSize: "14px", lineHeight: "21px" }}>Semana del 6 de octubre</span>
 </div>
 

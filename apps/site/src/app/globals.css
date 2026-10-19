@@ -23,6 +23,8 @@ p, li, td, dd, blockquote, textarea { font-family: var(--font-body); }
 html, body { margin: 0; background: #f7f7f8; }
 /* Mientras se aplica la traducción de la plataforma (ver components/lang-script.js). */
 html[data-i18n-pending] body { visibility: hidden; }
+/* Enlaces dentro de un texto: no basta el color (WCAG 1.4.1), van subrayados. */
+.plataforma-root a[style*="--blue-fg"] { text-decoration: underline; text-underline-offset: 2px; }
 a { color: #000000; text-decoration: none; }
 a:hover { color: #2457f5; }
 summary { cursor: pointer; list-style: none; }
@@ -81,9 +83,9 @@ summary::-webkit-details-marker { display: none; }
   --ink: #000000;
   --ink-2: #2b2b2e;
   --muted: #5f5f63;
-  --muted-2: #6b6b70;
-  --muted-3: #9a9a9e;
-  --muted-4: #9b9ba1;
+  --muted-2: #636368;
+  --muted-3: #6e6e73;
+  --muted-4: #6e6e73;
   --on-ink: #ffffff;
   --on-ink-55: #ffffff55;
   --green-fg: #004c39;
@@ -132,8 +134,8 @@ html[data-theme="dark"] {
   --ink-2: #d9d9dc;
   --muted: #a3a3a8;
   --muted-2: #9b9ba1;
-  --muted-3: #7d7d83;
-  --muted-4: #7d7d83;
+  --muted-3: #8e8e94;
+  --muted-4: #8e8e94;
   --on-ink: #111113;
   --on-ink-55: #11111355;
   --green-fg: #74d3a8;

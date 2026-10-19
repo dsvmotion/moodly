@@ -106,7 +106,7 @@ export default function Seguridad() {
             <span style={{ ...sub, fontSize: "14px", lineHeight: "21px" }}>Las {TEAM.length} personas del espacio (tú incluida) tendrán que volver a entrar. Los agentes siguen funcionando. Queda registrado.</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button type="button" onClick={() => setClosing(null)} style={btn(false)}>Cancelar</button>
-              <button type="button" onClick={() => setClosing("done")} style={{ ...btn(true), background: "#a30042", borderColor: "var(--rose-fg)" }}>Cerrar todas</button>
+              <button type="button" onClick={() => setClosing("done")} style={{ ...btn(true), background: "#a30042", borderColor: "#a30042", color: "#ffffff" }}>Cerrar todas</button>
             </div>
           </div>
         </div>

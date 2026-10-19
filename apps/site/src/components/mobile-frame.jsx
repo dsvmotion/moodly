@@ -32,7 +32,7 @@ export default function MobileFrame({ active, title, back, right, children }) {
               return (
                 <a key={key} href={href} aria-current={on ? "page" : undefined} style={{ fontWeight: on ? 500 : 400, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: on ? "var(--ink)" : "var(--muted)", position: "relative", textDecoration: "none" }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={on ? "var(--ink)" : "var(--muted)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>
-                  {key === "aprobar" && badge > 0 && <span style={{ position: "absolute", top: 0, left: "56%", minWidth: "16px", height: "16px", borderRadius: "800px", background: "#ff6301", color: "var(--ink)", fontSize: "11px", lineHeight: "16px" }}>{badge}</span>}
+                  {key === "aprobar" && badge > 0 && <span style={{ position: "absolute", top: 0, left: "56%", minWidth: "16px", height: "16px", borderRadius: "800px", background: "#ff6301", color: "#000000", fontSize: "11px", lineHeight: "16px" }}>{badge}</span>}
                   {label}
                 </a>
               );

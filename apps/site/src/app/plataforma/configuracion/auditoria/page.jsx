@@ -10,7 +10,7 @@ import Pills from "@/components/pills";
 const card = { background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "14px", fontSize: "14px", lineHeight: "21px" };
 const muted = { color: "var(--muted)" };
 const btn = { padding: "9px 16px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/18px var(--font-display)", cursor: "pointer" };
-const TAG = { agente: ["var(--green-bg)", "var(--green-fg)", "Agente"], persona: ["var(--blue-bg)", "var(--blue-fg)", "Persona"], sistema: ["#ebebed", "var(--muted)", "Sistema"] };
+const TAG = { agente: ["var(--green-bg)", "var(--green-fg)", "Agente"], persona: ["var(--blue-bg)", "var(--blue-fg)", "Persona"], sistema: ["var(--sunken)", "var(--muted)", "Sistema"] };
 // [id, día (0 = hoy), hora, autor, tipo, acción, dónde, sede, ip, antes, después, enlace]
 const LOG = [
   ["a1", 0, "11:02", "Administración", "agente", "Preparó la factura F-0412 para Laura M. (75,00 €)", "Facturas", "Sede Centro", "—", null, "Borrador · pendiente de aprobación", "/plataforma/aprobaciones?i=f0412"],

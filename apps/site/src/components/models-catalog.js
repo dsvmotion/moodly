@@ -9,7 +9,7 @@
 
 export const TYPES = {
   chat: ["Chat", "var(--blue-bg)", "var(--blue-fg)"],
-  razon: ["Razonamiento", "var(--violet-bg-2)", "#6b3fd4"],
+  razon: ["Razonamiento", "var(--violet-bg-2)", "var(--violet-fg)"],
   vision: ["Visión", "var(--green-bg)", "var(--green-fg)"],
   codigo: ["Código", "var(--amber-bg-2)", "var(--amber-fg)"],
   imagen: ["Imagen", "var(--amber-bg)", "var(--amber-fg)"],

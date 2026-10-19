@@ -94,7 +94,7 @@ export default function Privacidad() {
             <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={word} aria-label="Escribe BORRAR para confirmar" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "500 15px/20px var(--font-body)", letterSpacing: "1px", color: "var(--ink)" }} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button type="button" onClick={() => { setDel("idle"); setTyped(""); }} style={btnLight}>Cancelar</button>
-              <button type="button" disabled={typed.trim().toUpperCase() !== word} onClick={() => setDel("scheduled")} style={{ ...btnDark, background: "#a30042", borderColor: "var(--rose-fg)", opacity: typed.trim().toUpperCase() === word ? 1 : 0.5 }}>Programar borrado</button>
+              <button type="button" disabled={typed.trim().toUpperCase() !== word} onClick={() => setDel("scheduled")} style={{ ...btnDark, background: "#a30042", borderColor: "#a30042", color: "#ffffff", opacity: typed.trim().toUpperCase() === word ? 1 : 0.5 }}>Programar borrado</button>
             </div>
           </div>
         </div>

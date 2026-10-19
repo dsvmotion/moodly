@@ -62,8 +62,8 @@ export default function Facturacion() {
           <span style={{ fontSize: "36px", lineHeight: "40px", fontWeight: 100, letterSpacing: "-0.04em" }}>{eur(147)}<span style={{ fontSize: "15px", opacity: 0.7, fontWeight: 400 }}> fijo/mes</span></span>
           <span style={{ fontSize: "14px", opacity: 0.75 }}>3 agentes × {P.perAgent} € · 750 conversaciones incluidas · después {eur(P.perConversation, 2)}</span>
           <span style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "auto" }}>
-            <a href="/plataforma/checkout" style={{ color: "#ffffff", fontSize: "14px" }}>Cambiar de plan →</a>
-            <a href="/plataforma/configuracion/plan" style={{ color: "#ffffff", fontSize: "14px", opacity: 0.75 }}>Ver consumo</a>
+            <a href="/plataforma/checkout" style={{ color: "var(--on-ink)", fontSize: "14px" }}>Cambiar de plan →</a>
+            <a href="/plataforma/configuracion/plan" style={{ color: "var(--on-ink)", fontSize: "14px", opacity: 0.75 }}>Ver consumo</a>
           </span>
         </section>
       </div>

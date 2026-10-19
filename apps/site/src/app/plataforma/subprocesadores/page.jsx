@@ -24,7 +24,7 @@ const SUBS = [
   { name: "Google (vía Vertex)", purpose: "Modelos de lenguaje", loc: "UE · Bélgica", kind: "Modelo" },
   { name: "Cartesia", purpose: "Síntesis y clonación de voz", loc: "UE", kind: "Voz" },
 ];
-const KIND_COLOR = { Infraestructura: ["var(--slate-bg)", "var(--slate-fg)"], Canal: ["var(--blue-bg)", "var(--blue-fg)"], Modelo: ["var(--violet-bg-2)", "#6b3fd4"], Voz: ["var(--rose-bg)", "var(--rose-fg)"] };
+const KIND_COLOR = { Infraestructura: ["var(--slate-bg)", "var(--slate-fg)"], Canal: ["var(--blue-bg)", "var(--blue-fg)"], Modelo: ["var(--violet-bg-2)", "var(--violet-fg)"], Voz: ["var(--rose-bg)", "var(--rose-fg)"] };
 
 export default function Subprocesadores() {
   const [dpa, setDpa] = useState("pending"); // pending | confirming | accepted

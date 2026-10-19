@@ -93,6 +93,7 @@ export default function Screen() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>Agentes / {a.name}</span>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <div role="tablist" aria-label="Tus agentes" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {AGENTS.map((g, i) => {
               const cur = i === sel;
@@ -102,6 +103,7 @@ export default function Screen() {
                 </button>
               );
             })}
+          </div>
             <a href="/plataforma/agente-nuevo" style={{ display: "inline-flex", alignItems: "center", padding: "8px 14px", borderRadius: "800px", border: "1px dashed var(--line-strong)", background: "transparent", color: "var(--muted)", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>+ Nuevo agente</a>
           </div>
         </div>

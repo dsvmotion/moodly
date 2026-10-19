@@ -55,7 +55,7 @@ export default function Topes() {
                   </div>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: "none" }}>
                     <span style={{ fontSize: "13px", ...muted }}>{c.spent} € de</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><input type="number" value={c.cap} onChange={(e) => setCap(c.id, e.target.value)} style={{ width: "72px", padding: "7px 10px", borderRadius: "8px", border: "1px solid var(--line)", font: "500 14px/18px var(--font-body)", textAlign: "right" }} /> €</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><input type="number" aria-label={`Tope de gasto · ${c.name}`} value={c.cap} onChange={(e) => setCap(c.id, e.target.value)} style={{ width: "72px", padding: "7px 10px", borderRadius: "8px", border: "1px solid var(--line)", font: "500 14px/18px var(--font-body)", textAlign: "right" }} /> €</span>
                   </div>
                 </div>
                 <div style={{ height: "8px", borderRadius: "800px", background: "var(--paper-2d)", overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", background: col[1], borderRadius: "800px", transition: "width .3s ease" }} /></div>

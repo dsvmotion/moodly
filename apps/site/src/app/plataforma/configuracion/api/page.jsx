@@ -92,7 +92,7 @@ export default function Api() {
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
             <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Revocar «{revoking.name}»?</span>
             <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Dejará de funcionar al instante. Lo que la use ({revoking.used === "Nunca" ? "aún no se ha usado" : `último uso ${revoking.used}`}) empezará a recibir errores 401. No se puede deshacer.</span>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button type="button" onClick={() => setRevoking(null)} style={btn(false)}>Cancelar</button><button type="button" onClick={() => { setKeys(keys.filter((x) => x.id !== revoking.id)); setRevoking(null); }} style={{ ...btn(true), background: "#a30042", borderColor: "var(--rose-fg)" }}>Revocar</button></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button type="button" onClick={() => setRevoking(null)} style={btn(false)}>Cancelar</button><button type="button" onClick={() => { setKeys(keys.filter((x) => x.id !== revoking.id)); setRevoking(null); }} style={{ ...btn(true), background: "#a30042", borderColor: "#a30042", color: "#ffffff" }}>Revocar</button></div>
           </div>
         </div>
       )}
