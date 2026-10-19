@@ -1,15 +1,16 @@
 "use client";
 import { Fragment, useState } from "react";
+import { useSede } from "@/components/use-sede";
+import { approvalsFor } from "@/components/sede-data";
+import ApprovalsBadge from "@/components/approvals-badge";
 
 export default function Screen() {
+  const { sede } = useSede();
+  const source = approvalsFor(sede);
   const [state, setStateRaw] = useState({});
   const ctx = { state, setState: (o) => setStateRaw((p) => ({ ...p, ...o })), props: {} };
   const vals = function () {
-const all = [
-{ id: 'f', agent: 'Administración', when: 'hace 5 min', kind: 'Factura', title: 'Enviar factura F-0412 a Laura M.', detail: 'Por WhatsApp · 75,00 €', cta: 'Aprobar y enviar' },
-{ id: 'r', agent: 'Atención', when: 'hace 22 min', kind: 'Reseña', title: 'Responder a la reseña de Pedro G.', detail: '2 estrellas en Google · respuesta preparada', cta: 'Aprobar' },
-{ id: 'a', agent: 'Recepción', when: 'hace 1 h', kind: 'Agenda', title: 'Mover 3 citas del viernes', detail: 'Al lunes con el Dr. Vidal', cta: 'Aprobar' }
-];
+const all = source.map((x) => ({ id: x.id, agent: x.agent, when: x.when + (x.sede ? ` · ${x.sede}` : ""), kind: x.tag, title: x.title, detail: x.total ? `${x.note} · ${x.total}` : x.note, cta: x.tag === "Factura" ? "Aprobar y enviar" : "Aprobar" }));
 const done = (this.state && this.state.done) || {};
 const resolve = (id) => () => this.setState({ done: { ...done, [id]: true } });
 const items = all.filter((x) => !done[x.id]).map((x) => ({ ...x, approve: resolve(x.id), reject: resolve(x.id) }));

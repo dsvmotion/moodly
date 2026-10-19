@@ -16,9 +16,9 @@ const DATA = {
     tasks: 42,
     kpis: { conversaciones: "42", citas: "18", leads: "7", horas: "4,2 h" },
     approvals: [
-      { agent: "Administración", tint: "#ffe8d6", fg: "#8e4e00", text: "Enviar factura F-0412 a Laura M. · 75,00 €" },
-      { agent: "Atención", tint: "#ffe8d6", fg: "#8e4e00", text: "Responder a una queja en Google Reviews de Pedro G." },
-      { agent: "Recepción", tint: "#ffe8d6", fg: "#8e4e00", text: "Mover 3 citas del viernes por la baja de la Dra. Ruiz" },
+      { agent: "Administración", tint: "#ffe8d6", fg: "#8e4e00", text: "Enviar factura F-0412 a Laura M. · 75,00 €", id: "f0412" },
+      { agent: "Atención", tint: "#ffe8d6", fg: "#8e4e00", text: "Responder a una queja en Google Reviews de Pedro G.", id: "resena" },
+      { agent: "Recepción", tint: "#ffe8d6", fg: "#8e4e00", text: "Mover 3 citas del viernes por la baja de la Dra. Ruiz", id: "citas" },
     ],
     agents: [
       { key: "recepcion", name: "Recepción", stack: "WhatsApp · Teléfono · Calendar", status: ACTIVE },
@@ -38,8 +38,8 @@ const DATA = {
     tasks: 27,
     kpis: { conversaciones: "29", citas: "11", leads: "4", horas: "2,8 h" },
     approvals: [
-      { agent: "Comercial", tint: "#ffe8d6", fg: "#8e4e00", text: "Enviar presupuesto de ortodoncia a Javier R. · 1.900 €" },
-      { agent: "Atención", tint: "#ffe8d6", fg: "#8e4e00", text: "Responder una reseña de 3★ en Google de Marta L." },
+      { agent: "Comercial", tint: "#ffe8d6", fg: "#8e4e00", text: "Enviar presupuesto de ortodoncia a Javier R. · 1.900 €", id: "presu-javier" },
+      { agent: "Atención", tint: "#ffe8d6", fg: "#8e4e00", text: "Responder una reseña de 3★ en Google de Marta L.", id: "resena-marta" },
     ],
     agents: [
       { key: "recepcion", name: "Recepción", stack: "WhatsApp · Teléfono · Calendar", status: ACTIVE },
@@ -120,11 +120,11 @@ const CLIENTES = {
   "Sede Centro": {
     count: "4.271",
     list: [
-      { initials: "LM", color: AV.sage, name: "Laura Martín", sub: "Cita jue 10:30 · WhatsApp", active: true },
-      { initials: "PG", color: AV.mist, name: "Pedro García", sub: "Reseña pendiente de respuesta", flag: "!" },
-      { initials: "AT", color: AV.coral, name: "Ana Torres", sub: "Presupuesto de ortodoncia enviado" },
-      { initials: "JL", color: AV.linen, name: "Jorge López", sub: "Última visita hace 7 meses" },
-      { initials: "SP", color: AV.linen, name: "Sara Pérez", sub: "Cita mar 9:30 · Llamada" },
+      { initials: "LM", color: AV.sage, seg: ["cita"], name: "Laura Martín", sub: "Cita jue 10:30 · WhatsApp", active: true },
+      { initials: "PG", color: AV.mist, seg: [], name: "Pedro García", sub: "Reseña pendiente de respuesta", flag: "!" },
+      { initials: "AT", color: AV.coral, seg: ["presupuesto"], name: "Ana Torres", sub: "Presupuesto de ortodoncia enviado" },
+      { initials: "JL", color: AV.linen, seg: ["inactivo"], name: "Jorge López", sub: "Última visita hace 7 meses" },
+      { initials: "SP", color: AV.linen, seg: ["cita"], name: "Sara Pérez", sub: "Cita mar 9:30 · Llamada" },
     ],
     detail: {
       initials: "LM", color: AV.sage, name: "Laura Martín",
@@ -142,10 +142,10 @@ const CLIENTES = {
   "Sede Norte": {
     count: "1.830",
     list: [
-      { initials: "JR", color: AV.sage, name: "Javier Ramos", sub: "Presupuesto ortodoncia · 1.900 €", active: true },
-      { initials: "ML", color: AV.mist, name: "Marta Lillo", sub: "Reseña de 3★ pendiente", flag: "!" },
-      { initials: "DC", color: AV.coral, name: "Diego Cuevas", sub: "Cita mié 17:00 · Instagram" },
-      { initials: "NF", color: AV.linen, name: "Nuria Ferrer", sub: "Última visita hace 9 meses" },
+      { initials: "JR", color: AV.sage, seg: ["presupuesto"], name: "Javier Ramos", sub: "Presupuesto ortodoncia · 1.900 €", active: true },
+      { initials: "ML", color: AV.mist, seg: [], name: "Marta Lillo", sub: "Reseña de 3★ pendiente", flag: "!" },
+      { initials: "DC", color: AV.coral, seg: ["cita"], name: "Diego Cuevas", sub: "Cita mié 17:00 · Instagram" },
+      { initials: "NF", color: AV.linen, seg: ["inactivo"], name: "Nuria Ferrer", sub: "Última visita hace 9 meses" },
     ],
     detail: {
       initials: "JR", color: AV.sage, name: "Javier Ramos",
@@ -171,15 +171,15 @@ const LEADS = {
         { name: "Elena Gil", sub: "Formulario web: blanqueamiento", via: "Web", when: "hace 3 h" },
       ]},
       { title: "Cualificados", count: 3, cards: [
-        { name: "Ana Torres", sub: "Ortodoncia · primera visita reservada", tag: "✓ Cita jue 12:00", tagBg: "#dcebdd", tagFg: "#004c39" },
+        { name: "Ana Torres", via: "Instagram", sub: "Ortodoncia · primera visita reservada", tag: "✓ Cita jue 12:00", tagBg: "#dcebdd", tagFg: "#004c39" },
         { name: "Raúl Sanz", sub: "Estética dental · presupuesto aprox.", via: "Instagram" },
       ]},
       { title: "En seguimiento", count: 5, cards: [
-        { name: "Grupo familiar Ortiz", sub: "Presupuesto ortodoncia x2 · 4.271 €", note: "Comercial escribirá mañana (día 3)", pill: "Mañana" },
-        { name: "Luis Cano", sub: "Implante · 4.271 €", tag: "! Pide pago a plazos", tagBg: "#ffe8d6", tagFg: "#8e4e00" },
+        { name: "Grupo familiar Ortiz", via: "WhatsApp", sub: "Presupuesto ortodoncia x2 · 4.271 €", note: "Comercial escribirá mañana (día 3)", pill: "Mañana" },
+        { name: "Luis Cano", via: "Web", sub: "Implante · 4.271 €", tag: "! Pide pago a plazos", tagBg: "#ffe8d6", tagFg: "#8e4e00" },
       ]},
       { title: "Ganados este mes", count: 6, cards: [
-        { name: "Iván Rubio", sub: "Endodoncia aceptada · 427 €", note: "Tras 2 seguimientos del agente" },
+        { name: "Iván Rubio", via: "WhatsApp", sub: "Endodoncia aceptada · 427 €", note: "Tras 2 seguimientos del agente" },
         { won: true, label: "Ganado gracias a Comercial", value: "4.271 €" },
       ]},
     ],
@@ -191,13 +191,13 @@ const LEADS = {
         { name: "Clara Vidal", sub: "Preguntó por ortodoncia invisible", via: "Instagram", when: "hace 2 h" },
       ]},
       { title: "Cualificados", count: 2, cards: [
-        { name: "Javier Ramos", sub: "Ortodoncia · estudio hecho", tag: "✓ Presupuesto enviado", tagBg: "#dcebdd", tagFg: "#004c39" },
+        { name: "Javier Ramos", via: "WhatsApp", sub: "Ortodoncia · estudio hecho", tag: "✓ Presupuesto enviado", tagBg: "#dcebdd", tagFg: "#004c39" },
       ]},
       { title: "En seguimiento", count: 3, cards: [
-        { name: "Diego Cuevas", sub: "Blanqueamiento · 240 €", note: "Comercial escribirá el jueves", pill: "Jueves" },
+        { name: "Diego Cuevas", via: "Instagram", sub: "Blanqueamiento · 240 €", note: "Comercial escribirá el jueves", pill: "Jueves" },
       ]},
       { title: "Ganados este mes", count: 2, cards: [
-        { name: "Nuria Ferrer", sub: "Limpieza + revisión · 90 €" },
+        { name: "Nuria Ferrer", via: "WhatsApp", sub: "Limpieza + revisión · 90 €" },
         { won: true, label: "Ganado gracias a Comercial", value: "2.400 €" },
       ]},
     ],
@@ -209,25 +209,46 @@ const FACTURAS = {
   "Sede Centro": {
     cards: { porAprobar: "6", enviadas: "427", pendiente: "4.271 €", cobrado: "42.718 €" },
     invoices: [
-      { id: "F-0101", client: "Laura Martín", amount: "42,71 €", via: "WhatsApp" },
-      { id: "F-0102", client: "Seguros Salud+", amount: "427,18 €", via: "Email" },
-      { id: "F-0103", client: "Iván Rubio", amount: "427,18 €", via: "Email" },
-      { id: "F-0104", client: "Sara Pérez", amount: "42,71 €", via: "WhatsApp" },
+      { id: "F-0412", client: "Laura Martín", amount: "75,00 €", via: "WhatsApp", status: "aprobar", date: "Hoy", approval: "f0412" },
+      { id: "F-0102", client: "Seguros Salud+", amount: "427,18 €", via: "Email", status: "aprobar", date: "Hoy" },
+      { id: "F-0103", client: "Iván Rubio", amount: "427,18 €", via: "Email", status: "aprobar", date: "Ayer" },
+      { id: "F-0104", client: "Sara Pérez", amount: "42,71 €", via: "WhatsApp", status: "aprobar", date: "Ayer" },
+      { id: "F-0105", client: "Pedro García", amount: "64,00 €", via: "Email", status: "aprobar", date: "Ayer" },
+      { id: "F-0106", client: "Luis Cano", amount: "85,00 €", via: "WhatsApp", status: "aprobar", date: "Ayer" },
+      { id: "F-0095", client: "Ana Torres", amount: "180,00 €", via: "WhatsApp", status: "enviada", date: "3 oct" },
+      { id: "F-0094", client: "Jorge López", amount: "85,00 €", via: "Email", status: "enviada", date: "2 oct" },
+      { id: "F-0090", client: "Marta S.", amount: "1.200,00 €", via: "Email", status: "cobrada", date: "29 sep" },
+      { id: "F-0089", client: "Iván Rubio", amount: "427,18 €", via: "WhatsApp", status: "cobrada", date: "27 sep" },
     ],
     stock: [
       { name: "Guantes de nitrilo M", left: "Quedan 2 cajas", leftColor: "#a30042", pct: 15, bar: "#a30042", note: "Pedido preparado: 10 cajas a DentalPro", action: "Aprobar pedido" },
       { name: "Anestesia local", left: "Quedan 12", leftColor: "#8e4e00", pct: 35, bar: "#8e4e00", note: "Se pedirá cuando queden 8" },
     ],
+    inventory: [
+      { name: "Guantes de nitrilo M", qty: "2 cajas", min: "5 cajas", state: "bajo" },
+      { name: "Anestesia local", qty: "12 uds", min: "8 uds", state: "atento" },
+      { name: "Mascarillas FFP2", qty: "340 uds", min: "100 uds", state: "ok" },
+      { name: "Composite A2", qty: "18 jeringas", min: "6 jeringas", state: "ok" },
+      { name: "Fresas de diamante", qty: "24 uds", min: "10 uds", state: "ok" },
+    ],
   },
   "Sede Norte": {
     cards: { porAprobar: "3", enviadas: "198", pendiente: "2.400 €", cobrado: "19.040 €" },
     invoices: [
-      { id: "F-0210", client: "Javier Ramos", amount: "190,00 €", via: "WhatsApp" },
-      { id: "F-0211", client: "Mutua Dental Norte", amount: "640,00 €", via: "Email" },
-      { id: "F-0212", client: "Diego Cuevas", amount: "120,00 €", via: "WhatsApp" },
+      { id: "F-0210", client: "Javier Ramos", amount: "190,00 €", via: "WhatsApp", status: "aprobar", date: "Hoy" },
+      { id: "F-0211", client: "Mutua Dental Norte", amount: "640,00 €", via: "Email", status: "aprobar", date: "Hoy" },
+      { id: "F-0212", client: "Diego Cuevas", amount: "120,00 €", via: "WhatsApp", status: "aprobar", date: "Ayer" },
+      { id: "F-0205", client: "Clara Vidal", amount: "60,00 €", via: "WhatsApp", status: "enviada", date: "4 oct" },
+      { id: "F-0201", client: "Nuria Ferrer", amount: "90,00 €", via: "Email", status: "cobrada", date: "30 sep" },
     ],
     stock: [
       { name: "Fresas de diamante", left: "Quedan 3", leftColor: "#a30042", pct: 18, bar: "#a30042", note: "Pedido preparado: 20 uds a DentalPro", action: "Aprobar pedido" },
+    ],
+    inventory: [
+      { name: "Fresas de diamante", qty: "3 uds", min: "10 uds", state: "bajo" },
+      { name: "Guantes de nitrilo M", qty: "9 cajas", min: "5 cajas", state: "ok" },
+      { name: "Anestesia local", qty: "20 uds", min: "8 uds", state: "ok" },
+      { name: "Alineadores (kits)", qty: "4 kits", min: "3 kits", state: "atento" },
     ],
   },
 };
@@ -302,6 +323,7 @@ const AGG = {
     },
     invoices: keys.flatMap((k) => p[k].invoices.map((inv) => ({ ...inv, sede: k }))),
     stock: keys.flatMap((k) => p[k].stock.map((s) => ({ ...s, sede: k }))),
+    inventory: keys.flatMap((k) => p[k].inventory.map((s) => ({ ...s, sede: k }))),
   }),
   informes: (p) => {
     const c = p["Sede Centro"], n = p["Sede Norte"];
@@ -381,7 +403,7 @@ const CONVS = {
       { from: "them", text: "El jueves perfecto" },
       { from: "agent-actions", chips: [ { bg: "#9dbecc", text: "Calendar · Cita creada" }, { bg: "#a3c2a7", text: "CRM · Ficha actualizada" } ], text: "Hecho: jueves a las 10:30 con la Dra. Ruiz. Te enviaré un recordatorio el día antes." },
       { from: "them", text: "Genial, gracias. ¿Me podéis mandar la factura de la última visita?" },
-      { from: "approval", text: "Administración ha preparado la factura F-0412 (75,00 €) para enviarla por WhatsApp." },
+      { from: "approval", id: "f0412", text: "Administración ha preparado la factura F-0412 (75,00 €) para enviarla por WhatsApp." },
     ],
     crm: { initials: "LM", color: "#a3c2a7", name: "Laura M.", since: "Paciente desde 2021", rows: { "Próxima cita": "Jue 10:30", "Visitas": "5", "Profesional": "Dra. Ruiz" }, notes: ["Prefiere citas por la mañana", "Pide factura después de cada visita"] },
   },
@@ -398,7 +420,7 @@ const CONVS = {
       { from: "agent", text: "¡Hola, Javier! Con el estudio que te hicimos, te preparo el presupuesto. ¿Lo quieres con pago a plazos?" },
       { from: "them", text: "Sí, a plazos mejor." },
       { from: "agent-actions", chips: [ { bg: "#a3c2a7", text: "CRM · Lead actualizado" } ], text: "Perfecto, lo preparo con financiación a 12 meses y te lo paso enseguida." },
-      { from: "approval", text: "Comercial ha preparado el presupuesto de ortodoncia (1.900 €) para enviarlo por WhatsApp." },
+      { from: "approval", id: "presu-javier", text: "Comercial ha preparado el presupuesto de ortodoncia (1.900 €) para enviarlo por WhatsApp." },
     ],
     crm: { initials: "JR", color: "#a3c2a7", name: "Javier R.", since: "Cliente desde 2023", rows: { "Próxima cita": "—", "Visitas": "1", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible", "Prefiere pago a plazos"] },
   },
@@ -415,3 +437,239 @@ CONVS["Todas las sedes"] = {
 
 export function agendaFor(sede) { return AGENDA[sede] ?? AGENDA["Sede Centro"]; }
 export function convsFor(sede) { return CONVS[sede] ?? CONVS["Sede Centro"]; }
+
+// ---------------------------------------------------------------------------
+// FICHAS POR ELEMENTO — cada fila de una lista tiene su propio detalle.
+// Las páginas maestro-detalle (Clientes, Conversaciones, Llamadas) seleccionan una
+// fila y piden aquí su ficha. TODO(backend): sustituir por consultas por id.
+// ---------------------------------------------------------------------------
+
+const CLIENT_DETAILS = {
+  "Pedro García": {
+    meta: "+34 6•• ••• 233 · pedro.garcia@gmail.com · Cliente desde 2019",
+    tags: ["✓ Consentimiento WhatsApp", "Reseña pendiente", "Dr. Vidal"],
+    stats: { Visitas: "18", Facturado: "1.240 €", Ausencias: "2", "Próxima cita": "—" },
+    history: [
+      { color: "#8e4e00", text: "Respuesta a su reseña de 3★ preparada · pendiente de tu OK", time: "Hoy 10:20" },
+      { color: "#000000", text: "Urgencia atendida: dolor de muela", time: "Lun" },
+      { color: "#000000", text: "Visita: empaste con el Dr. Vidal", time: "22 sep" },
+    ],
+  },
+  "Ana Torres": {
+    meta: "+34 6•• ••• 590 · ana.torres@gmail.com · Cliente desde 2024",
+    tags: ["✓ Consentimiento WhatsApp", "Presupuesto enviado", "Dr. Vidal"],
+    stats: { Visitas: "3", Facturado: "180 €", Ausencias: "0", "Próxima cita": "Jue 12:00" },
+    history: [
+      { color: "#a30042", text: "Presupuesto de ortodoncia enviado por Comercial · 3.200 €", time: "Ayer" },
+      { color: "#004c39", text: "Primera visita reservada: jue 12:00", time: "2 oct" },
+      { color: "#9dbecc", text: "Preguntó por el blanqueamiento por Instagram", time: "28 sep" },
+    ],
+  },
+  "Jorge López": {
+    meta: "+34 6•• ••• 118 · Sin email · Cliente desde 2017",
+    tags: ["Sin consentimiento WhatsApp", "Prefiere llamadas", "Dra. Ruiz"],
+    stats: { Visitas: "9", Facturado: "640 €", Ausencias: "1", "Próxima cita": "—" },
+    history: [
+      { color: "#8e4e00", text: "Llamada pasada a Carmen: queja por una factura", time: "Hoy 09:47" },
+      { color: "#004c39", text: "Recordatorio de revisión anual enviado", time: "12 ago" },
+      { color: "#000000", text: "Visita: revisión con la Dra. Ruiz", time: "14 mar" },
+    ],
+  },
+  "Sara Pérez": {
+    meta: "+34 6•• ••• 761 · sara.perez@gmail.com · Cliente desde 2022",
+    tags: ["✓ Consentimiento WhatsApp", "Prefiere mañanas", "Dr. Vidal"],
+    stats: { Visitas: "6", Facturado: "390 €", Ausencias: "0", "Próxima cita": "Mar 9:30" },
+    history: [
+      { color: "#004c39", text: "Llamada: reservó revisión el martes 9:30", time: "Hoy 10:31" },
+      { color: "#9dbecc", text: "Confirmación enviada por WhatsApp", time: "Hoy 10:33" },
+      { color: "#000000", text: "Visita: ajuste de ortodoncia", time: "5 sep" },
+    ],
+  },
+  "Marta Lillo": {
+    meta: "+34 6•• ••• 342 · marta.lillo@gmail.com · Cliente desde 2021",
+    tags: ["✓ Consentimiento WhatsApp", "Reseña 3★ pendiente", "Dr. Soler"],
+    stats: { Visitas: "7", Facturado: "520 €", Ausencias: "0", "Próxima cita": "—" },
+    history: [
+      { color: "#8e4e00", text: "Respuesta a su reseña de 3★ preparada · pendiente de tu OK", time: "Hoy 09:12" },
+      { color: "#000000", text: "Visita: limpieza con el Dr. Soler", time: "30 sep" },
+    ],
+  },
+  "Diego Cuevas": {
+    meta: "+34 6•• ••• 905 · @diegocuevas (Instagram) · Cliente desde 2025",
+    tags: ["✓ Consentimiento WhatsApp", "Llegó por Instagram", "Dr. Soler"],
+    stats: { Visitas: "2", Facturado: "120 €", Ausencias: "0", "Próxima cita": "Mié 17:00" },
+    history: [
+      { color: "#004c39", text: "Cita reservada: blanqueamiento, mié 17:00", time: "Ayer" },
+      { color: "#9dbecc", text: "Preguntó por la ortodoncia invisible", time: "Ayer" },
+    ],
+  },
+  "Nuria Ferrer": {
+    meta: "+34 6•• ••• 477 · nuria.ferrer@gmail.com · Cliente desde 2020",
+    tags: ["✓ Consentimiento WhatsApp", "Vuelve tras 9 meses", "Dr. Soler"],
+    stats: { Visitas: "12", Facturado: "860 €", Ausencias: "1", "Próxima cita": "Hoy 17:30" },
+    history: [
+      { color: "#004c39", text: "Llamada: confirmó la cita de hoy", time: "Hoy 09:20" },
+      { color: "#004c39", text: "Recepción la recuperó con el aviso de revisión", time: "6 oct" },
+      { color: "#000000", text: "Última visita: limpieza", time: "Ene" },
+    ],
+  },
+};
+
+// Ficha de un cliente de la lista: la detallada si existe; si no, una coherente
+// derivada de su fila (para que ninguna fila quede sin ficha).
+export function clientDetail(c) {
+  if (!c) return null;
+  const sedeDetail = Object.values(CLIENTES).map((x) => x.detail).find((x) => x.name === c.name);
+  const extra = CLIENT_DETAILS[c.name];
+  const base = sedeDetail ?? {
+    meta: "Ficha creada por tus agentes",
+    tags: ["Sin etiquetas aún"],
+    stats: { Visitas: "—", Facturado: "—", Ausencias: "—", "Próxima cita": "—" },
+    history: [{ color: "#000000", text: c.sub, time: "Reciente" }],
+  };
+  return { ...base, ...extra, initials: c.initials, color: c.color, name: c.name };
+}
+
+// Estado de una conversación a partir de su meta (para los filtros de la bandeja).
+export function convStatus(c) {
+  if (/Resuelta/.test(c.meta)) return "resuelta";
+  return "atencion"; // ! Aprobación · En curso
+}
+
+const CONV_DETAILS = {
+  "Pedro G.": {
+    client: "Pedro García", channel: "Google Reviews",
+    thread: [
+      { from: "them", text: "★★★☆☆ «Me atendieron bien, pero esperé 40 minutos en la sala.»" },
+      { from: "approval", id: "resena", text: "Atención ha preparado una respuesta pública a la reseña de Pedro, disculpándose por la espera." },
+    ],
+    crm: { initials: "PG", color: "#9dbecc", since: "Paciente desde 2019", rows: { "Próxima cita": "—", "Visitas": "18", "Profesional": "Dr. Vidal" }, notes: ["Le molestan las esperas", "Valora que le llamen por su nombre"] },
+  },
+  "Ana T.": {
+    client: "Ana Torres", channel: "Instagram",
+    thread: [
+      { from: "them", text: "Hola, ¿cuánto cuesta un blanqueamiento?" },
+      { from: "agent", text: "¡Hola, Ana! El blanqueamiento en clínica está en 240 €. Si quieres, te lo valoran en tu próxima visita del jueves." },
+      { from: "them", text: "Vale, lo hablo el jueves. ¡Gracias!" },
+    ],
+    crm: { initials: "AT", color: "#ffbab5", since: "Paciente desde 2024", rows: { "Próxima cita": "Jue 12:00", "Visitas": "3", "Profesional": "Dr. Vidal" }, notes: ["Interesada en estética dental", "Tiene presupuesto de ortodoncia enviado"] },
+  },
+  "+34 6•• ••• 812": {
+    client: null, channel: "Teléfono",
+    thread: [
+      { from: "them", text: "(Llamada) Quería confirmar las citas de mis dos hijos para el viernes." },
+      { from: "agent-actions", chips: [{ bg: "#9dbecc", text: "Calendar · 2 citas confirmadas" }], text: "Confirmadas las dos citas del viernes a las 17:00 y 17:30. Os enviamos recordatorio el jueves." },
+    ],
+    crm: { initials: "?", color: "#f6f2e8", since: "Contacto sin ficha", rows: { "Próxima cita": "Vie 17:00", "Visitas": "—", "Profesional": "Dra. Ruiz" }, notes: ["Crear ficha al llegar a la clínica"] },
+  },
+  "Seguros Salud+": {
+    client: null, channel: "Gmail",
+    thread: [
+      { from: "them", text: "Buenos días, necesitamos la factura agregada de septiembre de nuestros asegurados." },
+      { from: "agent", text: "Buenos días. Administración la está preparando con el desglose por paciente; la tendréis hoy antes de las 14:00." },
+    ],
+    crm: { initials: "S+", color: "#f6f2e8", since: "Aseguradora · convenio desde 2020", rows: { "Facturas pendientes": "1", "Asegurados": "38", "Contacto": "Admin." }, notes: ["Factura mensual agregada", "Pago a 30 días"] },
+  },
+  "Marta L.": {
+    client: "Marta Lillo", channel: "Google Reviews",
+    thread: [
+      { from: "them", text: "★★★☆☆ «Buen trato, pero me cambiaron la cita dos veces.»" },
+      { from: "approval", id: "resena-marta", text: "Atención ha preparado una respuesta a la reseña de Marta, ofreciendo prioridad en su próxima cita." },
+    ],
+    crm: { initials: "ML", color: "#9dbecc", since: "Paciente desde 2021", rows: { "Próxima cita": "—", "Visitas": "7", "Profesional": "Dr. Soler" }, notes: ["Evitar moverle citas", "Prefiere mañanas"] },
+  },
+  "Diego C.": {
+    client: "Diego Cuevas", channel: "Instagram",
+    thread: [
+      { from: "them", text: "¿Hacéis ortodoncia invisible?" },
+      { from: "agent", text: "¡Sí, Diego! Trabajamos con alineadores invisibles. En tu cita del miércoles el Dr. Soler te hace una valoración sin coste." },
+    ],
+    crm: { initials: "DC", color: "#ffbab5", since: "Paciente desde 2025", rows: { "Próxima cita": "Mié 17:00", "Visitas": "2", "Profesional": "Dr. Soler" }, notes: ["Interesado en ortodoncia invisible"] },
+  },
+  "+34 6•• ••• 204": {
+    client: null, channel: "Teléfono",
+    thread: [
+      { from: "them", text: "(Llamada) Quiero pedir una revisión para la semana que viene." },
+      { from: "agent-actions", chips: [{ bg: "#9dbecc", text: "Calendar · Cita creada" }], text: "Hecho: martes a las 11:00 con el Dr. Soler. Te llegará la confirmación por SMS." },
+    ],
+    crm: { initials: "?", color: "#f6f2e8", since: "Contacto sin ficha", rows: { "Próxima cita": "Mar 11:00", "Visitas": "—", "Profesional": "Dr. Soler" }, notes: ["Crear ficha al llegar a la clínica"] },
+  },
+};
+
+// Conversación completa (cabecera, hilo y ficha CRM) de una fila de la bandeja.
+export function convDetail(c, sede) {
+  if (!c) return null;
+  const sedeKey = c.sede ?? sede;
+  const src = CONVS[sedeKey] ?? CONVS["Sede Centro"];
+  if (src.header.name === c.name) {
+    return { header: src.header, thread: src.thread, crm: src.crm, client: c.name === "Laura M." ? "Laura Martín" : c.name === "Javier R." ? "Javier Ramos" : null };
+  }
+  const d = CONV_DETAILS[c.name];
+  if (!d) return { header: { name: c.name, channel: c.meta.split(" · ")[0] }, thread: [{ from: "them", text: c.preview }], crm: { initials: c.name.slice(0, 2), color: "#f6f2e8", name: c.name, since: "—", rows: {}, notes: [] }, client: null };
+  return { header: { name: c.name, channel: d.channel }, thread: d.thread, crm: { ...d.crm, name: c.name }, client: d.client };
+}
+
+// ----- LLAMADAS ----- (por sede; cada llamada con su resumen y transcripción)
+const CALLS = {
+  "Sede Centro": [
+    { name: "Sara Pérez", client: "Sara Pérez", time: "10:31", dur: "1:42", kind: "reserva", line: "Reservó revisión el martes 9:30", agent: "Recepción",
+      summary: "Sara quería una revisión esta semana. Se le ofreció el martes a las 9:30 con el Dr. Vidal y aceptó.",
+      tags: [["#9dbecc", "Calendar · Cita creada"], ["#a3c2a7", "CRM · Ficha actualizada"], ["#f4f4f5", "WhatsApp · Confirmación enviada"]],
+      transcript: [["Agente", "Clínica Dental Sol, buenos días. Soy el asistente de la clínica, ¿en qué puedo ayudarte?"], ["Sara", "Hola, quería pedir una revisión para esta semana si puede ser."], ["Agente", "Claro. Tengo el martes a las 9:30 o el jueves a las 18:00. ¿Cuál te va mejor?"], ["Sara", "El martes."]] },
+    { name: "+34 6•• ••• 447", client: null, time: "10:12", dur: "0:58", kind: "info", line: "Preguntó horarios del sábado", agent: "Recepción",
+      summary: "Preguntó si la clínica abre los sábados. Se le informó del horario de sábado (10:00–14:00) y no pidió cita.",
+      tags: [["#f4f4f5", "Sin acciones"]],
+      transcript: [["Llamante", "Hola, ¿abrís los sábados?"], ["Agente", "Sí, los sábados abrimos de 10:00 a 14:00. ¿Quieres que te reserve un hueco?"], ["Llamante", "De momento no, gracias."]] },
+    { name: "Jorge López", client: "Jorge López", time: "09:47", dur: "2:10", kind: "traspaso", line: "Pasada a Carmen: queja por una factura", agent: "Recepción",
+      summary: "Jorge no estaba de acuerdo con el importe de su última factura. El agente lo pasó a Carmen (administración) al tratarse de una reclamación.",
+      tags: [["#ffe8d6", "Traspasada a Carmen"], ["#a3c2a7", "CRM · Nota añadida"]],
+      transcript: [["Agente", "Clínica Dental Sol, ¿en qué puedo ayudarte?"], ["Jorge", "Me habéis cobrado de más en la última factura."], ["Agente", "Lo siento, Jorge. Te paso con Carmen, de administración, que lo revisa contigo ahora mismo."]] },
+    { name: "Luis Cano", client: null, time: "09:20", dur: "1:05", kind: "confirma", line: "Confirmó su revisión de hoy", agent: "Recepción",
+      summary: "Luis llamó para confirmar su revisión de hoy a las 12:00. Confirmado y recordatorio desactivado.",
+      tags: [["#9dbecc", "Calendar · Asistencia confirmada"]],
+      transcript: [["Luis", "Hola, llamo para confirmar mi cita de hoy."], ["Agente", "Confirmada, Luis: hoy a las 12:00 con la Dra. Ruiz. ¡Hasta luego!"]] },
+  ],
+  "Sede Norte": [
+    { name: "Nuria Ferrer", client: "Nuria Ferrer", time: "09:20", dur: "1:05", kind: "confirma", line: "Confirmó la cita de hoy", agent: "Recepción",
+      summary: "Nuria confirmó su cita de hoy a las 17:30 tras el aviso de revisión. Vuelve después de 9 meses.",
+      tags: [["#9dbecc", "Calendar · Asistencia confirmada"], ["#a3c2a7", "CRM · Cliente recuperada"]],
+      transcript: [["Nuria", "Hola, os llamo por el mensaje de la revisión. Confirmo la de hoy."], ["Agente", "¡Perfecto, Nuria! Hoy a las 17:30 con el Dr. Soler. Te esperamos."]] },
+    { name: "Diego Cuevas", client: "Diego Cuevas", time: "Ayer 18:02", dur: "2:31", kind: "reserva", line: "Reservó blanqueamiento el miércoles", agent: "Recepción",
+      summary: "Diego pidió cita para blanqueamiento. Se reservó el miércoles a las 17:00 y preguntó por la ortodoncia invisible.",
+      tags: [["#9dbecc", "Calendar · Cita creada"], ["#ffbab5", "Comercial · Lead creado"]],
+      transcript: [["Diego", "Quería pedir cita para un blanqueamiento."], ["Agente", "Tengo el miércoles a las 17:00. ¿Te va bien?"], ["Diego", "Sí. Y ¿hacéis ortodoncia invisible?"], ["Agente", "Sí; el Dr. Soler te lo valora en la misma visita."]] },
+  ],
+};
+CALLS["Todas las sedes"] = [
+  ...CALLS["Sede Centro"].map((c) => ({ ...c, sede: "Sede Centro" })),
+  ...CALLS["Sede Norte"].map((c) => ({ ...c, sede: "Sede Norte" })),
+];
+export function callsFor(sede) { return CALLS[sede] ?? CALLS["Sede Centro"]; }
+
+// ----- APROBACIONES ----- (fuente única: Inicio, contador del menú y pantalla)
+const APPROVALS = {
+  "Sede Centro": [
+  { id: "f0412", agent: "Administración", color: "#8e4e00", when: "hace 5 min", tag: "Factura", title: "Enviar factura F-0412 a Laura M. por WhatsApp", note: "La pidió en la conversación de esta mañana.", head: "Enviar factura a Laura M.",
+    lines: [["Limpieza dental", "45,00 €"], ["Revisión", "30,00 €"], ["IVA (exento, art. 20 LIVA)", "0,00 €"]], total: "75,00 €",
+    message: "¡Hola, Laura! Te adjunto la factura de tu última visita. Cualquier duda, aquí estoy.", rule: "«Enviar factura» requiere aprobación." },
+  { id: "resena", agent: "Atención al cliente", color: "#9dbecc", when: "hace 22 min", tag: "Reseña", title: "Responder a una reseña de 2 estrellas de Pedro G.", note: "Las reseñas negativas siempre pasan por ti.", head: "Respuesta a la reseña de Pedro G.",
+    quote: "«Tuve que esperar 25 minutos aunque tenía cita.» ★★☆☆☆",
+    message: "Hola, Pedro. Sentimos mucho la espera: ese día tuvimos una urgencia que retrasó la agenda. Nos gustaría compensarte con una revisión sin coste. ¿Te llamamos para buscar hueco?", rule: "Las reseñas de 3 estrellas o menos requieren aprobación." },
+  { id: "citas", agent: "Recepción", color: "#004c39", when: "hace 1 h", tag: "Agenda", title: "Mover 3 citas del viernes por la baja de la Dra. Ruiz", note: "Propone pasarlas al lunes con el Dr. Vidal.", head: "Reprogramar 3 citas",
+    lines: [["Ana P. · vie 10:00", "→ lun 10:00 · Dr. Vidal"], ["Marcos R. · vie 11:30", "→ lun 12:00 · Dr. Vidal"], ["Lucía G. · vie 17:00", "→ lun 16:30 · Dr. Vidal"]],
+    message: "Hola, te escribimos de Clínica Dental Sol: la Dra. Ruiz no podrá atenderte el viernes. ¿Te va bien el lunes a la hora indicada con el Dr. Vidal?", rule: "Cambios de varias citas a la vez requieren aprobación." },
+  ],
+  "Sede Norte": [
+  { id: "presu-javier", agent: "Comercial", color: "#a30042", when: "hace 10 min", tag: "Presupuesto", title: "Enviar presupuesto de ortodoncia a Javier R. por WhatsApp", note: "Lo pidió con pago a plazos en la conversación de hoy.", head: "Presupuesto de ortodoncia para Javier R.",
+    lines: [["Ortodoncia invisible (12 meses)", "1.900,00 €"], ["Financiación a 12 meses", "158,33 €/mes"], ["Estudio ortodóncico", "Incluido"]], total: "1.900,00 €",
+    message: "¡Hola, Javier! Te paso el presupuesto de ortodoncia invisible con pago a plazos (158,33 €/mes). Si te encaja, te reservo la primera cita.", rule: "«Enviar presupuesto» requiere aprobación." },
+  { id: "resena-marta", agent: "Atención al cliente", color: "#9dbecc", when: "hace 40 min", tag: "Reseña", title: "Responder a una reseña de 3 estrellas de Marta L.", note: "Las reseñas de 3 estrellas o menos pasan por ti.", head: "Respuesta a la reseña de Marta L.",
+    quote: "«Buen trato, pero me cambiaron la cita dos veces.» ★★★☆☆",
+    message: "Hola, Marta. Tienes toda la razón: no debimos moverte la cita dos veces. Tu próxima visita tendrá prioridad y la confirmaremos contigo antes de agendarla.", rule: "Las reseñas de 3 estrellas o menos requieren aprobación." },
+  ],
+};
+APPROVALS["Todas las sedes"] = [
+  ...APPROVALS["Sede Centro"].map((i) => ({ ...i, sede: "Sede Centro" })),
+  ...APPROVALS["Sede Norte"].map((i) => ({ ...i, sede: "Sede Norte" })),
+];
+export function approvalsFor(sede) { return APPROVALS[sede] ?? APPROVALS["Sede Centro"]; }

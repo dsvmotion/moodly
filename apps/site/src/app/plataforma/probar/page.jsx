@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { useSede } from "@/components/use-sede";
+import { useAgentParam } from "@/components/agent-param";
 
 // B2+B3 — Probar en sandbox + comprobaciones (evals) y activar/pausar/retirar.
 // El paso entre "agente en borrador" y "respondiendo a clientes": se prueba en un
@@ -26,6 +28,9 @@ const CHECKS = [
 ];
 
 export default function Probar() {
+  const { key: aKey, name: aName } = useAgentParam();
+  const { sede } = useSede();
+  const sedeTxt = sede === "Todas las sedes" ? "todas las sedes" : `la ${sede}`;
   const [evalState, setEvalState] = useState("idle"); // idle | running | done
   const [status, setStatus] = useState("draft"); // draft | confirming | active
   const [msgs, setMsgs] = useState(SANDBOX);
@@ -44,16 +49,16 @@ export default function Probar() {
       <style>{`@keyframes mo-spin{to{transform:rotate(360deg)}}@keyframes mo-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion: reduce){.mo-spin{animation:none!important}.mo-rise{animation:none!important}}`}</style>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="agentes" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-        <a href="/plataforma/agente" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Mis agentes</a>
+        <a href={`/plataforma/agente?a=${aKey}`} style={{ fontSize: "14px", color: "#5f5f63" }}>‹ {aName}</a>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <span style={{ alignSelf: "flex-start", padding: "4px 11px", borderRadius: "800px", fontSize: "12px", fontWeight: 500, ...(status === "active" ? { background: "#dcebdd", color: "#004c39" } : { background: "#eef1f6", color: "#3a4a63" }) }}>{status === "active" ? "Activo" : "Borrador"}</span>
-            <h1 style={{ margin: "4px 0 0", fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Probar «Recepción» antes de activar</h1>
+            <h1 style={{ margin: "4px 0 0", fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Probar «{aName}» antes de activar</h1>
           </div>
           {status === "active" && <button type="button" onClick={() => setStatus("draft")} style={btnLight}>Pausar</button>}
         </div>
 
-        {status === "active" && <div role="status" style={{ display: "flex", gap: "12px", alignItems: "center", borderRadius: "12px", background: "#dcebdd", color: "#004c39", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}><span>✓</span><span><strong style={{ fontWeight: 500 }}>Agente activo.</strong> Ya responde en la Sede Centro. Puedes pausarlo o volver a probar cuando quieras.</span></div>}
+        {status === "active" && <div role="status" style={{ display: "flex", gap: "12px", alignItems: "center", borderRadius: "12px", background: "#dcebdd", color: "#004c39", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}><span>✓</span><span><strong style={{ fontWeight: 500 }}>Agente activo.</strong> Ya responde en {sedeTxt}. Puedes pausarlo o volver a probar cuando quieras.</span></div>}
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
           <section style={{ ...CARD, flex: "3 1 380px", minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -112,8 +117,8 @@ export default function Probar() {
       {status === "confirming" && (
         <div role="dialog" aria-modal="true" aria-label="Activar agente" style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={() => setStatus("draft")}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "#ffffff", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
-            <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Activar «Recepción»?</span>
-            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Empezará a responder a clientes en la Sede Centro con las reglas y el techo de autonomía actuales. Queda registrado.</span>
+            <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Activar «{aName}»?</span>
+            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Empezará a responder a clientes en {sedeTxt} con las reglas y el techo de autonomía actuales. Queda registrado.</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
               <button type="button" onClick={() => setStatus("draft")} style={btnLight}>Cancelar</button>
               <button type="button" onClick={() => setStatus("active")} style={btnDark}>Sí, activar</button>

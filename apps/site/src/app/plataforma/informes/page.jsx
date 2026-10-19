@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import Sidebar from "@/components/app-sidebar";
 import { useSede } from "@/components/use-sede";
 import { pageData, AGENT_TABLE_COLOR } from "@/components/sede-data";
+import Pills from "@/components/pills";
 
 // Informes por sede (ver sede-data). «Todas las sedes» suma los totales de la
 // organización; las medias (%, segundos) no se suman.
@@ -11,9 +13,31 @@ const BAR_STACK = [
   { flex: 3, color: "#004c39" },
 ];
 
+// El periodo cambia el rango, escala las cifras y fija la granularidad del gráfico
+// (semana → por día, mes → por semana, año → por mes).
+const PERIODS = [["semana", "Semana"], ["mes", "Mes"], ["año", "Año"]];
+const P = {
+  semana: { f: 0.23, range: "22–28 sep", title: "Última semana de septiembre", chart: "por día", bars: (b) => [62, 74, 81, 77, 92, 41, 18].map((v) => Math.round((v * b[3]) / 88)), labels: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] },
+  mes: { f: 1, range: "1–30 sep", title: "Septiembre", chart: "por semana", bars: (b) => b, labels: null },
+  año: { f: 9, range: "Ene–sep 2026", title: "Enero a septiembre", chart: "por mes", bars: (b) => [34, 39, 44, 48, 52, 57, 61, 66, Math.round(b.reduce((t, x) => t + x, 0) / b.length)], labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep"] },
+};
+const scaleVal = (v, f) => {
+  const str = String(v);
+  if (str.includes("%") || /\d\s*s$/.test(str)) return v; // medias: no escalan
+  const n = parseFloat(str.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")) || 0;
+  const r = Math.round(n * f);
+  if (str.includes("€")) return `${r.toLocaleString("es-ES")} €`;
+  if (str.includes("h")) return `${r.toLocaleString("es-ES")} h`;
+  return r.toLocaleString("es-ES");
+};
+
 export default function Screen() {
   const { sede } = useSede();
-  const d = pageData("informes", sede);
+  const base = pageData("informes", sede);
+  const [period, setPeriod] = useState("mes");
+  const per = P[period];
+  const bars = per.bars(base.bars);
+  const d = { ...base, hours: scaleVal(base.hours, per.f), stats: Object.fromEntries(Object.entries(base.stats).map(([k, v]) => [k, scaleVal(v, per.f)])), bars, barLabels: per.labels ?? base.barLabels };
   const maxBar = Math.max(...d.bars);
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
@@ -23,9 +47,8 @@ export default function Screen() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
           <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Informes. <span style={{ color: "#5f5f63" }}>Lo que tus agentes han hecho por ti.</span></h1>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ display: "flex", padding: "4px", borderRadius: "800px", background: "#ffffff", fontSize: "14px", lineHeight: "20px" }}><span style={{ padding: "7px 14px", borderRadius: "800px" }}>Semana</span><span style={{ padding: "7px 14px", borderRadius: "800px", background: "#000000", color: "#ffffff" }}>Mes</span><span style={{ padding: "7px 14px", borderRadius: "800px" }}>Año</span></span>
-            <button data-demo="" type="button" style={{ padding: "10px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>1–30 sep ⌄</button>
-            <button data-demo="" type="button" style={{ padding: "10px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>Agrupar por: día ⌄</button>
+            <Pills label="Periodo" variant="segmented" options={PERIODS} value={period} onChange={setPeriod} size="sm" />
+            <span style={{ padding: "10px 14px", borderRadius: "800px", background: "#ffffff", fontSize: "14px", lineHeight: "20px", color: "#5f5f63" }}>{per.range}</span>
             <button data-demo="" type="button" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/20px var(--font-display)" }}>CSV</button>
             <button data-demo="" type="button" style={{ padding: "10px 16px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 14px/20px var(--font-display)" }}>PDF</button>
           </div>
@@ -33,7 +56,7 @@ export default function Screen() {
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ flex: "2 1 360px", borderRadius: "12px", background: "#004c39", color: "#ffffff", padding: "28px", display: "flex", flexDirection: "column", gap: "8px" }}>
-            <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>Septiembre · tiempo ahorrado a tu equipo</span>
+            <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>{per.title} · tiempo ahorrado a tu equipo</span>
             <span style={{ fontSize: "52px", lineHeight: "57px", letterSpacing: "-2.08px" }}>{d.hours}</span>
             <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>{d.heroSub}</span>
           </div>
@@ -46,9 +69,9 @@ export default function Screen() {
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
           <section style={{ flex: "3 1 460px", minWidth: "0", background: "#ffffff", borderRadius: "12px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Tareas completadas por semana</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Tareas completadas {per.chart}</h2>
               <span style={{ display: "flex", gap: "14px", flexWrap: "wrap", fontSize: "12px", lineHeight: "18px", color: "#5f5f63" }}><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "#004c39" }}></span>Recepción</span><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "#9dbecc" }}></span>Atención</span><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "#8e4e00" }}></span>Administración</span></span></div>
-            <div role="img" aria-label="Gráfico de barras ilustrativo: tareas por semana y agente" style={{ display: "flex", alignItems: "flex-end", gap: "20px", height: "220px", padding: "0 4px", borderBottom: "1px solid #0000001a" }}>
+            <div role="img" aria-label={`Gráfico de barras ilustrativo: tareas ${per.chart} y agente`} style={{ display: "flex", alignItems: "flex-end", gap: "20px", height: "220px", padding: "0 4px", borderBottom: "1px solid #0000001a" }}>
               {d.bars.map((h, i) => (
                 <div key={i} style={{ flex: "1", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
                   <span style={{ fontSize: "12px", color: h === maxBar ? "#000000" : "#5f5f63", fontWeight: h === maxBar ? "500" : "400" }}>{h}</span>
@@ -76,7 +99,7 @@ export default function Screen() {
             <tbody>
               {d.agents.map((a) => (
                 <tr key={a.key} style={{ borderTop: "1px solid #0000000f" }}>
-                  <td style={{ padding: "12px 24px" }}><span style={{ display: "inline-flex", gap: "8px", alignItems: "center" }}><span style={{ width: "12px", height: "12px", borderRadius: "800px", background: AGENT_TABLE_COLOR[a.key] }}></span>{a.name}</span></td>
+                  <td style={{ padding: "12px 24px" }}><span style={{ display: "inline-flex", gap: "8px", alignItems: "center" }}><span style={{ width: "12px", height: "12px", borderRadius: "800px", background: AGENT_TABLE_COLOR[a.key] }}></span><a href={`/plataforma/agente?a=${a.key}`} style={{ color: "inherit" }}>{a.name}</a></span></td>
                   <td style={{ padding: "12px" }}>{a.tasks}</td><td style={{ padding: "12px" }}>{a.solo}</td><td style={{ padding: "12px" }}>{a.approve}</td><td style={{ padding: "12px 24px" }}>{a.human}</td>
                 </tr>
               ))}

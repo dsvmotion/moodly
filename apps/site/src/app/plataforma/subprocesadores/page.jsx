@@ -47,7 +47,7 @@ export default function Subprocesadores() {
               <span style={{ fontSize: "13px", ...muted }}>{dpa === "accepted" ? "Aceptado el 14 oct 2026 por Marta Ruiz · versión 2026-10" : "Pendiente de aceptar · versión 2026-10"}</span>
             </div>
           </div>
-          {dpa === "accepted" ? <a href="#" style={{ ...btnLight, flex: "none", textDecoration: "none" }}>Descargar PDF</a> : <button type="button" onClick={() => setDpa("confirming")} style={{ ...btnDark, flex: "none" }}>Revisar y aceptar</button>}
+          {dpa === "accepted" ? <a href="#" data-demo="" style={{ ...btnLight, flex: "none", textDecoration: "none" }}>Descargar PDF</a> : <button type="button" onClick={() => setDpa("confirming")} style={{ ...btnDark, flex: "none" }}>Revisar y aceptar</button>}
         </section>
 
         <section style={{ ...CARD, overflow: "hidden" }}>

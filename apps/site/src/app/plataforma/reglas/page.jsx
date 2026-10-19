@@ -64,7 +64,7 @@ neverCount: rules.filter((r) => r.isNever).length
 {(r.isNever) ? (<><button data-demo="" type="button" role="radio" aria-checked="true" style={{ padding: "7px 12px", borderRadius: "800px", border: "0", background: "#a30042", color: "#ffffff", font: "400 13px/18px var(--font-display)" }}>Nunca</button></>) : null}
 {(r.notNever) ? (<><button type="button" role="radio" aria-checked="false" onClick={r.setNever} style={{ padding: "7px 12px", borderRadius: "800px", border: "0", background: "transparent", color: "#5f5f63", font: "400 13px/18px var(--font-display)", cursor: "pointer" }}>Nunca</button></>) : null}
 </span>
-{(r.isApproval) ? (<><span style={{ padding: "7px 12px", borderRadius: "800px", boxShadow: "inset 0 0 0 1px #0000001a", width: "max-content" }}>{r.approver} ⌄</span></>) : null}
+{(r.isApproval) ? (<><select aria-label={`Quién aprueba: ${r.name ?? "regla"}`} defaultValue={r.approver} style={{ appearance: "auto", border: "1px solid #0000001a", borderRadius: "800px", background: "#ffffff", padding: "6px 10px", font: "400 13px/16px var(--font-display)", color: "#000000", cursor: "pointer" }}><option value="Dueña">Dueña</option><option value="Gerente">Gerente</option><option value="Recepción">Recepción</option></select></>) : null}
 {(r.notApproval) ? (<><span style={{ color: "#6b6b70" }}>–</span></>) : null}
 </div>
 </Fragment>))}

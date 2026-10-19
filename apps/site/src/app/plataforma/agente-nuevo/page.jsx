@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { SEDES as SEDE_LIST } from "@/components/use-sede";
 
 // B1 — Crear/clonar agente desde plantilla (agent_type × vertical). El paso que
 // faltaba entre "Mis agentes" y tener un agente configurado: tipo + plantilla →
@@ -16,13 +17,13 @@ const SUB = { fontSize: "15px", lineHeight: "23px", ...muted };
 const field = { padding: "11px 14px", borderRadius: "10px", border: "1px solid #0000001a", font: "400 14px/20px var(--font-body)", color: "#000000", width: "100%", boxSizing: "border-box" };
 
 const TYPES = [
-  { id: "reception", name: "Recepción", color: "#2457f5", bg: "#e8edff", desc: "Atiende el primer contacto, agenda citas y resuelve dudas básicas." },
-  { id: "customer", name: "Atención al cliente", color: "#004c39", bg: "#dcebdd", desc: "Resuelve incidencias, hace seguimiento y cuida la relación." },
-  { id: "sales", name: "Comercial", color: "#8e4e00", bg: "#ffe8d6", desc: "Cualifica leads, propone tratamientos y recupera presupuestos." },
-  { id: "admin", name: "Administración", color: "#a30042", bg: "#fbe1ea", desc: "Factura, cobra y lleva el día a día administrativo." },
+  { id: "reception", name: "Recepción", color: "#004c39", bg: "#dcebdd", desc: "Atiende el primer contacto, agenda citas y resuelve dudas básicas." },
+  { id: "customer", name: "Atención al cliente", color: "#2c5868", bg: "#dbe9ef", desc: "Resuelve incidencias, hace seguimiento y cuida la relación." },
+  { id: "sales", name: "Comercial", color: "#a30042", bg: "#fbe1ea", desc: "Cualifica leads, propone tratamientos y recupera presupuestos." },
+  { id: "admin", name: "Administración", color: "#8e4e00", bg: "#ffe8d6", desc: "Factura, cobra y lleva el día a día administrativo." },
 ];
 const STEP_LABELS = ["Tipo y plantilla", "Alcance", "Modelo", "Listo"];
-const SEDES = ["Toda la organización", "Sede Centro", "Sede Norte", "Sede Sur"];
+const SEDES = ["Toda la organización", ...SEDE_LIST.filter((x) => x !== "Todas las sedes")];
 
 export default function AgenteNuevo() {
   const [step, setStep] = useState(1);
@@ -112,7 +113,7 @@ export default function AgenteNuevo() {
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>{k}</span><span style={{ fontWeight: 500 }}>{v}</span></div>
               ))}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}><a href="/plataforma/agente" style={btnLight}>Ir a mis agentes</a><a href="/plataforma/probar" style={btnDark}>Probar antes de activar</a></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}><a href={`/plataforma/agente?a=${type}`} style={btnLight}>Ir a mis agentes</a><a href={`/plataforma/probar?a=${type}`} style={btnDark}>Probar antes de activar</a></div>
           </div>
         )}
       </main>

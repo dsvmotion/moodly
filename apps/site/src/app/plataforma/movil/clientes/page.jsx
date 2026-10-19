@@ -1,25 +1,51 @@
-import { Fragment } from "react";
+"use client";
+import { useState } from "react";
+import MobileFrame from "@/components/mobile-frame";
+import Pills from "@/components/pills";
+import { useSede } from "@/components/use-sede";
+import { pageData, clientDetail } from "@/components/sede-data";
+
+// Clientes (móvil): mismos datos que escritorio. Filtros y buscador reales; tocar
+// un cliente despliega su ficha rápida con acciones.
+const FILTERS = [["todos", "Todos"], ["cita", "Cita próxima"], ["inactivo", "Sin venir 6+ meses"]];
 
 export default function Screen() {
+  const { sede } = useSede();
+  const d = pageData("clientes", sede);
+  const [filter, setFilter] = useState("todos");
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(null);
+  const visible = d.list.filter((c) => (filter === "todos" || (c.seg ?? []).includes(filter)) && (!q.trim() || `${c.name} ${c.sub}`.toLowerCase().includes(q.trim().toLowerCase())));
   return (
-    <div style={{ minHeight: "100vh", background: "#e9e9ec", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "32px 16px", boxSizing: "border-box" }}><div style={{ borderRadius: "40px", overflow: "hidden", boxShadow: "0 24px 64px #00000033", border: "8px solid #000000" }}>
-
-<div style={{ width: "390px", height: "844px", boxSizing: "border-box", fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-<header style={{ padding: "52px 12px 10px", display: "flex", alignItems: "center", gap: "8px" }}>
-<a href="/plataforma/movil/mas" aria-label="Volver" style={{ width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></a>
-<h1 style={{ flex: "1", margin: "0", fontSize: "20px", lineHeight: "24px", fontWeight: "400", letterSpacing: "-0.4px" }}>Clientes</h1><button data-demo="" type="button" aria-label="Añadir cliente" style={{ width: "44px", height: "44px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 22px/22px var(--font-display)" }}>+</button>
-</header>
-<main style={{ flex: "1", overflow: "hidden", padding: "4px 16px 12px", display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", lineHeight: "20px" }}>
-<label style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }} htmlFor="q">Buscar</label><input id="q" type="search" placeholder="Buscar por nombre o teléfono" style={{ padding: "12px 16px", borderRadius: "800px", border: "0", background: "#ffffff", font: "400 15px/20px var(--font-display)", color: "#000000" }} /><div style={{ display: "flex", gap: "6px" }}><span style={{ padding: "8px 12px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "13px", lineHeight: "14px", whiteSpace: "nowrap" }}>Todos</span><span style={{ padding: "8px 12px", borderRadius: "800px", background: "#ffffff", fontSize: "13px", lineHeight: "14px", whiteSpace: "nowrap" }}>Cita próxima</span><span style={{ padding: "8px 12px", borderRadius: "800px", background: "#ffffff", fontSize: "13px", lineHeight: "14px", whiteSpace: "nowrap" }}>Sin venir 6+ meses</span></div><div style={{ background: "#ffffff", borderRadius: "12px", overflow: "hidden" }}><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#a3c2a7", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>LM</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Laura Martín</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Cita jue 10:30</span></span><span style={{ color: "#6b6b70" }}>›</span></a><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #0000000f" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#9dbecc", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>PG</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Pedro García</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Reseña pendiente</span></span><span style={{ color: "#6b6b70" }}>›</span></a><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #0000000f" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#ffbab5", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>AT</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Ana Torres</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Presupuesto enviado</span></span><span style={{ color: "#6b6b70" }}>›</span></a><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #0000000f" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#f6f2e8", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>JL</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Jorge López</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Última visita hace 7 meses</span></span><span style={{ color: "#6b6b70" }}>›</span></a><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #0000000f" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#f6f2e8", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>SP</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Sara Pérez</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Cita mar 9:30</span></span><span style={{ color: "#6b6b70" }}>›</span></a><a href="#" data-demo="" style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #0000000f" }}><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#a3c2a7", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "500", flex: "none" }}>NF</span><span style={{ flex: "1" }}><span style={{ display: "block", fontWeight: "500" }}>Nuria Ferrer</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>Cita hoy 12:00</span></span><span style={{ color: "#6b6b70" }}>›</span></a></div>
-</main>
-<nav aria-label="Principal" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", padding: "8px 6px 28px", background: "#ffffff", borderTop: "1px solid #0000001a", fontSize: "11px", lineHeight: "14px", textAlign: "center" }}>
-<a href="/plataforma/movil" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: "#5f5f63", position: "relative" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5f5f63" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Inicio</a>
-<a href="/plataforma/movil/chats" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: "#5f5f63", position: "relative" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5f5f63" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>Chats</a>
-<a href="/plataforma/movil/aprobaciones" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: "#5f5f63", position: "relative" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5f5f63" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"></path></svg><span style={{ position: "absolute", top: "0", left: "56%", minWidth: "16px", height: "16px", borderRadius: "800px", background: "#ff6301", color: "#000000", fontSize: "11px", lineHeight: "16px" }}>3</span>Aprobar</a>
-<a href="/plataforma/movil/agenda" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: "#5f5f63", position: "relative" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5f5f63" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>Agenda</a>
-<a href="/plataforma/movil/mas" aria-current="page" style={{ fontWeight: "500", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "6px 0", color: "#000000", position: "relative" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Más</a>
-</nav>
-</div>
-</div></div>
+    <MobileFrame active="mas" back="/plataforma/movil/mas" title="Clientes" right={<button data-demo="" type="button" aria-label="Añadir cliente" style={{ width: "36px", height: "36px", borderRadius: "800px", border: 0, background: "#000000", color: "#ffffff", fontSize: "18px", cursor: "pointer" }}>+</button>}>
+      <label htmlFor="q" style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>Buscar</label>
+      <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o motivo" style={{ padding: "12px 16px", borderRadius: "800px", border: 0, background: "#ffffff", font: "400 15px/20px var(--font-display)", color: "#000000" }} />
+      <Pills label="Filtrar clientes" options={FILTERS} value={filter} onChange={setFilter} size="sm" />
+      <div style={{ background: "#ffffff", borderRadius: "12px", overflow: "hidden" }}>
+        {visible.length === 0 && <p style={{ margin: 0, padding: "16px 14px", color: "#5f5f63" }}>Ningún cliente con este filtro.</p>}
+        {visible.map((c, i) => {
+          const on = open === c.name; const det = on ? clientDetail(c) : null;
+          return (
+            <div key={`${c.name}${c.sede ?? ""}`} style={{ borderTop: i ? "1px solid #0000000f" : 0 }}>
+              <button type="button" aria-expanded={on} onClick={() => setOpen(on ? null : c.name)} style={{ width: "100%", textAlign: "left", display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px", border: 0, background: on ? "#0000000a" : "transparent", font: "inherit", color: "#000000", cursor: "pointer" }}>
+                <span style={{ width: "40px", height: "40px", borderRadius: "800px", background: c.color, boxShadow: c.color === "#f6f2e8" ? "inset 0 0 0 1px #0000001a" : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 500, flex: "none" }}>{c.initials}</span>
+                <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: "block", fontWeight: 500 }}>{c.name}</span><span style={{ display: "block", fontSize: "12px", color: "#6b6b70" }}>{c.sub}{c.sede ? ` · ${c.sede}` : ""}</span></span>
+                <span aria-hidden="true" style={{ color: "#6b6b70" }}>{on ? "⌃" : "⌄"}</span>
+              </button>
+              {det && (
+                <div style={{ padding: "0 14px 14px 66px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                  <span style={{ color: "#5f5f63" }}>{det.meta}</span>
+                  <span style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>{Object.entries(det.stats).map(([k, v]) => <span key={k}><span style={{ color: "#6b6b70" }}>{k}: </span>{v}</span>)}</span>
+                  <span style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                    <a href={`/plataforma/movil/conversacion?c=${encodeURIComponent(c.name.split(" ")[0])}`} style={{ padding: "8px 14px", borderRadius: "800px", background: "#000000", color: "#ffffff", textDecoration: "none" }}>Escribir</a>
+                    <a href="/plataforma/movil/agenda" style={{ padding: "8px 14px", borderRadius: "800px", boxShadow: "inset 0 0 0 1px #0000001a", color: "#000000", textDecoration: "none" }}>Nueva cita</a>
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </MobileFrame>
   );
 }

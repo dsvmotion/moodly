@@ -1,14 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import Pills from "@/components/pills";
+import { useSede } from "@/components/use-sede";
+import { AGENT_DOT, dashboardFor } from "@/components/sede-data";
 
 // Mis agentes: un agente visible a la vez, con selector para cambiar entre los
-// cuatro. Cada agente tiene su color, sus skills, su tono y su estado.
+// cuatro. Cada agente tiene su color (fuente única AGENT_DOT), sus skills, su tono y
+// su estado real en la sede activa. Admite ?a=clave (reception|recepcion, …).
 // TODO(backend): leer agents + agent_skills + business_rules del tenant; el
 // selector cambia de agente; los toggles escriben agent_skills.
 const AGENTS = [
   {
-    key: "reception", name: "Recepción", color: "#004c39", sub: "Citas, agenda y llamadas · Plantilla Clínicas", status: "active",
+    key: "reception", es: "recepcion", name: "Recepción", color: AGENT_DOT.recepcion, sub: "Citas, agenda y llamadas · Plantilla Clínicas", status: "active",
     skills: [
       { id: "reservar", name: "Reservar citas", desc: "Ofrece huecos libres y crea la cita en Calendar.", approval: false, on: true },
       { id: "reprogramar", name: "Reprogramar y cancelar", desc: "Mueve citas a petición del paciente.", approval: false, on: true },
@@ -18,10 +22,10 @@ const AGENTS = [
       { id: "masivo", name: "Mover citas en bloque", desc: "Reorganiza la agenda ante bajas o cierres.", approval: true, on: true },
       { id: "resenas", name: "Pedir reseña tras la visita", desc: "Envía un enlace a Google Reviews al día siguiente.", approval: false, on: false },
     ],
-    tono: "Cercano", tonoEx: "“¡Hola, Laura! Tengo el jueves a las 10:30 o el viernes a las 17:00. ¿Cuál te viene mejor?”",
+    tono: "Cercano", tonos: { Cercano: "“¡Hola, Laura! Tengo el jueves a las 10:30 o el viernes a las 17:00. ¿Cuál te viene mejor?”", Formal: "“Buenos días, Laura. Disponemos de cita el jueves a las 10:30 o el viernes a las 17:00. Indíquenos su preferencia.”", Breve: "“Jue 10:30 o vie 17:00. ¿Cuál?”" },
   },
   {
-    key: "customer", name: "Atención al cliente", color: "#2457f5", sub: "Incidencias, seguimiento y relación", status: "active",
+    key: "customer", es: "atencion", name: "Atención al cliente", color: AGENT_DOT.atencion, sub: "Incidencias, seguimiento y relación", status: "active",
     skills: [
       { id: "dudas", name: "Responder dudas", desc: "Precios, horarios, preparación de tratamientos.", approval: false, on: true },
       { id: "seguimiento", name: "Seguimiento post-visita", desc: "Pregunta cómo ha ido y detecta problemas.", approval: false, on: true },
@@ -30,10 +34,10 @@ const AGENTS = [
       { id: "derivar", name: "Derivar a humano", desc: "Pasa el caso a una persona cuando hace falta.", approval: false, on: true },
       { id: "encuesta", name: "Encuesta de satisfacción", desc: "Envía NPS tras cerrar la incidencia.", approval: false, on: false },
     ],
-    tono: "Cercano", tonoEx: "“Siento el fallo, Laura. Lo soluciono ahora mismo y te confirmo en cuanto esté. ¿Te va bien?”",
+    tono: "Cercano", tonos: { Cercano: "“Siento el fallo, Laura. Lo soluciono ahora mismo y te confirmo en cuanto esté. ¿Te va bien?”", Formal: "“Lamentamos la incidencia, Laura. La estamos resolviendo y le confirmaremos en cuanto esté solucionada.”", Breve: "“Lo siento. Lo arreglo y te aviso.”" },
   },
   {
-    key: "sales", name: "Comercial", color: "#a30042", sub: "Leads, presupuestos y recuperación", status: "active",
+    key: "sales", es: "comercial", name: "Comercial", color: AGENT_DOT.comercial, sub: "Leads, presupuestos y recuperación", status: "active",
     skills: [
       { id: "cualificar", name: "Cualificar leads", desc: "Entiende la necesidad y clasifica el lead.", approval: false, on: true },
       { id: "presupuesto", name: "Enviar presupuesto", desc: "Prepara y manda el presupuesto del tratamiento.", approval: true, on: true },
@@ -42,10 +46,10 @@ const AGENTS = [
       { id: "primeravisita", name: "Agendar primera visita", desc: "Convierte el interés en una cita gratuita.", approval: false, on: true },
       { id: "descuento", name: "Ofrecer descuento", desc: "Aplica un descuento dentro de un margen.", approval: true, on: false },
     ],
-    tono: "Cercano", tonoEx: "“Te preparo un presupuesto sin compromiso. ¿Quieres que lo veamos en una primera visita gratuita?”",
+    tono: "Cercano", tonos: { Cercano: "“Te preparo un presupuesto sin compromiso. ¿Quieres que lo veamos en una primera visita gratuita?”", Formal: "“Le preparamos un presupuesto sin compromiso. Podemos revisarlo en una primera visita sin coste.”", Breve: "“Presupuesto sin compromiso. ¿Primera visita gratis?”" },
   },
   {
-    key: "admin", name: "Administración", color: "#8e4e00", sub: "Facturas, cobros y día a día", status: "active",
+    key: "admin", es: "admin", name: "Administración", color: AGENT_DOT.admin, sub: "Facturas, cobros y día a día", status: "active",
     skills: [
       { id: "factura", name: "Emitir factura", desc: "Crea y envía la factura tras la visita.", approval: true, on: true },
       { id: "cobro", name: "Registrar cobro", desc: "Anota el pago y concilia con la factura.", approval: true, on: true },
@@ -54,21 +58,30 @@ const AGENTS = [
       { id: "inventario", name: "Avisar de inventario bajo", desc: "Detecta material por debajo del mínimo.", approval: false, on: true },
       { id: "plazos", name: "Pago a plazos", desc: "Propone fraccionar el pago.", approval: true, on: false },
     ],
-    tono: "Formal", tonoEx: "“Hola Laura, te adjunto la factura de tu última visita (75,00 €). Cualquier duda, aquí estoy.”",
+    tono: "Formal", tonos: { Cercano: "“¡Hola, Laura! Te paso la factura de tu última visita (75,00 €). Cualquier duda, me dices.”", Formal: "“Hola Laura, te adjunto la factura de tu última visita (75,00 €). Cualquier duda, aquí estoy.”", Breve: "“Factura adjunta: 75,00 €.”" },
   },
 ];
 
 const box = { background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px" };
+const LIGHT = ["#9dbecc", "#a3c2a7", "#f6f2e8"];
 const AgentIcon = ({ color }) => (
   <span style={{ width: "56px", height: "56px", borderRadius: "800px", background: color, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={LIGHT.includes(color) ? "#000000" : "#ffffff"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
   </span>
 );
 
 export default function Screen() {
+  const { sede } = useSede();
   const [sel, setSel] = useState(0);
-  const [on, setOn] = useState({}); // overrides por "agentKey:skillId"
+  const [on, setOn] = useState({});         // overrides por "agentKey:skillId"
+  const [paused, setPaused] = useState({});  // overrides de estado por agente
+  const [tone, setTone] = useState({});      // tono elegido por agente
+  // ?a=clave → abre ese agente (acepta la clave canónica o la de sede-data).
+  useEffect(() => { const k = new URLSearchParams(window.location.search).get("a"); const i = AGENTS.findIndex((g) => g.key === k || g.es === k); if (i >= 0) setSel(i); }, []);
   const a = AGENTS[sel];
+  const base = dashboardFor(sede).agents.find((g) => g.key === a.es);
+  const isPaused = a.key in paused ? paused[a.key] : /Pausado/.test(base?.status.label ?? "");
+  const curTone = tone[a.key] ?? a.tono;
   const isOn = (s) => { const k = `${a.key}:${s.id}`; return k in on ? on[k] : s.on; };
   const toggle = (s) => setOn((o) => ({ ...o, [`${a.key}:${s.id}`]: !isOn(s) }));
   const activeCount = a.skills.filter(isOn).length;
@@ -99,14 +112,15 @@ export default function Screen() {
             <div><h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>{a.name}</h1><span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.sub}</span></div>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <span style={{ padding: "6px 12px", borderRadius: "800px", background: "#dcebdd", color: "#004c39", fontSize: "14px", lineHeight: "14px" }}>● Activo</span>
-            <a href="/plataforma/probar" style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Probar</a>
-            <a href="/plataforma/publicar" style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Publicar cambios</a>
+            <span style={{ padding: "6px 12px", borderRadius: "800px", background: isPaused ? "#ebebed" : "#dcebdd", color: isPaused ? "#5f5f63" : "#004c39", fontSize: "14px", lineHeight: "14px" }}>{isPaused ? "○ Pausado" : "● Activo"}</span>
+            <button type="button" onClick={() => setPaused((x) => ({ ...x, [a.key]: !isPaused }))} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>{isPaused ? "Reanudar" : "Pausar"}</button>
+            <a href={`/plataforma/probar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Probar</a>
+            <a href={`/plataforma/publicar?a=${a.key}`} style={{ padding: "10px 18px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", textDecoration: "none" }}>Publicar cambios</a>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {[["Techo de autonomía", "/plataforma/autonomia"], ["Voz del agente", "/plataforma/voz"], ["Conocimiento", "/plataforma/conocimiento"], ["Memoria del negocio", "/plataforma/memoria"]].map(([l, h]) => (<a key={l} href={h} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>{l}</a>))}
+          {[["Techo de autonomía", `/plataforma/autonomia?a=${a.key}`], ["Voz del agente", `/plataforma/voz?a=${a.key}`], ["Conocimiento", "/plataforma/conocimiento"], ["Memoria del negocio", "/plataforma/memoria"]].map(([l, h]) => (<a key={l} href={h} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 13px/13px var(--font-display)", textDecoration: "none" }}>{l}</a>))}
         </div>
 
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -132,16 +146,14 @@ export default function Screen() {
           <div style={{ flex: "2 1 300px", minWidth: "0", display: "flex", flexDirection: "column", gap: "16px" }}>
             <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Tono</h2>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                {["Cercano", "Formal", "Breve"].map((t) => <span key={t} style={{ padding: "8px 14px", borderRadius: "800px", fontSize: "14px", lineHeight: "14px", ...(t === a.tono ? { background: "#000000", color: "#ffffff" } : { boxShadow: "inset 0 0 0 1px #0000001a" }) }}>{t}</span>)}
-              </div>
-              <div style={{ background: "#f4f4f5", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.tonoEx}</div>
+              <Pills label={`Tono de ${a.name}`} options={[["Cercano", "Cercano"], ["Formal", "Formal"], ["Breve", "Breve"]]} value={curTone} onChange={(t) => setTone((x) => ({ ...x, [a.key]: t }))} />
+              <div style={{ background: "#f4f4f5", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.tonos[curTone]}</div>
             </section>
             <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Canales</h2>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>WhatsApp Business</span><span style={{ color: "#004c39" }}>Conectado</span></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Teléfono (voz)</span><span style={{ color: "#004c39" }}>Conectado</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Google Calendar</span><span style={{ color: "#004c39" }}>Conectado</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Google Calendar</span><a href="/plataforma/configuracion/integraciones" style={{ color: "#8e4e00" }}>! Reconectar</a></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Instagram</span><a href="/plataforma/configuracion/integraciones" style={{ color: "#2457f5" }}>Conectar</a></div>
             </section>
             <section style={{ borderRadius: "12px", background: "#9dbecc", padding: "20px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>

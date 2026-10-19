@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { useAgentParam } from "@/components/agent-param";
 
 // Flujo: publicar una versión del agente. Entre editar la configuración (tono,
 // reglas, conocimiento) y que esos cambios lleguen a los clientes hay un paso
@@ -25,6 +26,7 @@ const HISTORY = [
 ];
 
 export default function Publicar() {
+  const { key: aKey, name: aName } = useAgentParam("customer");
   const [state, setState] = useState("review"); // review | confirming | publishing | done
   const reduced = useRef(false);
   useEffect(() => { reduced.current = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false; }, []);
@@ -36,9 +38,9 @@ export default function Publicar() {
       <style>{`@keyframes mo-spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion: reduce){.mo-spin{animation:none!important}}`}</style>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="agentes" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-        <a href="/plataforma/agente" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Agente de Atención</a>
+        <a href={`/plataforma/agente?a=${aKey}`} style={{ fontSize: "14px", color: "#5f5f63" }}>‹ {aName}</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Publicar cambios del agente</h1>
+          <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Publicar cambios de «{aName}»</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>4 cambios sin publicar. Revísalos; al publicar, el agente empieza a usarlos con los clientes. Guardamos la versión anterior por si quieres volver.</span>
         </div>
 
@@ -80,7 +82,7 @@ export default function Publicar() {
 
         {state !== "done" && (
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #0000000f", paddingTop: "16px" }}>
-            <a href="/plataforma/agente" style={btnLight}>Seguir editando</a>
+            <a href={`/plataforma/agente?a=${aKey}`} style={btnLight}>Seguir editando</a>
             <button type="button" disabled={state === "publishing"} onClick={() => setState("confirming")} style={{ ...btnDark, opacity: state === "publishing" ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: "8px" }}>{state === "publishing" ? <><span className="mo-spin" style={{ width: "14px", height: "14px", borderRadius: "800px", border: "2px solid #ffffff55", borderTopColor: "#ffffff", animation: "mo-spin .7s linear infinite" }} />Publicando…</> : "Publicar v8"}</button>
           </div>
         )}

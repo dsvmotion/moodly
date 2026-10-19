@@ -1,48 +1,88 @@
-import { Fragment } from "react";
+"use client";
+import { useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import Pills from "@/components/pills";
+import { useSede } from "@/components/use-sede";
+import { callsFor } from "@/components/sede-data";
+
+// Llamadas por sede (ver sede-data): lista + detalle. Seleccionar una llamada
+// muestra su resumen, acciones y transcripción. TODO(backend): calls (grabación
+// solo con consentimiento) + transcripción del proveedor de voz.
+const KIND = {
+  reserva: { icon: "☎", bg: "#004c39", fg: "#ffffff", label: "Cita reservada" },
+  confirma: { icon: "✓", bg: "#004c39", fg: "#ffffff", label: "Asistencia confirmada" },
+  info: { icon: "i", bg: "#9dbecc", fg: "#000000", label: "Información" },
+  traspaso: { icon: "→", bg: "#ffe8d6", fg: "#8e4e00", label: "Pasada a una persona" },
+};
+const TOTAL = { "Sede Centro": 42, "Sede Norte": 18, "Todas las sedes": 60 };
+const FILTERS = [["todas", "Todas"], ["traspaso", "Pasadas a una persona"], ["reserva", "Con cita"]];
+const pill = { padding: "10px 16px", borderRadius: "800px", fontSize: "14px", lineHeight: "21px", textDecoration: "none" };
 
 export default function Screen() {
+  const { sede } = useSede();
+  const calls = callsFor(sede);
+  const [filter, setFilter] = useState("todas");
+  const [selKey, setSelKey] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const keyOf = (c) => `${c.name}|${c.time}`;
+  const visible = calls.filter((c) => filter === "todas" || c.kind === filter);
+  const cur = visible.find((c) => keyOf(c) === selKey) ?? visible[0] ?? null;
+  const pick = (c) => { setSelKey(keyOf(c)); setPlaying(false); };
+
   return (
-    <>
+    <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
+      <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="llamadas" /></div>
 
-<div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
-<div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="llamadas" /></div>
+      <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
+          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Llamadas. <span style={{ color: "#5f5f63" }}>Hoy: {TOTAL[sede] ?? 42} atendidas, 0 perdidas.</span></h1>
+          <a href="/plataforma/voz?a=reception" style={{ ...pill, border: "1px solid #0000001a", background: "#ffffff", color: "#000000" }}>Voz y saludo</a>
+        </div>
+        <Pills label="Filtrar llamadas" options={FILTERS} value={filter} onChange={setFilter} size="sm" />
 
-<main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Llamadas. <span style={{ color: "#5f5f63" }}>Hoy: 42 atendidas, 0 perdidas.</span></h1>
-<a href="/plataforma/configuracion/integraciones" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", fontSize: "14px", lineHeight: "21px" }}>Voz y saludo</a>
-</div>
+        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
+          <section style={{ flex: "2 1 360px", minWidth: "0", background: "#ffffff", borderRadius: "12px", overflow: "hidden", fontSize: "14px", lineHeight: "21px" }}>
+            {visible.length === 0 && <p style={{ margin: 0, padding: "20px 16px", color: "#5f5f63" }}>No hay llamadas con este filtro.</p>}
+            {visible.map((c, i) => {
+              const k = KIND[c.kind]; const on = cur && keyOf(c) === keyOf(cur);
+              return (
+                <button key={keyOf(c)} type="button" aria-pressed={on} onClick={() => pick(c)} style={{ width: "100%", textAlign: "left", display: "flex", gap: "12px", padding: "14px 16px", background: on ? "#0000000d" : "transparent", border: 0, borderTop: i ? "1px solid #0000000f" : 0, font: "inherit", color: "#000000", cursor: "pointer" }}>
+                  <span aria-hidden="true" style={{ width: "36px", height: "36px", borderRadius: "800px", background: k.bg, color: k.fg, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: "13px" }}>{k.icon}</span>
+                  <span style={{ flex: "1", minWidth: "0" }}>
+                    <span style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}><span style={{ fontWeight: "500" }}>{c.name}</span><span style={{ fontSize: "12px", color: "#6b6b70", whiteSpace: "nowrap" }}>{c.time} · {c.dur}</span></span>
+                    <span style={{ display: "block", color: "#5f5f63" }}>{c.line}{c.sede ? ` · ${c.sede}` : ""}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </section>
 
-<div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
-<section style={{ flex: "2 1 360px", minWidth: "0", background: "#ffffff", borderRadius: "12px", overflow: "hidden", fontSize: "14px", lineHeight: "21px" }}>
-<a href="#" data-demo="" style={{ display: "flex", gap: "12px", padding: "14px 16px", background: "#0000000d" }}><span style={{ width: "36px", height: "36px", borderRadius: "800px", background: "#004c39", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg></span><span style={{ flex: "1", minWidth: "0" }}><span style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: "500" }}>Sara Pérez</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>10:31 · 1:42</span></span><span style={{ display: "block", color: "#5f5f63" }}>Reservó revisión el martes 9:30</span></span></a>
-<a href="#" data-demo="" style={{ display: "flex", gap: "12px", padding: "14px 16px", borderTop: "1px solid #0000000f" }}><span style={{ width: "36px", height: "36px", borderRadius: "800px", background: "#004c39", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: "12px" }}>✓</span><span style={{ flex: "1", minWidth: "0" }}><span style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: "500" }}>+34 6•• ••• 447</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>10:12 · 0:58</span></span><span style={{ display: "block", color: "#5f5f63" }}>Preguntó horarios del sábado</span></span></a>
-<a href="#" data-demo="" style={{ display: "flex", gap: "12px", padding: "14px 16px", borderTop: "1px solid #0000000f" }}><span style={{ width: "36px", height: "36px", borderRadius: "800px", background: "#ffe8d6", color: "#8e4e00", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: "12px" }}>→</span><span style={{ flex: "1", minWidth: "0" }}><span style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: "500" }}>Jorge López</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>09:47 · 2:10</span></span><span style={{ display: "block", color: "#5f5f63" }}>Pasada a Carmen: queja por una factura</span></span></a>
-<a href="#" data-demo="" style={{ display: "flex", gap: "12px", padding: "14px 16px", borderTop: "1px solid #0000000f" }}><span style={{ width: "36px", height: "36px", borderRadius: "800px", background: "#004c39", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: "12px" }}>✓</span><span style={{ flex: "1", minWidth: "0" }}><span style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: "500" }}>Nuria Ferrer</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>09:20 · 1:05</span></span><span style={{ display: "block", color: "#5f5f63" }}>Confirmó la cita de hoy</span></span></a>
-</section>
-
-<section style={{ flex: "3 1 460px", minWidth: "0", background: "#ffffff", borderRadius: "12px", display: "flex", flexDirection: "column" }}>
-<div style={{ padding: "20px 24px", borderBottom: "1px solid #0000000f", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-<span><span style={{ display: "block", fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>Sara Pérez</span><span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>Hoy 10:31 · 1 min 42 s · atendida por Recepción</span></span>
-<span style={{ display: "flex", gap: "8px" }}><a href="/plataforma/clientes" style={{ padding: "10px 16px", borderRadius: "800px", border: "1px solid #0000001a", fontSize: "14px", lineHeight: "21px" }}>Ver ficha</a><button data-demo="" type="button" style={{ padding: "10px 16px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", font: "400 14px/21px var(--font-display)" }}>Devolver llamada</button></span>
-</div>
-<div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px", fontSize: "14px", lineHeight: "21px" }}>
-<div style={{ display: "flex", gap: "14px", alignItems: "center", padding: "12px 16px", borderRadius: "12px", background: "#f4f4f5" }}><button data-demo="" type="button" aria-label="Reproducir grabación" style={{ width: "36px", height: "36px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></button><span style={{ flex: "1", height: "4px", borderRadius: "800px", background: "#d4d4d8" }}><span style={{ display: "block", width: "30%", height: "4px", borderRadius: "800px", background: "#000000" }}></span></span><span style={{ fontSize: "12px", color: "#6b6b70" }}>0:31 / 1:42</span></div>
-<div style={{ borderRadius: "12px", background: "#a3c2a7", padding: "14px 16px" }}><strong style={{ fontWeight: "500" }}>Resumen:</strong> Sara quería una revisión esta semana. Se le ofreció el martes a las 9:30 con el Dr. Vidal y aceptó.</div>
-<div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}><span style={{ padding: "5px 10px", borderRadius: "800px", background: "#9dbecc", fontSize: "12px", lineHeight: "14px" }}>Calendar · Cita creada</span><span style={{ padding: "5px 10px", borderRadius: "800px", background: "#a3c2a7", fontSize: "12px", lineHeight: "14px" }}>CRM · Ficha actualizada</span><span style={{ padding: "5px 10px", borderRadius: "800px", background: "#f4f4f5", fontSize: "12px", lineHeight: "14px" }}>WhatsApp · Confirmación enviada</span></div>
-<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-<span style={{ fontSize: "12px", color: "#6b6b70" }}>Transcripción</span>
-<div style={{ display: "flex", gap: "12px" }}><span style={{ width: "64px", color: "#6b6b70", flex: "none" }}>Agente</span><span>Clínica Dental Sol, buenos días. Soy el asistente de la clínica, ¿en qué puedo ayudarte?</span></div>
-<div style={{ display: "flex", gap: "12px" }}><span style={{ width: "64px", color: "#6b6b70", flex: "none" }}>Sara</span><span>Hola, quería pedir una revisión para esta semana si puede ser.</span></div>
-<div style={{ display: "flex", gap: "12px" }}><span style={{ width: "64px", color: "#6b6b70", flex: "none" }}>Agente</span><span>Claro. Tengo el martes a las 9:30 o el jueves a las 18:00. ¿Cuál te va mejor?</span></div>
-<div style={{ display: "flex", gap: "12px" }}><span style={{ width: "64px", color: "#6b6b70", flex: "none" }}>Sara</span><span>El martes.</span></div>
-</div>
-</div>
-</section>
-</div>
-</main>
-</div>
-</>
+          {cur && (
+            <section aria-label={`Llamada de ${cur.name}`} style={{ flex: "3 1 460px", minWidth: "0", background: "#ffffff", borderRadius: "12px", display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid #0000000f", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <span><span style={{ display: "block", fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>{cur.name}</span><span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{cur.time} · {cur.dur} · atendida por {cur.agent} · {KIND[cur.kind].label}</span></span>
+                <span style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {cur.client ? <a href={`/plataforma/clientes?c=${encodeURIComponent(cur.client)}`} style={{ ...pill, border: "1px solid #0000001a", color: "#000000" }}>Ver ficha</a> : <span style={{ ...pill, color: "#6b6b70" }}>Sin ficha</span>}
+                  <button data-demo="" type="button" style={{ ...pill, border: "0", background: "#000000", color: "#ffffff", font: "400 14px/21px var(--font-display)", cursor: "pointer" }}>Llamar de vuelta</button>
+                </span>
+              </div>
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px", fontSize: "14px", lineHeight: "21px" }}>
+                <div style={{ display: "flex", gap: "14px", alignItems: "center", padding: "12px 16px", borderRadius: "12px", background: "#f4f4f5" }}>
+                  <button type="button" onClick={() => setPlaying(!playing)} aria-label={playing ? "Pausar grabación" : "Reproducir grabación"} style={{ width: "36px", height: "36px", borderRadius: "800px", border: "0", background: "#000000", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", cursor: "pointer" }}>{playing ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"></path></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>}</button>
+                  <span style={{ flex: "1", height: "4px", borderRadius: "800px", background: "#d4d4d8" }}><span style={{ display: "block", width: playing ? "55%" : "0%", height: "4px", borderRadius: "800px", background: "#000000", transition: "width 1.2s linear" }}></span></span>
+                  <span style={{ fontSize: "12px", color: "#6b6b70" }}>{playing ? "en curso" : "0:00"} / {cur.dur}</span>
+                </div>
+                <div style={{ borderRadius: "12px", background: "#a3c2a7", padding: "14px 16px" }}><strong style={{ fontWeight: "500" }}>Resumen:</strong> {cur.summary}</div>
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>{cur.tags.map(([bg, t]) => <span key={t} style={{ padding: "5px 10px", borderRadius: "800px", background: bg, fontSize: "12px", lineHeight: "14px" }}>{t}</span>)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <span style={{ fontSize: "12px", color: "#6b6b70" }}>Transcripción</span>
+                  {cur.transcript.map(([who, text], i) => <div key={i} style={{ display: "flex", gap: "12px" }}><span style={{ width: "72px", color: "#6b6b70", flex: "none" }}>{who}</span><span>{text}</span></div>)}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

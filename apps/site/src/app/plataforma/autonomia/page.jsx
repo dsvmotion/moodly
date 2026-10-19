@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import Sidebar from "@/components/app-sidebar";
+import { SEDES as SEDE_LIST, useSede } from "@/components/use-sede";
+import { useAgentParam } from "@/components/agent-param";
 
 // B4 — Techo de autonomía (motor de políticas). Por cada acción se fija si el
 // agente la hace solo, con aprobación o nunca, por agente y sede. Es el recorrido
@@ -25,13 +27,17 @@ const GROUPS = [
   { g: "Datos del cliente", items: [["compartir", "Compartir datos con un tercero", "never", true], ["borrar", "Borrar datos de un cliente", "never", true]] },
 ];
 const AGENTS = ["Recepción", "Atención al cliente", "Comercial", "Administración"];
-const SEDES = ["Toda la organización", "Sede Centro", "Sede Norte", "Sede Sur"];
+const SEDES = ["Toda la organización", ...SEDE_LIST.filter((x) => x !== "Todas las sedes")];
 
 export default function Autonomia() {
   const init = {}; GROUPS.forEach((gr) => gr.items.forEach(([id, , def]) => { init[id] = def; }));
   const [state, setState] = useState(init);
-  const [agent, setAgent] = useState("Recepción");
-  const [sede, setSede] = useState("Sede Centro");
+  const { name: agentFromUrl } = useAgentParam();
+  const { sede: globalSede } = useSede();
+  const [agentPick, setAgent] = useState(null);
+  const [sedePick, setSede] = useState(null);
+  const agent = agentPick ?? agentFromUrl;
+  const sede = sedePick ?? (globalSede === "Todas las sedes" ? "Toda la organización" : globalSede);
   const sensitive = {}; GROUPS.forEach((gr) => gr.items.forEach(([id, , , s]) => { sensitive[id] = s; }));
 
   return (

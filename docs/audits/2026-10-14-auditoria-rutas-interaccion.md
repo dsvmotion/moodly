@@ -1,5 +1,7 @@
 # Auditoría de rutas e interacción del prototipo
 
+> **Sustituida por [`2026-10-19-auditoria-completa-prototipo.md`](2026-10-19-auditoria-completa-prototipo.md).** Esta revisión solo buscaba `role="tab"` y no detectó los selectores hechos con `<span>`; su conclusión de «0 pestañas estáticas» era incompleta.
+
 Fecha: 2026-10-14 · Autor: diseño (Claude) · Motivo: en «Mis agentes» solo se veía un
 agente fijo (Recepción) sin poder cambiar. Barrido para que cada pantalla «tenga sentido y
 esté bien enrutada» y no haya fallos evitables antes de backend.
