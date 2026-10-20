@@ -53,7 +53,7 @@ export default function DemoActions() {
   }, [toast]);
   if (!toast) return null;
   return (
-    <div role="status" aria-live="polite" style={{ position: "fixed", left: "50%", bottom: "24px", transform: "translateX(-50%)", zIndex: 1000, display: "flex", alignItems: "center", gap: "10px", maxWidth: "calc(100vw - 32px)", boxSizing: "border-box", padding: "12px 18px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "14px", lineHeight: "20px", boxShadow: "0 8px 24px #0000001f" }}>
+    <div role="status" aria-live="polite" style={{ position: "fixed", left: "50%", bottom: "24px", transform: "translateX(-50%)", zIndex: 1000, display: "flex", alignItems: "center", gap: "10px", maxWidth: "calc(100vw - 32px)", boxSizing: "border-box", padding: "12px 18px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", fontSize: "14px", lineHeight: "20px", boxShadow: "0 8px 24px #0000001f" }}>
       <span aria-hidden="true" style={{ color: "#a3c2a7" }}>✓</span>{toast.text}
       <span style={{ padding: "1px 8px", borderRadius: "800px", background: "#ffffff26", fontSize: "11px" }}>demo</span>
     </div>
