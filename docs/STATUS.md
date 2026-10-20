@@ -71,6 +71,10 @@
   - **Siguiente:** exigir MFA (AAL2) por rol, auditoría de accesos, CAPTCHA en el login (necesita una cuenta de Cloudflare Turnstile), monitorización y gestión de secretos en producción.
   - **Revisión de toda la plataforma** (2026-10-20, `docs/audits/2026-10-20-revision-seguridad-plataforma.md`): 2 hallazgos nuevos en código, comprobados en local (login sin freno contra la fuerza bruta, y un `org_admin` que puede añadir a cualquier usuario sin invitación), y 14 controles obligatorios antes de construir agentes, conocimiento, modelos, secretos e integraciones, con el orden de trabajo.
   - El repo vive ahora en `~/Developer/moodly-ai` (fuera del Escritorio de iCloud).
+  - **Arquitectura enterprise de identidad y seguridad (propuesta, 2026-10-21):**
+    - ADR 0022: cuenta de empresa → organizaciones; dominios verificados; SSO y SCIM; permisos + alcance materializados; invitaciones; bajas inmediatas; delegación sin escalada; acceso del equipo interno *just-in-time*.
+    - `docs/design/seguridad-por-pilares.md`: controles obligatorios por pilar (usuarios, agentes con la «regla de los dos», memoria y conocimiento, modelos, integraciones, datos y operación) y cómo se prueba cada uno.
+    - **Pendiente de producto:** elegir proveedor de SSO/SCIM (Supabase SAML + SCIM propio, o WorkOS).
 
 ## Bloqueado
 - `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.
