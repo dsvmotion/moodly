@@ -8,3 +8,10 @@ packages:
 allowBuilds:
   "@swc/core": false
   "@parcel/watcher": false
+
+# Versiones mínimas de dependencias indirectas con avisos de seguridad (pnpm audit):
+# source-map-js < 1.2.2 (denegación de servicio) y vite < 8.3.3 (launch-editor en
+# Windows). Llegan por vitest; quitar cuando vitest las traiga por sí mismo.
+overrides:
+  source-map-js: ">=1.2.2"
+  vite: "8.3.3"
