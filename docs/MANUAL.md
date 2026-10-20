@@ -50,7 +50,7 @@ Una plataforma que despliega **agentes de IA que ejecutan trabajo real dentro de
 
 **Regla de arquitectura derivada:** un negocio pequeño es una organización con **un solo local**. Todo se diseña para multi-local desde el primer día; el caso de un local sale gratis. Lo contrario obligaría a rehacer la plataforma.
 
-### 1.4 Los 4 agentes integrados **[DECIDIDO el concepto; nombres ABIERTOS]**
+### 1.4 Los 4 agentes de serie **[DECIDIDO: producto, 2026-10-20; ADR 0023 y 0030]**
 
 Cada organización cliente dispone de cuatro agentes que cubren las funciones más necesarias de cualquier empresa. Cada uno se especializa según el vertical del cliente y se puede activar, desactivar y personalizar.
 
@@ -66,6 +66,8 @@ Claves canónicas fijadas por el ADR 0023 (fuente en código: `@repo/config` `AG
 Los cuatro comparten una **capa común de conocimiento y memoria del negocio** (§6) y se coordinan mediante **eventos de dominio** (§5.8), nunca llamándose entre sí directamente.
 
 **Tipos de agente como catálogo [DECIDIDO el principio]:** los tipos de agente se definen como datos (tabla `agent_types`), no como un valor fijo en el código. Los 4 anteriores son el catálogo inicial para empresas. Así el mismo runtime podrá servir en el futuro otros catálogos (por ejemplo, el agente personal del responsable) sin reescribir el núcleo.
+
+**Agentes y skills ampliables [DECIDIDO: producto, 2026-10-20; diseño PROPUESTO en el ADR 0030]:** además de los 4 de serie, habrá agentes de plantilla por vertical y **agentes propios** creados por cada organización (instrucciones + skills + canales + autonomía), todos sobre el mismo runtime, motor de políticas, memoria y coach. Las skills son de tres tipos (`code` de la plataforma, `composed` creadas por el cliente sin programar y `mcp` de integraciones conectadas) y **cualquier skill se añade a cualquier agente de forma individual**. Ningún código puede suponer que hay 4 agentes.
 
 **Visión de fondo — prioridad máxima del producto [DECIDIDO]:** cada empresa tiene una IA que **conoce el negocio a fondo, entiende sus objetivos, aprende con el tiempo y las interacciones, hace el trabajo delegable y actúa como coach**, proponiendo mejoras y detectando debilidades. Se materializa en tres piezas del núcleo:
 
@@ -317,11 +319,11 @@ Convenciones:
 |---|---|
 | `agent_types` | Catálogo: `key` (`reception`/`customer`/`sales`/`admin` al inicio, ADR 0023), `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
 | `agent_templates` | `agent_type`, `vertical`, `version`, `defaults` (jsonb: tono, mensajes, skills, autonomía, reglas, flujos) |
-| `agents` | `organization_id`, `agent_type` (FK a `agent_types.key`), `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
+| `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`), `version`, `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
 | `config_overrides` | `agent_id`, `level` (`organization`/`region`/`location`), `level_id`, `values` (jsonb), `locked_keys[]`, `version` |
 | `config_snapshots` | `agent_id`, `location_id`, `resolved` (jsonb), `hash`: configuración ya resuelta e inmutable que usa cada ejecución |
-| `skills` | Catálogo global: `key`, `version`, `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `input_schema`, `output_schema` |
-| `agent_skills` | `agent_id`, `skill_key`, `enabled`, `autonomy_level`, más overrides por local vía `config_overrides` |
+| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
+| `agent_skills` | `agent_id`, `skill_id`, `enabled`, `autonomy_level`, más overrides por local vía `config_overrides` |
 | `business_rules` | `organization_id`, `scope` (org/region/location), `scope_id`, `key`, `value` (políticas de cancelación, descuentos máximos, etc.) |
 
 **Conocimiento**
@@ -540,6 +542,7 @@ Reglas:
 - Cada skill vive en `packages/skills/<key>/` con su definición, sus tests y un fixture de sandbox.
 - `SkillContext` trae el tenant, el local, el contacto, el cliente de integración ya autenticado y el logger. La skill nunca obtiene credenciales por su cuenta.
 - Un `execute` sin `preview` no se acepta en code review.
+- Este contrato es el de las skills `code`. Las skills `composed` (creadas por el cliente) y `mcp` (herramientas de integraciones conectadas) se exponen con la misma forma: entrada y salida tipadas, clase de efecto y paso por el motor de políticas. Una `composed` hereda la clase más alta de sus piezas; una `mcp` sin clasificar entra como `external_message` en `draft` (ADR 0030).
 
 ### 5.6 Clases de efecto y techo de autonomía **[PROPUESTO]**
 
@@ -822,7 +825,8 @@ Los segmentos de ruta están en español y son **identificadores estables**: no 
 | `/app/informes` | P7 | Dashboards y exportación |
 | `/app/coach` | P2 + P3 | Revisiones del coach y recomendaciones con evidencia y fuentes |
 | `/app/objetivos` | P2 · P3 | Objetivos y su progreso |
-| `/app/agentes` · `/[tipo]` | P2 · P5 | Agentes y ventana de cada agente |
+| `/app/agentes` · `/[tipo]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
+| `/app/skills` · `/[id]` | P2 · P3 | Biblioteca de skills: de la plataforma, propias y de integraciones; a qué agentes está añadida cada una (ADR 0030) |
 | `/app/asistente` | P5 | Asistente de la plataforma (§5.13) |
 | `/app/conocimiento` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
 | `/app/memoria` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
@@ -1101,8 +1105,8 @@ Cualquier persona o agente que se incorpore empieza leyendo, en este orden: `doc
 | **1. Primer agente real** | Agente `customer` para el vertical piloto **[ABIERTO]** | Web chat + un canal real (WhatsApp por Cloud API directa, ADR 0020), conocimiento central y por local, solicitudes de conocimiento, motor de políticas, aprobaciones, auditoría, una integración real (calendario o reservas), métricas básicas y evals del vertical | Conversaciones reales en producción con un piloto de 1-2 locales durante varias semanas, con la tasa de resolución autónoma medida |
 | **2. Los 4 agentes + coach interno** | `reception`, `sales`, `admin` + coordinación + inteligencia sobre datos internos | Eventos de dominio, CRM, facturación ES, Instagram, email, panel de analítica multi-local, memoria aprendida cruzada, mapa del negocio, objetivos y coach sobre datos internos (gestión, finanzas, clientes), asistente en modo lectura y diagnóstico (ADR 0029) | Un flujo completo entre agentes (cita → recurso y recordatorio → cobro en borrador) con un cliente real; recomendaciones del coach aceptadas y con impacto medido |
 | **2b. Coach con señales externas** | El coach mira fuera del negocio | Captación compartida de señales (calendario y festivos, eventos locales, noticias y cambios normativos del sector, tendencias, competencia pública), cruce por organización, alertas | Propuestas de marketing y calendario basadas en eventos, y avisos normativos con fuente, aceptadas por clientes reales |
-| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening, asistente con cambios confirmados (ADR 0029), celda dedicada y prueba de humo autoalojada (ADR 0026, 0028) | Un negocio completa el onboarding solo; un contrato de cadena firmado |
-| **4. Agent Builder** | Skills y flujos personalizados por cliente | Editor de reglas y flujos, skills configurables | Definido al llegar |
+| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening, asistente con cambios confirmados (ADR 0029), agentes propios y skills de integraciones MCP (ADR 0030), celda dedicada y prueba de humo autoalojada (ADR 0026, 0028) | Un negocio completa el onboarding solo; un contrato de cadena firmado |
+| **4. Agent Builder** | Skills y flujos personalizados por cliente | Editor de reglas y flujos, skills `composed` creadas por el cliente sin programar (ADR 0030) | Definido al llegar |
 | **5. Marketplace** | Agentes y skills de terceros | Publicación, revisión y reparto de ingresos | Definido al llegar |
 | **Voz** | Canal de voz | Telefonía + STT/TTS | Fase **[ABIERTA]** |
 | **Personal (futuro)** | Agente personal del dueño o responsable de las empresas cliente; después, quizá particulares | Nuevo catálogo en `agent_types`, `organizations.kind = personal` | Fase **[ABIERTA]**. No se empieza sin decisión explícita de producto |
@@ -1116,7 +1120,7 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 | # | Decisión | Afecta a | Quién decide |
 |---|---|---|---|
 | 1 | Nombre comercial (marca en revisión legal) | Marca, dominios, `BRAND_NAME` | Producto + legal |
-| 2 | Nombres definitivos de los 4 agentes | UI, marketing | Producto |
+| 2 | ~~Nombres definitivos de los 4 agentes~~ — cerrado: Recepción, Atención al cliente, Comercial y Administración (producto, 2026-10-20) | UI, marketing | Producto |
 | 3 | Vertical y cliente piloto de la fase 1 | Plantillas, integraciones, evals | Producto |
 | 4 | ~~BSP de WhatsApp~~ — cerrado para el piloto: Cloud API directa (ADR 0020) | Canal, costes, arquitectura de ingesta | Producto + técnico |
 | 5 | Proveedores LLM: cerrado (ADR 0019). Siguen abiertos el AI Gateway y el proveedor de embeddings (se miden en piloto) y los DPA por proveedor y región | Runtime, cumplimiento | Técnico + legal |
@@ -1176,6 +1180,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (pendiente de *spike*) |
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
+| 0030 | Agentes y skills ampliables | propuesto |
 
 ---
 
