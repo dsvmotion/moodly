@@ -317,7 +317,7 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `agent_types` | Catálogo: `key` (`reception`/`customer`/`sales`/`admin` al inicio, ADR 0023), `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
+| `agent_types` | Catálogo: `organization_id` (null = plataforma), `origin` (`builtin`/`template`/`custom`), `key` (única por organización; de serie `reception`/`customer`/`sales`/`admin`, ADR 0023 y 0030), `color`, `description`, `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
 | `agent_templates` | `agent_type`, `vertical`, `version`, `defaults` (jsonb: tono, mensajes, skills, autonomía, reglas, flujos) |
 | `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`), `version`, `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
 | `config_overrides` | `agent_id`, `level` (`organization`/`region`/`location`), `level_id`, `values` (jsonb), `locked_keys[]`, `version` |
