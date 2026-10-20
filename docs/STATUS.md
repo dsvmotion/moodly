@@ -76,11 +76,17 @@
     - `docs/design/seguridad-por-pilares.md`: controles obligatorios por pilar (usuarios, agentes con la «regla de los dos», memoria y conocimiento, modelos, integraciones, datos y operación) y cómo se prueba cada uno.
     - **Pendiente de producto:** elegir proveedor de SSO/SCIM (Supabase SAML + SCIM propio, o WorkOS).
 
+- Coherencia de la arquitectura — rama `docs/coherencia-arquitectura`, estado a 2026-10-20. Solo documentación; **toca `docs/MANUAL.md`, `AGENTS.md` y `CLAUDE.md` (zona sensible): necesita `revisado-humano` y no lo mergea el agente.**
+  - ADRs propuestos 0023–0029: fuente de verdad y vocabulario canónico (agentes `reception`/`customer`/`sales`/`admin`, rutas en español, residencia en dos capas, modelo de datos completo), memoria y envenenamiento, búsqueda vectorial con muchas empresas, reparto de cargas de Postgres y celdas, ejecución duradera con DBOS (sustituye a pg-boss, pendiente de *spike*), portabilidad y qué significa «BYOC», y asistente con los permisos del usuario.
+  - MANUAL alineado con esos ADRs y con los 0019, 0020 y 0022 (§0, §1.4, §3, §4.2, §5, §6, §9.2, §9.4, §10.4, §11, §12.4, §14, §17–§20).
+  - **Decisiones a confirmar por producto en la revisión:** el catálogo de agentes (se adopta el que ya está en `main` y en la web pública; el antiguo `operations` se reparte entre `reception`, `admin` y la capa común) y DBOS frente a Temporal.
+  - Tareas de código que salen de aquí (no incluidas): renombrar las rutas de `apps/web` al español con sus e2e; *spike* de DBOS (ADR 0027); `default_agent_type` en `channel_accounts`, `trust` en `memories` y particionado de las tablas que crecen, al crear esas tablas.
+
 ## Bloqueado
 - `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS de la rama y un iPhone; la hace producto. Hasta entonces la fase no pasa a "Hecho y verificado".
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
-- Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
+- Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), AI Gateway y proveedor de embeddings (#5; los proveedores LLM ya están cerrados en el ADR 0019 y el canal de WhatsApp en el ADR 0020) y proveedor de KMS (#6). No bloquean la Fase 0.
 
 ## Próximo (Fase 0 — Cimientos, MANUAL §17)
 3b. Invitaciones de miembros (sale de la revisión del PR #2 y del alcance de la tarea 3):
@@ -92,5 +98,5 @@
 3e. Identidad de GitHub separada para el agente, con permisos limitados (p. ej. una GitHub App o una cuenta de máquina con acceso de escritura a ramas y PRs, pero sin permiso para gestionar etiquetas ni para mergear sin checks). Hoy el agente usa la cuenta de producto: técnicamente podría poner la etiqueta `revisado-humano`, y solo lo impide la regla de AGENTS.md. Con la identidad separada, además, se pueden exigir revisiones de una persona distinta del autor.
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
-6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.
-7. Redactar ADRs 0001–0017 (MANUAL §19). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.
+6. Worker always-on con ejecución duradera: primero el *spike* de DBOS del ADR 0027 (reanudación tras matar el proceso, deduplicación, una ejecución por conversación, espera de aprobación). Después, un workflow encolado desde la web y procesado por el worker, con evidencia en logs.
+7. Redactar ADRs 0001–0017 (MANUAL §19, con el estado de cada uno). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.
