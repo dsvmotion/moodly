@@ -2,13 +2,27 @@ import type { Database } from "@repo/db";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { routeRedirect } from "./lib/auth/routes";
+import { contentSecurityPolicy, createNonce } from "./lib/security/headers";
 import { supabasePublicEnv } from "./lib/supabase/env";
 
 // Proxy (antes middleware en Next.js ≤15): refresca la sesión de Supabase en
 // cada petición y protege las rutas privadas. Usa getClaims(), que valida la
 // firma del JWT; nunca getSession() en servidor (lee la cookie sin validarla).
+//
+// También pone la CSP con un nonce nuevo en cada petición: Next lo lee de la
+// cabecera de la petición y lo añade a sus propios scripts (lib/security/headers.ts).
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const https = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+  const csp = contentSecurityPolicy(createNonce(), { dev: process.env.NODE_ENV === "development", https });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("Content-Security-Policy", csp);
+  const pass = () => {
+    const next = NextResponse.next({ request: { headers: requestHeaders } });
+    next.headers.set("Content-Security-Policy", csp);
+    return next;
+  };
+
+  let response = pass();
   const { url, publishableKey } = supabasePublicEnv();
 
   const supabase = createServerClient<Database>(url, publishableKey, {
@@ -18,7 +32,8 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet, headers) {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        requestHeaders.set("cookie", request.headers.get("cookie") ?? "");
+        response = pass();
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
         for (const [key, value] of Object.entries(headers)) response.headers.set(key, value);
       },
