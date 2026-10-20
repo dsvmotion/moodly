@@ -74,5 +74,6 @@
 "Para {0} solemos empezar por {1}. Puedes añadir más después.": "For {0} we usually start with {1}. You can add more later.",
 "Tus agentes llevan {n} tareas hoy.": "Your agents have done {n} tasks today.",
 "Tus agentes llevan {n} tareas esta semana.": "Your agents have done {n} tasks this week.",
-"Tus agentes llevan {n} tareas este mes.": "Your agents have done {n} tasks this month."
+"Tus agentes llevan {n} tareas este mes.": "Your agents have done {n} tasks this month.",
+"Para ver «{0}» hace falta: {1}.": "To see «{0}» you need: {1}."
 }

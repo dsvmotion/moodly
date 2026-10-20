@@ -15,7 +15,7 @@ export default function Aceptar() {
   const expired = false; // estado alternativo: invitación caducada
 
   return (
-    <div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", gap: "24px" }}>
+    <main style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", gap: "24px" }}>
       <img src="/brand/moodly-logo-black.svg" alt="Moodly" width="92" height="24" style={{ display: "block" }} />
 
       {expired ? (
@@ -50,6 +50,6 @@ export default function Aceptar() {
           <span style={{ fontSize: "12px", lineHeight: "18px", textAlign: "center", ...muted }}>Al aceptar, aceptas los términos y la política de privacidad de Moodly.</span>
         </div>
       )}
-    </div>
+    </main>
   );
 }

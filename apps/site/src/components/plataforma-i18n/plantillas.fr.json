@@ -74,5 +74,6 @@
 "Para {0} solemos empezar por {1}. Puedes añadir más después.": "Pour {0}, nous commençons généralement par {1}. Vous pourrez en ajouter d'autres plus tard.",
 "Tus agentes llevan {n} tareas hoy.": "Vos agents ont réalisé {n} tâches aujourd'hui.",
 "Tus agentes llevan {n} tareas esta semana.": "Vos agents ont réalisé {n} tâches cette semaine.",
-"Tus agentes llevan {n} tareas este mes.": "Vos agents ont réalisé {n} tâches ce mois-ci."
+"Tus agentes llevan {n} tareas este mes.": "Vos agents ont réalisé {n} tâches ce mois-ci.",
+"Para ver «{0}» hace falta: {1}.": "Pour voir « {0} », il faut : {1}."
 }
