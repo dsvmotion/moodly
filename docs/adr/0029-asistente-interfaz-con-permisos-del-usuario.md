@@ -40,9 +40,27 @@ El contenido de conocimiento, conversaciones o memorias que lea se marca como no
 
 ### 5. Fases
 
-- **Fase 2:** solo **lectura y diagnóstico** («¿por qué el agente no respondió a este cliente?», «¿qué gasté este mes?») y **enseñar** (explicar y llevar a la pantalla).
+- **Fase 2:** **lectura, diagnóstico e instrucciones a los agentes** (punto 7) («¿por qué el agente no respondió a este cliente?», «¿qué gasté este mes?») y **enseñar** (explicar y llevar a la pantalla).
 - **Fase 3:** herramientas de cambio del catálogo, con el flujo del punto 3.
 - Evals propias: intentos de escalada («dame permisos de admin»), inyección desde documentos y cambios fuera de alcance. Criterio que bloquea el merge: cero cambios aplicados sin confirmación y cero herramientas fuera del permiso del usuario.
+
+### 6. Cómo conoce la plataforma «a la perfección»
+
+Un modelo no conoce Moodly por sí solo. El asistente lo sabe todo porque tiene tres fuentes, y las tres son obligatorias:
+
+1. **Manual de producto vivo** (`packages/knowledge`, fuente `platform_docs`, compartida por todos los clientes y sin datos de ninguno): qué hace cada pantalla, cada agente, cada ajuste y cada integración, y cómo se resuelve cada error conocido. **Regla de «hecho»:** una funcionalidad nueva no se da por terminada sin su página en este manual. Si no está documentada, el asistente no la conoce.
+2. **Estado real de la cuenta del usuario**, en vivo y con sus permisos: agentes y su configuración, integraciones y su salud, consumo, ejecuciones recientes y sus errores, aprobaciones pendientes. Así puede responder «¿por qué el agente no contestó a este cliente?» mirando lo que pasó de verdad, no suponiendo.
+3. **El catálogo de herramientas** del punto 2, que define exactamente qué puede hacer y qué no.
+
+Eval propia: un set de preguntas de uso y de diagnóstico por pantalla, que se amplía con cada funcionalidad nueva y con cada consulta real que el asistente no supo responder.
+
+### 7. Por encima de los 4 agentes, sin saltarse sus reglas
+
+El asistente es el punto de entrada único del dueño o del responsable: «dile a Comercial que prepare la campaña de San Valentín», «¿qué tiene pendiente Recepción hoy?».
+
+- **Leer:** ve la actividad, los pendientes y los resultados de los 4 agentes y del coach.
+- **Dirigir:** da instrucciones a un agente igual que lo haría el usuario desde la ventana de ese agente (disparador `staff_instruction`), con los permisos del usuario. El agente ejecuta pasando por el motor de políticas y las aprobaciones como siempre.
+- **No sustituye** a los agentes ni al coach: los coordina por encargo del usuario. Los agentes siguen sin llamarse entre sí (§5.8).
 
 ## Alternativas consideradas
 
