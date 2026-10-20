@@ -25,7 +25,7 @@ Rama `feat/cierre-diseno`. Alcance pedido por producto: pantallas que faltaban, 
 - Por esto cambian algunos tokens (grises de texto) y el modo claro deja de ser idéntico píxel a píxel en esos textos. Es intencionado.
 
 ## 5. Lienzo de diseño
-- «Moodly Landing Pages» (https://claude.ai/artifact/BoLfJGSVxG4tGv6DmLYQfv), versión 72. Las 67 pantallas se volvieron a capturar y se ordenaron por áreas (operación diaria, agentes, alta, IA y cumplimiento, configuración, móvil). Debajo de cada fila va su versión en oscuro, y se añadió una sección de idiomas (inicio, aprobaciones, agentes, revisar y móvil en EN, FR y DE). La web comercial no cambia de contenido; solo se reordenó en una fila.
+- «Moodly Landing Pages» (https://claude.ai/artifact/BoLfJGSVxG4tGv6DmLYQfv), versión 72. Las 67 pantallas se volvieron a capturar y se ordenaron por áreas (operación diaria, agentes, alta, IA y cumplimiento, configuración, móvil). Debajo de cada fila va su versión en oscuro, y se añadió una sección de idiomas (inicio, aprobaciones, agentes, revisar y móvil en EN, FR y DE). La web comercial no cambia de contenido; solo se reordenó en una fila. El componente «Menú lateral» (versión 73) ya tiene la navegación actual: Asistente arriba y la sección Red con Red de franquicias, cada una enlazada a su tablero.
 
 ## Verificación
 - `pnpm --filter @repo/site build`: 141 páginas sin errores.
@@ -33,5 +33,4 @@ Rama `feat/cierre-diseno`. Alcance pedido por producto: pantallas que faltaban, 
 - Capturas: 149, sin errores de JS.
 
 ## Pendiente
-- El componente «Menú lateral» del lienzo es HTML del 9 de octubre y no refleja la navegación actual.
 - Llevar a `apps/web` el sistema de tokens, la i18n con next-intl y el Dialog accesible de `packages/ui`.
