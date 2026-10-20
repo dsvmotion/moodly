@@ -8,19 +8,19 @@ import { SEDES as SEDE_LIST } from "@/components/use-sede";
 // alcance → modelo/vía → borrador. Se activa tras probarlo (ver /plataforma/probar).
 // TODO(backend): agents + agent_types(catálogo) + plantillas por vertical
 // (packages/templates); nace en estado 'draft'; modelo/vía desde org_model_settings.
-const CARD = { background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px" };
-const muted = { color: "#5f5f63", fontFamily: "var(--font-body)" };
-const btnDark = { padding: "12px 20px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
-const btnLight = { padding: "12px 20px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
+const CARD = { background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px" };
+const muted = { color: "var(--muted)", fontFamily: "var(--font-body)" };
+const btnDark = { padding: "12px 20px", borderRadius: "800px", border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
+const btnLight = { padding: "12px 20px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
 const H = { margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" };
 const SUB = { fontSize: "15px", lineHeight: "23px", ...muted };
-const field = { padding: "11px 14px", borderRadius: "10px", border: "1px solid #0000001a", font: "400 14px/20px var(--font-body)", color: "#000000", width: "100%", boxSizing: "border-box" };
+const field = { padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)", width: "100%", boxSizing: "border-box" };
 
 const TYPES = [
-  { id: "reception", name: "Recepción", color: "#004c39", bg: "#dcebdd", desc: "Atiende el primer contacto, agenda citas y resuelve dudas básicas." },
-  { id: "customer", name: "Atención al cliente", color: "#2c5868", bg: "#dbe9ef", desc: "Resuelve incidencias, hace seguimiento y cuida la relación." },
-  { id: "sales", name: "Comercial", color: "#a30042", bg: "#fbe1ea", desc: "Cualifica leads, propone tratamientos y recupera presupuestos." },
-  { id: "admin", name: "Administración", color: "#8e4e00", bg: "#ffe8d6", desc: "Factura, cobra y lleva el día a día administrativo." },
+  { id: "reception", name: "Recepción", color: "var(--green-fg)", bg: "var(--green-bg)", desc: "Atiende el primer contacto, agenda citas y resuelve dudas básicas." },
+  { id: "customer", name: "Atención al cliente", color: "var(--mist-fg)", bg: "var(--mist-bg)", desc: "Resuelve incidencias, hace seguimiento y cuida la relación." },
+  { id: "sales", name: "Comercial", color: "var(--rose-fg)", bg: "var(--rose-bg)", desc: "Cualifica leads, propone tratamientos y recupera presupuestos." },
+  { id: "admin", name: "Administración", color: "var(--amber-fg)", bg: "var(--amber-bg)", desc: "Factura, cobra y lleva el día a día administrativo." },
 ];
 const STEP_LABELS = ["Tipo y plantilla", "Alcance", "Modelo", "Listo"];
 const SEDES = ["Toda la organización", ...SEDE_LIST.filter((x) => x !== "Todas las sedes")];
@@ -39,25 +39,25 @@ export default function AgenteNuevo() {
   const pick = (id) => { setType(id); setName(TYPES.find((x) => x.id === id).name); };
 
   return (
-    <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
+    <div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
       <style>{`@keyframes mo-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion: reduce){.mo-rise{animation:none!important}}`}</style>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="agentes" /></div>
       <main style={{ flex: "999 1 460px", minWidth: 0, maxWidth: "820px", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <a href="/plataforma/agente" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Mis agentes</a>
+          <a href="/plataforma/agente" style={{ fontSize: "14px", color: "var(--muted)" }}>‹ Mis agentes</a>
           <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", gap: "6px", flexWrap: "wrap", fontSize: "13px" }}>
-            {STEP_LABELS.map((l, i) => { const n = i + 1; const cur = step === n; const done = step > n; return <li key={l} aria-current={cur ? "step" : undefined} style={{ padding: "6px 12px", borderRadius: "800px", ...(cur ? { background: "#000000", color: "#ffffff" } : done ? { background: "#dcebdd", color: "#004c39" } : { boxShadow: "inset 0 0 0 1px #0000001a", color: "#5f5f63" }) }}>{done ? "✓" : n} · {l}</li>; })}
+            {STEP_LABELS.map((l, i) => { const n = i + 1; const cur = step === n; const done = step > n; return <li key={l} aria-current={cur ? "step" : undefined} style={{ padding: "6px 12px", borderRadius: "800px", ...(cur ? { background: "var(--ink)", color: "var(--on-ink)" } : done ? { background: "var(--green-bg)", color: "var(--green-fg)" } : { boxShadow: "inset 0 0 0 1px var(--line)", color: "var(--muted)" }) }}>{done ? "✓" : n} · {l}</li>; })}
           </ol>
         </div>
 
         {step === 1 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué agente creamos?</h1><span style={SUB}>Parte de una plantilla para <strong style={{ fontWeight: 500, color: "#000000" }}>Clínicas</strong> y ajústalo luego. Puedes tener varios del mismo tipo por sede.</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué agente creamos?</h1><span style={SUB}>Parte de una plantilla para <strong style={{ fontWeight: 500, color: "var(--ink)" }}>Clínicas</strong> y ajústalo luego. Puedes tener varios del mismo tipo por sede.</span></div>
             <div role="radiogroup" aria-label="Tipo de agente" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
               {TYPES.map((x) => {
                 const sel = type === x.id;
                 return (
-                  <button key={x.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(x.id)} style={{ ...CARD, textAlign: "left", padding: "18px", display: "flex", flexDirection: "column", gap: "8px", cursor: "pointer", borderColor: sel ? "#000000" : "#0000001a", outline: sel ? "1px solid #000000" : "none" }}>
+                  <button key={x.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(x.id)} style={{ ...CARD, textAlign: "left", padding: "18px", display: "flex", flexDirection: "column", gap: "8px", cursor: "pointer", borderColor: sel ? "var(--ink)" : "var(--line)", outline: sel ? "1px solid var(--ink)" : "none" }}>
                     <span style={{ alignSelf: "flex-start", padding: "4px 11px", borderRadius: "800px", background: x.bg, color: x.color, fontSize: "12px", fontWeight: 500 }}>{x.name}</span>
                     <span style={{ fontSize: "13px", lineHeight: "19px", ...muted }}>{x.desc}</span>
                   </button>
@@ -72,8 +72,8 @@ export default function AgenteNuevo() {
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Dónde trabaja</h1><span style={SUB}>Ponle nombre y dime a qué alcance responde. El agente hereda el contexto de esa sede.</span></div>
             <div style={{ ...CARD, padding: "22px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#5f5f63" }}>Nombre del agente<input value={name} onChange={(e) => setName(e.target.value)} style={field} /></label>
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#5f5f63" }}>Alcance<select value={sede} onChange={(e) => setSede(e.target.value)} style={field}>{SEDES.map((s) => <option key={s}>{s}</option>)}</select></label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Nombre del agente<input value={name} onChange={(e) => setName(e.target.value)} style={field} /></label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Alcance<select value={sede} onChange={(e) => setSede(e.target.value)} style={field}>{SEDES.map((s) => <option key={s}>{s}</option>)}</select></label>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}><button type="button" onClick={() => setStep(1)} style={btnLight}>Atrás</button><button type="button" onClick={() => setStep(3)} style={btnDark}>Continuar</button></div>
           </div>
@@ -81,15 +81,15 @@ export default function AgenteNuevo() {
 
         {step === 3 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Qué modelo usa</h1><span style={SUB}>Por defecto, un modelo rápido y barato. El avanzado solo para tareas marcadas, con tope. Dónde se procesa lo decide tu <a href="/plataforma/residencia" style={{ color: "#2457f5" }}>política de residencia</a>.</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Qué modelo usa</h1><span style={SUB}>Por defecto, un modelo rápido y barato. El avanzado solo para tareas marcadas, con tope. Dónde se procesa lo decide tu <a href="/plataforma/residencia" style={{ color: "var(--blue-fg)" }}>política de residencia</a>.</span></div>
             <div role="radiogroup" aria-label="Modelo por defecto" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
               {[["fast", "Rápido (recomendado)", "Claude Haiku 5.5 · ~0,005 €/conversación", "Para el 90 % de los mensajes."], ["balanced", "Equilibrado", "GPT-5.6 Luna · coste medio", "Si quieres algo más de matiz."]].map(([id, n, m, d]) => {
                 const sel = model === id;
                 return (
-                  <button key={id} type="button" role="radio" aria-checked={sel} onClick={() => setModel(id)} style={{ ...CARD, textAlign: "left", padding: "16px", display: "flex", flexDirection: "column", gap: "4px", cursor: "pointer", borderColor: sel ? "#000000" : "#0000001a", outline: sel ? "1px solid #000000" : "none" }}>
+                  <button key={id} type="button" role="radio" aria-checked={sel} onClick={() => setModel(id)} style={{ ...CARD, textAlign: "left", padding: "16px", display: "flex", flexDirection: "column", gap: "4px", cursor: "pointer", borderColor: sel ? "var(--ink)" : "var(--line)", outline: sel ? "1px solid var(--ink)" : "none" }}>
                     <span style={{ fontSize: "14px", fontWeight: 500 }}>{n}</span>
                     <span style={{ fontSize: "13px", ...muted }}>{m}</span>
-                    <span style={{ fontSize: "12px", color: "#6b6b70", fontFamily: "var(--font-body)" }}>{d}</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted-2)", fontFamily: "var(--font-body)" }}>{d}</span>
                   </button>
                 );
               })}

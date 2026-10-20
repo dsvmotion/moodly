@@ -10,15 +10,15 @@ import { useAgentParam } from "@/components/agent-param";
 // TODO(backend): business_rules (acción × ámbito × modo); 🔒 cambiar un techo
 // pasa por el motor de políticas y queda en audit_logs. Las acciones sensibles
 // (dinero, datos) parten de "nunca/aprobación" (lista blanca).
-const CARD = { background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px", boxSizing: "border-box" };
-const muted = { color: "#5f5f63", fontFamily: "var(--font-body)" };
-const btnDark = { padding: "11px 18px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
+const CARD = { background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", boxSizing: "border-box" };
+const muted = { color: "var(--muted)", fontFamily: "var(--font-body)" };
+const btnDark = { padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
 const sel = { padding: "7px 12px", borderRadius: "800px", border: 0, font: "500 13px/13px var(--font-display)", cursor: "pointer" };
 
 const MODES = [
-  { id: "auto", label: "Solo", on: { background: "#dcebdd", color: "#004c39" } },
-  { id: "approval", label: "Con aprobación", on: { background: "#ffe8d6", color: "#8e4e00" } },
-  { id: "never", label: "Nunca", on: { background: "#fbe1ea", color: "#a30042" } },
+  { id: "auto", label: "Solo", on: { background: "var(--green-bg)", color: "var(--green-fg)" } },
+  { id: "approval", label: "Con aprobación", on: { background: "var(--amber-bg)", color: "var(--amber-fg)" } },
+  { id: "never", label: "Nunca", on: { background: "var(--rose-bg)", color: "var(--rose-fg)" } },
 ];
 const GROUPS = [
   { g: "Agenda", items: [["cita_crear", "Crear una cita", "auto", false], ["cita_mover", "Mover o cancelar una cita", "approval", false], ["lista_espera", "Avisar a la lista de espera", "auto", false]] },
@@ -41,38 +41,38 @@ export default function Autonomia() {
   const sensitive = {}; GROUPS.forEach((gr) => gr.items.forEach(([id, , , s]) => { sensitive[id] = s; }));
 
   return (
-    <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
+    <div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="reglas" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
-        <a href="/plataforma/reglas" style={{ fontSize: "14px", color: "#5f5f63" }}>‹ Reglas y aprobaciones</a>
+        <a href="/plataforma/reglas" style={{ fontSize: "14px", color: "var(--muted)" }}>‹ Reglas y aprobaciones</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Techo de autonomía</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>Qué puede hacer el agente solo, qué te pide aprobar y qué no hace nunca. Lo sensible (dinero y datos) parte restringido; ampliarlo queda registrado.</span>
         </div>
 
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#5f5f63" }}>Agente<select value={agent} onChange={(e) => setAgent(e.target.value)} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid #0000001a", font: "400 14px/20px var(--font-body)", color: "#000000" }}>{AGENTS.map((a) => <option key={a}>{a}</option>)}</select></label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#5f5f63" }}>Sede<select value={sede} onChange={(e) => setSede(e.target.value)} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid #0000001a", font: "400 14px/20px var(--font-body)", color: "#000000" }}>{SEDES.map((s) => <option key={s}>{s}</option>)}</select></label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Agente<select value={agent} onChange={(e) => setAgent(e.target.value)} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)" }}>{AGENTS.map((a) => <option key={a}>{a}</option>)}</select></label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Sede<select value={sede} onChange={(e) => setSede(e.target.value)} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)" }}>{SEDES.map((s) => <option key={s}>{s}</option>)}</select></label>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {GROUPS.map((gr) => (
             <section key={gr.g} style={{ ...CARD, overflow: "hidden" }}>
-              <div style={{ padding: "14px 20px", borderBottom: "1px solid #0000000f", fontSize: "14px", fontWeight: 500 }}>{gr.g}</div>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", fontSize: "14px", fontWeight: 500 }}>{gr.g}</div>
               {gr.items.map(([id, label], i) => {
                 const warn = sensitive[id] && state[id] === "auto";
                 return (
-                  <div key={id} style={{ padding: "14px 20px", borderTop: i ? "1px solid #0000000f" : 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div key={id} style={{ padding: "14px 20px", borderTop: i ? "1px solid var(--line-soft)" : 0, display: "flex", flexDirection: "column", gap: "8px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "14px", display: "inline-flex", gap: "8px", alignItems: "center" }}>{label}{sensitive[id] && <span style={{ padding: "2px 8px", borderRadius: "800px", background: "#f4f4f5", fontSize: "11px", color: "#6b6b70" }}>sensible</span>}</span>
-                      <div role="radiogroup" aria-label={label} style={{ display: "inline-flex", gap: "4px", background: "#f4f4f5", borderRadius: "800px", padding: "3px" }}>
+                      <span style={{ fontSize: "14px", display: "inline-flex", gap: "8px", alignItems: "center" }}>{label}{sensitive[id] && <span style={{ padding: "2px 8px", borderRadius: "800px", background: "var(--canvas)", fontSize: "11px", color: "var(--muted-2)" }}>sensible</span>}</span>
+                      <div role="radiogroup" aria-label={label} style={{ display: "inline-flex", gap: "4px", background: "var(--canvas)", borderRadius: "800px", padding: "3px" }}>
                         {MODES.map((m) => {
                           const active = state[id] === m.id;
-                          return <button key={m.id} type="button" role="radio" aria-checked={active} onClick={() => setState((s) => ({ ...s, [id]: m.id }))} style={{ ...sel, ...(active ? m.on : { background: "transparent", color: "#5f5f63" }) }}>{m.label}</button>;
+                          return <button key={m.id} type="button" role="radio" aria-checked={active} onClick={() => setState((s) => ({ ...s, [id]: m.id }))} style={{ ...sel, ...(active ? m.on : { background: "transparent", color: "var(--muted)" }) }}>{m.label}</button>;
                         })}
                       </div>
                     </div>
-                    {warn && <span role="alert" style={{ fontSize: "12px", lineHeight: "17px", color: "#a30042", fontFamily: "var(--font-body)" }}>⚠︎ Acción sensible en automático. El agente la hará sin pedirte permiso; asegúrate de que es lo que quieres.</span>}
+                    {warn && <span role="alert" style={{ fontSize: "12px", lineHeight: "17px", color: "var(--rose-fg)", fontFamily: "var(--font-body)" }}>⚠︎ Acción sensible en automático. El agente la hará sin pedirte permiso; asegúrate de que es lo que quieres.</span>}
                   </div>
                 );
               })}
@@ -80,8 +80,8 @@ export default function Autonomia() {
           ))}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #0000000f", paddingTop: "16px" }}>
-          <span style={{ fontSize: "13px", ...muted }}>Para «{agent}» en «{sede}». Las sedes sin valor propio heredan el de la organización.</span>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid var(--line-soft)", paddingTop: "16px" }}>
+          <span style={{ fontSize: "13px", ...muted }}>{`Para «${agent}» en «${sede}». Las sedes sin valor propio heredan el de la organización.`}</span>
           <button type="button" style={btnDark}>Guardar techo</button>
         </div>
       </main>

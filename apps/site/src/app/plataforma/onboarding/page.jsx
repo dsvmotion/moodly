@@ -70,18 +70,18 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
   return (
     <>
 
-<div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f4f4f5", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
+<div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
 
-<header style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap", borderBottom: "1px solid #0000000f" }}>
+<header style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap", borderBottom: "1px solid var(--line-soft)" }}>
 <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: "500", letterSpacing: "-0.3px" }}><img src="/brand/moodly-logo-black.svg" alt="Moodly" width="78" height="20" style={{ display: "block" }} /></span>
 <ol style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", gap: "8px", flexWrap: "wrap", fontSize: "14px", lineHeight: "14px" }}>
 {(steps).map((st, $index) => (<Fragment key={$index}>
-{(st.current) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", background: "#000000", color: "#ffffff" }} aria-current="step">{st.n} · {st.label}</li></>) : null}
-{(st.done) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", background: "#dcebdd", color: "#004c39" }}>✓ {st.label}</li></>) : null}
-{(st.todo) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", boxShadow: "inset 0 0 0 1px #0000001a", color: "#5f5f63" }}>{st.n} · {st.label}</li></>) : null}
+{(st.current) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)" }} aria-current="step">{st.n} · {st.label}</li></>) : null}
+{(st.done) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)" }}>✓ {st.label}</li></>) : null}
+{(st.todo) ? (<><li style={{ padding: "8px 14px", borderRadius: "800px", boxShadow: "inset 0 0 0 1px var(--line)", color: "var(--muted)" }}>{st.n} · {st.label}</li></>) : null}
 </Fragment>))}
 </ol>
-<a href="/es/contacto" style={{ fontSize: "14px", color: "#5f5f63" }}>Necesito ayuda</a>
+<a href="/es/contacto" style={{ fontSize: "14px", color: "var(--muted)" }}>Necesito ayuda</a>
 </header>
 
 <main style={{ flex: "1", width: "100%", maxWidth: "880px", margin: "0 auto", padding: "64px 24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "32px" }}>
@@ -89,22 +89,22 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
 {(isStep1) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>¿Qué tipo de negocio tienes? <span style={{ color: "#5f5f63" }}>Tus agentes vendrán configurados para tu sector.</span></h1>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>¿Qué tipo de negocio tienes? <span style={{ color: "var(--muted)" }}>Tus agentes vendrán configurados para tu sector.</span></h1>
 </div>
 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
 {(sectors).map((s, $index) => (<Fragment key={$index}>
 {(s.sel) ? (<>
-<button type="button" aria-pressed="true" style={{ textAlign: "left", padding: "24px", borderRadius: "12px", border: "2px solid #000000", background: "#ffffff", color: "#000000", font: "400 14px/21px var(--font-display)", display: "flex", flexDirection: "column", gap: "6px", cursor: "pointer" }}><span style={{ fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{s.label}</span><span style={{ color: "#5f5f63" }}>{s.hint}</span></button>
+<button type="button" aria-pressed="true" style={{ textAlign: "left", padding: "24px", borderRadius: "12px", border: "2px solid var(--ink)", background: "var(--paper)", color: "var(--ink)", font: "400 14px/21px var(--font-display)", display: "flex", flexDirection: "column", gap: "6px", cursor: "pointer" }}><span style={{ fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{s.label}</span><span style={{ color: "var(--muted)" }}>{s.hint}</span></button>
 </>) : null}
 {(s.unsel) ? (<>
-<button type="button" aria-pressed="false" onClick={s.pick} style={{ textAlign: "left", padding: "25px", borderRadius: "12px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "400 14px/21px var(--font-display)", display: "flex", flexDirection: "column", gap: "6px", cursor: "pointer" }}><span style={{ fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{s.label}</span><span style={{ color: "#5f5f63" }}>{s.hint}</span></button>
+<button type="button" aria-pressed="false" onClick={s.pick} style={{ textAlign: "left", padding: "25px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "400 14px/21px var(--font-display)", display: "flex", flexDirection: "column", gap: "6px", cursor: "pointer" }}><span style={{ fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{s.label}</span><span style={{ color: "var(--muted)" }}>{s.hint}</span></button>
 </>) : null}
 </Fragment>))}
 </div>
 {hasSubs ? (<div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
 <span style={{ fontSize: "18px", lineHeight: "22px" }}>¿Y en concreto?</span>
 <div role="group" aria-label="Subsector" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-{subOptions.map((o) => (<button key={o.label} type="button" aria-pressed={o.sel} onClick={o.pick} style={{ padding: "10px 16px", borderRadius: "800px", border: o.sel ? "1px solid #000000" : "1px solid #0000001a", background: o.sel ? "#000000" : "#ffffff", color: o.sel ? "#ffffff" : "#000000", font: "400 14px/20px var(--font-display)", cursor: "pointer" }}>{o.label}</button>))}
+{subOptions.map((o) => (<button key={o.label} type="button" aria-pressed={o.sel} onClick={o.pick} style={{ padding: "10px 16px", borderRadius: "800px", border: o.sel ? "1px solid var(--ink)" : "1px solid var(--line)", background: o.sel ? "var(--ink)" : "var(--paper)", color: o.sel ? "var(--on-ink)" : "var(--ink)", font: "400 14px/20px var(--font-display)", cursor: "pointer" }}>{o.label}</button>))}
 </div>
 </div>) : null}
 </div>
@@ -112,14 +112,14 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
 
 {(isStep2) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Conecta tus herramientas. <span style={{ color: "#5f5f63" }}>Para {sectorName} solemos empezar por {typical}. Puedes añadir más después.</span></h1>
-<div style={{ background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px", overflow: "hidden" }}>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Conecta tus herramientas. <span style={{ color: "var(--muted)" }}>{`Para ${sectorName} solemos empezar por ${typical}. Puedes añadir más después.`}</span></h1>
+<div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden" }}>
 {(tools).map((t, $index) => (<Fragment key={$index}>
-<div style={{ display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #0000000f", flexWrap: "wrap" }}>
-<span style={{ width: "40px", height: "40px", borderRadius: "12px", background: "#ebebed", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "500", flex: "none" }}>{t.short}</span>
-<span style={{ flex: "1 1 200px" }}><span style={{ display: "block", fontSize: "14px", lineHeight: "21px", fontWeight: "500" }}>{t.name}</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{t.use}</span></span>
-{(t.on) ? (<><span style={{ padding: "8px 14px", borderRadius: "800px", background: "#dcebdd", color: "#004c39", fontSize: "14px", lineHeight: "14px" }}>✓ Conectado</span></>) : null}
-{(t.off) ? (<><button type="button" onClick={t.connect} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Conectar</button></>) : null}
+<div style={{ display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", flexWrap: "wrap" }}>
+<span style={{ width: "40px", height: "40px", borderRadius: "12px", background: "var(--sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "500", flex: "none" }}>{t.short}</span>
+<span style={{ flex: "1 1 200px" }}><span style={{ display: "block", fontSize: "14px", lineHeight: "21px", fontWeight: "500" }}>{t.name}</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{t.use}</span></span>
+{(t.on) ? (<><span style={{ padding: "8px 14px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", fontSize: "14px", lineHeight: "14px" }}>✓ Conectado</span></>) : null}
+{(t.off) ? (<><button type="button" onClick={t.connect} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Conectar</button></>) : null}
 </div>
 </Fragment>))}
 </div>
@@ -128,46 +128,46 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
 
 {(isStep3) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Elige tus agentes. <span style={{ color: "#5f5f63" }}>Vienen configurados para {sectorName}. Podrás ajustar cada skill.</span></h1>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Elige tus agentes. <span style={{ color: "var(--muted)" }}>{`Vienen configurados para ${sectorName}. Podrás ajustar cada skill.`}</span></h1>
 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
 {(agents).map((a, $index) => (<Fragment key={$index}>
-<div style={{ borderRadius: "12px", background: "#ffffff", border: "1px solid #0000001a", padding: "24px", display: "flex", gap: "16px", alignItems: "flex-start" }}>
+<div style={{ borderRadius: "12px", background: "var(--paper)", border: "1px solid var(--line)", padding: "24px", display: "flex", gap: "16px", alignItems: "flex-start" }}>
 {(a.isMoss) ? (<><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#004c39", flex: "none" }}></span></>) : null}
-{(a.isMist) ? (<><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#9dbecc", flex: "none" }}></span></>) : null}
+{(a.isMist) ? (<><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "var(--mist)", flex: "none" }}></span></>) : null}
 {(a.isSand) ? (<><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#a30042", flex: "none" }}></span></>) : null}
 {(a.isDusk) ? (<><span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#8e4e00", flex: "none" }}></span></>) : null}
-<span style={{ flex: "1" }}><span style={{ display: "block", fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{a.name}</span><span style={{ display: "block", marginTop: "6px", fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{a.desc}</span></span>
-{(a.on) ? (<><button type="button" role="switch" aria-checked="true" aria-label={a.name} onClick={a.toggle} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: "#000000", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></button></>) : null}
-{(a.off) ? (<><button type="button" role="switch" aria-checked="false" aria-label={a.name} onClick={a.toggle} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: "#d4d4d8", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", left: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></button></>) : null}
+<span style={{ flex: "1" }}><span style={{ display: "block", fontSize: "18px", lineHeight: "20px", letterSpacing: "-0.36px" }}>{a.name}</span><span style={{ display: "block", marginTop: "6px", fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{a.desc}</span></span>
+{(a.on) ? (<><button type="button" role="switch" aria-checked="true" aria-label={a.name} onClick={a.toggle} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: "var(--ink)", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "var(--paper)" }}></span></button></>) : null}
+{(a.off) ? (<><button type="button" role="switch" aria-checked="false" aria-label={a.name} onClick={a.toggle} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: "var(--track)", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", left: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "var(--paper)" }}></span></button></>) : null}
 </div>
 </Fragment>))}
 </div>
-<div style={{ borderRadius: "12px", background: "#9dbecc", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}><strong style={{ fontWeight: "500" }}>Tranquilo:</strong> todo lo que implique dinero o cambios en bloque necesitará tu aprobación por defecto.</div>
+<div style={{ borderRadius: "12px", background: "var(--mist)", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}><strong style={{ fontWeight: "500" }}>Tranquilo:</strong> todo lo que implique dinero o cambios en bloque necesitará tu aprobación por defecto.</div>
 </div>
 </>) : null}
 
 {(isStep4) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Revisa y activa. <span style={{ color: "#5f5f63" }}>Cuando esto esté listo, tus agentes empiezan a trabajar.</span></h1>
-<div style={{ background: "#ffffff", border: "1px solid #0000001a", borderRadius: "12px", overflow: "hidden" }}>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Revisa y activa. <span style={{ color: "var(--muted)" }}>Cuando esto esté listo, tus agentes empiezan a trabajar.</span></h1>
+<div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden" }}>
 {(golive).map((g, $index) => (<Fragment key={$index}>
-<div style={{ display: "flex", gap: "14px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #0000000f", flexWrap: "wrap" }}>
-{(g.ok) ? (<><span aria-hidden="true" style={{ width: "24px", height: "24px", borderRadius: "800px", background: "#dcebdd", color: "#004c39", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", flex: "none" }}>✓</span></>) : (<><span aria-hidden="true" style={{ width: "24px", height: "24px", borderRadius: "800px", background: "#ffe8d6", color: "#8e4e00", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", flex: "none" }}>!</span></>)}
-<span style={{ flex: "1 1 220px" }}><span style={{ display: "block", fontSize: "14px", lineHeight: "21px", fontWeight: "500" }}>{g.label}</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{g.hint}</span></span>
-{(!g.ok && g.label === 'Contexto del negocio cargado') ? (<><button type="button" onClick={addContext} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Añadir contexto</button></>) : null}
-{(!g.ok && g.label === 'Prueba en modo pruebas') ? (<><button type="button" onClick={runTest} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Enviar prueba</button></>) : null}
+<div style={{ display: "flex", gap: "14px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", flexWrap: "wrap" }}>
+{(g.ok) ? (<><span aria-hidden="true" style={{ width: "24px", height: "24px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", flex: "none" }}>✓</span></>) : (<><span aria-hidden="true" style={{ width: "24px", height: "24px", borderRadius: "800px", background: "var(--amber-bg)", color: "var(--amber-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", flex: "none" }}>!</span></>)}
+<span style={{ flex: "1 1 220px" }}><span style={{ display: "block", fontSize: "14px", lineHeight: "21px", fontWeight: "500" }}>{g.label}</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{g.hint}</span></span>
+{(!g.ok && g.label === 'Contexto del negocio cargado') ? (<><button type="button" onClick={addContext} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Añadir contexto</button></>) : null}
+{(!g.ok && g.label === 'Prueba en modo pruebas') ? (<><button type="button" onClick={runTest} style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Enviar prueba</button></>) : null}
 </div>
 </Fragment>))}
 </div>
-{(canGoLive) ? (<><div style={{ borderRadius: "12px", background: "#dcebdd", color: "#004c39", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}>Todo listo. Al activar, los agentes empiezan a atender en los canales conectados.</div></>) : (<><div style={{ borderRadius: "12px", background: "#f6f2e8", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}>Te falta algún paso. Puedes activar igualmente los que estén listos y completar el resto después.</div></>)}
+{(canGoLive) ? (<><div style={{ borderRadius: "12px", background: "var(--green-bg)", color: "var(--green-fg)", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}>Todo listo. Al activar, los agentes empiezan a atender en los canales conectados.</div></>) : (<><div style={{ borderRadius: "12px", background: "var(--linen)", padding: "16px 20px", fontSize: "14px", lineHeight: "21px" }}>Te falta algún paso. Puedes activar igualmente los que estén listos y completar el resto después.</div></>)}
 </div>
 </>) : null}
 
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", paddingTop: "8px", borderTop: "1px solid #0000000f" }}>
-{(canBack) ? (<><button type="button" onClick={back} style={{ padding: "12px 20px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", color: "#000000", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Atrás</button></>) : null}
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", paddingTop: "8px", borderTop: "1px solid var(--line-soft)" }}>
+{(canBack) ? (<><button type="button" onClick={back} style={{ padding: "12px 20px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Atrás</button></>) : null}
 {(noBack) ? (<><span></span></>) : null}
-{(notLast) ? (<><button type="button" onClick={next} style={{ padding: "12px 20px", borderRadius: "800px", border: "1px solid #000000", background: "#000000", color: "#ffffff", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Continuar</button></>) : null}
-{(isStep4) ? (<><span style={{ display: "flex", gap: "8px" }}><a href="/plataforma" style={{ padding: "12px 20px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "14px", lineHeight: "14px", fontWeight: "500" }}>Activar agentes</a></span></>) : null}
+{(notLast) ? (<><button type="button" onClick={next} style={{ padding: "12px 20px", borderRadius: "800px", border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}>Continuar</button></>) : null}
+{(isStep4) ? (<><span style={{ display: "flex", gap: "8px" }}><a href="/plataforma" style={{ padding: "12px 20px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", fontSize: "14px", lineHeight: "14px", fontWeight: "500" }}>Activar agentes</a></span></>) : null}
 </div>
 </main>
 </div>
