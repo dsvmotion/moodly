@@ -1,0 +1,63 @@
+// /terminos — borrador legal en los cuatro idiomas. Revisar con asesoría legal.
+export const COPY = {
+  es: {
+    title: "Términos del servicio", updated: "[fecha]",
+    intro: "Las condiciones de uso de la plataforma Moodly AI para empresas.",
+    sections: [
+      ["Objeto", ["Estos términos regulan el uso de la plataforma Moodly AI, que ofrece agentes de IA configurables para negocios. Al contratar el servicio, el cliente los acepta junto con la oferta comercial y el Contrato de Encargo de Tratamiento (DPA)."]],
+      ["El servicio", [["Implantación: configuración de agentes, integraciones y formación, con precio cerrado según la oferta.", "Suscripción mensual: acceso a la plataforma y consumo de IA incluido, según el plan contratado.", "Soporte según el plan contratado."]]],
+      ["Precio y pago", ["La implantación se factura según la oferta aceptada. La suscripción se factura por mes adelantado. Los precios no incluyen IVA. Si el consumo supera el incluido en el plan, avisaremos antes de aplicar ningún cargo adicional. [Revisar condiciones de impago]."]],
+      ["Duración y baja", ["La suscripción es mensual y se renueva automáticamente. Puedes darte de baja con [30] días de preaviso. Al terminar, podrás exportar tus datos durante [30] días antes de su eliminación."]],
+      ["Uso aceptable", ["El cliente no usará los agentes para enviar comunicaciones no solicitadas, suplantar identidades, tomar decisiones con efectos jurídicos sin revisión humana ni para actividades ilícitas. El cliente es responsable de la información que da a sus agentes y de las acciones que aprueba."]],
+      ["Inteligencia artificial", ["Los agentes pueden equivocarse. Moodly ofrece reglas, límites y aprobaciones para que el cliente controle qué hace cada agente sin supervisión. Los agentes se identifican como asistentes automáticos cuando la normativa lo exige."]],
+      ["Disponibilidad", ["Nos comprometemos a una disponibilidad de [99,5 %] mensual, salvo mantenimientos avisados. [Definir SLA y compensaciones por plan]."]],
+      ["Responsabilidad", ["[Limitación de responsabilidad a revisar con asesoría legal]."]],
+      ["Ley aplicable", ["Estos términos se rigen por la ley española. [Fuero aplicable]."]],
+    ],
+  },
+  en: {
+    title: "Terms of service", updated: "[date]",
+    intro: "The terms of use of the Moodly AI platform for businesses.",
+    sections: [
+      ["Purpose", ["These terms govern the use of the Moodly AI platform, which offers configurable AI agents for businesses. By contracting the service, the customer accepts them together with the commercial offer and the Data Processing Agreement (DPA)."]],
+      ["The service", [["Setup: configuration of agents, integrations and training, at a fixed price per the offer.", "Monthly subscription: access to the platform and included AI usage, per the contracted plan.", "Support per the contracted plan."]]],
+      ["Price and payment", ["Setup is invoiced per the accepted offer. The subscription is invoiced monthly in advance. Prices exclude VAT. If usage exceeds what's included in the plan, we will notify you before applying any additional charge. [Review non-payment terms]."]],
+      ["Term and cancellation", ["The subscription is monthly and renews automatically. You can cancel with [30] days' notice. On termination, you can export your data for [30] days before it is deleted."]],
+      ["Acceptable use", ["The customer will not use the agents to send unsolicited communications, impersonate others, make decisions with legal effects without human review, or for unlawful activities. The customer is responsible for the information it gives its agents and the actions it approves."]],
+      ["Artificial intelligence", ["Agents can make mistakes. Moodly provides rules, limits and approvals so the customer controls what each agent does unsupervised. Agents identify themselves as automated assistants where regulation requires it."]],
+      ["Availability", ["We commit to [99.5%] monthly availability, except for announced maintenance. [Define SLA and compensation per plan]."]],
+      ["Liability", ["[Limitation of liability to be reviewed with legal counsel]."]],
+      ["Governing law", ["These terms are governed by Spanish law. [Applicable jurisdiction]."]],
+    ],
+  },
+  fr: {
+    title: "Conditions d'utilisation", updated: "[date]",
+    intro: "Les conditions d'utilisation de la plateforme Moodly AI pour les entreprises.",
+    sections: [
+      ["Objet", ["Ces conditions régissent l'utilisation de la plateforme Moodly AI, qui propose des agents d'IA configurables pour les entreprises. En souscrivant au service, le client les accepte avec l'offre commerciale et le Contrat de sous-traitance (DPA)."]],
+      ["Le service", [["Mise en place : configuration des agents, intégrations et formation, à prix ferme selon l'offre.", "Abonnement mensuel : accès à la plateforme et consommation d'IA incluse, selon le plan souscrit.", "Support selon le plan souscrit."]]],
+      ["Prix et paiement", ["La mise en place est facturée selon l'offre acceptée. L'abonnement est facturé mensuellement à l'avance. Les prix s'entendent hors TVA. Si la consommation dépasse celle incluse dans le plan, nous vous préviendrons avant d'appliquer tout frais supplémentaire. [Revoir les conditions d'impayé]."]],
+      ["Durée et résiliation", ["L'abonnement est mensuel et se renouvelle automatiquement. Vous pouvez résilier avec un préavis de [30] jours. À la fin, vous pourrez exporter vos données pendant [30] jours avant leur suppression."]],
+      ["Usage acceptable", ["Le client n'utilisera pas les agents pour envoyer des communications non sollicitées, usurper des identités, prendre des décisions à effets juridiques sans contrôle humain ni pour des activités illicites. Le client est responsable des informations qu'il fournit à ses agents et des actions qu'il valide."]],
+      ["Intelligence artificielle", ["Les agents peuvent se tromper. Moodly propose des règles, des limites et des validations pour que le client contrôle ce que fait chaque agent sans supervision. Les agents s'identifient comme des assistants automatiques lorsque la réglementation l'exige."]],
+      ["Disponibilité", ["Nous nous engageons sur une disponibilité de [99,5 %] par mois, hors maintenances annoncées. [Définir le SLA et les compensations par plan]."]],
+      ["Responsabilité", ["[Limitation de responsabilité à revoir avec un conseil juridique]."]],
+      ["Droit applicable", ["Ces conditions sont régies par le droit espagnol. [Juridiction compétente]."]],
+    ],
+  },
+  de: {
+    title: "Nutzungsbedingungen", updated: "[Datum]",
+    intro: "Die Nutzungsbedingungen der Moodly-AI-Plattform für Unternehmen.",
+    sections: [
+      ["Gegenstand", ["Diese Bedingungen regeln die Nutzung der Moodly-AI-Plattform, die konfigurierbare KI-Agenten für Unternehmen bietet. Mit Beauftragung des Dienstes akzeptiert der Kunde sie zusammen mit dem kommerziellen Angebot und dem Auftragsverarbeitungsvertrag (AVV)."]],
+      ["Der Dienst", [["Einrichtung: Konfiguration von Agenten, Integrationen und Schulung, zum Festpreis gemäß Angebot.", "Monatsabonnement: Zugang zur Plattform und inkludierte KI-Nutzung gemäß gebuchtem Plan.", "Support gemäß gebuchtem Plan."]]],
+      ["Preis und Zahlung", ["Die Einrichtung wird gemäß dem angenommenen Angebot abgerechnet. Das Abonnement wird monatlich im Voraus abgerechnet. Preise verstehen sich zzgl. MwSt. Übersteigt die Nutzung das im Plan Enthaltene, informieren wir dich, bevor wir zusätzliche Gebühren erheben. [Bedingungen bei Zahlungsverzug prüfen]."]],
+      ["Laufzeit und Kündigung", ["Das Abonnement ist monatlich und verlängert sich automatisch. Du kannst mit [30] Tagen Frist kündigen. Zum Ende kannst du deine Daten [30] Tage lang exportieren, bevor sie gelöscht werden."]],
+      ["Zulässige Nutzung", ["Der Kunde nutzt die Agenten nicht, um unerwünschte Kommunikation zu senden, Identitäten vorzutäuschen, Entscheidungen mit Rechtswirkung ohne menschliche Prüfung zu treffen oder für rechtswidrige Aktivitäten. Der Kunde ist verantwortlich für die Informationen, die er seinen Agenten gibt, und für die Aktionen, die er freigibt."]],
+      ["Künstliche Intelligenz", ["Agenten können Fehler machen. Moodly bietet Regeln, Grenzen und Freigaben, damit der Kunde steuert, was jeder Agent ohne Aufsicht tut. Agenten weisen sich als automatische Assistenten aus, wo die Regulierung es verlangt."]],
+      ["Verfügbarkeit", ["Wir verpflichten uns zu einer monatlichen Verfügbarkeit von [99,5 %], außer bei angekündigten Wartungen. [SLA und Entschädigungen je Plan festlegen]."]],
+      ["Haftung", ["[Haftungsbeschränkung mit Rechtsberatung zu prüfen]."]],
+      ["Anwendbares Recht", ["Diese Bedingungen unterliegen spanischem Recht. [Zuständiger Gerichtsstand]."]],
+    ],
+  },
+};

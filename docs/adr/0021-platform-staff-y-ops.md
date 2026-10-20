@@ -1,4 +1,4 @@
-# 0019 — Equipo interno (`platform_staff`), lectura entre tenants y auditoría para el `/ops` de la Fase 0
+# 0021 — Equipo interno (`platform_staff`), lectura entre tenants y auditoría para el `/ops` de la Fase 0
 
 - **Estado:** propuesto (pendiente de revisión humana de la migración, las políticas RLS y el helper `SECURITY DEFINER`)
 - **Fecha:** 2026-10-06

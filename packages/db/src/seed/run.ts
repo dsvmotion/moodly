@@ -145,7 +145,7 @@ async function main(): Promise<void> {
     credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
   }
 
-  // Equipo interno (ADR 0019, D4): cuentas dedicadas, sin membership (D2).
+  // Equipo interno (ADR 0021, D4): cuentas dedicadas, sin membership (D2).
   // Conceder o revocar es una operación de plataforma: aquí, con la clave
   // secreta local; nunca desde apps/web.
   for (const staff of seedPlatformStaff) {

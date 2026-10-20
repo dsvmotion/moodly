@@ -1,5 +1,5 @@
 -- Equipo interno (platform_staff) y auditoría (MANUAL §4.2, §4.4, §10.2, §10.5;
--- ADR 0019). Fase 0, /ops mínimo · PR 1: solo base de datos.
+-- ADR 0021). Fase 0, /ops mínimo · PR 1: solo base de datos.
 -- - platform_staff: identidad del equipo interno, separada de los roles tenant.
 -- - private.is_platform_staff(): helper de RLS anclado en auth.uid().
 -- - Identidades separadas: un interno no revocado no puede tener memberships.
@@ -99,7 +99,7 @@ grant execute on function private.is_platform_staff(text[]) to authenticated, se
 -- organization_id admite null solo en eventos internos o de sistema entre
 -- tenants, como ver la lista de organizaciones (D7).
 -- actor_id sin FK: el registro sobrevive al actor (usuario, agente o sistema).
--- La regla de borrado RGPD queda abierta (D6, ADR 0019).
+-- La regla de borrado RGPD queda abierta (D6, ADR 0021).
 -- on delete restrict: borrar una organización con auditoría exige decidir
 -- antes qué se hace con ella (D6); no se borra en cascada en silencio.
 -- ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
--- Equipo interno (platform_staff, ADR 0019): identidad separada de los roles
+-- Equipo interno (platform_staff, ADR 0021): identidad separada de los roles
 -- tenant, lectura entre tenants de solo lectura y acceso que se corta al
 -- revocar, cerrar sesión, banear o borrar la cuenta.
 begin;

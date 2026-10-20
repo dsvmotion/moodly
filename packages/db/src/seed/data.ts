@@ -38,7 +38,7 @@ export interface SeedUser {
 }
 
 /**
- * Cuenta del equipo interno (ADR 0019, D4: en local y CI se concede por el
+ * Cuenta del equipo interno (ADR 0021, D4: en local y CI se concede por el
  * seed). Cuenta dedicada: sin membership en ninguna organización (D2).
  */
 export interface SeedPlatformStaff {

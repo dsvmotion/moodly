@@ -1,3 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@repo/ui/globals.css";
+
+/*
+ * Enlaza las fuentes de marca cargadas por next/font (src/app/fonts.ts) con los
+ * tokens de @repo/ui. Se define aquí (después del import) para que gane al valor
+ * por defecto del paquete, que solo nombra las familias como reserva.
+ */
+:root {
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-labil), "Labil Grotesk", var(--font-sans);
+}

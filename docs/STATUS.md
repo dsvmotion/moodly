@@ -10,16 +10,68 @@
 - Mergeo autónomo endurecido: `scripts/safe-merge.sh` (checks sobre el head exacto, zonas sensibles y tests debilitados), lista única de zonas sensibles y job de CI `sensitive-paths` con la etiqueta `revisado-humano`, que se invalida con cada commit nuevo — verificado con 65 tests del script, pruebas negativas, la etiqueta comprobada en GitHub (de rojo a verde sobre el mismo commit) y 6 PRs mergeados después con el script — 2026-10-01 — https://github.com/dsvmotion/moodly/pull/8
 
 ## En curso
-- App shell (Fase 0 · tarea 4):
-  - **Hecho y mergeado** (los PRs #9 a #14 con `scripts/safe-merge.sh`): dependencias y configuración (#6, por producto); tokens de diseño y componentes base (#7); barra lateral §9.2 con estados vacíos, tema claro/oscuro y modo compacto (#9); selector de alcance según RLS y en la URL (#10); Registros → Locales y Personas con `DataTable` y vista previa (#11); paleta ⌘K (#12); i18n es/en, navegación con teclado y axe WCAG 2.1 AA (#13); e2e por rol con capturas en claro y oscuro (#14).
-  - **Pendiente de revisión humana (zonas sensibles):** traducción de la página de login e Inicio (P1) en `/app`. Hoy `/app` sigue llevando a "Mi organización".
-- Panel `/ops` mínimo (Fase 0, MANUAL §17; ADR 0019, decisiones D1–D14 cerradas por producto el 2026-10-06). Se entrega en 4 PRs (+1 condicional):
-  - **PR 1 · base de datos — abierto, pendiente de revisión humana** (zonas sensibles; rama `feat/ops-platform-staff-audit`): `platform_staff`, `private.is_platform_staff()`, identidades separadas (trigger), `audit_logs` de solo inserción con `at` fijado por la base de datos, políticas SELECT del equipo interno en las 5 tablas de tenants, seed con 1 `platform_admin`, 1 `platform_operator` y 1 interno revocado, y ADR 0019. Verificado en local: pgTAP 301/301 (115 nuevos), 4 pruebas negativas (+1 extra), rollback probado, `supabase db lint` limpio, `pnpm check` 51/51 y e2e 83/83 con el seed nuevo. Falta el CI del PR y la revisión.
+- App shell (Fase 0 · tarea 4) — estado a 2026-10-01, `main` en `ebaf37b`, verificado (`pnpm check` 51/51, pgTAP 186/186, e2e 83/83):
+  - **Mergeado:** #6 (dependencias, por producto), #7 (tokens y componentes base), #9 (barra lateral), #10 (selector de alcance), #11 (Registros con vista previa), #12 (paleta ⌘K), #13 (i18n, teclado y axe) y #14 (e2e por rol con capturas). Del #9 al #14, con `scripts/safe-merge.sh`.
+  - **PRs abiertos:** ninguno, salvo el de esta actualización de STATUS.
+  - **Siguiente, en este orden:**
+    1. PR sensible: traducción de la página de login (`apps/web/src/app/login/**`). No lo mergea el agente.
+    2. PR sensible: Inicio (P1) en `/app` (redirección tras el login), ajustando las expectativas de URL de los e2e. No lo mergea el agente.
+    3. Resumen final de la tarea 4 para producto, con las capturas por rol en `~/Developer/moodly-capturas/tarea-4/` (40 PNG, en claro y oscuro, fuera del repo).
+  - **Al retomar:**
+    1. `pnpm db:start && pnpm db:seed && pnpm --filter @repo/web env:local`.
+    2. Si los e2e fallan al lanzar el navegador: `pnpm --filter @repo/web exec playwright install chromium` (macOS borró la caché del navegador una vez).
+
+- Web pública, prototipo de plataforma y auditoría — rama `feat/site-landings`, **sin commitear**, estado a 2026-10-07:
+  - `apps/site` (nuevo workspace, puerto 3001):
+    - web pública **totalmente traducida a es/en/fr/de** (las 17 páginas: home, agentes, sectores con contenido rico por sector en `verticals-i18n.js`, precios, seguridad, integraciones, modelos, enterprise, producto, app-móvil, casos, implantación, sobre-nosotros, contacto y las 4 legales), vía un `copy.js` por página y detección de idioma (`src/proxy.js`); nombres de agente localizados (Reception/Réception/Empfang…); aviso de «traducción en curso» retirado de todas;
+    - 8 verticales y 47 subsectores, precios fijo + variable + implantación, 121 integraciones con logos oficiales;
+    - páginas de seguridad, enterprise, modelos, producto, app móvil y legales en borrador;
+    - prototipo navegable de la plataforma en `/plataforma` (escritorio y móvil). Es **prototipo**: datos fijos y botones `data-demo`, sin backend.
+  - Verificado: `pnpm check` 52/52 (incluida `apps/site`), pgTAP 186/186 y build de `apps/site` (111 páginas).
+  - Documentos nuevos:
+    - `docs/design/` (benchmark Langdock, modelo de precios con fuentes, nombres SEO de verticales, arquitectura de agentes enterprise, **`langdock-configuracion-arquitectura.md`**: recorrido exhaustivo de las 24 páginas de Configuración de Langdock con el modelo de entidades/permisos/cuotas para el backend);
+    - `docs/audits/2026-10-07-auditoria-plataforma.md`: brechas por dominio y plan en 13 pasos.
+  - Prototipo: panel responsive (el shell llena el viewport con `100dvh` en vez de `minHeight: 960px`; la barra lateral se estira a toda la altura) y **datos por sede** (`SedeProvider` + `localStorage` + `sede-data.js`): el selector de sede cambia los datos del Inicio y de las páginas clave (conversaciones, clientes, agenda, facturas, informes, leads); «Todas las sedes» agrega la organización. Modela el alcance (`location_id`) del backend. Verificado en localhost (Centro/Norte/Todas, build 117 páginas).
+  - Capturas del panel (`public/shots/*`, 21 PNG) regeneradas desde build de producción con Playwright, al diseño actual. Los tableros del canvas (artifact) ya coincidían con el panel (App-Inicio verificado).
+  - Pendiente: PR de `apps/site`. Toca `package.json` y el lockfile (zona sensible), así que necesita `revisado-humano`.
+
+- Fijación del diseño antes del backend — rama `feat/site-landings`, **en PR #17**, estado a 2026-10-08:
+  - **Auditoría de diseño** (`docs/audits/2026-10-08-auditoria-diseno.md`): el diseño está a nivel Langdock y listo para fijarse; 4 lock-blockers a cerrar antes del backend (tokens a fuente única, estados por pantalla, especificación de interacción, asistente de alta). Decisiones de producto tomadas: modo oscuro **sí**, móvil **PWA responsive**, franquicias **sí**.
+  - **Lock-blocker §4.1 (tokens de marca → fuente única) — hecho y verificado:** paleta de marca (4 colores de agente + naranja de marca + azul de enlace, con claro/oscuro) llevada a `packages/ui/src/styles/globals.css` como fuente única, expuesta a Tailwind, y referencia en `docs/design/tokens-marca.md`. Verificado: `packages/ui` 70/70 tests (WCAG AA de los nuevos pares incluido) y `pnpm check` 52/52. Fuentes: Plus Jakarta Sans fijada como `--font-sans` (licencia abierta; falta cargarla con next/font); Labil Grotesk como `--font-display` **con la carga en espera hasta confirmar la licencia webfont**.
+  - **Fuentes de marca — hecho y verificado:** Plus Jakarta Sans (cuerpo) y **Labil Grotesk (titulares; licencia comercial confirmada por producto, 2026-10-08)** cargadas en `apps/web` con `next/font` (woff2 en `apps/web/src/fonts`) y enlazadas a `--font-sans`/`--font-display` en `apps/web/src/app/globals.css`. Build de `apps/web` en verde. Los e2e guardan capturas como artefactos (no comparan píxeles), así que el cambio de fuente no rompe CI.
+  - **Lock-blocker §4.2/§4.3 (componentes de estado e interacción) — hecho y verificado:** `Skeleton`, `ErrorState`, `ConfirmDialog` (sobre AlertDialog de Radix) y `Toast` (store + `Toaster` sobre Toast de Radix) en `packages/ui`, sobre el `EmptyState` existente. Sin dependencias nuevas (radix-ui ya estaba). Verificado: `packages/ui` 74/74 (store de toasts con tests), typecheck y `pnpm check` 52/52.
+  - **Lock-blocker §4.4 (asistente de alta) — hecho y verificado:** 4º paso «Revisa y activa» en `/plataforma/onboarding` con checklist de puesta en marcha (sector, canal, contexto, agente, prueba); probado en localhost (completa a «Todo listo»).
+  - **Franquicias — hecho y verificado:** nueva pantalla `/plataforma/red` (vista del franquiciador: separación de datos, tabla de franquiciados con cumplimiento, políticas de red bloqueadas, mejora agregada) + entrada «Red» en la barra lateral. Modela `networks`. Build de `apps/site` en verde y pantalla verificada en localhost.
+  - **Decisiones de alcance (criterio profesional):** modo oscuro se resuelve en `apps/web` vía tokens (el prototipo se queda claro); móvil responsive de verdad = PWA en `apps/web` (Paso 10), las 13 pantallas `/plataforma/movil` son maquetas 390×844 y se quedan como especificación; los componentes de estado se aplican al reconstruir en `apps/web`, no se duplican en el prototipo. Detalle en `docs/audits/2026-10-08-auditoria-diseno.md` §9.
+  - **PR [#17](https://github.com/dsvmotion/moodly/pull/17) abierto** (`apps/site` + `packages/ui` + `apps/web`); e2e de `apps/web` **83/83** en claro y oscuro verificado. Toca lockfile y fuentes → necesita `revisado-humano`; no se mergea de forma autónoma.
+  - **Añadido tras el lock (todo en el PR #17, verificado, `pnpm check` 52/52):**
+    - Marketing con **movimiento**: demo de teléfono en vivo (`PhoneDemo`) en el hero de la home (escritorio) y en `/app-movil`; respeta `prefers-reduced-motion`.
+    - **Modelos** e **Integraciones** de configuración al nivel de Langdock: catálogo de modelos por residencia (UE/EE.UU./global) con tipo, contexto y coste €/M y activar por modelo; gasto en € + tope; integraciones con conjunto por defecto, acciones por integración y catálogo por categoría. Fuente única `components/models-catalog.js` (16 modelos reales + categoría **Voz**: Cartesia/ElevenLabs), consumida por la config y la landing `/modelos` (4 idiomas).
+    - **Asistente/orquestador** (`/plataforma/asistente`): meta-agente copiloto del owner para gestionar la plataforma (configura/opera/diagnostica/enseña), limitado por rol, con confirmación de lo sensible y registro. Entrada propia en la barra lateral. Doc: `docs/design/edge-y-postura-enterprise.md` §3.bis.
+    - **Capa de Voz** (voz escrita + hablada con persona TTS y clonación) y **orquestador** documentados como ampliación de scope del backend (edge doc §3.bis, §5-6).
+  - **Artifact «Moodly Landing Pages»** (`BoLfJGSVxG4tGv6DmLYQfv`) en **Versión 66**: 16 tableros = capturas de página completa del diseño actual (todas las landings + Modelos/Enterprise/Sobre-nosotros/Contacto nuevas + Asistente/Red). Método reproducible (Playwright → assets del artifact → tableros enmarcados).
+  - **Artifact completo (v69):** todas las pantallas Web, **plataforma (App-\*, 30)** y móviles (M-\*) son capturas del localhost actual. Es el espejo visual de referencia.
+  - **Auditoría de cierre diseño → backend** (`docs/audits/2026-10-09-cierre-diseno-backend.md`): el hueco es de **contratos**, no de pantallas — mapeo prototipo→`apps/web`, datos por pantalla, flujos sin diseñar e inconsistencias canónicas.
+  - **Implementado del audit (verificado, `pnpm check` 52/52):**
+    - **Claves de agente canónicas** en `@repo/config` `AGENT_TYPES` (reception/customer/sales/admin + nombre + token de color), con tests. Resuelve la inconsistencia #1.
+    - **Mapa pantalla→ruta→componentes→datos** (`docs/design/mapa-pantallas-datos.md`): el contrato que desbloquea el backend (entidades/campos/acciones/permiso/tiempo real por pantalla) + vocabulario de ruta objetivo para `apps/web`.
+    - Informes: controles de export (CSV/PDF), agrupar por y rango de fechas.
+  - **Pendiente:** etiqueta `revisado-humano` (producto) para el PR #17; diseñar los flujos que faltan y los estados por pantalla (§3 del audit); e2e sobre `main` tras el merge.
+
+- App móvil · Fase 0 (fontanería PWA) — rama `feat/pwa-movil-fase0`, **en PR #26** (https://github.com/dsvmotion/moodly/pull/26), estado a 2026-10-18. Spec `docs/superpowers/specs/2026-10-18-pwa-fase0-design.md`, plan `docs/superpowers/plans/2026-10-18-pwa-fase0.md`:
+  - `apps/web` instalable como PWA: manifest (`src/app/manifest.ts`, con `BRAND_NAME`), service worker mínimo escrito a mano (`public/sw.js`: solo cachea assets públicos y `/offline.html`; nunca navegaciones, POST, auth ni Supabase), icono de app facilitado por producto (baldosa azul; opaco para iOS y Android, con transparencia en el icono general), aviso de versión nueva, y los assets PWA fuera del matcher del proxy.
+  - Verificado en local: `pnpm check` 52/52, tests de `apps/web` 117/117 y e2e 86/86 (los 3 nuevos de la PWA, comprobados también en negativo rompiendo proxy y SW). Revisión final independiente aplicada: sin críticos, 4 importantes corregidos, 10 menores anotados en el PR.
+  - **Zonas sensibles tocadas:** `apps/web/src/proxy.ts` (matcher), `apps/web/next.config.ts` (cabeceras de `/sw.js`), `AGENTS.md` y `CLAUDE.md` (comando de iconos). Necesita `revisado-humano`; no lo mergea el agente.
+  - Siguiente: Fase 1 (chasis móvil responsive con la barra de pestañas del diseño `M-*`).
+
+- Panel `/ops` mínimo (Fase 0, MANUAL §17; ADR 0021, decisiones D1–D14 cerradas por producto el 2026-10-06). Se entrega en 4 PRs (+1 condicional):
+  - **PR 1 · base de datos — abierto, pendiente de revisión humana** (zonas sensibles; rama `feat/ops-platform-staff-audit`): `platform_staff`, `private.is_platform_staff()`, identidades separadas (trigger), `audit_logs` de solo inserción con `at` fijado por la base de datos, políticas SELECT del equipo interno en las 5 tablas de tenants, seed con 1 `platform_admin`, 1 `platform_operator` y 1 interno revocado, y ADR 0021. Verificado en local: pgTAP 301/301 (115 nuevos), 4 pruebas negativas (+1 extra), rollback probado, `supabase db lint` limpio, `pnpm check` 51/51 y e2e 83/83 con el seed nuevo. Falta el CI del PR y la revisión.
   - **Pendiente:** PR 2 (`requirePlatformStaff()` y `withPlatformStaffAudit()`, puerta 404 en `/ops`, regla en AGENTS.md/CLAUDE.md), PR 3 (`/ops/organizations` y detalle, con una fila de auditoría por vista), PR 4 (`/ops/audit`) y, si la tarea 5 ya está mergeada, PR 5 (`/ops/agent-types`). `^apps/web/src/app/ops/` pasa a `sensitive-paths.txt` con los PRs web (D13).
 
 ## Bloqueado
+- App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS de la rama y un iPhone; la hace producto. Hasta entonces la fase no pasa a "Hecho y verificado".
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
-- Uso alojado o en producción de `/ops`: requiere antes MFA (AAL2) para el equipo interno (ADR 0019, D12), a verificar contra el plan de Supabase (MANUAL §18 #11). En local no se exige en la Fase 0.
+- Uso alojado o en producción de `/ops`: requiere antes MFA (AAL2) para el equipo interno (ADR 0021, D12), a verificar contra el plan de Supabase (MANUAL §18 #11). En local no se exige en la Fase 0.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
 
 ## Próximo (Fase 0 — Cimientos, MANUAL §17)
@@ -33,5 +85,5 @@
 4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
 5. Catálogo `agent_types`, `agents`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests.
 6. Worker always-on con pg-boss: job de prueba encolado desde la web y procesado por el worker, con evidencia en logs.
-7. Borrado RGPD frente a `audit_logs` de solo inserción (ADR 0019, D6): decidir con el trabajo de §11 si se seudonimiza `actor_id`/`target` o se borra. Mientras tanto, borrar una organización con auditoría falla (`on delete restrict`).
+7. Borrado RGPD frente a `audit_logs` de solo inserción (ADR 0021, D6): decidir con el trabajo de §11 si se seudonimiza `actor_id`/`target` o se borra. Mientras tanto, borrar una organización con auditoría falla (`on delete restrict`).
 8. Redactar ADRs 0001–0017 (MANUAL §19). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.

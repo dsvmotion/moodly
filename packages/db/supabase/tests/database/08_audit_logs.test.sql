@@ -1,4 +1,4 @@
--- audit_logs (MANUAL §10.5, ADR 0019): solo inserción para los roles de
+-- audit_logs (MANUAL §10.5, ADR 0021): solo inserción para los roles de
 -- aplicación, `at` fijado por la base de datos, el equipo interno solo
 -- inserta filas propias y lee todas, y el org_admin lee las de su
 -- organización (D5).
