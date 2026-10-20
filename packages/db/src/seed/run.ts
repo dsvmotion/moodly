@@ -13,7 +13,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
-import { seedLocations, seedOrganizations, seedRegions, seedUsers, type SeedUser } from "./data.ts";
+import { seedGuests, seedLocations, seedOrganizations, seedRegions, seedUsers } from "./data.ts";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
@@ -49,7 +49,7 @@ async function findAuthUserId(admin: SupabaseClient, email: string): Promise<str
   return data.users.find((u) => u.email === email)?.id;
 }
 
-async function upsertAuthUser(admin: SupabaseClient, user: SeedUser, password: string): Promise<string> {
+async function upsertAuthUser(admin: SupabaseClient, user: { email: string }, password: string): Promise<string> {
   const existing = await findAuthUserId(admin, user.email);
   if (existing) {
     const { error } = await admin.auth.admin.updateUserById(existing, { password, email_confirm: true });
@@ -66,8 +66,8 @@ interface SeedCredential {
   key: string;
   email: string;
   password: string;
-  role: SeedUser["role"];
-  organizationId: string;
+  role: string | null;
+  organizationId: string | null;
 }
 
 // Tras `supabase db reset` se reinician los contenedores y Auth y PostgREST
@@ -136,6 +136,17 @@ async function main(): Promise<void> {
     credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
   }
 
+  for (const guest of seedGuests) {
+    const password = `${randomBytes(18).toString("base64url")}aA1`;
+    const userId = await upsertAuthUser(admin, guest, password);
+    const profile = await admin.from("users").upsert({ id: userId, full_name: guest.fullName });
+    check("users", profile.error);
+    // Sin organización: se le quita lo que haya aceptado en ejecuciones anteriores.
+    const cleanup = await admin.from("memberships").delete().eq("user_id", userId);
+    check("memberships (invitado)", cleanup.error);
+    credentials.push({ key: guest.key, email: guest.email, password, role: null, organizationId: null });
+  }
+
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {
     mode: 0o600,
@@ -143,7 +154,7 @@ async function main(): Promise<void> {
 
   console.log(
     `Seed aplicado: ${seedOrganizations.length} organizaciones, ${seedRegions.length} región, ` +
-      `${seedLocations.length} locales, ${seedUsers.length} usuarios. Credenciales en ${credentialsFile}`,
+      `${seedLocations.length} locales, ${seedUsers.length} usuarios y ${seedGuests.length} sin organización. Credenciales en ${credentialsFile}`,
   );
 }
 

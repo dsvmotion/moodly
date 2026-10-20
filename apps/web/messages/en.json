@@ -190,5 +190,31 @@
     "updateAvailable": "A new version is available.",
     "reload": "Reload",
     "later": "Later"
+  },
+  "invitations": {
+    "title": "Invite someone",
+    "help": "They get a link and join only if they accept it with their own account. The link expires in 7 days and is shown only once.",
+    "email": "Email",
+    "role": "Role",
+    "scope": "Scope",
+    "allOrg": "Whole organization",
+    "send": "Create invitation",
+    "linkReady": "Invitation created. Copy the link and send it to them: it won’t be shown again.",
+    "copy": "Copy link",
+    "copied": "Copied",
+    "pending": "Pending invitations",
+    "none": "No pending invitations.",
+    "revoke": "Revoke",
+    "errors": {
+      "invalid": "Check the email, role and scope.",
+      "forbidden": "You don’t have permission to invite people to this organization."
+    },
+    "accept": {
+      "title": "Invitation",
+      "body": "You’ve been invited to an organization on {brand}. You’ll join with your account {email}.",
+      "button": "Accept invitation",
+      "invalid": "This invitation isn’t valid: it may have expired, been revoked or be meant for another account.",
+      "already": "You already belong to this organization."
+    }
   }
 }

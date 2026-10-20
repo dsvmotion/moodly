@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { revokeInvitation } from "@/app/app/invitations-actions";
+import { InviteForm } from "@/components/invitations/invite-form";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope } from "@/lib/scope";
@@ -18,6 +20,8 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   const { scope, context } = await resolveScope((await searchParams).scope);
   const t = await getTranslations("organizationPage");
   const tRecords = await getTranslations("records");
+  const tInvitations = await getTranslations("invitations");
+  const isAdmin = context.role === "org_admin";
 
   const [organizationsResult, locationsResult, peopleResult] = await Promise.all([
     supabase.from("organizations").select("id, name").order("name"),
@@ -27,6 +31,19 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
       .order("role"),
   ]);
+  // Invitaciones pendientes: RLS solo se las enseña a un org_admin.
+  const pending = isAdmin
+    ? rows(
+        "invitaciones",
+        await supabase
+          .from("invitations")
+          .select("id, email, role, expires_at")
+          .is("accepted_at", null)
+          .is("revoked_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false }),
+      )
+    : [];
   const organizations = rows("organizaciones", organizationsResult);
   // El alcance (?scope=) acota lo que RLS ya deja ver.
   const locations = locationsInScope(
@@ -83,6 +100,38 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
           ))}
         </ul>
       </section>
+
+      {isAdmin && organizations[0] ? (
+        <section aria-labelledby="invitations" className="flex flex-col gap-3">
+          <h2 id="invitations">{tInvitations("title")}</h2>
+          <p className="text-sm">{tInvitations("help")}</p>
+          <InviteForm
+            organizationId={organizations[0].id}
+            regions={context.regions.map((r) => ({ id: r.id, name: r.name }))}
+            locations={context.locations.map((l) => ({ id: l.id, name: l.name }))}
+          />
+          <h3 className="font-medium">{tInvitations("pending")}</h3>
+          {pending.length === 0 ? (
+            <p className="text-sm">{tInvitations("none")}</p>
+          ) : (
+            <ul>
+              {pending.map((invitation) => (
+                <li key={invitation.id} data-testid="pending-invitation" className="flex items-center gap-2">
+                  <span data-testid="pending-invitation-email">{invitation.email}</span>
+                  {" · "}
+                  {tRecords(`roles.${invitation.role as "org_admin" | "region_manager" | "location_manager" | "staff"}`)}
+                  <form action={revokeInvitation}>
+                    <input type="hidden" name="id" value={invitation.id} />
+                    <button type="submit" className="rounded-md border px-2 py-0.5 text-sm">
+                      {tInvitations("revoke")}
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

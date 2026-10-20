@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seedLocations, seedOrganizations, seedRegions, seedUsers } from "./data.ts";
+import { seedGuests, seedLocations, seedOrganizations, seedRegions, seedUsers } from "./data.ts";
 
 // Las mismas reglas que impone la base de datos (CHECK de rol ↔ alcance,
 // trigger validate_scope, FK compuesta de locations): si el seed las rompe,
@@ -53,5 +53,12 @@ describe("seed", () => {
     for (const user of seedUsers) expect(user.email).toMatch(/@[a-z0-9.-]+\.test$/);
     expect(new Set(seedUsers.map((u) => u.key)).size).toBe(seedUsers.length);
     expect(new Set(seedUsers.map((u) => u.email)).size).toBe(seedUsers.length);
+  });
+
+  it("las identidades sin organización tampoco repiten clave ni email con nadie", () => {
+    const everyone = [...seedUsers, ...seedGuests];
+    for (const guest of seedGuests) expect(guest.email).toMatch(/@[a-z0-9.-]+\.test$/);
+    expect(new Set(everyone.map((u) => u.key)).size).toBe(everyone.length);
+    expect(new Set(everyone.map((u) => u.email)).size).toBe(everyone.length);
   });
 });
