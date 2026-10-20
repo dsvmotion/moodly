@@ -35,7 +35,7 @@ export default function Screen() {
 
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Leads. <span style={{ color: "var(--muted)" }}>{d.open} oportunidades abiertas · {d.budget} en presupuestos.</span></h1>
+          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Leads. <span style={{ color: "var(--muted)" }}>{`${d.open} oportunidades abiertas · ${d.budget} en presupuestos.`}</span></h1>
           <Pills label="Origen" options={ORIGINS} value={origin} onChange={setOrigin} size="sm" />
         </div>
 
@@ -86,7 +86,7 @@ export default function Screen() {
             </div>
             {(lead.note || lead.tag) && <div style={{ background: "var(--linen)", borderRadius: "12px", padding: "12px 14px" }}>{lead.tag ?? ""}{lead.tag && lead.note ? " · " : ""}{lead.note ?? ""}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "auto" }}>
-              {lead.col < cols.length - 1 && <button type="button" onClick={() => moveNext(lead)} style={btn(true)}>Mover a «{cols[lead.col + 1].title}»</button>}
+              {lead.col < cols.length - 1 && <button type="button" onClick={() => moveNext(lead)} style={btn(true)}>{`Mover a «${cols[lead.col + 1].title}»`}</button>}
               <a href={`/plataforma/conversaciones?c=${encodeURIComponent(lead.name)}`} style={btn(false)}>Escribir</a>
               {CLIENTS.includes(lead.name) ? <a href={`/plataforma/clientes?c=${encodeURIComponent(lead.name)}`} style={btn(false)}>Ver ficha de cliente</a> : <span style={{ textAlign: "center", fontSize: "12px", color: "var(--muted-2)" }}>Aún no es cliente: tendrá ficha al reservar su primera visita.</span>}
             </div>

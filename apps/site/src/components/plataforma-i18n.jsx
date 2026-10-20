@@ -49,11 +49,43 @@ function commonPatterns(lang) {
   return [...days, enable, [/^Quedan (\d+)$/, LEFT[lang]]];
 }
 
-function makeTranslator(lang, dict) {
+// Frases con hueco (plataforma-i18n/plantillas.<idioma>.json): «Borrar los datos de {0}»
+// → «Delete {0}'s data». {0}, {1}… son texto y {n}, {n1}… números; cada idioma los
+// coloca donde le toca. El valor de un hueco de texto también se traduce si está en
+// el diccionario («Sede Centro» → «Centre location»).
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const HOLE = /\{(n?\d*)\}/g;
+function compileTemplates(tpls) {
+  return Object.entries(tpls).map(([src, out]) => {
+    const names = [];
+    const re = new RegExp("^" + src.split(/(\{n?\d*\})/).map((part) => {
+      const m = /^\{(n?\d*)\}$/.exec(part);
+      if (!m) return escapeRe(part);
+      names.push(m[1]);
+      return m[1].startsWith("n") ? "(\\d[\\d.,]*)" : "(.+?)";
+    }).join("") + "$");
+    return [re, out, names];
+  });
+}
+
+function makeTranslator(lang, dict, tpls = {}) {
   const pats = [...(PATTERNS[lang] || []), ...commonPatterns(lang)];
-  const core = (s) => {
+  const templates = compileTemplates(tpls);
+  const simple = (s) => {
     if (dict[s] !== undefined) return dict[s];
     for (const [re, out] of pats) if (re.test(s)) return s.replace(re, out);
+    return null;
+  };
+  const core = (s) => {
+    const hit = simple(s);
+    if (hit !== null) return hit;
+    for (const [re, out, names] of templates) {
+      const m = re.exec(s);
+      if (!m) continue;
+      const vals = {};
+      names.forEach((name, i) => { vals[name] = name.startsWith("n") ? m[i + 1] : simple(m[i + 1]) ?? m[i + 1]; });
+      return out.replace(HOLE, (_, name) => vals[name] ?? "");
+    }
     return null;
   };
   return (text) => {
@@ -91,9 +123,9 @@ export function PlatformI18n() {
     if (lang === "es") { html.removeAttribute("data-i18n-pending"); return; }
 
     let observer; let cancelled = false;
-    import(`./plataforma-i18n/${lang}.json`).then(({ default: dict }) => {
+    Promise.all([import(`./plataforma-i18n/${lang}.json`), import(`./plataforma-i18n/plantillas.${lang}.json`)]).then(([{ default: dict }, { default: tpls }]) => {
       if (cancelled) return;
-      const tr = makeTranslator(lang, dict);
+      const tr = makeTranslator(lang, dict, tpls);
       const doText = (n) => {
         if (skip(n.parentElement)) return;
         const r = texts.get(n);

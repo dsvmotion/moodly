@@ -47,7 +47,7 @@ export default function Checkout() {
             <>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Tu plan</h1><span style={SUB}>Cuota fija por agente y por sede. El uso extra (conversaciones, voz) se factura aparte, con tope. 14 días de prueba.</span></div>
               <section style={{ ...box, overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", fontSize: "14px", fontWeight: 500 }}>Agentes · {PER_AGENT} €/mes cada uno</div>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", fontSize: "14px", fontWeight: 500 }}>{`Agentes · ${PER_AGENT} €/mes cada uno`}</div>
                 {AGENTS.map((a) => (
                   <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 20px", borderTop: "1px solid var(--line-soft)", fontSize: "14px", cursor: "pointer" }}>
                     <input type="checkbox" checked={agents.has(a.id)} onChange={() => toggle(a.id)} />
@@ -106,8 +106,8 @@ export default function Checkout() {
         {step < 3 && (
           <aside style={{ ...box, flex: "1 1 240px", minWidth: 0, padding: "20px", display: "flex", flexDirection: "column", gap: "12px", position: "sticky", top: "24px" }}>
             <span style={{ fontSize: "14px", fontWeight: 500 }}>Resumen</span>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>{agents.size} agentes</span><span>{baseAgents} €</span></div>
-            {sedeExtra > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>{sedes - 1} sede(s) extra</span><span>{sedeExtra} €</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>{`${agents.size} agentes`}</span><span>{baseAgents} €</span></div>
+            {sedeExtra > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>{`${sedes - 1} sede(s) extra`}</span><span>{sedeExtra} €</span></div>}
             {vozExtra > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", lineHeight: "21px" }}><span style={muted}>Voz</span><span>{vozExtra} €</span></div>}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid var(--line-soft)", paddingTop: "12px" }}><span style={{ fontSize: "14px" }}>Al mes</span><span style={{ fontSize: "24px", letterSpacing: "-0.48px" }}>{total} €</span></div>
             <span style={{ fontSize: "12px", ...muted }}>+ IVA. Implantación según escala, presupuesto aparte. Hoy no se cobra nada.</span>

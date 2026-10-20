@@ -30,7 +30,7 @@ export default function Screen() {
       <span style={label}>Cuenta</span>
       <div style={card}>
         <a href="/plataforma/movil/perfil" style={row}><span>Mi perfil</span><span style={{ color: "var(--muted-2)" }}>›</span></a>
-        <button type="button" onClick={nextSede} style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Sede activa</span><span style={{ color: "var(--muted-2)" }}>{sede.replace("Sede ", "")} · cambiar</span></button>
+        <button type="button" onClick={nextSede} style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Sede activa</span><span style={{ color: "var(--muted-2)" }}>{`${sede.replace("Sede ", "")} · cambiar`}</span></button>
         <button data-demo="" type="button" style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Verificación en dos pasos</span><span style={{ color: "var(--green-fg)" }}>Activada</span></button>
         <label style={{ ...row, borderTop: "1px solid var(--line-soft)", cursor: "default" }}><span>Idioma</span><PlatformLangSelect style={{ border: 0, background: "transparent", font: "inherit", color: "var(--muted-2)", textAlign: "right" }} /></label>
       </div>

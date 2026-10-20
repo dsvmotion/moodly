@@ -40,7 +40,7 @@ export default function Publicar() {
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <a href={`/plataforma/agente?a=${aKey}`} style={{ fontSize: "14px", color: "var(--muted)" }}>‹ {aName}</a>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>Publicar cambios de «{aName}»</h1>
+          <h1 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.56px" }}>{`Publicar cambios de «${aName}»`}</h1>
           <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>4 cambios sin publicar. Revísalos; al publicar, el agente empieza a usarlos con los clientes. Guardamos la versión anterior por si quieres volver.</span>
         </div>
 

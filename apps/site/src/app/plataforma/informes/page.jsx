@@ -56,7 +56,7 @@ export default function Screen() {
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ flex: "2 1 360px", borderRadius: "12px", background: "#004c39", color: "#ffffff", padding: "28px", display: "flex", flexDirection: "column", gap: "8px" }}>
-            <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>{per.title} · tiempo ahorrado a tu equipo</span>
+            <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>{`${per.title} · tiempo ahorrado a tu equipo`}</span>
             <span style={{ fontSize: "52px", lineHeight: "57px", letterSpacing: "-2.08px" }}>{d.hours}</span>
             <span style={{ fontSize: "14px", lineHeight: "21px", opacity: ".75" }}>{d.heroSub}</span>
           </div>
@@ -69,7 +69,7 @@ export default function Screen() {
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
           <section style={{ flex: "3 1 460px", minWidth: "0", background: "var(--paper)", borderRadius: "12px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Tareas completadas {per.chart}</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{`Tareas completadas ${per.chart}`}</h2>
               <span style={{ display: "flex", gap: "14px", flexWrap: "wrap", fontSize: "12px", lineHeight: "18px", color: "var(--muted)" }}><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "#004c39" }}></span>Recepción</span><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "var(--mist)" }}></span>Atención</span><span style={{ display: "flex", gap: "6px", alignItems: "center" }}><span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "#8e4e00" }}></span>Administración</span></span></div>
             <div role="img" aria-label={`Gráfico de barras ilustrativo: tareas ${per.chart} y agente`} style={{ display: "flex", alignItems: "flex-end", gap: "20px", height: "220px", padding: "0 4px", borderBottom: "1px solid var(--line)" }}>
               {d.bars.map((h, i) => (

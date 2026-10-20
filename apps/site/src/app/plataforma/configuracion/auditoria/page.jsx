@@ -47,7 +47,7 @@ export default function Auditoria() {
   const cur = LOG.find((r) => r[0] === open);
 
   return (
-    <SettingsShell active="auditoria" title="Registro de auditoría." intro="Cada acción, con quién y cuándo." actions={<button type="button" onClick={exportCsv} disabled={!rows.length} style={{ ...btn, opacity: rows.length ? 1 : 0.5 }}>Exportar CSV ({rows.length})</button>}>
+    <SettingsShell active="auditoria" title="Registro de auditoría." intro="Cada acción, con quién y cuándo." actions={<button type="button" onClick={exportCsv} disabled={!rows.length} style={{ ...btn, opacity: rows.length ? 1 : 0.5 }}>{`Exportar CSV (${rows.length})`}</button>}>
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
         <Pills label="Tipo de autor" options={KINDS} value={kind} onChange={setKind} size="sm" />
         <Pills label="Periodo" variant="segmented" options={PERIODS} value={period} onChange={setPeriod} size="sm" />

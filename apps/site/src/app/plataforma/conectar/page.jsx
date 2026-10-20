@@ -72,7 +72,7 @@ export default function Conectar() {
 
         {step === 2 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "24px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Conecta {ch.name}</h1><span style={SUB}>{channel === "whatsapp" ? "Usamos la API oficial de Meta. Tus mensajes y tu número son tuyos; nosotros solo los gestionamos." : "Te llevamos al proveedor para autorizar el acceso. Pedimos los permisos mínimos."}</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>{`Conecta ${ch.name}`}</h1><span style={SUB}>{channel === "whatsapp" ? "Usamos la API oficial de Meta. Tus mensajes y tu número son tuyos; nosotros solo los gestionamos." : "Te llevamos al proveedor para autorizar el acceso. Pedimos los permisos mínimos."}</span></div>
 
             {channel === "whatsapp" ? (
               <div style={{ ...CARD, padding: "24px", display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -92,7 +92,7 @@ export default function Conectar() {
             ) : (
               <div style={{ ...CARD, padding: "32px", display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", textAlign: "center" }}>
                 <span style={{ width: "56px", height: "56px", borderRadius: "14px", background: "var(--canvas)", display: "flex", alignItems: "center", justifyContent: "center" }}><img src={`/logos/${ch.logo}`} alt="" width="30" height="30" /></span>
-                <span style={{ ...SUB, maxWidth: "380px" }}>Te abriremos {ch.name} en una ventana segura para que autorices el acceso con tu cuenta.</span>
+                <span style={{ ...SUB, maxWidth: "380px" }}>{`Te abriremos ${ch.name} en una ventana segura para que autorices el acceso con tu cuenta.`}</span>
                 <button type="button" disabled={phase === "connecting"} onClick={connect} style={{ ...btnDark, display: "inline-flex", alignItems: "center", gap: "8px" }}>{phase === "connecting" ? <><span className="mo-spin" style={{ width: "14px", height: "14px", borderRadius: "800px", border: "2px solid var(--on-ink-55)", borderTopColor: "var(--on-ink)", animation: "mo-spin .7s linear infinite" }} />Conectando…</> : `Autorizar con ${ch.name}`}</button>
                 <button type="button" onClick={() => setStep(1)} style={{ ...btnLight, border: 0, background: "transparent" }}>Atrás</button>
               </div>
@@ -104,7 +104,7 @@ export default function Conectar() {
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "24px", animation: "mo-rise .3s ease both" }}>
             <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
               <span style={{ width: "44px", height: "44px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flex: "none" }}>✓</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>{ch.name} conectado</h1><span style={SUB}>Ya puede recibir y responder. {channel === "whatsapp" ? "Falta aprobar las plantillas para poder iniciar conversaciones." : "El agente de Atención empezará a usarlo."}</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>{`${ch.name} conectado`}</h1><span style={SUB}>Ya puede recibir y responder. {channel === "whatsapp" ? "Falta aprobar las plantillas para poder iniciar conversaciones." : "El agente de Atención empezará a usarlo."}</span></div>
             </div>
 
             {channel === "whatsapp" && (

@@ -81,7 +81,7 @@ export default function Autonomia() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid var(--line-soft)", paddingTop: "16px" }}>
-          <span style={{ fontSize: "13px", ...muted }}>Para «{agent}» en «{sede}». Las sedes sin valor propio heredan el de la organización.</span>
+          <span style={{ fontSize: "13px", ...muted }}>{`Para «${agent}» en «${sede}». Las sedes sin valor propio heredan el de la organización.`}</span>
           <button type="button" style={btnDark}>Guardar techo</button>
         </div>
       </main>

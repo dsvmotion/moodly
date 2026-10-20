@@ -48,7 +48,7 @@ export default function Screen() {
           <section style={{ background: "var(--paper)", borderRadius: "12px", overflowX: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", gap: "12px", flexWrap: "wrap" }}>
               <Pills label="Estado de la factura" options={TABS} value={tab} onChange={setTab} size="sm" />
-              {tab === "aprobar" && rows.length > 0 && <button data-demo="" type="button" onClick={() => approve(rows.map((r) => r.id))} style={{ padding: "9px 16px", borderRadius: "800px", border: "0", background: "var(--ink)", color: "var(--on-ink)", font: "400 14px/20px var(--font-display)", cursor: "pointer" }}>Aprobar las {rows.length}</button>}
+              {tab === "aprobar" && rows.length > 0 && <button data-demo="" type="button" onClick={() => approve(rows.map((r) => r.id))} style={{ padding: "9px 16px", borderRadius: "800px", border: "0", background: "var(--ink)", color: "var(--on-ink)", font: "400 14px/20px var(--font-display)", cursor: "pointer" }}>{`Aprobar las ${rows.length}`}</button>}
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", lineHeight: "21px", minWidth: "620px" }}>
               <thead><tr style={{ textAlign: "left", background: "var(--sunken)" }}><th style={{ padding: "10px 20px", fontWeight: "500" }}>Factura</th><th style={{ padding: "10px", fontWeight: "500" }}>Cliente</th><th style={{ padding: "10px", fontWeight: "500" }}>Importe</th><th style={{ padding: "10px", fontWeight: "500" }}>Envío</th><th style={{ padding: "10px", fontWeight: "500" }}>Fecha</th><th style={{ padding: "10px 20px" }}></th></tr></thead>

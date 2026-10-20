@@ -80,7 +80,7 @@ export default function Revisar() {
         <div role="dialog" aria-modal="true" aria-label="Confirmar envío" style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={() => setState("pending")}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
             <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Enviar la factura F‑0412?</span>
-            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Se enviará por WhatsApp a Laura M. por {importe} €. Esta acción queda registrada.</span>
+            <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{`Se enviará por WhatsApp a Laura M. por ${importe} €. Esta acción queda registrada.`}</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
               <button type="button" onClick={() => setState("pending")} style={btnLight}>Cancelar</button>
               <button type="button" onClick={() => setState("approved")} style={btnDark}>Sí, enviar</button>

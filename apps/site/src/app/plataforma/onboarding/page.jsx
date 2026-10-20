@@ -112,7 +112,7 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
 
 {(isStep2) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Conecta tus herramientas. <span style={{ color: "var(--muted)" }}>Para {sectorName} solemos empezar por {typical}. Puedes añadir más después.</span></h1>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Conecta tus herramientas. <span style={{ color: "var(--muted)" }}>{`Para ${sectorName} solemos empezar por ${typical}. Puedes añadir más después.`}</span></h1>
 <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden" }}>
 {(tools).map((t, $index) => (<Fragment key={$index}>
 <div style={{ display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", flexWrap: "wrap" }}>
@@ -128,7 +128,7 @@ agents: agentList.map((a) => ({ ...a, desc: skills(a.id === 'admin' ? 'administr
 
 {(isStep3) ? (<>
 <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Elige tus agentes. <span style={{ color: "var(--muted)" }}>Vienen configurados para {sectorName}. Podrás ajustar cada skill.</span></h1>
+<h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Elige tus agentes. <span style={{ color: "var(--muted)" }}>{`Vienen configurados para ${sectorName}. Podrás ajustar cada skill.`}</span></h1>
 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
 {(agents).map((a, $index) => (<Fragment key={$index}>
 <div style={{ borderRadius: "12px", background: "var(--paper)", border: "1px solid var(--line)", padding: "24px", display: "flex", gap: "16px", alignItems: "flex-start" }}>

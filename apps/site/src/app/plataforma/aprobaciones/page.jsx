@@ -61,7 +61,7 @@ export default function Aprobaciones() {
             <section aria-label="Detalle" style={{ flex: "3 1 460px", minWidth: 0, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
               <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--line-soft)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
-                  <span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>Preparado por {current.agent}</span>
+                  <span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{`Preparado por ${current.agent}`}</span>
                   <h2 style={{ margin: 0, fontSize: "24px", lineHeight: "26.4px", fontWeight: 400, letterSpacing: "-0.48px" }}>{current.head}</h2>
                 </div>
                 {current.tag === "Factura" && <a href="/plataforma/revisar" style={{ fontSize: "14px", color: "var(--blue-fg)", textDecoration: "none", flex: "none" }}>Ver factura completa →</a>}

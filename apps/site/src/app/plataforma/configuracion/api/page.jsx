@@ -50,7 +50,7 @@ export default function Api() {
 
       <section style={{ ...card, padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "640px" }}>
-          <caption style={{ textAlign: "left", padding: "18px 24px 6px", fontSize: "13px", color: "var(--muted)" }}>{keys.length} {keys.length === 1 ? "clave activa" : "claves activas"}. Solo guardamos el principio de cada clave.</caption>
+          <caption style={{ textAlign: "left", padding: "18px 24px 6px", fontSize: "13px", color: "var(--muted)" }}>{`${keys.length} ${keys.length === 1 ? "clave activa" : "claves activas"}. Solo guardamos el principio de cada clave.`}</caption>
           <thead><tr style={{ textAlign: "left", background: "var(--sunken)" }}><th scope="col" style={{ padding: "10px 24px", fontWeight: 500 }}>Nombre</th><th scope="col" style={{ padding: "10px", fontWeight: 500 }}>Permisos</th><th scope="col" style={{ padding: "10px", fontWeight: 500 }}>Último uso</th><th scope="col" style={{ padding: "10px", fontWeight: 500 }}>Caduca</th><th scope="col" style={{ padding: "10px 24px" }}><span style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>Acciones</span></th></tr></thead>
           <tbody>
             {keys.length === 0 && <tr><td colSpan={5} style={{ padding: "20px 24px", ...muted }}>No hay claves. Crea una para conectar tus herramientas.</td></tr>}
@@ -90,7 +90,7 @@ export default function Api() {
       {revoking && (
         <div role="dialog" aria-modal="true" aria-label="Revocar clave" onClick={() => setRevoking(null)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
-            <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Revocar «{revoking.name}»?</span>
+            <span style={{ fontSize: "17px", fontWeight: 500 }}>{`¿Revocar «${revoking.name}»?`}</span>
             <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Dejará de funcionar al instante. Lo que la use ({revoking.used === "Nunca" ? "aún no se ha usado" : `último uso ${revoking.used}`}) empezará a recibir errores 401. No se puede deshacer.</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><button type="button" onClick={() => setRevoking(null)} style={btn(false)}>Cancelar</button><button type="button" onClick={() => { setKeys(keys.filter((x) => x.id !== revoking.id)); setRevoking(null); }} style={{ ...btn(true), background: "#a30042", borderColor: "#a30042", color: "#ffffff" }}>Revocar</button></div>
           </div>

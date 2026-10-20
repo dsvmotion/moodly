@@ -60,7 +60,7 @@ export default function Screen() {
           {cur && (
             <section aria-label={`Llamada de ${cur.name}`} style={{ flex: "3 1 460px", minWidth: "0", background: "var(--paper)", borderRadius: "12px", display: "flex", flexDirection: "column" }}>
               <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--line-soft)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <span><span style={{ display: "block", fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>{cur.name}</span><span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{cur.time} · {cur.dur} · atendida por {cur.agent} · {KIND[cur.kind].label}</span></span>
+                <span><span style={{ display: "block", fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>{cur.name}</span><span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{`${cur.time} · ${cur.dur} · atendida por ${cur.agent} · ${KIND[cur.kind].label}`}</span></span>
                 <span style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {cur.client ? <a href={`/plataforma/clientes?c=${encodeURIComponent(cur.client)}`} style={{ ...pill, border: "1px solid var(--line)", color: "var(--ink)" }}>Ver ficha</a> : <span style={{ ...pill, color: "var(--muted-2)" }}>Sin ficha</span>}
                   <button data-demo="" type="button" style={{ ...pill, border: "0", background: "var(--ink)", color: "var(--on-ink)", font: "400 14px/21px var(--font-display)", cursor: "pointer" }}>Llamar de vuelta</button>

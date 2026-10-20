@@ -102,7 +102,7 @@ export default function Modelos() {
                 <tr key={name} style={{ borderTop: "1px solid var(--line-soft)" }}>
                   <td style={{ padding: "12px 24px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}><span style={{ width: "10px", height: "10px", borderRadius: "800px", background: color }} />{name}</span></td>
                   <td style={{ padding: "8px 12px" }}>
-                    <label style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }} htmlFor={`m-${i}`}>Modelo de {name}</label>
+                    <label style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }} htmlFor={`m-${i}`}>{`Modelo de ${name}`}</label>
                     <select id={`m-${i}`} value={models[i]} onChange={(e) => setModels(models.map((m, j) => (j === i ? e.target.value : m)))} style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--paper)", font: "400 14px/20px var(--font-display)" }}>{OPTIONS.map((o) => <option key={o}>{o}</option>)}</select>
                   </td>
                   <td style={{ padding: "12px 24px", ...muted }}>{tip}</td>
@@ -115,7 +115,7 @@ export default function Modelos() {
         <section style={{ ...box, gap: "8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
             <h2 style={h2}>Modelos permitidos</h2>
-            <span style={{ fontSize: "13px", ...muted }}>{enabled.size} activados · el enrutador elige el mejor por tarea</span>
+            <span style={{ fontSize: "13px", ...muted }}>{`${enabled.size} activados · el enrutador elige el mejor por tarea`}</span>
           </div>
           {CATALOG.map((g) => (
             <div key={g.region} style={{ display: "flex", flexDirection: "column", gap: "2px", marginTop: "8px" }}>
@@ -129,7 +129,7 @@ export default function Modelos() {
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "var(--paper-2a)", borderBottom: "1px solid var(--line-soft)" }}>
                     {p.logo ? <img src={`/logos/${p.logo}.svg`} alt="" width="18" height="18" style={{ borderRadius: "4px" }} /> : <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--sunken)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: 600 }}>{p.name[0]}</span>}
                     <span style={{ fontSize: "14px", fontWeight: 500, flex: 1 }}>{p.name}</span>
-                    <span style={{ fontSize: "12px", ...muted }}>{count(p)}/{p.models.length} activados</span>
+                    <span style={{ fontSize: "12px", ...muted }}>{`${count(p)}/${p.models.length} activados`}</span>
                   </div>
                   {p.models.map((m) => {
                     const [label, bg, fg] = TYPES[m.type];

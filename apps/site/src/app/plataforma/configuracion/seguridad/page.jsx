@@ -103,7 +103,7 @@ export default function Seguridad() {
         <div role="dialog" aria-modal="true" aria-label="Cerrar todas las sesiones" onClick={() => setClosing(null)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
             <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Cerrar todas las sesiones?</span>
-            <span style={{ ...sub, fontSize: "14px", lineHeight: "21px" }}>Las {TEAM.length} personas del espacio (tú incluida) tendrán que volver a entrar. Los agentes siguen funcionando. Queda registrado.</span>
+            <span style={{ ...sub, fontSize: "14px", lineHeight: "21px" }}>{`Las ${TEAM.length} personas del espacio (tú incluida) tendrán que volver a entrar. Los agentes siguen funcionando. Queda registrado.`}</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
               <button type="button" onClick={() => setClosing(null)} style={btn(false)}>Cancelar</button>
               <button type="button" onClick={() => setClosing("done")} style={{ ...btn(true), background: "#a30042", borderColor: "#a30042", color: "#ffffff" }}>Cerrar todas</button>

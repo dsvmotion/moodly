@@ -52,7 +52,7 @@ export default function Subprocesadores() {
 
         <section style={{ ...CARD, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "16px", fontWeight: 500 }}>Subencargados ({SUBS.length})</span>
+            <span style={{ fontSize: "16px", fontWeight: 500 }}>{`Subencargados (${SUBS.length})`}</span>
             <span style={{ fontSize: "12px", ...muted }}>Residencia: sin restricción · <a href="/plataforma/residencia" style={{ color: "var(--blue-fg)" }}>cambiar</a></span>
           </div>
           {SUBS.map((s, i) => {

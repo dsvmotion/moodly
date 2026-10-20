@@ -60,7 +60,7 @@ export default function Integraciones() {
           </div>
         </section>
 
-        <h2 style={{ ...h2s, marginTop: "4px" }}>Conectadas · {connected.length}</h2>
+        <h2 style={{ ...h2s, marginTop: "4px" }}>{`Conectadas · ${connected.length}`}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
           {connected.map((i) => (
             <div key={i.id} style={{ background: "var(--paper)", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "10px", boxShadow: state[i.id] === "error" ? "inset 0 0 0 1px var(--rose-fg)" : "none" }}>
@@ -73,7 +73,7 @@ export default function Integraciones() {
               <span style={{ fontSize: "16px", fontWeight: 500 }}>{i.name}</span>
               <span style={{ ...muted }}>{i.use}</span>
               <span style={{ display: "flex", alignItems: "flex-start", gap: "8px", padding: "10px 12px", borderRadius: "10px", background: "var(--paper-2b)", fontSize: "13px", lineHeight: "19px" }}><span aria-hidden="true">⚡</span><span><span style={{ color: "var(--muted-2)" }}>El agente puede:</span> {i.actions}</span></span>
-              <span style={{ fontSize: "12px", color: "var(--muted-2)" }}>La usa: {i.agents}</span>
+              <span style={{ fontSize: "12px", color: "var(--muted-2)" }}>{`La usa: ${i.agents}`}</span>
               <span style={{ display: "flex", gap: "8px", marginTop: "auto" }}>
                 {state[i.id] === "error"
                   ? <a href={`/plataforma/configuracion/integraciones/detalle?i=${i.id}`} style={{ ...btn(true), textDecoration: "none" }}>Reconectar</a>
@@ -84,7 +84,7 @@ export default function Integraciones() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap", marginTop: "4px" }}>
-          <h2 style={h2s}>Disponibles · {ALL.length - connected.length}</h2>
+          <h2 style={h2s}>{`Disponibles · ${ALL.length - connected.length}`}</h2>
           <a href="/es/integraciones" style={{ color: "var(--blue-fg)" }}>Ver las 121 integraciones →</a>
         </div>
         <div role="tablist" aria-label="Categorías" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>

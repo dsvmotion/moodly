@@ -32,7 +32,7 @@ export default function Screen() {
 
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Clientes. <span style={{ color: "var(--muted)" }}>{d.count} fichas, actualizadas por tus agentes.</span></h1>
+          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Clientes. <span style={{ color: "var(--muted)" }}>{`${d.count} fichas, actualizadas por tus agentes.`}</span></h1>
           <div style={{ display: "flex", gap: "8px" }}><button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "400 14px/21px var(--font-display)" }}>Importar</button><button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "0", background: "var(--ink)", color: "var(--on-ink)", font: "400 14px/21px var(--font-display)" }}>Añadir cliente</button></div>
         </div>
 
@@ -87,7 +87,7 @@ export default function Screen() {
               </div>
 
               <div style={{ background: "var(--paper)", borderRadius: "12px", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", fontSize: "14px", lineHeight: "21px" }}>
-                <span style={{ color: "var(--muted)" }}>Datos personales de {det.name.split(" ")[0]}: exportar o borrar (RGPD)</span>
+                <span style={{ color: "var(--muted)" }}>{`Datos personales de ${det.name.split(" ")[0]}: exportar o borrar (RGPD)`}</span>
                 <a href={`/plataforma/privacidad?c=${encodeURIComponent(det.name)}`} style={{ color: "var(--blue-fg)", textDecoration: "none" }}>Privacidad y datos →</a>
               </div>
             </section>

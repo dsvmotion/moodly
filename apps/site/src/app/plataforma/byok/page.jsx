@@ -64,7 +64,7 @@ export default function Byok() {
           <section className="mo-rise" style={{ ...box, padding: "24px", display: "flex", flexDirection: "column", gap: "16px", animation: "mo-rise .3s ease both" }}>
             <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
               <span style={{ width: "44px", height: "44px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flex: "none" }}>✓</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}><span style={{ fontSize: "17px", fontWeight: 500 }}>{prov.name} conectado{byoc ? " (tu nube)" : " (BYOK)"}</span><span style={{ fontSize: "14px", ...muted }}>Llamada de prueba correcta por {via} · {region}. Salud: operativo.</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}><span style={{ fontSize: "17px", fontWeight: 500 }}>{`${prov.name} conectado${byoc ? " (tu nube)" : " (BYOK)"}`}</span><span style={{ fontSize: "14px", ...muted }}>{`Llamada de prueba correcta por ${via} · ${region}. Salud: operativo.`}</span></div>
             </div>
             <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", padding: "12px 14px", borderRadius: "10px", background: "var(--linen)", fontSize: "13px", lineHeight: "19px", fontFamily: "var(--font-body)" }}><span aria-hidden="true">🔒</span><span>{byoc ? "No almacenamos tus modelos ni los datos de inferencia; corren en tu cuenta." : "Tu clave se guardó cifrada con KMS (clave por cliente). No vuelve a mostrarse; solo puedes rotarla o revocarla."}</span></div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}><a href="/plataforma/residencia" style={btnLight}>Ajustar residencia</a><a href="/plataforma/proveedores" style={btnDark}>Volver a proveedores</a></div>
@@ -97,7 +97,7 @@ export default function Byok() {
 
             <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", padding: "12px 14px", borderRadius: "10px", background: "var(--linen)", fontSize: "13px", lineHeight: "19px", fontFamily: "var(--font-body)" }}><span aria-hidden="true">🔒</span><span>Se cifra con KMS (envelope encryption, clave por cliente) y nunca se muestra desde el navegador. Validamos con una llamada de prueba antes de guardar.</span></div>
 
-            {phase === "error" && <div role="alert" className="mo-rise" style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 16px", borderRadius: "10px", background: "var(--rose-bg)", color: "var(--rose-fg)", fontSize: "14px", lineHeight: "20px" }}><span>×</span><span>La llamada de prueba falló: la credencial no es válida o no tiene acceso a {via}. Revísala e inténtalo de nuevo.</span></div>}
+            {phase === "error" && <div role="alert" className="mo-rise" style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 16px", borderRadius: "10px", background: "var(--rose-bg)", color: "var(--rose-fg)", fontSize: "14px", lineHeight: "20px" }}><span>×</span><span>{`La llamada de prueba falló: la credencial no es válida o no tiene acceso a ${via}. Revísala e inténtalo de nuevo.`}</span></div>}
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", borderTop: "1px solid var(--line-soft)", paddingTop: "16px" }}>
               <a href="/plataforma/proveedores" style={btnLight}>Cancelar</a>

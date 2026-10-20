@@ -47,7 +47,7 @@ export default function Voz() {
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="agentes" /></div>
       <main style={{ flex: "999 1 560px", minWidth: 0, padding: "32px clamp(16px, 3vw, 40px) 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxWidth: "720px" }}>
-          <span style={{ alignSelf: "flex-start", padding: "4px 12px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", fontSize: "12px" }}>{aName} · voz</span>
+          <span style={{ alignSelf: "flex-start", padding: "4px 12px", borderRadius: "800px", background: "var(--ink)", color: "var(--on-ink)", fontSize: "12px" }}>{`${aName} · voz`}</span>
           <h1 style={{ margin: "6px 0 0", fontSize: "32px", lineHeight: "35.2px", fontWeight: 400, letterSpacing: "-0.64px" }}>La voz de tu negocio. <span style={{ color: "var(--muted)" }}>Cómo suena el agente al teléfono y en las notas de voz.</span></h1>
         </div>
 
@@ -95,7 +95,7 @@ export default function Voz() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", borderTop: "1px solid var(--line-soft)", paddingTop: "16px" }}>
-          <span style={{ fontSize: "13px", ...muted }}>La voz se aplica a las llamadas y notas de voz del agente de {aName}.</span>
+          <span style={{ fontSize: "13px", ...muted }}>{`La voz se aplica a las llamadas y notas de voz del agente de ${aName}.`}</span>
           <button type="button" disabled={!ready} style={{ ...btnDark, opacity: ready ? 1 : 0.45, cursor: ready ? "pointer" : "not-allowed" }}>{isClone ? "Clonar y activar" : "Guardar y activar"}</button>
         </div>
       </main>

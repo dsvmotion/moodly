@@ -92,7 +92,7 @@ export default function Screen() {
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 48px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "24px" }}>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>Agentes / {a.name}</span>
+          <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>{`Agentes / ${a.name}`}</span>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <div role="tablist" aria-label="Tus agentes" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {AGENTS.map((g, i) => {
@@ -128,7 +128,7 @@ export default function Screen() {
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
           <section style={{ ...box, flex: "3 1 460px", minWidth: "0", overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid var(--line-soft)", gap: "12px", flexWrap: "wrap" }}>
-              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{activeCount} de {a.skills.length} activas · Configuradas de serie para clínicas</span></div>
+              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{`${activeCount} de ${a.skills.length} activas · Configuradas de serie para clínicas`}</span></div>
             </div>
             {a.skills.map((s) => {
               const act = isOn(s);

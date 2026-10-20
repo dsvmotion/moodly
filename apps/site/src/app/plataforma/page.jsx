@@ -39,8 +39,8 @@ export default function Screen() {
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 48px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>Lunes, 6 de octubre · {sede}</span>
-            <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>Buenos días, {d.greetingName}. <span style={{ color: "var(--muted)" }}>Tus agentes llevan {scale(d.tasks, FACTOR[period])} tareas {period === "hoy" ? "hoy" : period === "semana" ? "esta semana" : "este mes"}.</span></h1>
+            <span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{`Lunes, 6 de octubre · ${sede}`}</span>
+            <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-1.28px" }}>{`Buenos días, ${d.greetingName}. `}<span style={{ color: "var(--muted)" }}>{`Tus agentes llevan ${scale(d.tasks, FACTOR[period])} tareas ${period === "hoy" ? "hoy" : period === "semana" ? "esta semana" : "este mes"}.`}</span></h1>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <Pills label="Periodo" variant="segmented" options={PERIODS} value={period} onChange={setPeriod} size="sm" />

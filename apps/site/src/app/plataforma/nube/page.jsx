@@ -57,7 +57,7 @@ export default function Nube() {
                 return (
                   <button key={id} type="button" role="radio" aria-checked={seld} onClick={() => pickCloud(id)} style={{ ...CARD, textAlign: "left", padding: "18px", display: "flex", flexDirection: "column", gap: "8px", cursor: "pointer", borderColor: seld ? "var(--ink)" : "var(--line)", outline: seld ? "1px solid var(--ink)" : "none" }}>
                     <span style={{ fontSize: "15px", fontWeight: 500 }}>{x.name}</span>
-                    <span style={{ fontSize: "12px", ...muted }}>{x.models.length} modelos · {x.regions.length} regiones</span>
+                    <span style={{ fontSize: "12px", ...muted }}>{`${x.models.length} modelos · ${x.regions.length} regiones`}</span>
                   </button>
                 );
               })}
@@ -69,7 +69,7 @@ export default function Nube() {
 
         {step === 2 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Credenciales de {c.name}</h1><span style={SUB}>Damos acceso de solo-inferencia con los permisos mínimos. Se cifra con KMS y no se muestra.</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>{`Credenciales de ${c.name}`}</h1><span style={SUB}>Damos acceso de solo-inferencia con los permisos mínimos. Se cifra con KMS y no se muestra.</span></div>
             <div style={{ ...CARD, padding: "22px", display: "flex", flexDirection: "column", gap: "14px" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>{c.cred}<input placeholder={c.ph} style={field} /></label>
               {cloud === "azure" && <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Clave<input type="password" placeholder="••••••••" style={field} /></label>}
@@ -96,7 +96,7 @@ export default function Nube() {
             {phase === "error" && <div role="alert" style={{ display: "flex", gap: "10px", alignItems: "center", padding: "12px 16px", borderRadius: "10px", background: "var(--rose-bg)", color: "var(--rose-fg)", fontSize: "14px" }}><span>×</span><span>El rol no tiene acceso a alguno de los modelos. Revisa los permisos en tu nube.</span></div>}
             <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
               <button type="button" onClick={() => setStep(2)} style={btnLight}>Atrás</button>
-              <button type="button" disabled={phase === "testing" || models.length === 0} onClick={validate} style={{ ...btnDark, opacity: phase === "testing" || models.length === 0 ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: "8px" }}>{phase === "testing" ? <><span className="mo-spin" style={{ width: "14px", height: "14px", borderRadius: "800px", border: "2px solid var(--on-ink-55)", borderTopColor: "var(--on-ink)", animation: "mo-spin .7s linear infinite" }} />Validando {models.length} modelos…</> : `Validar y conectar (${models.length})`}</button>
+              <button type="button" disabled={phase === "testing" || models.length === 0} onClick={validate} style={{ ...btnDark, opacity: phase === "testing" || models.length === 0 ? 0.5 : 1, display: "inline-flex", alignItems: "center", gap: "8px" }}>{phase === "testing" ? <><span className="mo-spin" style={{ width: "14px", height: "14px", borderRadius: "800px", border: "2px solid var(--on-ink-55)", borderTopColor: "var(--on-ink)", animation: "mo-spin .7s linear infinite" }} />{`Validando ${models.length} modelos…`}</> : `Validar y conectar (${models.length})`}</button>
             </div>
           </div>
         )}
@@ -105,7 +105,7 @@ export default function Nube() {
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
             <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
               <span style={{ width: "44px", height: "44px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flex: "none" }}>✓</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>{c.name} conectado (tu nube)</h1><span style={SUB}>{models.length} modelos operativos en {region}. Salud: correcto.</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>{`${c.name} conectado (tu nube)`}</h1><span style={SUB}>{`${models.length} modelos operativos en ${region}. Salud: correcto.`}</span></div>
             </div>
             <div style={{ ...CARD, padding: "18px 20px", display: "flex", flexDirection: "column", gap: "8px" }}>
               {models.map((m) => <div key={m} style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "14px" }}><span>{m}</span><span style={{ padding: "2px 10px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", fontSize: "12px" }}>operativo</span></div>)}

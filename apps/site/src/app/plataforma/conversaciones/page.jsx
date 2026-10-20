@@ -142,7 +142,7 @@ export default function Screen() {
         <div role="dialog" aria-modal="true" aria-label="Tomar el control" style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={() => setConfirming(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", background: "var(--paper)", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column", gap: "12px", boxShadow: "0 24px 64px #00000033" }}>
             <span style={{ fontSize: "17px", fontWeight: 500 }}>¿Tomar el control de esta conversación?</span>
-            <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)", fontFamily: "var(--font-body)" }}>El agente dejará de responder a {det.header.name} hasta que se la devuelvas. Escribirás tú. El cambio queda registrado.</span>
+            <span style={{ fontSize: "14px", lineHeight: "21px", color: "var(--muted)", fontFamily: "var(--font-body)" }}>{`El agente dejará de responder a ${det.header.name} hasta que se la devuelvas. Escribirás tú. El cambio queda registrado.`}</span>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
               <button type="button" onClick={() => setConfirming(false)} style={btn(false)}>Cancelar</button>
               <button type="button" onClick={take} style={btn(true)}>Sí, tomo el control</button>
