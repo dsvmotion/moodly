@@ -66,7 +66,12 @@
 
 - Cierre del diseño del prototipo — rama `feat/cierre-diseno`, estado a 2026-10-20: pantallas que faltaban (2FA, SSO, SCIM, claves de API, ficha de integración, auditoría, facturación), modo oscuro, plataforma en en/fr/de y accesibilidad WCAG 2.1 AA (axe: 0 fallos en las 67 pantallas, en claro y en oscuro; diálogos usables con teclado). Después, en la misma rama: estados de pantalla (cargando, vacío, error y sin permiso) en las 67 pantallas, plataforma adaptada a móvil y tableta (menú en cajón por debajo de 900 px) y traducciones con frases completas (plantillas con huecos). Lienzo de diseño actualizado (versión 74). Detalle y evidencia: `docs/audits/2026-10-20-cierre-diseno.md`. PR abierto, pendiente de revisión.
 
+- Seguridad de los cimientos a nivel enterprise — estado a 2026-10-20 (informe: `docs/audits/2026-10-20-seguridad-cimientos.md`):
+  - **PRs abiertos, pendientes de revisión humana** (zonas sensibles), en este orden: #28 (dependencias sin vulnerabilidades, Next 16.3.8), #29 (cabeceras de seguridad y CSP con nonce), #30 (Auth: MFA TOTP, contraseñas y sesiones), #31 (cadena de suministro: Actions fijadas, Dependabot, gitleaks y `pnpm audit` en CI).
+  - **Siguiente:** exigir MFA (AAL2) por rol, auditoría de accesos, CAPTCHA en el login (necesita una cuenta de Cloudflare Turnstile), monitorización y gestión de secretos en producción.
+
 ## Bloqueado
+- `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS de la rama y un iPhone; la hace producto. Hasta entonces la fase no pasa a "Hecho y verificado".
 - Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), BSP de WhatsApp (#4), proveedores LLM y embeddings (#5). No bloquean la Fase 0.
