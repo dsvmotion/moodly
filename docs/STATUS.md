@@ -69,6 +69,8 @@
 - Seguridad de los cimientos a nivel enterprise — estado a 2026-10-20 (informe: `docs/audits/2026-10-20-seguridad-cimientos.md`):
   - **PRs abiertos, pendientes de revisión humana** (zonas sensibles), en este orden: #28 (dependencias sin vulnerabilidades, Next 16.3.8), #29 (cabeceras de seguridad y CSP con nonce), #30 (Auth: MFA TOTP, contraseñas y sesiones), #31 (cadena de suministro: Actions fijadas, Dependabot, gitleaks y `pnpm audit` en CI).
   - **Siguiente:** exigir MFA (AAL2) por rol, auditoría de accesos, CAPTCHA en el login (necesita una cuenta de Cloudflare Turnstile), monitorización y gestión de secretos en producción.
+  - **Revisión de toda la plataforma** (2026-10-20, `docs/audits/2026-10-20-revision-seguridad-plataforma.md`): 2 hallazgos nuevos en código, comprobados en local (login sin freno contra la fuerza bruta, y un `org_admin` que puede añadir a cualquier usuario sin invitación), y 14 controles obligatorios antes de construir agentes, conocimiento, modelos, secretos e integraciones, con el orden de trabajo.
+  - El repo vive ahora en `~/Developer/moodly-ai` (fuera del Escritorio de iCloud).
 
 ## Bloqueado
 - `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.
