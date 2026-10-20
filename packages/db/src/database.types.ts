@@ -106,7 +106,15 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "login_record_failure":
+{ Args: { "p_email": string,"p_ip": string }; Returns: undefined
+                           },
+"login_record_success":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"login_throttle":
+{ Args: { "p_email": string,"p_ip": string }; Returns: number
+                           }
           }
           Enums: {
             [_ in never]: never
