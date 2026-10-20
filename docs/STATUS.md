@@ -74,7 +74,8 @@
   - **Arquitectura enterprise de identidad y seguridad (propuesta, 2026-10-21):**
     - ADR 0022: cuenta de empresa → organizaciones; dominios verificados; SSO y SCIM; permisos + alcance materializados; invitaciones; bajas inmediatas; delegación sin escalada; acceso del equipo interno *just-in-time*.
     - `docs/design/seguridad-por-pilares.md`: controles obligatorios por pilar (usuarios, agentes con la «regla de los dos», memoria y conocimiento, modelos, integraciones, datos y operación) y cómo se prueba cada uno.
-    - **Pendiente de producto:** elegir proveedor de SSO/SCIM (Supabase SAML + SCIM propio, o WorkOS).
+    - **Decidido (2026-10-21):** WorkOS para SSO, SCIM y Admin Portal; se recomienda usarlo como login único para todos los planes, pendiente de una prueba técnica.
+    - **Bloqueado:** la prueba técnica necesita que producto cree una cuenta de WorkOS (entorno staging) y pida el DPA, aclarando la residencia de los datos de identidad.
 
 ## Bloqueado
 - `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.

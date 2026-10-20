@@ -1,6 +1,6 @@
 # 0022 — Identidad, cuentas y permisos a escala enterprise
 
-- **Estado:** propuesto (pendiente de decisión de producto en los puntos marcados **[DECIDIR]**)
+- **Estado:** aceptado el proveedor de identidad (§3, WorkOS: producto, 2026-10-21, «lo más profesional, seguro y escalable a nivel enterprise»); el resto, propuesto. Se implanta por fases y cada fase se valida antes de darla por hecha.
 - **Fecha:** 2026-10-21
 - **Secciones del MANUAL afectadas:** §4.1 (jerarquía de tenants), §4.2 (`memberships`, `platform_staff`), §4.4 (RLS), §9.7 (`/ops`), §10.2 (autenticación y autorización)
 - **Relación:** amplía ADR 0003 (RLS y guardas) y la tabla `platform_staff` de #16 (ADR 0021). Corrige el hallazgo 2.2 de `docs/audits/2026-10-20-revision-seguridad-plataforma.md`.
@@ -42,14 +42,39 @@ account (cuenta de empresa / grupo)          ← identidad, SSO, SCIM, política
 - **Dominios verificados por cuenta** (registro TXT en el DNS). Los usuarios con email de un dominio verificado pasan a estar **gestionados**: la cuenta decide cómo entran (SSO obligatorio), sus altas y bajas, y sus sesiones.
 - **Nunca se fusionan cuentas por coincidir el email** sin verificar el dominio, ni se crea una identidad nueva para un email que ya pertenece a otra cuenta gestionada.
 
-### 3. SSO y SCIM a nivel de cuenta **[DECIDIR proveedor]**
+### 3. SSO y SCIM a nivel de cuenta — **decidido: WorkOS**
 
 | Opción | Qué es | Pros | Contras |
 |---|---|---|---|
 | **A. Supabase Auth SAML + SCIM propio** | SAML 2.0 de Supabase (plan Pro: 50 usuarios con SSO incluidos y luego un precio por usuario activo al mes) y un endpoint SCIM 2.0 que construimos nosotros | Todo en un proveedor y coste bajo con pocos usuarios con SSO | Hay que construir, mantener y certificar SCIM con cada IdP, y una pantalla para que el IT del cliente lo configure |
 | **B. WorkOS (SSO + Directory Sync + Admin Portal) como proveedor de identidad externo de Supabase** | Supabase acepta los tokens de WorkOS; WorkOS resuelve SAML/OIDC con cualquier IdP y la sincronización del directorio | El IT del cliente lo configura solo desde un portal; compatible con todos los IdPs del mercado; es el estándar del sector | Coste por conexión de cliente; un proveedor (y un subencargado) más |
 
-**Recomendación:** B para el plan enterprise (el coste por conexión lo cubre el precio enterprise) y email con contraseña + MFA para las pymes. A queda como alternativa si el volumen de conexiones lo justifica. Antes de decidir hay que comprobar en el piloto cómo llegan a Supabase los grupos del directorio.
+**Decisión (producto, 2026-10-21): opción B, WorkOS**, por ser lo más profesional, seguro y escalable a nivel enterprise:
+- el IT de cada cliente configura su SSO y su directorio solo, desde el Admin Portal, sin pasarse certificados por email;
+- es compatible con todos los proveedores de identidad del mercado (Entra ID, Okta, Google, OneLogin, JumpCloud, ADFS…);
+- garantías publicadas: SOC 2 Type 2, RGPD, pentests anuales y BAA en los planes enterprise.
+
+**Un solo sistema de login para todos (recomendado, pendiente de la prueba técnica):** WorkOS (AuthKit) también para las pymes (email + MFA). Así hay **un único modelo de seguridad**: sesiones, MFA, revocación y auditoría iguales en todos los planes, y una pyme pasa a enterprise activando el SSO, sin migrar usuarios.
+- Supabase deja de emitir las sesiones y **acepta los tokens de WorkOS** como proveedor de identidad externo. RLS sigue igual.
+- **La revocación de sesiones cambia:** `private.session_is_active()` hoy mira `auth.sessions` de Supabase. Con WorkOS pasa a mirar una tabla propia de sesiones vivas, con el `sid` del token, que se actualiza con los webhooks firmados de WorkOS (sesión revocada, usuario dado de baja). Se mantiene la garantía: un token copiado deja de leer datos al cerrar la sesión.
+
+**Arquitectura:**
+- **Login (AuthKit):** emite un token de vida corta con `sub`, `sid` y `org_id`. Supabase lo valida con las claves públicas de WorkOS y RLS lo usa como hoy.
+- **Directory Sync (SCIM):** los eventos de alta, baja y cambio de grupo llegan por webhook firmado al worker, que verifica la firma, aplica la idempotencia y recalcula `role_assignments` y `effective_permissions` según `group_role_rules` (§4). La baja ejecuta el §6 entero.
+- **Admin Portal:** el admin de cuenta genera un enlace de un solo uso para que su IT configure el SSO y el directorio. Cada enlace queda auditado.
+- **Auditoría:** la fuente de verdad sigue siendo nuestra `audit_logs`. El envío al SIEM del cliente se hace desde nuestro sistema.
+
+**Condiciones antes de usarlo con clientes reales:**
+1. **DPA firmado y residencia aclarada:** dónde guarda WorkOS los datos de identidad (nombre, email, grupos). Si es fuera de la UE, transferencia amparada en el marco UE–EE. UU. o en cláusulas tipo, y WorkOS en la lista pública de subencargados. Si un cliente exige que sus datos de identidad no salgan de la UE, se estudia ese caso concreto.
+2. **Prueba técnica** en un entorno de pruebas de WorkOS (staging), con:
+   - login, MFA y SSO con un proveedor de identidad de prueba;
+   - token aceptado por Supabase con RLS intacto (los 186 tests pgTAP en verde);
+   - revocación inmediata de una sesión y de un usuario dado de baja;
+   - alta, baja y cambio de grupo por SCIM con su efecto en los permisos;
+   - verificación de firma de todos los webhooks.
+3. **Si la prueba falla** en la revocación o en RLS, se queda el sistema híbrido: WorkOS solo para las cuentas enterprise y Supabase Auth para las pymes.
+
+Alternativas descartadas: A (Supabase SAML + SCIM propio), por construir y mantener SCIM y el portal nosotros; Auth0, que también vale para enterprise, pero WorkOS es más directo para SSO y directorio B2B y Supabase lo acepta de forma nativa como proveedor externo.
 
 ### 4. Autorización: permisos + alcance, materializados
 
@@ -142,3 +167,4 @@ Se configuran en la cuenta y las heredan sus organizaciones; se pueden bloquear 
 - [Supabase — precios: SSO SAML 2.0 en el plan Pro](https://supabase.com/pricing)
 - [Supabase — WorkOS como proveedor de identidad externo](https://supabase.com/docs/guides/auth/third-party/workos)
 - [WorkOS — integración con Supabase (AuthKit)](https://workos.com/docs/integrations/supabase-authkit)
+- [WorkOS — seguridad y cumplimiento (SOC 2 Type 2, RGPD, BAA)](https://workos.com/security)
