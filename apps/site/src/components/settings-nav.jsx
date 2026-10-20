@@ -32,7 +32,7 @@ const GROUPS = [
 
 export default function SettingsNav({ active }) {
   return (
-    <nav aria-label="Configuración" style={{ width: "248px", minHeight: "100dvh", boxSizing: "border-box", padding: "16px 12px", display: "flex", flexDirection: "column", gap: "2px", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", borderRight: "1px solid var(--line-soft)", letterSpacing: "-0.16px", fontSize: "14px", lineHeight: "20px" }}>
+    <nav aria-label="Configuración" data-sidenav="" style={{ width: "248px", minHeight: "100dvh", boxSizing: "border-box", padding: "16px 12px", display: "flex", flexDirection: "column", gap: "2px", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", borderRight: "1px solid var(--line-soft)", letterSpacing: "-0.16px", fontSize: "14px", lineHeight: "20px" }}>
       <a href="/plataforma" style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px 14px", color: "var(--muted)", textDecoration: "none" }}>
         <ArrowLeft size={18} strokeWidth={1.75} aria-hidden="true" />Volver a la plataforma
       </a>

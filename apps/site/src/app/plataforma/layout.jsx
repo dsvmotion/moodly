@@ -7,6 +7,7 @@ import { LANG_SCRIPT } from "@/components/lang-script";
 import { PlatformI18n } from "@/components/plataforma-i18n";
 import DialogA11y from "@/components/dialog-a11y";
 import ScreenStates from "@/components/screen-states";
+import MobileNav from "@/components/mobile-nav";
 
 export const metadata = { title: "Moodly AI · Plataforma (demo)" };
 
@@ -28,6 +29,7 @@ export default function PlataformaLayout({ children }) {
           <PlatformI18n />
           <DialogA11y />
           <ScreenStates />
+          <MobileNav />
         </SedeProvider>
       </body>
     </html>

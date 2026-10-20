@@ -52,6 +52,8 @@ export default function Screen() {
     <div style={{ fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", minHeight: "100dvh", display: "flex", flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 220px", maxWidth: "248px", display: "flex" }}><Sidebar active="conversaciones" /></div>
 
+      {/* Bandeja, conversación y ficha: si no caben, la ficha baja bajo la conversación (no bajo el menú). */}
+      <div style={{ flex: "999 1 600px", minWidth: 0, display: "flex", flexWrap: "wrap", alignContent: "flex-start" }}>
       <section style={{ flex: "1 1 300px", maxWidth: "360px", borderRight: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
         <div style={{ padding: "20px 16px 12px", display: "flex", flexDirection: "column", gap: "12px" }}>
           <h1 style={{ margin: "0", fontSize: "24px", lineHeight: "26.4px", fontWeight: "400", letterSpacing: "-0.48px" }}>Conversaciones</h1>
@@ -137,6 +139,7 @@ export default function Screen() {
       ) : (
         <main style={{ flex: "999 1 420px", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px", color: "var(--muted)", fontSize: "14px" }}>Elige una conversación de la bandeja.</main>
       )}
+      </div>
 
       {confirming && det && (
         <div role="dialog" aria-modal="true" aria-label="Tomar el control" style={{ position: "fixed", inset: 0, zIndex: 50, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }} onClick={() => setConfirming(false)}>

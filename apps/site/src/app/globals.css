@@ -196,3 +196,17 @@ html[data-theme="dark"] img[src$="/github.svg"] { filter: invert(1); }
 .estado-bone { animation: estado-pulso 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .estado-bone { animation: none; } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Plataforma en móvil y tableta vertical (components/mobile-nav.jsx): el menú lateral pasa a un cajón. */
+.mnav-bar { display: none; }
+@media (max-width: 899px) {
+  .mnav-bar { display: flex; }
+  html[data-has-sidenav] .plataforma-root { padding-top: 56px; }
+  [data-sidenav-box] { position: fixed !important; top: 0; bottom: 0; left: 0; z-index: 80; width: min(300px, 86vw) !important; max-width: none !important; overflow-y: auto; background: var(--canvas); box-shadow: 0 0 40px #00000033; transform: translateX(-105%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
+  html[data-nav-open] [data-sidenav-box] { transform: none; visibility: visible; transition: transform .2s ease; }
+  [data-sidenav-box] > [data-sidenav] { width: 100% !important; min-height: 100% !important; border-right: 0 !important; }
+  html[data-nav-open] body { overflow: hidden; }
+}
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  [data-sidenav-box], html[data-nav-open] [data-sidenav-box] { transition: none; }
+}

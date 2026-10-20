@@ -52,7 +52,7 @@ items: list.map((it) => ({ ...it, isHeader: !!it.header, isActive: !it.header &&
   return (
     <>
 
-<nav aria-label="Menú principal" style={{ width: "248px", minHeight: "100dvh", boxSizing: "border-box", padding: "16px 12px", display: "flex", flexDirection: "column", gap: "2px", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", borderRight: "1px solid var(--line-soft)", letterSpacing: "-0.16px", fontSize: "14px", lineHeight: "20px" }}>
+<nav aria-label="Menú principal" data-sidenav="" style={{ width: "248px", minHeight: "100dvh", boxSizing: "border-box", padding: "16px 12px", display: "flex", flexDirection: "column", gap: "2px", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", borderRight: "1px solid var(--line-soft)", letterSpacing: "-0.16px", fontSize: "14px", lineHeight: "20px" }}>
 <a href="/plataforma" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: "500", letterSpacing: "-0.3px", padding: "6px 10px 14px", color: "var(--ink)", textDecoration: "none" }}><img src="/brand/moodly-logo-black.svg" alt="Moodly" width="78" height="20" style={{ display: "block" }} /></a>
 <SiteSwitcher />
 {(items).map((it, $index) => (<Fragment key={$index}>
