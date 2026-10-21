@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-07 · Estado: **PROPUESTO** (pendiente de ADR).
 
+> **Actualización 2026-10-20.** Varias propuestas de este documento ya tienen ADR, que manda sobre este texto (ADR 0023): enrutador de modelos → ADR 0019; orquestador duradero → ADR 0027 (DBOS sobre Postgres, sustituye a pg-boss/pgmq); niveles de despliegue y celdas → ADR 0026 y 0028; memoria y envenenamiento → ADR 0024; búsqueda vectorial → ADR 0025.
+
 Completa el MANUAL §3 (arquitectura), §5 (runtime), §6 (conocimiento y memoria), §10
 (seguridad) y §12 (evals). No lo contradice: concreta cómo escalar a enterprise sin
 disparar el coste.

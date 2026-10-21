@@ -4,7 +4,7 @@
 
 ## Qué es este proyecto
 Plataforma B2B de agentes de IA que ejecutan trabajo real dentro de empresas (pymes, medianas y cadenas multi-local).
-Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `admin`) que conocen el negocio, aprenden con el tiempo, trabajan contra objetivos y actúan como coach.
+Cada empresa tiene 4 agentes integrados (`reception`, `customer`, `sales`, `admin`; ADR 0023) que conocen el negocio, aprenden con el tiempo, trabajan contra objetivos y actúan como coach.
 **Prioridad máxima del producto:** memoria que aprende (cruzada entre agentes y locales), objetivos del negocio y modo coach (MANUAL §5.12 y §6).
 **Fuente de verdad completa: `docs/MANUAL.md`.** Léelo antes de diseñar cualquier cosa.
 
@@ -12,6 +12,8 @@ Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `adm
 1. `docs/STATUS.md` — qué está hecho y verificado, en curso, bloqueado y lo próximo.
 2. Las secciones de `docs/MANUAL.md` que afectan a la tarea.
 3. Los ADRs recientes en `docs/adr/`.
+
+Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUAL.md` > `docs/design/` > prototipo `apps/site/plataforma` (solo visual) > `docs/audits/` (históricas). Ver ADR 0023.
 
 ## Metodología obligatoria: construir → probar → verificar → siguiente
 - Nada está hecho sin haberlo ejecutado y comprobado: test real, log real, flujo real. "En teoría funciona" no vale.
@@ -29,7 +31,7 @@ Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `adm
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
-TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · pg-boss · worker Node always-on · Vitest · pgTAP · Playwright · GitHub Actions.
+TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, pendiente de *spike*; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
 
 ## Estructura
 Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent-core,skills,integrations,channels,knowledge,templates,ui,evals,config}`.
