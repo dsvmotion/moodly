@@ -153,6 +153,7 @@ La referencia principal es **GuruSup** (gurusup.com). Según su web, a 28/09/202
 7. **Datos en la UE.** Toda la infraestructura con datos de clientes se aloja en regiones de la UE.
 8. **Marca desacoplada.** `BRAND_NAME` y los assets de marca van en configuración, no en el código.
 9. **Orquestación propia.** El motor de agentes vive en nuestro código. Ningún framework de agentes ni motor low-code es una pieza estructural.
+10. **Construir lo que nos diferencia, adoptar lo probado (ADR 0031).** Construimos el aislamiento entre empresas, el runtime de agentes con su motor de políticas y aprobaciones, la memoria gobernada, el conocimiento de cada sector y los conectores clave. Para todo lo demás (modelos de IA, ejecución duradera, SSO, búsqueda vectorial, trazas, pagos, la cola larga de integraciones) adoptamos piezas probadas, siempre detrás de una interfaz nuestra y con salida. Un agente o servicio de terceros dentro del producto solo actúa como herramienta controlada por nuestras políticas.
 
 ### 2.1 Definición de hecho (DoD)
 
@@ -1181,6 +1182,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
 | 0030 | Agentes y skills ampliables | propuesto |
+| 0031 | Construir frente a adoptar | aceptado |
 
 ---
 
