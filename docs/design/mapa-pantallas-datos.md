@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-09 · Resuelve §2 y §3.1 de `docs/audits/2026-10-09-cierre-diseno-backend.md`.
 
+> **Actualización 2026-10-20.** Las rutas en español y las claves de agente de §0 quedan confirmadas por el ADR 0023 y pasan a MANUAL §9.4 y §1.4. El Asistente (§3) se rige por el ADR 0029; la memoria (§2), por el ADR 0024; los flujos y tareas programadas, por el ADR 0027 (DBOS en lugar de pg-boss).
+
 Puente entre el **prototipo** (`apps/site/plataforma`, la especificación visual) y el **producto** (`apps/web`, a reconstruir sobre `packages/ui` y datos reales). Es el primer documento de la fase backend: por cada pantalla, qué ruta tendrá en `apps/web`, qué componentes de `packages/ui` usa, y **qué entidades/campos lee y escribe, con qué acciones, permiso y tiempo real**.
 
 Notación: **R** = lee · **W** = escribe · 🔒 = acción sensible (confirmación + `audit_logs`) · ⚡ = tiempo real (Supabase Realtime). Entidades según `docs/audits/2026-10-07-auditoria-plataforma.md` §4/§6 y `docs/design/edge-y-postura-enterprise.md` §5.
@@ -46,7 +48,7 @@ Notación: **R** = lee · **W** = escribe · 🔒 = acción sensible (confirmaci
 | Conocimiento | `/app/conocimiento` | R/W `knowledge_chunks`(pgvector)·`knowledge_requests` + Storage | subir PDF/URL/FAQ, responder preguntas sin respuesta | subir/compartir KB | ingesta asíncrona (worker) |
 | Memoria del negocio | `/app/memoria` | R/W `memories`·`entities`·`entity_links` | 🔒 aprobar/editar/**borrar** memoria, consolidar | gestionar memoria | extracción posterior |
 | Reglas y aprobaciones | `/app/reglas` | R/W `business_rules`(motor de políticas) | fijar solo/aprobación/nunca por acción, por sede/agente | 🔒 techo de autonomía | — |
-| Flujos automáticos | `/app/flujos` | R/W `workflows`·cron(pg-boss) | activar flujo, techo de gasto por flujo | crear flujos | worker |
+| Flujos automáticos | `/app/flujos` | R/W `workflows`·workflows programados (DBOS, ADR 0027) | activar flujo, techo de gasto por flujo | crear flujos | worker |
 | Horarios | `/app/horarios` | R/W `locations.hours`·`agents.schedule` | editar horario, respuesta fuera de horario | configurar | — |
 | Modo coach | `/app/coach` | R `coach_reviews`·`recommendations`·`learning_signals`·`proposals` · W aprobar propuesta → `agent_versions` | 🔒 aprobar cambio → eval → publicación gradual → vuelta atrás | gerencia/dueño | ciclo de aprendizaje |
 
@@ -91,6 +93,6 @@ Notación: **R** = lee · **W** = escribe · 🔒 = acción sensible (confirmaci
 
 - **Estados** (vacío/carga/error/sin permiso): aplicar los componentes de `packages/ui` a cada pantalla al reconstruir.
 - **Flujos aún sin pantalla** (diseñar): aceptar invitación, OAuth de canal + plantillas WhatsApp, alta/revisión de voz, detalle de aprobación, tomar el control, publicar versión de agente, ingesta de conocimiento, export/borrado RGPD, checkout Stripe, MFA/SSO/SCIM, API keys.
-- **Catálogo de acciones del orquestador**: definir *tools*, parámetros y cuáles son 🔒.
+- **Catálogo de acciones del asistente**: definir *tools*, parámetros y cuáles son 🔒, con las reglas del ADR 0029 (sesión del usuario, catálogo cerrado, vista previa y confirmación).
 
 Cada tabla nueva lleva **RLS + test pgTAP de aislamiento**; las acciones 🔒 pasan por el motor de políticas y quedan en `audit_logs`.

@@ -25,6 +25,8 @@ Tres archivos acompañan a este manual y deben mantenerse al día (ver §16):
 - `docs/adr/`: registro de decisiones de arquitectura.
 - `AGENTS.md` / `CLAUDE.md`: instrucciones operativas para los agentes de código.
 
+**Jerarquía de fuentes (ADR 0023).** Si dos documentos discrepan, manda el de mayor rango: 1) ADRs aceptados; 2) este manual, que se actualiza en el mismo PR que cada ADR que lo cambie; 3) `docs/design/` (propuestas y detalle; no cuentan como decisión hasta pasar a un ADR o aquí); 4) el prototipo `apps/site/plataforma` (solo especificación visual: nunca define claves, contratos ni datos); 5) `docs/audits/` (fotos fechadas, históricas).
+
 ---
 
 ## 1. Visión y alcance del producto
@@ -48,20 +50,24 @@ Una plataforma que despliega **agentes de IA que ejecutan trabajo real dentro de
 
 **Regla de arquitectura derivada:** un negocio pequeño es una organización con **un solo local**. Todo se diseña para multi-local desde el primer día; el caso de un local sale gratis. Lo contrario obligaría a rehacer la plataforma.
 
-### 1.4 Los 4 agentes integrados **[DECIDIDO el concepto; nombres ABIERTOS]**
+### 1.4 Los 4 agentes de serie **[DECIDIDO: producto, 2026-10-20; ADR 0023 y 0030]**
 
 Cada organización cliente dispone de cuatro agentes que cubren las funciones más necesarias de cualquier empresa. Cada uno se especializa según el vertical del cliente y se puede activar, desactivar y personalizar.
 
 | `agent_type` | Nombre provisional | Responsabilidad |
 |---|---|---|
-| `customer` | Agente de Clientes | Atención entrante por WhatsApp, Instagram, email, web y, más adelante, voz. Dudas, reservas y citas, incidencias, reseñas y escalado a humano. |
-| `sales` | Agente Comercial y de Marketing | Captación y cualificación de leads, CRM, presupuestos, seguimiento y recuperación de clientes, y ejecución de las campañas que proponga el coach (§5.12). Si se necesita un agente de marketing independiente: **[ABIERTO]**. |
-| `operations` | Agente de Operaciones | Calendario, tareas, inventario, proveedores, avisos internos y resumen diario. |
-| `admin` | Agente de Administración | Facturación (siempre a través del software del cliente), cobros, gastos, documentos y preparación de información para la gestoría. |
+| `reception` | Recepción | Agenda y citas (crear, mover, cancelar, lista de espera, recordatorios), recursos y salas, y canal de voz (la línea de teléfono del negocio). |
+| `customer` | Atención al cliente | Atención entrante por canales escritos (WhatsApp, Instagram, email, web): dudas, incidencias, reseñas y escalado a humano. Puede tener skills de agenda (una skill declara varios `agentTypes`). |
+| `sales` | Comercial | Captación y cualificación de leads, CRM, presupuestos, seguimiento y recuperación de clientes, y ejecución de las campañas que proponga el coach (§5.12). Si se necesita un agente de marketing independiente: **[ABIERTO]**. |
+| `admin` | Administración | Facturación (siempre a través del software del cliente), cobros, gastos, inventario y proveedores, documentos y preparación de información para la gestoría. |
+
+Claves canónicas fijadas por el ADR 0023 (fuente en código: `@repo/config` `AGENT_TYPES`). Las tareas internas, los avisos y el resumen diario no son de un agente: son capa común (`tasks` y resumen diario del coach, §5.12).
 
 Los cuatro comparten una **capa común de conocimiento y memoria del negocio** (§6) y se coordinan mediante **eventos de dominio** (§5.8), nunca llamándose entre sí directamente.
 
 **Tipos de agente como catálogo [DECIDIDO el principio]:** los tipos de agente se definen como datos (tabla `agent_types`), no como un valor fijo en el código. Los 4 anteriores son el catálogo inicial para empresas. Así el mismo runtime podrá servir en el futuro otros catálogos (por ejemplo, el agente personal del responsable) sin reescribir el núcleo.
+
+**Agentes y skills ampliables [DECIDIDO: producto, 2026-10-20; diseño PROPUESTO en el ADR 0030]:** además de los 4 de serie, habrá agentes de plantilla por vertical y **agentes propios** creados por cada organización (instrucciones + skills + canales + autonomía), todos sobre el mismo runtime, motor de políticas, memoria y coach. Las skills son de tres tipos (`code` de la plataforma, `composed` creadas por el cliente sin programar y `mcp` de integraciones conectadas) y **cualquier skill se añade a cualquier agente de forma individual**. Ningún código puede suponer que hay 4 agentes.
 
 **Visión de fondo — prioridad máxima del producto [DECIDIDO]:** cada empresa tiene una IA que **conoce el negocio a fondo, entiende sus objetivos, aprende con el tiempo y las interacciones, hace el trabajo delegable y actúa como coach**, proponiendo mejoras y detectando debilidades. Se materializa en tres piezas del núcleo:
 
@@ -178,7 +184,7 @@ flowchart LR
 
   subgraph Plataforma
     ING[Ingesta de webhooks<br/>worker always-on]
-    Q[(Cola de trabajos<br/>Postgres)]
+    Q[(Ejecución duradera<br/>DBOS sobre Postgres)]
     RT[Runtime de agentes<br/>packages/agent-core]
     POL[Motor de políticas<br/>y aprobaciones]
     SK[Skills]
@@ -214,16 +220,16 @@ flowchart LR
 | App web | Next.js (App Router) + React | **[PROPUESTO]** | Panel del cliente, panel interno de operaciones y API de la app. |
 | UI | Tailwind CSS + shadcn/ui, TanStack Table + Virtual, dnd-kit, Recharts | **[PROPUESTO]** | Componentes accesibles y editables. Estructura de referencia: Langdock, Attio y Apollo (§9). |
 | Validación | Zod | **[PROPUESTO]** | Esquemas compartidos para API, skills y salidas del LLM. |
-| Base de datos | Supabase Postgres en región UE | **[PROPUESTO]** | Postgres gestionado con RLS, auth, storage, realtime y pgvector. |
+| Base de datos | Supabase Postgres en región UE | **[PROPUESTO]** | Postgres gestionado con RLS, auth, storage, realtime y pgvector. Esquemas separados (`public`, `private`, `dbos`, `audit`), tablas que crecen particionadas por mes y escala por celdas (ADR 0026). El núcleo solo usa lo que se puede autoalojar (ADR 0028). |
 | Migraciones | SQL con Supabase CLI como fuente de verdad; tipos generados | **[PROPUESTO]** | Las políticas RLS, funciones y triggers son SQL. Así se versionan tal cual. |
 | Acceso a datos | `supabase-js` con JWT del usuario en la app (aplica RLS); cliente SQL tipado en el worker con scoping explícito por tenant | **[PROPUESTO]** | La app nunca usa la service role para datos de usuario. |
-| Búsqueda semántica | pgvector + búsqueda full-text de Postgres (híbrida) | **[PROPUESTO]** | Sin infraestructura extra; el conocimiento vive junto a los datos del tenant. |
+| Búsqueda semántica | pgvector ≥ 0.8 + búsqueda full-text de Postgres (híbrida) | **[PROPUESTO]** | Sin infraestructura extra; el conocimiento vive junto a los datos del tenant. Una sola función de recuperación, escalones por tamaño de tenant y recall medido en CI (ADR 0025). |
 | Auth | Supabase Auth con email/magic link; SSO SAML/OIDC para cadenas | **[PROPUESTO]** | Verificar qué plan de Supabase incluye SSO antes de venderlo. |
 | Orquestación LLM | Vercel AI SDK | **[PROPUESTO]** | Tool-calling, streaming, salidas estructuradas y multi-proveedor sin framework pesado. |
-| Proveedores LLM | Anthropic y OpenAI, con Mistral como opción UE | **[ABIERTO]** | Pendiente: residencia de datos, retención y DPA de cada proveedor. |
-| Cola de trabajos | pg-boss sobre el mismo Postgres | **[PROPUESTO]** | Transaccional con los datos; sin Redis. Alternativas si no escala: Inngest o Trigger.dev. |
-| Worker | Servicio Node always-on (Fly.io o Railway, región UE) | **[PROPUESTO]** | Webhooks de canales, jobs, bucles de agentes largos y tareas programadas. |
-| Hosting web | Vercel con funciones en región UE | **[PROPUESTO]** | Despliegues por PR y previews. |
+| Proveedores LLM | Enrutador multi-proveedor y multi-región: API directa, Bedrock, Vertex, Azure OpenAI y Mistral; claves de la plataforma, BYOK o modelos en la nube del cliente | **[DECIDIDO: ADR 0019]** | La residencia del procesamiento es una política por organización. Pendiente en piloto: AI Gateway y proveedor de embeddings. |
+| Ejecución duradera y colas | DBOS Transact (librería) sobre el mismo Postgres, esquema `dbos` | **[PROPUESTO: ADR 0027]** | Runs como workflows con pasos guardados, reanudación tras aprobaciones o caídas, colas con prioridad y concurrencia por tenant, y tareas programadas. Sustituye a pg-boss. Salida si no cumple: Temporal. |
+| Worker | Contenedor Node always-on (Fly.io o Railway, región UE) | **[PROPUESTO]** | Webhooks de canales, workflows de agentes y tareas programadas. El mismo contenedor sirve para celdas dedicadas y BYOC (ADR 0028). |
+| Hosting web | Vercel con funciones en región UE; imagen de contenedor (`output: "standalone"`) para celdas dedicadas | **[PROPUESTO: ADR 0028]** | Despliegues por PR y previews. Nada del núcleo depende de APIs exclusivas de Vercel. |
 | Integraciones | MCP (Model Context Protocol) cuando exista un servidor fiable; conector propio si no | **[PROPUESTO]** | Ampliar el catálogo rápido sin escribir cada API a mano. |
 | Pagos | Stripe (suscripciones + consumo medido) | **[PROPUESTO]** | Setup, cuota mensual y uso. |
 | Email transaccional | Resend o Postmark | **[PROPUESTO]** | Invitaciones, alertas y notificaciones. |
@@ -248,7 +254,7 @@ flowchart LR
 │   ├── web/                  # Next.js: panel cliente (/app) + panel interno (/ops) + API
 │   └── worker/               # Node always-on: webhooks, cola, runtime de agentes, cron
 ├── packages/
-│   ├── db/                   # migraciones SQL, seeds, tipos generados, tests pgTAP
+│   ├── db/                   # migraciones SQL, seeds, tipos generados, tests pgTAP y config de Supabase CLI (packages/db/supabase)
 │   ├── domain/               # tipos y esquemas Zod del dominio (fuente única)
 │   ├── agent-core/           # runtime: contexto, bucle LLM, políticas, aprobaciones
 │   ├── skills/               # catálogo de skills (una carpeta por skill)
@@ -258,8 +264,7 @@ flowchart LR
 │   ├── templates/            # plantillas de fábrica por agent_type × vertical
 │   ├── ui/                   # sistema de diseño y componentes base (§9.8)
 │   ├── evals/                # sets de conversaciones de referencia y runner
-│   └── config/               # BRAND_NAME, feature flags, modelos, límites
-└── supabase/                 # config de Supabase CLI
+│   └── config/               # BRAND_NAME, AGENT_TYPES, feature flags, modelos, límites
 ```
 
 ### 3.4 Entornos
@@ -269,9 +274,11 @@ flowchart LR
 | `local` | Desarrollo con `supabase start` y el worker en local | Seeds sintéticos |
 | `preview` | Un despliegue por PR | Base de datos de staging, datos sintéticos |
 | `staging` | Integraciones en modo sandbox y pruebas extremo a extremo | Sintéticos + sandbox de proveedores |
-| `production` | Clientes reales | Reales, solo en la UE |
+| `production` | Clientes reales | Reales. En reposo, en la región de la celda (compartida: UE); procesamiento por modelos según la política de residencia de la organización |
 
 Los datos reales de clientes **nunca** se copian a entornos que no sean de producción.
+
+**Celdas (ADR 0026).** Producción se organiza en celdas: copias completas de la plataforma (base de datos, workers, Storage, Langfuse) en una región. La celda compartida UE aloja a las pymes; un cliente grande puede tener celda dedicada en la región que elija, o una celda en su propia nube (ADR 0028). Cada organización vive en una sola celda, y un directorio global (organización → celda) dirige el login y los webhooks.
 
 ---
 
@@ -310,13 +317,13 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `agent_types` | Catálogo: `key` (`customer`/`sales`/`operations`/`admin` al inicio), `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
+| `agent_types` | Catálogo: `organization_id` (null = plataforma), `origin` (`builtin`/`template`/`custom`), `key` (única por organización; de serie `reception`/`customer`/`sales`/`admin`, ADR 0023 y 0030), `color`, `description`, `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
 | `agent_templates` | `agent_type`, `vertical`, `version`, `defaults` (jsonb: tono, mensajes, skills, autonomía, reglas, flujos) |
-| `agents` | `organization_id`, `agent_type` (FK a `agent_types.key`), `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
+| `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`), `version`, `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
 | `config_overrides` | `agent_id`, `level` (`organization`/`region`/`location`), `level_id`, `values` (jsonb), `locked_keys[]`, `version` |
 | `config_snapshots` | `agent_id`, `location_id`, `resolved` (jsonb), `hash`: configuración ya resuelta e inmutable que usa cada ejecución |
-| `skills` | Catálogo global: `key`, `version`, `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `input_schema`, `output_schema` |
-| `agent_skills` | `agent_id`, `skill_key`, `enabled`, `autonomy_level`, más overrides por local vía `config_overrides` |
+| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
+| `agent_skills` | `agent_id`, `skill_id`, `enabled`, `autonomy_level`, más overrides por local vía `config_overrides` |
 | `business_rules` | `organization_id`, `scope` (org/region/location), `scope_id`, `key`, `value` (políticas de cancelación, descuentos máximos, etc.) |
 
 **Conocimiento**
@@ -324,14 +331,15 @@ Convenciones:
 | Tabla | Campos clave |
 |---|---|
 | `knowledge_sources` | `organization_id`, `scope` (`organization`/`location`), `scope_id`, `type` (`faq`/`pricing`/`policy`/`catalog`/`document`/`website`/`human_answer`), `status`, `storage_path?` |
-| `knowledge_chunks` | `source_id`, `organization_id`, `scope`, `scope_id`, `content`, `embedding vector`, `tsv tsvector`, `valid_until?` |
+| `knowledge_chunks` | `source_id`, `organization_id`, `scope`, `scope_id`, `content`, `embedding vector`, `embedding_model`, `embedding_dim`, `tsv tsvector`, `valid_until?` (ADR 0025) |
 | `knowledge_requests` | `organization_id`, `location_id?`, `agent_id`, `run_id`, `question`, `context`, `assigned_role`, `status` (`open`/`answered`/`dismissed`), `answer`, `answered_by`, `resulting_source_id` |
 
 **Memoria y objetivos**
 
 | Tabla | Campos clave |
 |---|---|
-| `memories` | `organization_id`, `scope` (`organization`/`location`/`contact`), `scope_id`, `kind` (`fact`/`preference`/`pattern`), `content`, `embedding vector`, `source_type` (`conversation`/`execution`/`human`), `source_ref`, `confidence`, `status` (`proposed`/`active`/`rejected`/`superseded`), `superseded_by?`, `last_used_at`, `expires_at?` |
+| `memories` | `organization_id`, `scope` (`organization`/`location`/`contact`), `scope_id`, `kind` (`fact`/`preference`/`pattern`), `content`, `embedding vector`, `source_type` (`conversation`/`execution`/`human`), `source_ref`, `trust` (`owner`/`system`/`contact`; `contact` solo con `scope = contact`, ADR 0024), `source_actor`, `confidence`, `status` (`proposed`/`active`/`rejected`/`superseded`), `superseded_by?`, `last_used_at`, `expires_at?` |
+| `memory_usages` | `memory_id`, `run_id`, `organization_id`: qué ejecuciones usaron cada memoria (ADR 0024) |
 | `goals` | `organization_id`, `scope` (`organization`/`region`/`location`), `scope_id`, `title`, `metric_key`, `target_value`, `period` / `due_date`, `owner_user_id`, `status` |
 | `goal_progress` | `goal_id`, `organization_id`, `value`, `measured_at`, `source` (métrica interna o integración) |
 | `coach_reviews` | `organization_id`, `scope`, `scope_id`, `period`, `summary`, `status` (`draft`/`delivered`/`acknowledged`) |
@@ -358,7 +366,7 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `channel_accounts` | `organization_id`, `channel` (`whatsapp`/`instagram`/`email`/`webchat`/`voice`), `external_id` (id de número, cuenta o buzón), `location_id?` (null si la cuenta es compartida por toda la cadena), `status` |
+| `channel_accounts` | `organization_id`, `channel` (`whatsapp`/`instagram`/`email`/`webchat`/`voice`), `external_id` (id de número, cuenta o buzón), `location_id?` (null si la cuenta es compartida por toda la cadena), `default_agent_type` (`customer` en canales escritos, `reception` en voz), `status` |
 | `contacts` | `organization_id`, `display_name`, `consents` (jsonb), `preferred_location_id?`, `locale` |
 | `contact_identities` | `contact_id`, `channel`, `external_id` (teléfono, handle, email) |
 | `conversations` | `organization_id`, `location_id?`, `contact_id`, `channel_account_id`, `agent_id`, `mode` (`agent`/`human`/`closed`), `assigned_user_id?`, `last_message_at` |
@@ -394,6 +402,22 @@ Convenciones:
 | `integration_secrets` | Tokens cifrados (§10.4). Nunca se leen desde la app del cliente. |
 | `usage_records` | `organization_id`, `location_id?`, `metric` (`llm_tokens`/`messages`/`voice_minutes`/`executions`), `quantity`, `period`, `run_id?` |
 | `usage_limits` | `organization_id`, `metric`, `soft_limit`, `hard_limit`, `period` |
+
+**Entidades añadidas por ADRs posteriores (se detallan en su ADR y entran en la fase indicada)**
+
+| Tabla | Origen | Fase | Contenido |
+|---|---|---|---|
+| `accounts`, `account_domains` | ADR 0022 | 3 | Cuenta de empresa por encima de las organizaciones: identidad, dominios verificados, SSO, SCIM y políticas. |
+| `roles`, `role_permissions`, `invitations` | ADR 0022 | 0–1 | Permisos atómicos más alcance; altas solo por invitación. |
+| `networks`, `network_members` | ADR 0022 | 3 | Redes de franquicia: solo comparten plantillas, políticas bloqueadas y métricas agregadas. |
+| `model_providers`, `provider_connections`, `org_model_settings` | ADR 0019 | 1 | Proveedores, vías y regiones de modelos; residencia, respaldo y topes por organización. |
+| `appointments`, `deals`, `invoices_mirror` | ADR 0023 | 1–2 | Copias sincronizadas de los sistemas del cliente (`external_ref`, `synced_at`). Si no hay herramienta conectada, Moodly es la fuente. |
+| `workflows` | Diseño (`mapa-pantallas-datos.md`) | 2 | Flujos automáticos programados, con techo de gasto. |
+| `agent_versions`, `proposals`, `learning_signals` | `arquitectura-agentes-enterprise.md` §5 | 2 | Ciclo de mejora del agente: propuesta → eval → publicación gradual → vuelta atrás. |
+| `calls`, `voice_personas`, `voice_profiles`, `voice_samples` | Diseño (capa de voz) | Voz | Llamadas, transcripciones y voces; muestras de voz con consentimiento. |
+| `cell_directory` | ADR 0026 | Antes de la 2.ª celda | Organización → celda y región. Global, sin datos personales. |
+
+**Tablas que crecen sin límite (ADR 0026):** `audit_logs`, `inbound_events`, `usage_records` y `messages` se particionan por mes desde su primera migración; `inbound_events.raw` se conserva 30 días (configurable). Prompts y respuestas completas del modelo van a Langfuse, no a Postgres.
 
 ### 4.3 Resolución de configuración con herencia **[PROPUESTO]**
 
@@ -462,7 +486,7 @@ sequenceDiagram
 
 1. `channel_accounts.external_id` identifica la organización y, si la cuenta está asociada a un local, también el local.
 2. Si la cuenta es compartida por toda la cadena (un único WhatsApp), el local se resuelve en este orden: conversación previa del contacto, `contacts.preferred_location_id`, lo que el cliente indique en el mensaje y, si nada de eso lo aclara, el agente pregunta al cliente con una lista de opciones.
-3. El agente que atiende una conversación entrante es `customer`. Los demás agentes se activan por eventos, por tareas programadas o por instrucciones del personal.
+3. El agente que atiende una conversación entrante es el `default_agent_type` de la cuenta de canal: `customer` en canales escritos y `reception` en voz. Un solo agente por conversación. Los demás agentes se activan por eventos, por tareas programadas o por instrucciones del personal.
 
 ### 5.3 Montaje del contexto (prompt por capas) **[PROPUESTO]**
 
@@ -518,6 +542,7 @@ Reglas:
 - Cada skill vive en `packages/skills/<key>/` con su definición, sus tests y un fixture de sandbox.
 - `SkillContext` trae el tenant, el local, el contacto, el cliente de integración ya autenticado y el logger. La skill nunca obtiene credenciales por su cuenta.
 - Un `execute` sin `preview` no se acepta en code review.
+- Este contrato es el de las skills `code`. Las skills `composed` (creadas por el cliente) y `mcp` (herramientas de integraciones conectadas) se exponen con la misma forma: entrada y salida tipadas, clase de efecto y paso por el motor de políticas. Una `composed` hereda la clase más alta de sus piezas; una `mcp` sin clasificar entra como `external_message` en `draft` (ADR 0030).
 
 ### 5.6 Clases de efecto y techo de autonomía **[PROPUESTO]**
 
@@ -532,8 +557,9 @@ Reglas:
 
 ### 5.7 Aprobaciones y pausas **[PROPUESTO]**
 
-- Un `agent_run` que necesita aprobación pasa a `awaiting_approval` y **termina el proceso**. No se mantiene nada vivo en memoria mientras espera.
-- Al aprobar o rechazar, se encola un job `resume_run` que retoma el run desde su estado persistido.
+- Cada `agent_run` es un workflow duradero (ADR 0027): cada llamada al modelo y cada `execute` de skill es un paso guardado, y al reanudar no se repite.
+- Un `agent_run` que necesita aprobación pasa a `awaiting_approval` y el workflow **espera un evento** con caducidad. No ocupa memoria ni CPU mientras espera.
+- Al aprobar o rechazar se emite el evento y el workflow continúa desde su último paso.
 - Las aprobaciones se asignan por rol y local. Caducan (`expires_at`) y el agente informa al cliente final si algo queda pendiente.
 - La misma mecánica sirve para `awaiting_knowledge` (§5.9).
 
@@ -541,7 +567,7 @@ Reglas:
 
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).
 - Un publicador lee el outbox y encola un job por cada suscripción (`event_subscriptions`).
-- Ejemplo: `customer` ejecuta `book_appointment` y se emite `appointment.created`. `operations` lo recibe y prepara el recurso o el recordatorio. `admin` lo recibe y deja preparado el cobro en borrador.
+- Ejemplo: `customer` ejecuta `book_appointment` y se emite `appointment.created`. `reception` lo recibe y prepara el recurso y el recordatorio. `admin` lo recibe y deja preparado el cobro en borrador.
 - Cada evento lleva `source_run_id`, lo que permite reconstruir la cadena completa en el panel de actividad.
 - Hay protección contra bucles: profundidad máxima de cadena por evento y deduplicación.
 
@@ -606,6 +632,17 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 - **Competencia:** solo información pública, respetando las condiciones de uso de cada fuente. Nada de acceso a datos privados de terceros.
 - **Personas:** no hace perfiles de empleados ni evaluaciones de rendimiento individuales.
 
+### 5.13 Asistente de la plataforma **[PROPUESTO: ADR 0029]**
+
+Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la plataforma por conversación (`/app/asistente`). No es un actor con permisos propios:
+
+- Se ejecuta en `apps/web`, en el servidor, con la sesión del usuario (JWT y RLS); nunca con la service role ni en el worker.
+- Sus herramientas son las mismas Server Actions de la interfaz, con su validación y sus permisos, de un catálogo cerrado. Fuera del catálogo, siempre: seguridad, roles y permisos, techos de autonomía, secretos, facturación, borrado de datos y reglas de plataforma.
+- Todo cambio se muestra antes como vista previa y solo se aplica cuando el usuario confirma; la confirmación queda atada al hash de esa vista previa y a `audit_logs`.
+- Conoce la plataforma por tres fuentes obligatorias: el manual de producto vivo (ninguna funcionalidad está hecha sin su página), el estado real de la cuenta del usuario y su catálogo de herramientas.
+- Es el punto de entrada único por encima de los 4 agentes: ve su actividad y les da instrucciones como lo haría el usuario (`staff_instruction`), siempre a través del motor de políticas y las aprobaciones.
+- Fase 2: lectura, diagnóstico, enseñar e instrucciones a los agentes. Fase 3: cambios de configuración.
+
 ---
 
 ## 6. Conocimiento, memoria y objetivos
@@ -615,10 +652,10 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 - **Fuentes:** FAQs, precios, políticas, catálogo, documentos (PDF, DOCX), web del cliente y respuestas humanas (§5.9).
 - **Alcance:** cada fuente es de `organization` o de `location`. La recuperación de un run combina las dos para el local resuelto; si hay conflicto, gana la del local.
 - **Ingesta [PROPUESTO]:** subida a Storage, extracción de texto, troceado por secciones (no por tamaño fijo a ciegas), embeddings y guardado en `knowledge_chunks`. Todo es asíncrono en el worker.
-- **Recuperación [PROPUESTO]:** búsqueda híbrida (vectorial + full-text), filtrada **siempre** por `organization_id` y alcance antes de ordenar, y re-ranking opcional.
+- **Recuperación [PROPUESTO: ADR 0025]:** una sola función de recuperación; búsqueda híbrida (vectorial + full-text, combinadas con Reciprocal Rank Fusion), filtrada **siempre** por `organization_id` y alcance antes de ordenar, con escaneo iterativo de pgvector y re-ranking opcional. Escalones según el tamaño del tenant: búsqueda exacta para los pequeños, HNSW global para los medianos, y partición o celda propia para los grandes. Recall@10 ≥ 0,95 medido en CI.
 - **Datos estructurados:** precios, horarios y servicios que cambian a menudo se guardan como datos estructurados (reglas y configuración) o se consultan en vivo a la integración, no solo como texto embebido. El precio que da el agente debe ser el vigente.
 - **Frescura:** `valid_until` y re-indexado cuando cambia la fuente.
-- **Proveedor de embeddings: [ABIERTO]**. La dimensión del vector va en configuración, y cambiar de proveedor implica re-indexar.
+- **Proveedor de embeddings: [ABIERTO]** (se fija en el piloto, a través del enrutador del ADR 0019). Cada fila guarda `embedding_model` y `embedding_dim`; cambiar de modelo es una reindexación en segundo plano por tenant, sin mezclar vectores de modelos distintos.
 - **Datos sensibles:** en verticales de salud (clínicas), no se incorporan datos clínicos de pacientes a la base de conocimiento (§11).
 
 ### 6.2 Memoria aprendida **[DECIDIDO el concepto; diseño PROPUESTO]**
@@ -626,12 +663,13 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 La diferencia con el conocimiento: el conocimiento lo aporta el cliente; la memoria la **aprende el agente** de las interacciones (hechos, preferencias y patrones del negocio, de cada local y de cada cliente final).
 
 - **Extracción:** un job posterior a cada conversación o run propone memorias candidatas con un modelo ligero. No se escriben durante la conversación.
+- **Procedencia y envenenamiento [PROPUESTO: ADR 0024]:** toda memoria lleva `trust` (`owner`: lo dice una persona del negocio con permiso; `system`: datos verificables; `contact`: lo dice un cliente final). Lo que dice un cliente **solo vale para ese cliente** (`trust = contact` exige `scope = contact`, con un `CHECK` en la tabla) y solo se usa en sus propias conversaciones. Lo que un cliente diga sobre el negocio nunca es memoria: genera un `knowledge_request`. Las memorias de negocio solo nacen de personas o de agregados sobre muchos contactos, y la memoria nunca cambia precios, políticas ni autonomía: eso vive en datos estructurados, que ganan si hay contradicción.
 - **Validación:** según la configuración, una memoria entra como `active` directamente (baja criticidad, por ejemplo "este cliente prefiere citas por la tarde") o como `proposed` para que un humano la confirme (todo lo que cambie cómo actúa el agente con el negocio en general).
 - **Consolidación:** un job periódico fusiona duplicados, marca contradicciones y sustituye memorias viejas (`superseded_by`), en lugar de acumular versiones incompatibles.
 - **Uso:** la memoria relevante se recupera igual que el conocimiento (§5.3, capa 5) y siempre como datos, no como instrucciones.
 - **Revisable y borrable:** el cliente puede ver "qué sabe el agente de mi negocio / de este cliente", corregirlo y borrarlo. El borrado es real (§11).
 - **Límites:** la memoria nunca guarda credenciales, datos de pago ni datos de salud de clientes finales; esas categorías se filtran en la extracción y se cubren en las evals.
-- **Cruzada entre agentes:** la memoria es de la organización, no de un agente. Lo que aprende el agente de clientes (por ejemplo, que muchos preguntan por un servicio que no existe) lo usan el comercial, el de operaciones y el coach.
+- **Cruzada entre agentes:** la memoria es de la organización, no de un agente. Lo que aprende el agente de clientes (por ejemplo, que muchos preguntan por un servicio que no existe) lo usan recepción, el comercial, administración y el coach.
 - **Cruzada entre locales:** lo aprendido en un local queda en ese local. Si parece aplicable a toda la cadena, se **propone a la central** para promoverlo a nivel organización (con aprobación de un `org_admin`).
 - **Permisos:** un agente o usuario solo recupera memorias de los alcances que puede ver (mismas reglas de RLS que el resto de datos).
 
@@ -722,9 +760,9 @@ Todos los canales se normalizan a un formato interno único (`NormalizedMessage`
 │   Actividad           │                                  │ vista previa del │
 │   Analítica           │                                  │ registro/detalle │
 │ ─ AGENTES             │                                  │ (se abre sin     │
-│   ● Clientes          │                                  │  salir de la     │
-│   ● Comercial y Mkt   │                                  │  tabla)          │
-│   ● Operaciones       │                                  │                  │
+│   ● Recepción         │                                  │  salir de la     │
+│   ● Atención cliente  │                                  │  tabla)          │
+│   ● Comercial         │                                  │                  │
 │   ○ Administración    │                                  │                  │
 │ ─ REGISTROS           │                                  │                  │
 │   Clientes            │                                  │                  │
@@ -768,27 +806,34 @@ Toda la aplicación se construye con estos siete patrones. Una pantalla nueva de
 | **P6. Ajustes** | Langdock, Attio | Área propia con navegación secundaria: Organización, Locales y regiones, Usuarios y roles, Agentes (interruptores y Modo avanzado), Integraciones, Conocimiento, Objetivos, Consumo y facturación, Seguridad (SSO, auditoría, retención de datos). Muestra en cada ajuste si viene heredado de la central y si está bloqueado. |
 | **P7. Dashboard** | Apollo, Attio | Rejilla de widgets: métricas por agente y por local, progreso de objetivos, comparativa entre locales, coste y consumo. |
 
-### 9.4 Mapa de rutas **[PROPUESTO]**
+### 9.4 Mapa de rutas **[DECIDIDO: ADR 0023]**
+
+Los segmentos de ruta están en español y son **identificadores estables**: no se traducen con el idioma de la interfaz. El detalle por pantalla (componentes, entidades que lee y escribe, permisos y tiempo real) está en `docs/design/mapa-pantallas-datos.md`.
 
 | Ruta | Patrón | Contenido |
 |---|---|---|
 | `/app` | P1 | Inicio y bandeja del día |
-| `/app/coach` | P2 + P3 | Revisiones del coach y recomendaciones (lista, kanban por estado, detalle con evidencia y fuentes) |
-| `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción y botones aprobar o rechazar |
-| `/app/inbox` | P2 + P3 | Bandeja multicanal: conversaciones por canal, local, estado y asignación; tomar el control y devolverlo |
-| `/app/tasks` | P2 | Tareas para humanos (creadas por agentes, por el coach o por usuarios) |
-| `/app/activity` | P2 | Registro de runs y ejecuciones de todos los agentes, con explicación y cadena de eventos |
-| `/app/analytics` | P7 | Dashboards |
-| `/app/agents/[type]` | P5 | Ventana del agente |
-| `/app/records/contacts` · `/[id]` | P2 · P3 | Clientes finales |
-| `/app/records/conversations/[id]` | P3 | Conversación completa con las acciones del agente intercaladas |
-| `/app/records/recommendations` | P2 · P3 | Recomendaciones |
-| `/app/records/goals` | P2 · P3 | Objetivos y su progreso |
-| `/app/records/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
-| `/app/records/memory` | P2 · P3 | "Qué sabe el agente": memorias activas, propuestas y su origen |
-| `/app/records/locations` | P2 · P3 | Locales y regiones (cadenas) |
-| `/app/settings/*` | P6 | Ajustes |
-| `/onboarding` | Asistente | §9.6 |
+| `/app/conversaciones` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo |
+| `/app/aprobaciones` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
+| `/app/agenda` | Calendario | Citas por sede y recurso (agente `reception`) |
+| `/app/clientes` · `/[id]` | P2 · P3 | Clientes finales |
+| `/app/leads` | P2 (kanban) | Leads y oportunidades por etapa |
+| `/app/facturas` | P2 | Borradores de facturas e inventario |
+| `/app/llamadas` | P2 · P3 | Llamadas y transcripciones (fase Voz) |
+| `/app/tareas` | P2 | Tareas para humanos (creadas por agentes, por el coach o por usuarios) |
+| `/app/actividad` | P2 | Runs y ejecuciones de todos los agentes, con explicación y cadena de eventos |
+| `/app/informes` | P7 | Dashboards y exportación |
+| `/app/coach` | P2 + P3 | Revisiones del coach y recomendaciones con evidencia y fuentes |
+| `/app/objetivos` | P2 · P3 | Objetivos y su progreso |
+| `/app/agentes` · `/[tipo]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
+| `/app/skills` · `/[id]` | P2 · P3 | Biblioteca de skills: de la plataforma, propias y de integraciones; a qué agentes está añadida cada una (ADR 0030) |
+| `/app/asistente` | P5 | Asistente de la plataforma (§5.13) |
+| `/app/conocimiento` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
+| `/app/memoria` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
+| `/app/reglas` · `/app/flujos` · `/app/horarios` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
+| `/app/red` | P7 | Red de franquicias (vista del franquiciador) |
+| `/app/ajustes/*` | P6 | Ajustes: general, perfil, preferencias, privacidad, equipo, roles, modelos, integraciones, sedes, plan, facturación, seguridad y auditoría |
+| `/app/onboarding` | Asistente de alta | §9.6 |
 | `/ops/*` | Mismos patrones | Panel interno (§9.7) |
 
 El estado de las vistas (filtros, orden, agrupación, alcance y pestaña activa) vive en la URL, para poder compartir un enlace y que el otro vea exactamente lo mismo.
@@ -880,11 +925,10 @@ Los componentes se desarrollan con datos reales de la base local (seeds) desde e
 - En tránsito: TLS en todo.
 - En reposo: cifrado del proveedor de base de datos y storage.
 
-### 10.4 Secretos **[ABIERTO: mecanismo concreto]**
+### 10.4 Secretos **[DECIDIDO: ADR 0019; proveedor de KMS ABIERTO]**
 
-- Opción A: Supabase Vault.
-- Opción B: cifrado en la aplicación (envelope encryption) con clave maestra en un KMS.
-- En ambos casos, los tokens solo se descifran en el worker, en el momento de usarlos.
+- Cifrado en la aplicación (envelope encryption) con una clave por tenant en un KMS (AWS KMS o GCP KMS: **[ABIERTO]**). Supabase Vault queda descartado como bóveda principal.
+- Los tokens solo se descifran en el worker, en el momento de usarlos, y cada descifrado queda en el log del KMS.
 - Los secretos de plataforma (claves de proveedores LLM, Stripe…) van en el gestor de secretos de cada hosting; nunca en el repositorio ni en logs.
 
 ### 10.5 Auditoría
@@ -902,7 +946,7 @@ Pentest externo antes del primer contrato enterprise; después ISO 27001 y SOC 2
 > Esta sección recoge requisitos a verificar con asesoría legal. No es asesoramiento jurídico.
 
 - **GDPR:** la plataforma actúa como **encargada del tratamiento** de los datos de los clientes finales de cada organización. Hace falta un DPA con cada cliente, una lista pública de subencargados (hosting, proveedores LLM, BSP de WhatsApp…) y DPAs firmados con cada uno de ellos.
-- **Residencia:** datos en la UE. Para los proveedores LLM, verificar residencia, retención y el compromiso de no entrenar con los datos **[ABIERTO]**.
+- **Residencia (ADR 0023):** los datos en reposo (base de datos, storage, copias, logs y trazas) se guardan en la región de la celda; la celda compartida está en la UE. El procesamiento por modelos sigue la política de residencia de cada organización (ADR 0019): por defecto sin restricción, «solo UE» u otras como opción, sin que el respaldo cruce la frontera. Para cada proveedor y región, verificar retención, DPA y el compromiso de no entrenar con los datos.
 - **Derechos de los interesados:** exportación y borrado por contacto, borrado físico en cascada, incluidos los chunks de conocimiento y las memorias derivadas.
 - **Retención:** configurable por organización (conversaciones, logs), con purga automática.
 - **Datos de salud:** en clínicas, los datos de salud son de categoría especial. Minimización: el agente gestiona citas y dudas generales, no historiales clínicos. Requiere revisión legal específica antes de lanzar ese vertical.
@@ -942,7 +986,9 @@ Langfuse **[PROPUESTO]**: prompt resuelto, herramientas, respuestas, latencia, t
 - Comprobaciones deterministas: qué skill se llamó, con qué argumentos, qué no debía ocurrir (no inventar precios, no revelar datos de otro local, no ejecutar lo financiero sin aprobación).
 - Comprobaciones con un LLM como juez para tono, corrección y utilidad, con rúbrica versionada.
 - Sets de ataque: intentos de inyección, peticiones de datos de otros clientes o locales, pedir al agente que actúe fuera de su ámbito, intentos de envenenar la memoria.
-- Sets de memoria: qué se debe recordar, qué no se debe guardar nunca (§6.2) y cómo se resuelven contradicciones.
+- Sets de memoria: qué se debe recordar, qué no se debe guardar nunca (§6.2) y cómo se resuelven contradicciones. El set de envenenamiento bloquea el merge si se crea alguna memoria de negocio desde contenido de un cliente (ADR 0024).
+- Eval de recuperación: recall@10 ≥ 0,95 de la búsqueda aproximada frente a la exacta, con un conjunto sintético multi-tenant (ADR 0025).
+- Evals del asistente: escalada de permisos, inyección desde documentos y cambios sin confirmación (ADR 0029).
 - Sets del coach: con datos de negocio simulados y señales de prueba, comprobar que las propuestas citan evidencia real, son específicas del negocio, no inventan normativa y respetan los límites legales y de competencia.
 - Se ejecutan en CI en cada PR que toque prompts, plantillas, skills o el runtime. Una regresión bloquea el merge.
 - Cada incidente real en producción se convierte en un caso nuevo del set.
@@ -971,7 +1017,7 @@ Los tests nunca llaman a proveedores LLM reales en la suite unitaria (se usan mo
 - **Migraciones:** SQL versionado en `packages/db`. Se aplican en staging automáticamente y en producción con aprobación humana. Nada de cambios manuales en la base de datos de producción.
 - **Revisión humana obligatoria** (aunque el PR lo haya escrito un agente de código) para: migraciones, políticas RLS, auth, manejo de secretos, motor de políticas, techos de autonomía y reglas de plataforma.
 - **Feature flags** por organización (`packages/config`) para activar funcionalidades por cliente o piloto.
-- **Releases:** despliegue continuo de la web y el worker. El worker drena la cola antes de reiniciar.
+- **Releases:** despliegue continuo de la web y el worker. Los workflows en curso continúan desde su último paso tras reiniciar el worker (ADR 0027).
 - **Vuelta atrás:** cada release se puede revertir; las migraciones destructivas se hacen en dos fases (expandir y luego contraer).
 
 ---
@@ -1055,12 +1101,12 @@ Cualquier persona o agente que se incorpore empieza leyendo, en este orden: `doc
 
 | Fase | Objetivo | Incluye | Criterio de salida (verificado) |
 |---|---|---|---|
-| **0. Cimientos** | Esqueleto seguro y probado | Monorepo, CI, auth, organizaciones, regiones, locales, roles, catálogo `agent_types`, app shell (barra lateral, selector de alcance, ⌘K, `DataTable` base) sobre datos reales, esquema + RLS + pgTAP, herencia de configuración, cola, worker, `/ops` mínimo, `AGENTS.md`/`CLAUDE.md`, `STATUS.md` | Una organización de prueba con 3 locales y usuarios de cada rol; los tests de aislamiento pasan en CI; en la app, cada rol ve solo lo que le corresponde (comprobado con capturas) |
-| **1. Primer agente real** | Agente `customer` para el vertical piloto **[ABIERTO]** | Web chat + un canal real (WhatsApp vía BSP), conocimiento central y por local, solicitudes de conocimiento, motor de políticas, aprobaciones, auditoría, una integración real (calendario o reservas), métricas básicas y evals del vertical | Conversaciones reales en producción con un piloto de 1-2 locales durante varias semanas, con la tasa de resolución autónoma medida |
-| **2. Los 4 agentes + coach interno** | `sales`, `operations`, `admin` + coordinación + inteligencia sobre datos internos | Eventos de dominio, CRM, facturación ES, Instagram, email, panel de analítica multi-local, memoria aprendida cruzada, mapa del negocio, objetivos y coach sobre datos internos (gestión, finanzas, clientes) | Un flujo completo entre agentes (cita → operación → cobro en borrador) con un cliente real; recomendaciones del coach aceptadas y con impacto medido |
+| **0. Cimientos** | Esqueleto seguro y probado | Monorepo, CI, auth, organizaciones, regiones, locales, roles, catálogo `agent_types`, app shell (barra lateral, selector de alcance, ⌘K, `DataTable` base) sobre datos reales, esquema + RLS + pgTAP, herencia de configuración, worker con ejecución duradera (DBOS, ADR 0027), `/ops` mínimo, `AGENTS.md`/`CLAUDE.md`, `STATUS.md` | Una organización de prueba con 3 locales y usuarios de cada rol; los tests de aislamiento pasan en CI; en la app, cada rol ve solo lo que le corresponde (comprobado con capturas) |
+| **1. Primer agente real** | Agente `customer` para el vertical piloto **[ABIERTO]** | Web chat + un canal real (WhatsApp por Cloud API directa, ADR 0020), conocimiento central y por local, solicitudes de conocimiento, motor de políticas, aprobaciones, auditoría, una integración real (calendario o reservas), métricas básicas y evals del vertical | Conversaciones reales en producción con un piloto de 1-2 locales durante varias semanas, con la tasa de resolución autónoma medida |
+| **2. Los 4 agentes + coach interno** | `reception`, `sales`, `admin` + coordinación + inteligencia sobre datos internos | Eventos de dominio, CRM, facturación ES, Instagram, email, panel de analítica multi-local, memoria aprendida cruzada, mapa del negocio, objetivos y coach sobre datos internos (gestión, finanzas, clientes), asistente en modo lectura y diagnóstico (ADR 0029) | Un flujo completo entre agentes (cita → recurso y recordatorio → cobro en borrador) con un cliente real; recomendaciones del coach aceptadas y con impacto medido |
 | **2b. Coach con señales externas** | El coach mira fuera del negocio | Captación compartida de señales (calendario y festivos, eventos locales, noticias y cambios normativos del sector, tendencias, competencia pública), cruce por organización, alertas | Propuestas de marketing y calendario basadas en eventos, y avisos normativos con fuente, aceptadas por clientes reales |
-| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening | Un negocio completa el onboarding solo; un contrato de cadena firmado |
-| **4. Agent Builder** | Skills y flujos personalizados por cliente | Editor de reglas y flujos, skills configurables | Definido al llegar |
+| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening, asistente con cambios confirmados (ADR 0029), agentes propios y skills de integraciones MCP (ADR 0030), celda dedicada y prueba de humo autoalojada (ADR 0026, 0028) | Un negocio completa el onboarding solo; un contrato de cadena firmado |
+| **4. Agent Builder** | Skills y flujos personalizados por cliente | Editor de reglas y flujos, skills `composed` creadas por el cliente sin programar (ADR 0030) | Definido al llegar |
 | **5. Marketplace** | Agentes y skills de terceros | Publicación, revisión y reparto de ingresos | Definido al llegar |
 | **Voz** | Canal de voz | Telefonía + STT/TTS | Fase **[ABIERTA]** |
 | **Personal (futuro)** | Agente personal del dueño o responsable de las empresas cliente; después, quizá particulares | Nuevo catálogo en `agent_types`, `organizations.kind = personal` | Fase **[ABIERTA]**. No se empieza sin decisión explícita de producto |
@@ -1074,11 +1120,11 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 | # | Decisión | Afecta a | Quién decide |
 |---|---|---|---|
 | 1 | Nombre comercial (marca en revisión legal) | Marca, dominios, `BRAND_NAME` | Producto + legal |
-| 2 | Nombres definitivos de los 4 agentes | UI, marketing | Producto |
+| 2 | ~~Nombres definitivos de los 4 agentes~~ — cerrado: Recepción, Atención al cliente, Comercial y Administración (producto, 2026-10-20) | UI, marketing | Producto |
 | 3 | Vertical y cliente piloto de la fase 1 | Plantillas, integraciones, evals | Producto |
-| 4 | BSP de WhatsApp | Canal, costes, arquitectura de ingesta | Producto + técnico |
-| 5 | Proveedores LLM y de embeddings (residencia, retención, DPA) | Runtime, cumplimiento | Técnico + legal |
-| 6 | Mecanismo de cifrado de secretos (§10.4) | Seguridad | Técnico |
+| 4 | ~~BSP de WhatsApp~~ — cerrado para el piloto: Cloud API directa (ADR 0020) | Canal, costes, arquitectura de ingesta | Producto + técnico |
+| 5 | Proveedores LLM: cerrado (ADR 0019). Siguen abiertos el AI Gateway y el proveedor de embeddings (se miden en piloto) y los DPA por proveedor y región | Runtime, cumplimiento | Técnico + legal |
+| 6 | Secretos: mecanismo cerrado (KMS con clave por tenant, ADR 0019). Sigue abierto el proveedor: AWS KMS o GCP KMS | Seguridad | Técnico |
 | 7 | Proveedores de facturación española a integrar primero | Agente `admin` | Producto |
 | 8 | Precios: cuota, consumo, voz, precio por local | Stripe, límites | Producto |
 | 9 | Momento de entrada de la voz y proveedor | Roadmap, costes | Producto |
@@ -1092,6 +1138,8 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 | 17 | Qué dominios del coach salen primero | Roadmap del coach | Producto |
 | 18 | Si hace falta un agente de marketing propio o basta con el comercial | Catálogo de agentes | Producto |
 | 19 | Revisión legal de los avisos legales, fiscales y contables del coach (texto de descargo y responsabilidad) | Cumplimiento | Legal |
+| 20 | Proveedor de SSO y SCIM: Supabase SAML + SCIM propio, o WorkOS (ADR 0022) | Identidad enterprise | Producto + técnico |
+| 21 | Aceptar DBOS tras el *spike* del ADR 0027 (o pasar a Temporal) | Runtime | Técnico |
 
 ---
 
@@ -1099,25 +1147,40 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 
 Formato de cada ADR en `docs/adr/NNNN-titulo.md`: contexto, decisión, alternativas consideradas, consecuencias y estado (`propuesto`/`aceptado`/`sustituido por NNNN`).
 
-ADRs iniciales a redactar en la fase 0, recogiendo lo decidido y propuesto en este manual:
+Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto en este manual y están **pendientes de redactar** (tarea 7 de la Fase 0):
 
-- 0001: Construcción desde cero, sin reutilizar el backend anterior.
-- 0002: TypeScript full-stack en monorepo (pnpm + Turborepo).
-- 0003: Supabase Postgres en la UE con RLS como barrera de aislamiento.
-- 0004: Orquestación propia con Vercel AI SDK (sin framework de agentes ni low-code).
-- 0005: Jerarquía organización → región → local y herencia de configuración.
-- 0006: Cola en Postgres (pg-boss) y worker always-on.
-- 0007: Integraciones MCP primero, con interfaz interna por tipo.
-- 0008: Motor de políticas, clases de efecto y techos de autonomía.
-- 0009: Coordinación entre agentes por eventos de dominio (outbox).
-- 0010: El agente `admin` opera a través del software de facturación del cliente.
-- 0011: Claude Code y Codex como únicos agentes de código; `AGENTS.md`/`CLAUDE.md` + `STATUS.md`.
-- 0012: Tipos de agente como catálogo en datos (`agent_types`), no como enum en código.
-- 0013: Memoria aprendida separada del conocimiento, con extracción asíncrona, validación y consolidación.
-- 0014: Objetivos y modo coach como parte del núcleo.
-- 0015: Mapa del negocio en Postgres (entidades y relaciones) en lugar de base de datos de grafos.
-- 0016: Señales externas captadas una vez por sector y zona, y cruzadas por organización.
-- 0017: El coach detecta y avisa en legal, fiscal y contable; nunca asesora ni ejecuta en esos dominios.
+| ADR | Título | Estado |
+|---|---|---|
+| 0001 | Construcción desde cero, sin reutilizar el backend anterior | por redactar |
+| 0002 | TypeScript full-stack en monorepo (pnpm + Turborepo) | por redactar |
+| 0003 | Supabase Postgres en la UE con RLS como barrera de aislamiento | aceptado |
+| 0004 | Orquestación propia con Vercel AI SDK (sin framework de agentes ni low-code) | por redactar |
+| 0005 | Jerarquía organización → región → local y herencia de configuración | por redactar |
+| 0006 | Worker always-on; la cola pasa a DBOS (ver 0027) | por redactar |
+| 0007 | Integraciones MCP primero, con interfaz interna por tipo | por redactar |
+| 0008 | Motor de políticas, clases de efecto y techos de autonomía | por redactar |
+| 0009 | Coordinación entre agentes por eventos de dominio (outbox) | por redactar |
+| 0010 | El agente `admin` opera a través del software de facturación del cliente | por redactar |
+| 0011 | Claude Code y Codex como únicos agentes de código; `AGENTS.md`/`CLAUDE.md` + `STATUS.md` | por redactar |
+| 0012 | Tipos de agente como catálogo en datos (`agent_types`), no como enum en código | por redactar |
+| 0013 | Memoria aprendida separada del conocimiento, con extracción asíncrona, validación y consolidación | por redactar |
+| 0014 | Objetivos y modo coach como parte del núcleo | por redactar |
+| 0015 | Mapa del negocio en Postgres (entidades y relaciones) en lugar de base de datos de grafos | por redactar |
+| 0016 | Señales externas captadas una vez por sector y zona, y cruzadas por organización | por redactar |
+| 0017 | El coach detecta y avisa en legal, fiscal y contable; nunca asesora ni ejecuta en esos dominios | por redactar |
+| 0018 | `packages/ui` como código fuente | aceptado |
+| 0019 | Enrutador de IA multi-proveedor y multi-región; residencia por tenant; BYOK/BYOC; KMS | aceptado |
+| 0020 | WhatsApp por Cloud API directa | aceptado |
+| 0021 | Equipo interno (`platform_staff`) y auditoría | en el PR #16 |
+| 0022 | Identidad, cuentas y permisos a escala enterprise | propuesto |
+| 0023 | Fuente de verdad única y vocabulario canónico | propuesto |
+| 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | propuesto |
+| 0025 | Búsqueda vectorial con muchas empresas en un solo Postgres | propuesto |
+| 0026 | Un solo Postgres al principio: reparto de cargas, umbrales y celdas | propuesto |
+| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (pendiente de *spike*) |
+| 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
+| 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
+| 0030 | Agentes y skills ampliables | propuesto |
 
 ---
 
@@ -1126,8 +1189,10 @@ ADRs iniciales a redactar en la fase 0, recogiendo lo decidido y propuesto en es
 | Término | Definición |
 |---|---|
 | Organización | Empresa cliente de la plataforma (tenant). |
-| Local | Establecimiento físico o unidad operativa de una organización. |
-| Agente | Uno de los 4 agentes integrados (`customer`, `sales`, `operations`, `admin`) de una organización. |
+| Local / sede | Establecimiento físico o unidad operativa de una organización. En código y BD, `location`; en la interfaz en español, «sede». |
+| Celda | Copia completa de la plataforma en una región que aloja a un conjunto de organizaciones (compartida, dedicada o en la nube del cliente). |
+| Agente | Uno de los 4 agentes integrados (`reception`, `customer`, `sales`, `admin`) de una organización. |
+| Asistente | Meta-agente que ayuda a configurar y operar la plataforma con los permisos del usuario (§5.13). |
 | Skill | Acción tipada que un agente puede ejecutar a través de una integración. |
 | Clase de efecto | Categoría de riesgo de una skill, que fija su techo de autonomía. |
 | Autonomía | Nivel de independencia de una skill: suggest, draft, execute o autonomous. |
