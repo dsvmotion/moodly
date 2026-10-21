@@ -7,8 +7,8 @@
 //   escribe solo en packages/db/.seed/credentials.local.json (ignorado por
 //   git, permisos 0600). No se imprime por pantalla.
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -17,6 +17,10 @@ import { seedLocations, seedOrganizations, seedRegions, seedUsers, type SeedUser
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
+// Claves de servidor locales (p. ej. LOGIN_THROTTLE_KEY). Se reutilizan entre
+// ejecuciones para no invalidar apps/web/.env.local; `pnpm --filter @repo/web
+// env:local` las copia allí. Ignorado por git, permisos 0600.
+const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
 
 interface LocalSupabase {
   apiUrl: string;
@@ -96,6 +100,11 @@ async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60
   throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
 }
 
+function readServerKeys(): Record<string, string> {
+  if (!existsSync(serverKeysFile)) return {};
+  return JSON.parse(readFileSync(serverKeysFile, "utf8")) as Record<string, string>;
+}
+
 async function main(): Promise<void> {
   const { apiUrl, secretKey } = readLocalSupabase();
   await waitForServices(apiUrl, secretKey);
@@ -113,6 +122,18 @@ async function main(): Promise<void> {
     seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })),
   );
   check("locations", locations.error);
+
+  // Clave de servidor del freno del login (migración login_throttle): en la
+  // base de datos solo se registra su hash.
+  const serverKeys = readServerKeys();
+  const loginThrottleKey = serverKeys.login_throttle ?? randomBytes(32).toString("base64url");
+  const registered = await admin.rpc("register_server_key", {
+    p_name: "login_throttle",
+    p_key_hash: createHash("sha256").update(loginThrottleKey).digest("hex"),
+  });
+  check("server_keys", registered.error);
+  mkdirSync(dirname(serverKeysFile), { recursive: true });
+  writeFileSync(serverKeysFile, JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey }, null, 2), { mode: 0o600 });
 
   const credentials: SeedCredential[] = [];
   for (const user of seedUsers) {

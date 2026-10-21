@@ -17,6 +17,17 @@
 --
 -- Emails e IPs se guardan solo como hash SHA-256; los registros de más de un
 -- día se purgan solos.
+--
+-- Clave de servidor (auditoría backend 2026-10-21, P0-1): login_throttle y
+-- login_record_failure se llaman antes de iniciar sesión, así que solo pueden
+-- ir como anon, y la API REST de Supabase es pública. Sin más, cualquiera con
+-- la clave publicable podía registrar fallos con el email de otra persona y
+-- bloquearle el login, o llenar la tabla sin límite (comprobado en local).
+-- Por eso las dos funciones exigen una clave que solo conoce el servidor de la
+-- app (variable LOGIN_THROTTLE_KEY, nunca NEXT_PUBLIC_). En la base de datos
+-- solo se guarda su hash SHA-256, en private.server_keys; la registra la
+-- plataforma con public.register_server_key (solo service_role). La clave no
+-- da acceso a ningún dato: solo permite usar el freno.
 -- Vuelta atrás: supabase/rollbacks/20261021090000_login_throttle.down.sql
 
 create table private.login_failures (
@@ -32,6 +43,49 @@ create index login_failures_ip_idx    on private.login_failures (ip_hash, failed
 alter table private.login_failures enable row level security;
 alter table private.login_failures force row level security;
 revoke all on private.login_failures from public, anon, authenticated;
+
+-- Claves de servidor (solo el hash). Nadie la lee desde la API.
+create table private.server_keys (
+  name       text primary key check (name ~ '^[a-z_]{1,64}$'),
+  key_hash   text not null check (key_hash ~ '^[0-9a-f]{64}$'),
+  rotated_at timestamptz not null default now()
+);
+alter table private.server_keys enable row level security;
+alter table private.server_keys force row level security;
+revoke all on private.server_keys from public, anon, authenticated, service_role;
+
+-- ¿p_key es la clave de servidor registrada con este nombre? Sin clave
+-- registrada, siempre false (fallo cerrado).
+create function private.server_key_ok(p_name text, p_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_key is not null
+    and length(p_key) between 32 and 256
+    and exists (
+      select 1 from private.server_keys k
+      where k.name = p_name
+        and k.key_hash = encode(extensions.digest(p_key, 'sha256'), 'hex')
+    );
+$$;
+revoke all on function private.server_key_ok(text, text) from public;
+
+-- Registrar o rotar una clave: solo la plataforma (service_role), con el hash.
+create function public.register_server_key(p_name text, p_key_hash text)
+returns void
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  insert into private.server_keys (name, key_hash) values (p_name, lower(p_key_hash))
+  on conflict (name) do update set key_hash = excluded.key_hash, rotated_at = now();
+$$;
+revoke all on function public.register_server_key(text, text) from public, anon, authenticated;
+grant execute on function public.register_server_key(text, text) to service_role;
 
 -- Normaliza y hashea; rechaza entradas absurdas (no son un email o una IP).
 create function private.login_key(p_value text, p_max integer)
@@ -51,7 +105,7 @@ revoke all on function private.login_key(text, integer) from public;
 
 -- Segundos que hay que esperar antes de intentar entrar con este email desde
 -- esta IP (0 = puede intentarlo).
-create function public.login_throttle(p_email text, p_ip text)
+create function public.login_throttle(p_email text, p_ip text, p_key text)
 returns integer
 language plpgsql
 stable
@@ -69,6 +123,9 @@ declare
   v_excess integer;
   v_wait  interval;
 begin
+  if not private.server_key_ok('login_throttle', p_key) then
+    raise exception 'clave de servidor no válida' using errcode = '42501';
+  end if;
   select count(*) filter (where email_hash = v_email and ip_hash = v_ip),
          count(*) filter (where email_hash = v_email),
          count(*) filter (where ip_hash = v_ip),
@@ -89,7 +146,7 @@ end;
 $$;
 
 -- Registra un intento fallido y purga lo viejo.
-create function public.login_record_failure(p_email text, p_ip text)
+create function public.login_record_failure(p_email text, p_ip text, p_key text)
 returns void
 language plpgsql
 volatile
@@ -97,6 +154,9 @@ security definer
 set search_path = ''
 as $$
 begin
+  if not private.server_key_ok('login_throttle', p_key) then
+    raise exception 'clave de servidor no válida' using errcode = '42501';
+  end if;
   insert into private.login_failures (email_hash, ip_hash)
   values (private.login_key(p_email, 320), private.login_key(p_ip, 64));
   delete from private.login_failures where failed_at < now() - interval '1 day';
@@ -125,11 +185,11 @@ $$;
 
 -- Supabase da EXECUTE por defecto a anon y authenticated sobre las funciones
 -- nuevas de public: se quita a todos y se concede solo lo necesario.
-revoke all on function public.login_throttle(text, text)        from public, anon, authenticated;
-revoke all on function public.login_record_failure(text, text)  from public, anon, authenticated;
+revoke all on function public.login_throttle(text, text, text)        from public, anon, authenticated;
+revoke all on function public.login_record_failure(text, text, text)  from public, anon, authenticated;
 revoke all on function public.login_record_success()            from public, anon, authenticated;
 -- Antes de entrar no hay sesión: comprobar y registrar el fallo los usa anon.
-grant execute on function public.login_throttle(text, text)       to anon, authenticated;
-grant execute on function public.login_record_failure(text, text) to anon, authenticated;
+grant execute on function public.login_throttle(text, text, text)       to anon, authenticated;
+grant execute on function public.login_record_failure(text, text, text) to anon, authenticated;
 -- Borrar los fallos solo con sesión (y solo los propios).
 grant execute on function public.login_record_success()           to authenticated;

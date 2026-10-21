@@ -6,9 +6,12 @@
 begin;
 
 drop function if exists public.login_record_success();
-drop function if exists public.login_record_failure(text, text);
-drop function if exists public.login_throttle(text, text);
+drop function if exists public.login_record_failure(text, text, text);
+drop function if exists public.login_throttle(text, text, text);
+drop function if exists public.register_server_key(text, text);
+drop function if exists private.server_key_ok(text, text);
 drop function if exists private.login_key(text, integer);
 drop table if exists private.login_failures;
+drop table if exists private.server_keys;
 
 commit;

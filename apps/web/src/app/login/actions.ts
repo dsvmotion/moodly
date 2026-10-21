@@ -21,18 +21,22 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     return { error: "Introduce email y contraseña." };
   }
 
+  // Sin clave de servidor no se puede usar el freno: fallo cerrado.
+  const key = process.env["LOGIN_THROTTLE_KEY"];
+  if (!key) return { error: UNAVAILABLE };
+
   const supabase = await createClient();
   const ip = clientIp(await headers());
 
   // Freno a la fuerza bruta (migración login_throttle). Si no se puede
   // comprobar, no se deja intentar: fallo cerrado.
-  const throttle = await supabase.rpc("login_throttle", { p_email: email, p_ip: ip });
+  const throttle = await supabase.rpc("login_throttle", { p_email: email, p_ip: ip, p_key: key });
   if (throttle.error) return { error: UNAVAILABLE };
   if (throttle.data > 0) return { error: TOO_MANY };
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    await supabase.rpc("login_record_failure", { p_email: email, p_ip: ip });
+    await supabase.rpc("login_record_failure", { p_email: email, p_ip: ip, p_key: key });
     // Mensaje genérico: no revela si el email existe.
     return { error: GENERIC_ERROR };
   }
