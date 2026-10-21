@@ -125,6 +125,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"support_grants": {
+                  Row: {
+                    "created_at": string,"expires_at": string,"granted_by": string,"id": string,"organization_id": string,"reason": string,"revoked_at": string | null,"staff_user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"expires_at": string,"granted_by": string,"id"?: string,"organization_id": string,"reason": string,"revoked_at"?: string | null,"staff_user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"expires_at"?: string,"granted_by"?: string,"id"?: string,"organization_id"?: string,"reason"?: string,"revoked_at"?: string | null,"staff_user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_grants_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "support_grants_staff_user_id_fkey"
+      columns: ["staff_user_id"]
+isOneToOne: false
+      referencedRelation: "platform_staff"
+      referencedColumns: ["user_id"]
+    }
+                  ]
                 },"users": {
                   Row: {
                     "created_at": string,"full_name": string | null,"id": string,"locale": string,"updated_at": string

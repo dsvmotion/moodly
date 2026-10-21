@@ -176,8 +176,19 @@ select is(pg_temp.visible_counts(), array[1, 1, 1, 2, 2], 'location_manager B1: 
 -- el seed de desarrollo cargado.
 -- ===========================================================================
 reset role;
-select pg_temp.visible_counts()::text as all_counts \gset
-select pg_temp.login(:p_admin) as p_admin_session \gset
+select pg_temp.visible_counts()::text as super_counts \gset
+-- Lo que debe ver el equipo interno con permiso para todas las organizaciones:
+-- todo, salvo los perfiles de quien no tiene membership ni es interno.
+select array[
+  (select count(*)::int from public.organizations),
+  (select count(*)::int from public.regions),
+  (select count(*)::int from public.locations),
+  (select count(*)::int from public.users u
+    where exists (select 1 from public.memberships m where m.user_id = u.id)
+       or exists (select 1 from public.platform_staff ps where ps.user_id = u.id)),
+  (select count(*)::int from public.memberships)
+]::text as all_counts \gset
+select pg_temp.staff_login(:p_admin) as p_admin_session \gset
 
 select results_eq(
   format('select id from public.organizations where id in (%L, %L) order by id', :org_a, :org_b),
@@ -185,7 +196,8 @@ select results_eq(
   'platform_admin: ve las organizaciones A y B'
 );
 select is(pg_temp.visible_counts(), :'all_counts'::int[], 'platform_admin: ve todas las filas de las 5 tablas de tenants');
--- Fixture: 3 regiones y 4 locales, 11 perfiles (8 tenant + 3 internos) y 7 memberships.
+-- Fixture: 3 regiones y 4 locales, 10 perfiles (7 con membership + 3 internos;
+-- el usuario sin membership no es de ninguna organización con permiso) y 7 memberships.
 select is(
   (select array[
      (select count(*) from public.regions     where organization_id in (:org_a, :org_b)),
@@ -193,7 +205,7 @@ select is(
      (select count(*) from public.users       where full_name like '%@test.local'),
      (select count(*) from public.memberships where organization_id in (:org_a, :org_b))
    ]::int[]),
-  array[3, 4, 11, 7],
+  array[3, 4, 10, 7],
   'platform_admin: ve las regiones, locales, perfiles y memberships de A y B'
 );
 select is(
@@ -216,7 +228,7 @@ select ok(not (select private.is_platform_staff(array['platform_operator'])), 'p
 select is(pg_temp.staff_write_probe(), :staff_write_expected, 'platform_admin: ningún INSERT/UPDATE/DELETE en las 5 tablas de tenants');
 
 reset role;
-select pg_temp.login(:p_operator);
+select pg_temp.staff_login(:p_operator);
 select is(pg_temp.visible_counts(), :'all_counts'::int[], 'platform_operator: ve lo mismo que platform_admin (D1)');
 select ok((select private.is_platform_staff(array['platform_operator'])), 'platform_operator: is_platform_staff([platform_operator]) = true');
 select ok(not (select private.is_platform_staff(array['platform_admin'])), 'platform_operator: is_platform_staff([platform_admin]) = false');
@@ -235,7 +247,7 @@ select is(
   array['Org A', 'Org B'],
   'tras los intentos del equipo interno: organizaciones intactas'
 );
-select is(pg_temp.visible_counts(), :'all_counts'::int[], 'tras los intentos del equipo interno: ninguna fila creada ni borrada');
+select is(pg_temp.visible_counts(), :'super_counts'::int[], 'tras los intentos del equipo interno: ninguna fila creada ni borrada');
 select is(
   (select array_agg(role || ':' || cardinality(scope_region_ids) || ':' || cardinality(scope_location_ids) order by user_id)
    from public.memberships where organization_id in (:org_a, :org_b)),
@@ -258,37 +270,37 @@ select ok(
 -- Revocar surte efecto en la siguiente consulta, con la misma sesión.
 reset role;
 update public.platform_staff set revoked_at = now() where user_id = :p_admin;
-select pg_temp.act_as(:p_admin, :'p_admin_session');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 1, 0], 'revocar: el interno deja de ver tenants en la siguiente consulta');
 reset role;
 update public.platform_staff set revoked_at = null where user_id = :p_admin;
-select pg_temp.act_as(:p_admin, :'p_admin_session');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.visible_counts(), :'all_counts'::int[], 'volver a conceder: recupera la lectura');
 
 -- Logout (sesión borrada): el JWT sigue firmado, pero ya no ve nada.
 reset role;
 delete from auth.sessions where id = :'p_admin_session';
-select pg_temp.act_as(:p_admin, :'p_admin_session');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'interno con la sesión borrada (logout): no ve nada');
 select is_empty('select 1 from public.platform_staff', 'interno con la sesión borrada: tampoco su fila de platform_staff');
 
 reset role;
-select pg_temp.login(:p_admin) as p_admin_session2 \gset
+select pg_temp.staff_login(:p_admin) as p_admin_session2 \gset
 reset role;
 update auth.sessions set not_after = now() - interval '1 minute' where id = :'p_admin_session2';
-select pg_temp.act_as(:p_admin, :'p_admin_session2');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session2');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'interno con la sesión caducada: no ve nada');
 
 reset role;
-select pg_temp.login(:p_operator) as p_operator_session \gset
+select pg_temp.staff_login(:p_operator) as p_operator_session \gset
 reset role;
 update auth.users set banned_until = now() + interval '1 day' where id = :p_operator;
-select pg_temp.act_as(:p_operator, :'p_operator_session');
+select pg_temp.staff_act_as(:p_operator, :'p_operator_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'interno baneado: no ve nada aunque su sesión exista');
 
 reset role;
 update auth.users set banned_until = null, deleted_at = now() where id = :p_operator;
-select pg_temp.act_as(:p_operator, :'p_operator_session');
+select pg_temp.staff_act_as(:p_operator, :'p_operator_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'interno borrado (deleted_at): no ve nada');
 
 -- Borrado físico de la cuenta: su fila de platform_staff desaparece en cascada.
@@ -299,7 +311,7 @@ select is(
   0,
   'interno borrado de auth.users: su fila de platform_staff se borra en cascada'
 );
-select pg_temp.act_as(:p_operator, :'p_operator_session');
+select pg_temp.staff_act_as(:p_operator, :'p_operator_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'interno borrado de auth.users: su JWT ya no ve nada');
 
 -- ===========================================================================

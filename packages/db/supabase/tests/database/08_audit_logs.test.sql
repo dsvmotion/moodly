@@ -121,7 +121,7 @@ select lives_ok(
 -- ===========================================================================
 -- 3. INSERT: el equipo interno solo inserta filas propias
 -- ===========================================================================
-select pg_temp.login(:p_admin) as p_admin_session \gset
+select pg_temp.staff_login(:p_admin) as p_admin_session \gset
 
 select lives_ok(
   format($$insert into public.audit_logs (actor_type, actor_id, action) values ('platform_staff', %L, 'ops.org_list.viewed')$$, :p_admin),
@@ -175,7 +175,7 @@ select is(
 reset role;
 delete from public.audit_logs where action = 'x';
 
-select pg_temp.login(:p_operator);
+select pg_temp.staff_login(:p_operator);
 select lives_ok(
   format($$insert into public.audit_logs (organization_id, actor_type, actor_id, action) values (%L, 'platform_staff', %L, 'ops.org.viewed')$$, :org_b, :p_operator),
   'platform_operator: también inserta sus eventos (D1)'
@@ -187,7 +187,7 @@ select is(pg_temp.insert_as_staff(), '42501', 'interno revocado: no puede insert
 
 reset role;
 delete from auth.sessions where id = :'p_admin_session';
-select pg_temp.act_as(:p_admin, :'p_admin_session');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.insert_as_staff(), '42501', 'interno con la sesión borrada (logout): no puede insertar');
 
 -- Usuarios tenant: no pueden escribir filas del equipo interno (ni ninguna otra).
@@ -231,11 +231,11 @@ select is(pg_temp.insert_as_staff(), '42501', 'usuario sin membership: no puede 
 
 reset role;
 select count(*) as all_rows from public.audit_logs \gset
-select pg_temp.login(:p_admin);
+select pg_temp.staff_login(:p_admin);
 select is(pg_temp.fixture_orgs(), :all_orgs, 'platform_admin: lee las filas de A, B y sin organización');
 select is((select count(*) from public.audit_logs), :all_rows::bigint, 'platform_admin: lee todas las filas que hay');
 reset role;
-select pg_temp.login(:p_operator);
+select pg_temp.staff_login(:p_operator);
 select is(pg_temp.fixture_orgs(), :all_orgs, 'platform_operator: lee las filas de A, B y sin organización (D1)');
 select is((select count(*) from public.audit_logs), :all_rows::bigint, 'platform_operator: lee todas las filas que hay');
 
@@ -269,7 +269,7 @@ select pg_temp.login(:p_revoked);
 select is(pg_temp.visible_orgs(), '{}', 'interno revocado: no ve ninguna fila');
 
 reset role;
-select pg_temp.act_as(:p_admin, :'p_admin_session');
+select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.visible_orgs(), '{}', 'interno con la sesión borrada (logout): no ve ninguna fila');
 reset role;
 delete from auth.sessions where id = :'a_admin_session';
@@ -280,7 +280,7 @@ select is(pg_temp.visible_orgs(), '{}', 'org_admin A con la sesión borrada (log
 -- 5. Solo inserción: UPDATE, DELETE y TRUNCATE fallan
 -- ===========================================================================
 reset role;
-select pg_temp.login(:p_admin);
+select pg_temp.staff_login(:p_admin);
 select throws_ok($$update public.audit_logs set action = 'borrado'$$, '42501', null, 'platform_admin: no puede modificar filas');
 select throws_ok('delete from public.audit_logs', '42501', null, 'platform_admin: no puede borrar filas');
 select throws_ok('truncate public.audit_logs', '42501', null, 'platform_admin: no puede truncar');

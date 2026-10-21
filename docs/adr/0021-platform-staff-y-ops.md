@@ -25,6 +25,19 @@ La especificación del panel (`/ops` mínimo, Fase 0) dejó 14 decisiones abiert
    - Sin `created_at`/`updated_at` (convención de §4.2): en una tabla de solo inserción `at` es la fecha de creación y no hay modificaciones.
 7. **Toda política nueva empieza por `(select private.session_is_active()) AND …`** (ADR 0003 §7). Logout, sesión caducada, ban o borrado cortan también el acceso interno en la siguiente consulta.
 
+### Actualización 2026-10-21: acceso con permiso temporal y MFA (D8 y D12 cerradas)
+
+La auditoría del backend (P0-3) comprobó que la lectura permanente del equipo interno se podía usar llamando directamente a la API REST, sin MFA y sin dejar ninguna fila de auditoría: la «fila por vista» de D8 solo la imponía la app. Producto aprobó el acceso *just-in-time* (decisión D3 de la auditoría, en línea con el ADR 0022). La migración `20261006180000_support_grants` lo impone en la base de datos:
+
+- **`public.support_grants`:** permiso de un interno sobre una organización, con motivo (10–500 caracteres), caducidad de **8 h como máximo** y revocación. No se borra (queda como historial).
+- **Leer datos de un cliente exige a la vez** sesión viva, **MFA en la sesión (`aal2`)** y un permiso vigente para esa organización (`private.staff_can_read`). Sin permiso, el interno no ve nada de ningún cliente.
+- **Solo un `platform_admin` con MFA concede o revoca.** `granted_by` y las fechas los fija la base de datos. De un permiso solo se puede cambiar `revoked_at`, y una vez.
+- **Conceder y revocar escriben en `audit_logs` en la misma transacción.** El `org_admin` del cliente lo ve en la auditoría de su organización (D5).
+- **Leer toda la auditoría** también exige MFA.
+- **Perfiles:** el interno ve los de las personas de organizaciones con permiso vigente y los de otros internos.
+
+Con esto, **D8 queda cerrada** (el acceso lo impone la base de datos, no la app) y **D12 queda impuesta en la base de datos** (sin `aal2` no hay lectura). Para usarlo en un entorno alojado, los internos tienen que tener MFA activado (llega con el PR #30). El permiso lo crea hoy un `platform_admin` por SQL o por la API; la pantalla de `/ops` para pedir y conceder permisos va con los PR 2–4. En el plan enterprise, la aprobación del propio cliente (ADR 0022) se añadirá sobre esta misma tabla.
+
 ### Decisiones D1–D14 (cerradas por Diego el 2026-10-06)
 | # | Decisión |
 |---|---|
