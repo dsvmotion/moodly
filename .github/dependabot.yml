@@ -2,7 +2,8 @@
 # cooldown: solo propone versiones con al menos 14 días publicadas (un paquete
 # comprometido suele detectarse y retirarse antes). Las alertas de seguridad de
 # Dependabot no esperan. Sus PRs se mergean con el procedimiento de AGENTS.md
-# («Mergeo autónomo»): CI en verde sobre el commit exacto.
+# («Mergeo autónomo»): CI en verde sobre el commit exacto. Sin etiquetas: la de
+# «dependencias» no existe en el repo y Dependabot avisaba en cada PR.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -16,7 +17,6 @@ updates:
     groups:
       parches-y-menores:
         update-types: [minor, patch]
-    labels: [dependencias]
 
   - package-ecosystem: github-actions
     directory: /
@@ -25,4 +25,3 @@ updates:
       day: monday
     cooldown:
       default-days: 14
-    labels: [dependencias]
