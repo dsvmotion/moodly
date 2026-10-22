@@ -1,19 +1,26 @@
 import "server-only";
 import type { LocationRow } from "@/components/records/locations-table";
 import type { PersonRow } from "@/components/records/people-table";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope, type Scope } from "./scope";
 import type { ScopeContext } from "./scope-data";
 
 // Datos de Registros → Locales y Personas. Consultas normales con el JWT del
-// usuario (RLS decide qué filas existen); el alcance acota esas filas.
+// usuario (RLS decide qué filas existen); el alcance acota esas filas. Se piden
+// enteras por páginas (fetchAll): PostgREST corta cada respuesta en 1.000 filas.
+// El detalle de un error va en `cause` (para los logs), no en el mensaje.
 
 async function loadMemberships() {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("memberships")
-    .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)");
-  if (error) throw new Error(`No se pudieron cargar las personas: ${error.message}`);
+  const { data, error } = await fetchAll((from, to) =>
+    supabase
+      .from("memberships")
+      .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
+      .order("id")
+      .range(from, to),
+  );
+  if (error) throw new Error("No se pudieron cargar las personas", { cause: error });
   return data.map((m) => ({
     id: m.id,
     role: m.role,
@@ -26,10 +33,16 @@ async function loadMemberships() {
 export async function loadLocationRows(scope: Scope, context: ScopeContext): Promise<LocationRow[]> {
   const supabase = await createClient();
   const [{ data, error }, memberships] = await Promise.all([
-    supabase.from("locations").select("id, name, status, timezone, address, opening_hours, region_id, region:regions(name)"),
+    fetchAll((from, to) =>
+      supabase
+        .from("locations")
+        .select("id, name, status, timezone, address, opening_hours, region_id, region:regions(name)")
+        .order("id")
+        .range(from, to),
+    ),
     loadMemberships(),
   ]);
-  if (error) throw new Error(`No se pudieron cargar los locales: ${error.message}`);
+  if (error) throw new Error("No se pudieron cargar los locales", { cause: error });
 
   const rows = data.map((location) => ({ ...location, regionId: location.region_id }));
   return locationsInScope(scope, rows)
