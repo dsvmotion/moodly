@@ -234,8 +234,8 @@ flowchart LR
 | Integraciones | MCP (Model Context Protocol) cuando exista un servidor fiable; conector propio si no | **[PROPUESTO]** | Ampliar el catálogo rápido sin escribir cada API a mano. |
 | Pagos | Stripe (suscripciones + consumo medido) | **[PROPUESTO]** | Setup, cuota mensual y uso. |
 | Email transaccional | Resend o Postmark | **[PROPUESTO]** | Invitaciones, alertas y notificaciones. |
-| Errores | Sentry | **[PROPUESTO]** | |
-| Logs y trazas | pino (JSON) + OpenTelemetry | **[PROPUESTO]** | |
+| Errores | Sentry (región UE, *tunnel* propio, sin datos personales) | **[DECIDIDO: ADR 0032]** | Pendiente de crear el proyecto en Sentry. |
+| Logs y trazas | pino (JSON a stdout, con censura y seudónimos) + OpenTelemetry | **[DECIDIDO: ADR 0032]** (pino) · **[PROPUESTO]** (OpenTelemetry) | Eventos de seguridad (`securityEvent`) y `request.error` por cada error del servidor. |
 | Trazas LLM | Langfuse (self-hosted o cloud UE) | **[PROPUESTO]** | Coste, latencia y calidad por ejecución; base de las evals. |
 | Tests | Vitest, pgTAP (`supabase test db`), Playwright | **[PROPUESTO]** | Unidad, aislamiento RLS y extremo a extremo. |
 | CI/CD | GitHub Actions | **[PROPUESTO]** | |
@@ -1183,6 +1183,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
 | 0030 | Agentes y skills ampliables | propuesto |
 | 0031 | Construir frente a adoptar | aceptado |
+| 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado (Sentry pendiente del proyecto) |
 
 ---
 

@@ -110,6 +110,7 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 - El acceso a datos se decide en el servidor, cerca de los datos: cada página o Server Action protegida llama a `requireUser()` (`src/lib/auth/session.ts`), que usa `getUser()` y detecta sesiones cerradas. El proxy (`getClaims()`) solo hace la redirección optimista. Nunca `getSession()` en servidor.
 - El parámetro de vuelta tras el login pasa siempre por `safeNextPath()`.
 - MFA: quien tiene un segundo factor verificado no pasa de `requireUser()` hasta completar `/login/mfa` (sesión aal2). Los códigos fallidos cuentan en el mismo freno que las contraseñas. Supabase Auth cierra las sesiones aal1 de una persona cuando verifica su factor en otra sesión: en los e2e, el tramo «contraseña → código» de un mismo usuario va dentro de `withMfaLock()` (`e2e/helpers.ts`).
+- Logs (ADR 0032): en servidor, `logger` y `securityEvent()` de `src/lib/observability/logger.ts`, nunca `console.*`. Nunca emails, IPs, tokens ni contraseñas en claro (la censura y los seudónimos son la red, no la excusa). Toda acción que cambie permisos, accesos o datos de una organización emite su evento.
 - Registro público cerrado con `[auth] enable_signup = false`. No toques `[auth.email] enable_signup`: en la CLI desactiva el proveedor de email entero, también el login.
 
 ## Trabajo en paralelo (Claude Code + Codex)

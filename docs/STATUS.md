@@ -30,6 +30,7 @@
 - **Cuentas creadas por producto (2026-10-22):** Vercel Pro, Supabase, Railway, Cloudflare, WorkOS, Sentry, Meta for Developers, Resend, GitHub y dominios en Hostinger. Estado de cada una en la re-auditoría §2.4. Las claves van siempre en el gestor de secretos del proveedor o en un `.env` local, nunca en el chat ni en el repo.
 
 ## Bloqueado
+- **Sentry (B1):** crear el proyecto `moodly-web` en la organización de Sentry (región UE) o permitir que los miembros creen proyectos (Settings → General → Members). Después, el DSN va en Vercel como `NEXT_PUBLIC_SENTRY_DSN`.
 - **Staging alojado (fase B2):** los conectores de **Supabase y Vercel** están conectados en claude.ai pero **desactivados en la sesión del agente**; sin ellos no puede crear los proyectos. Además falta decidir el dominio (propuesta: `moodly.com` y `staging.moodly.com`).
 - `SECURITY.md` necesita un email de contacto de seguridad: lo decide producto.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
@@ -40,12 +41,12 @@
 ## Próximo (plan de la re-auditoría del 2026-10-22)
 **Fase A — cerrar la seguridad de los cimientos**
 - A2 · MFA obligatorio para administrar: hecho (#53). Quedan códigos de recuperación y alertas al desactivar MFA (con B1).
-- A3 · Higiene de la web: paginación, errores y GraphQL hechos (#54). En PR: organización activa explícita en lugar de `.limit(1)` (hallazgo 1.6), con selector en la barra lateral, y Zod en las Server Actions.
+- A3 · Higiene de la web: hecho (#54 paginación, errores y GraphQL; #56 organización activa y Zod). **Fase A cerrada**: verificado sobre `main` (`0974d31`) pgTAP 432/432, `pnpm check` 52/52 y e2e 100/100 — 2026-10-22.
 - A4 · CI: hecho (#52 revisión diaria de dependencias, #55 Actions y caché de Playwright).
 - Pendientes menores de la fase: traducir la página de login, Inicio (P1) como destino tras el login, `location_manager` que invita en sus locales, alta de la cuenta de Auth de quien aún no la tiene (llega con WorkOS).
 
 **Fase B — staging alojado y operación**
-- B1 · Observabilidad: Sentry en `apps/web` (organización en la región UE; *tunnel* propio para no abrir la CSP; sin datos personales) y logs estructurados con `organization_id` y `trace_id`. Alertas mínimas: ráfagas de fallos de login, accesos del equipo interno, cambios de rol y desactivación de MFA.
+- B1 · Observabilidad (ADR 0032): en PR los logs JSON con pino (censura y seudónimos), `request.error` por cada error del servidor y eventos de seguridad. **Sentry bloqueado:** el conector no puede crear el proyecto (la organización no permite que sus miembros creen proyectos): producto crea `moodly-web` (plataforma Next.js, región UE) o lo permite. Las alertas se configuran con el proveedor de logs del staging (B2).
 - B2 · Staging: Supabase en la UE y Vercel (`fra1`) en `staging.<dominio>`, con migraciones desde el CI (`supabase db push`), nunca a mano.
 - B3 · Auth de producción (antes 3c-2) en el proyecto alojado: límites de intentos, `jwt_expiry`, sesiones (el *timebox* necesita Pro), Cloudflare Turnstile y `LOGIN_THROTTLE_KEY` registrada.
 - B4 · Email transaccional con Resend (dominio con SPF, DKIM y DMARC): las invitaciones llegan por email.
