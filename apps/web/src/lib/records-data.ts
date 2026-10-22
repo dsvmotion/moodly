@@ -6,17 +6,19 @@ import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope, type Scope } from "./scope";
 import type { ScopeContext } from "./scope-data";
 
-// Datos de Registros → Locales y Personas. Consultas normales con el JWT del
-// usuario (RLS decide qué filas existen); el alcance acota esas filas. Se piden
+// Datos de Registros → Locales y Personas de la organización activa. Consultas
+// normales con el JWT del usuario (RLS decide qué filas existen); la organización
+// activa y el alcance acotan esas filas. Se piden
 // enteras por páginas (fetchAll): PostgREST corta cada respuesta en 1.000 filas.
 // El detalle de un error va en `cause` (para los logs), no en el mensaje.
 
-async function loadMemberships() {
+async function loadMemberships(organizationId: string) {
   const supabase = await createClient();
   const { data, error } = await fetchAll((from, to) =>
     supabase
       .from("memberships")
       .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
+      .eq("organization_id", organizationId)
       .order("id")
       .range(from, to),
   );
@@ -31,16 +33,19 @@ async function loadMemberships() {
 }
 
 export async function loadLocationRows(scope: Scope, context: ScopeContext): Promise<LocationRow[]> {
+  const organization = context.organization;
+  if (!organization) return [];
   const supabase = await createClient();
   const [{ data, error }, memberships] = await Promise.all([
     fetchAll((from, to) =>
       supabase
         .from("locations")
         .select("id, name, status, timezone, address, opening_hours, region_id, region:regions(name)")
+        .eq("organization_id", organization.id)
         .order("id")
         .range(from, to),
     ),
-    loadMemberships(),
+    loadMemberships(organization.id),
   ]);
   if (error) throw new Error("No se pudieron cargar los locales", { cause: error });
 
@@ -65,7 +70,8 @@ export async function loadLocationRows(scope: Scope, context: ScopeContext): Pro
 }
 
 export async function loadPersonRows(scope: Scope, context: ScopeContext): Promise<PersonRow[]> {
-  const memberships = await loadMemberships();
+  if (!context.organization) return [];
+  const memberships = await loadMemberships(context.organization.id);
   const names = new Map<string, string>([
     ...context.regions.map((r): [string, string] => [r.id, r.name]),
     ...context.locations.map((l): [string, string] => [l.id, l.name]),

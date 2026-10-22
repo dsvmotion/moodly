@@ -216,5 +216,9 @@
       "invalid": "Esta invitación no es válida: puede haber caducado, haberse revocado o ser para otra cuenta.",
       "already": "Ya perteneces a esta organización."
     }
+  },
+  "orgSwitcher": {
+    "label": "Organización activa",
+    "change": "Cambiar"
   }
 }

@@ -216,5 +216,9 @@
       "invalid": "This invitation isn’t valid: it may have expired, been revoked or be meant for another account.",
       "already": "You already belong to this organization."
     }
+  },
+  "orgSwitcher": {
+    "label": "Active organization",
+    "change": "Switch"
   }
 }
