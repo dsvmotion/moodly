@@ -13,6 +13,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
+import { totp } from "./totp.ts";
 import {
   seedGuests,
   seedLocations,
@@ -34,6 +35,7 @@ const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
 interface LocalSupabase {
   apiUrl: string;
   secretKey: string;
+  publishableKey: string;
 }
 
 function readLocalSupabase(): LocalSupabase {
@@ -45,10 +47,13 @@ function readLocalSupabase(): LocalSupabase {
   const status = JSON.parse(raw) as Record<string, string | undefined>;
   const apiUrl = status["API_URL"];
   const secretKey = status["SECRET_KEY"] ?? status["SERVICE_ROLE_KEY"];
-  if (!apiUrl || !secretKey) throw new Error("supabase status no devuelve API_URL/SECRET_KEY: ¿está levantado (pnpm db:start)?");
+  const publishableKey = status["PUBLISHABLE_KEY"] ?? status["ANON_KEY"];
+  if (!apiUrl || !secretKey || !publishableKey) {
+    throw new Error("supabase status no devuelve API_URL/SECRET_KEY/PUBLISHABLE_KEY: ¿está levantado (pnpm db:start)?");
+  }
 
   assertLocalSupabaseUrl(apiUrl);
-  return { apiUrl, secretKey };
+  return { apiUrl, secretKey, publishableKey };
 }
 
 function check(label: string, error: { message: string } | null): void {
@@ -83,6 +88,36 @@ interface SeedCredential {
   role: SeedUser["role"] | PlatformStaffRole | null;
   /** null = equipo interno o invitado (sin organización). */
   organizationId: string | null;
+  /** Secreto TOTP (base32) de los org_admin: lo usan los e2e para el paso de MFA. */
+  totpSecret?: string;
+}
+
+// Borra los factores de MFA que queden de ejecuciones anteriores (con la clave
+// secreta local): cada ejecución empieza sin MFA.
+async function resetFactors(admin: SupabaseClient, userId: string): Promise<void> {
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
+  check("mfa.listFactors", error);
+  for (const factor of data?.factors ?? []) {
+    const removed = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
+    check("mfa.deleteFactor", removed.error);
+  }
+}
+
+// Alta y verificación de un factor TOTP como lo haría la persona desde la app
+// (migración admin_mfa: un org_admin necesita aal2 para cualquier cambio).
+// Devuelve el secreto, que solo se guarda en credentials.local.json.
+async function enrollTotp(local: LocalSupabase, email: string, password: string): Promise<string> {
+  const client = createClient(local.apiUrl, local.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const signIn = await client.auth.signInWithPassword({ email, password });
+  check(`signIn ${email}`, signIn.error);
+  const enrolled = await client.auth.mfa.enroll({ factorType: "totp", issuer: "Desarrollo local" });
+  check("mfa.enroll", enrolled.error);
+  if (!enrolled.data) throw new Error(`mfa.enroll no devolvió el factor de ${email}`);
+  const verified = await client.auth.mfa.challengeAndVerify({ factorId: enrolled.data.id, code: totp(enrolled.data.totp.secret) });
+  check("mfa.verify", verified.error);
+  const signOut = await client.auth.signOut({ scope: "local" });
+  check("signOut", signOut.error);
+  return enrolled.data.totp.secret;
 }
 
 // Tras `supabase db reset` se reinician los contenedores y Auth y PostgREST
@@ -117,7 +152,8 @@ function readServerKeys(): Record<string, string> {
 }
 
 async function main(): Promise<void> {
-  const { apiUrl, secretKey } = readLocalSupabase();
+  const local = readLocalSupabase();
+  const { apiUrl, secretKey } = local;
   await waitForServices(apiUrl, secretKey);
   const admin = createClient(apiUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -167,7 +203,16 @@ async function main(): Promise<void> {
     );
     check("memberships", membership.error);
 
-    credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
+    await resetFactors(admin, userId);
+    const totpSecret = user.role === "org_admin" ? await enrollTotp(local, user.email, password) : undefined;
+    credentials.push({
+      key: user.key,
+      email: user.email,
+      password,
+      role: user.role,
+      organizationId: user.organizationId,
+      ...(totpSecret ? { totpSecret } : {}),
+    });
   }
 
   for (const guest of seedGuests) {
@@ -178,6 +223,7 @@ async function main(): Promise<void> {
     // Sin organización: se le quita lo que haya aceptado en ejecuciones anteriores.
     const cleanup = await admin.from("memberships").delete().eq("user_id", userId);
     check("memberships (invitado)", cleanup.error);
+    await resetFactors(admin, userId);
     credentials.push({ key: guest.key, email: guest.email, password, role: null, organizationId: null });
   }
 

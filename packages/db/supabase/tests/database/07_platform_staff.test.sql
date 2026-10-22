@@ -137,7 +137,7 @@ select ok(
 -- ===========================================================================
 \set tenant_expected 'array[''filas: 0'', ''helper: false'', ''insert: 42501'', ''update: 42501'', ''delete: 42501'']'
 
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select is(pg_temp.tenant_probe(), :tenant_expected, 'org_admin A: no ve platform_staff, no escribe en ella y no es equipo interno');
 reset role;
 select pg_temp.login(:a_region_mgr);
@@ -152,7 +152,7 @@ reset role;
 select pg_temp.login(:a_staff2);
 select is(pg_temp.tenant_probe(), :tenant_expected, 'staff A2: no ve platform_staff, no escribe en ella y no es equipo interno');
 reset role;
-select pg_temp.login(:b_admin);
+select pg_temp.login_mfa(:b_admin);
 select is(pg_temp.tenant_probe(), :tenant_expected, 'org_admin B: no ve platform_staff, no escribe en ella y no es equipo interno');
 reset role;
 select pg_temp.login(:b_loc_mgr);
@@ -163,7 +163,7 @@ select is(pg_temp.tenant_probe(), :tenant_expected, 'usuario sin membership: no 
 
 -- Un usuario tenant sigue viendo solo lo suyo (las políticas nuevas no le dan nada).
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'org_admin A: sigue viendo solo A (1 org, 2 regiones, 3 locales, 5 perfiles, 5 memberships)');
 reset role;
 select pg_temp.login(:b_loc_mgr);
@@ -323,7 +323,7 @@ select throws_ok(
   '23514', 'una cuenta del equipo interno (platform_staff) no puede tener memberships de tenants',
   'plataforma: no puede dar una membership a un interno'
 );
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
            values (%L, %L, 'staff', array[%L]::uuid[])$$, :p_admin, :org_a, :loc_a1),

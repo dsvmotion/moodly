@@ -26,7 +26,13 @@ for (const theme of ["light", "dark"] as const) {
     });
 
     test("pantallas de la app", async ({ page }) => {
-      for (const path of ["/app/settings/organization", "/app/inbox", "/app/records/locations", "/app/records/people"]) {
+      for (const path of [
+        "/app/settings/organization",
+        "/app/settings/security",
+        "/app/inbox",
+        "/app/records/locations",
+        "/app/records/people",
+      ]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await expectNoViolations(page, path);

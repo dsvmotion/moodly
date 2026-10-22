@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/auth/client-ip";
-import { safeNextPath } from "@/lib/auth/routes";
+import { MFA_PATH, safeNextPath } from "@/lib/auth/routes";
 import { createClient } from "@/lib/supabase/server";
 
 export interface SignInState {
@@ -34,7 +34,7 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   if (throttle.error) return { error: UNAVAILABLE };
   if (throttle.data > 0) return { error: TOO_MANY };
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     await supabase.rpc("login_record_failure", { p_email: email, p_ip: ip, p_key: key });
     // Mensaje genérico: no revela si el email existe.
@@ -43,5 +43,9 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
 
   // Ya con sesión: borra los fallos de este email (solo los suyos).
   await supabase.rpc("login_record_success");
-  redirect(safeNextPath(formData.get("next")));
+  const next = safeNextPath(formData.get("next"));
+  // Con un segundo factor activado, la contraseña sola da una sesión aal1: falta
+  // el código (y requireUser() no dejaría pasar sin él).
+  const hasFactor = (data.user.factors ?? []).some((factor) => factor.status === "verified");
+  redirect(hasFactor ? `${MFA_PATH}?next=${encodeURIComponent(next)}` : next);
 }

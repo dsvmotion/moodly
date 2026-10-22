@@ -19,7 +19,7 @@ $$;
 -- ===========================================================================
 -- 1. Alta directa eliminada: ni el org_admin crea memberships
 -- ===========================================================================
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
            values (%L, %L, 'staff', array[%L]::uuid[])$$, :outsider, :org_a, :loc_a3),
@@ -61,14 +61,14 @@ select throws_ok(
   format($$select public.create_invitation(%L, 'x@test.local', 'staff', '{}', array[%L]::uuid[])$$, :org_a, :loc_a1),
   '42501', null, 'region_manager: no puede invitar');
 reset role;
-select pg_temp.login(:b_admin);
+select pg_temp.login_mfa(:b_admin);
 select is_empty('select 1 from public.invitations', 'org_admin B: no ve las invitaciones de A');
 
 -- ===========================================================================
 -- 3. Aceptar: solo la persona invitada, una vez, con la invitación vigente
 -- ===========================================================================
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select public.create_invitation(:org_a, 'outsider@test.local', 'location_manager', '{}', array[:loc_a3]::uuid[]) as tok \gset
 select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a1]::uuid[]) as tok_revoked \gset
 select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a2]::uuid[]) as tok_expired \gset
@@ -93,7 +93,7 @@ select pg_temp.login_email(:outsider);
 select throws_ok(format('select public.accept_invitation(%L)', :'tok'), 'P0002', null, 'no se puede usar dos veces');
 
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 with u as (update public.invitations set revoked_at = now()
            where token_hash = encode(extensions.digest(:'tok_revoked', 'sha256'), 'hex') returning 1)
 select is(count(*)::int, 1, 'org_admin A: puede revocar una invitación') from u;
@@ -124,7 +124,7 @@ select is((select count(*)::int from public.memberships where user_id = :outside
   'tras los intentos fallidos, sigue sin membership');
 
 -- Ya miembro: una segunda invitación vigente a la misma organización no duplica.
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select public.create_invitation(:org_a, 'a_staff1@test.local', 'staff', '{}', array[:loc_a2]::uuid[]) as tok_member \gset
 reset role;
 select pg_temp.login_email(:a_staff1);
@@ -134,7 +134,7 @@ select throws_ok(format('select public.accept_invitation(%L)', :'tok_member'), '
 -- Organización suspendida: ni se crean ni se aceptan invitaciones
 -- (accept_invitation es SECURITY DEFINER: RLS no lo frena, lo comprueba ella).
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a3]::uuid[]) as tok_suspended \gset
 reset role;
 update public.organizations set status = 'suspended' where id = :org_a;
@@ -142,7 +142,7 @@ select pg_temp.login_email(:outsider);
 select throws_ok(format('select public.accept_invitation(%L)', :'tok_suspended'), 'P0002', null,
   'organización suspendida: una invitación vigente no sirve (mismo error)');
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select throws_ok(
   format($$select public.create_invitation(%L, 'y@test.local', 'staff', '{}', array[%L]::uuid[])$$, :org_a, :loc_a1),
   '42501', null, 'organización suspendida: el org_admin no puede invitar');

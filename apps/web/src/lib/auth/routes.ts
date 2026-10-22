@@ -4,6 +4,8 @@
 
 export const LOGIN_PATH = "/login";
 export const HOME_PATH = "/app";
+/** Paso del segundo factor tras la contraseña (exige sesión: no es pública). */
+export const MFA_PATH = "/login/mfa";
 
 /** Rutas accesibles sin sesión. Todo lo demás exige usuario autenticado. */
 const PUBLIC_PATHS = new Set([LOGIN_PATH]);
