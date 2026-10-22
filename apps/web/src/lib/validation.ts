@@ -18,6 +18,12 @@ export const inviteSchema = z.object({
 /** Token de invitación en claro (base64url de 32 bytes: 43 caracteres). */
 export const tokenSchema = z.string().min(1).max(128);
 
+/** Email y contraseña del login: solo forma; el error al usuario es siempre genérico. */
+export const signInSchema = z.object({
+  email: z.string().trim().min(1).max(320),
+  password: z.string().min(1).max(1024),
+});
+
 /** Código TOTP de 6 cifras (se toleran espacios al pegarlo). */
 export const totpCodeSchema = z
   .string()

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/auth/client-ip";
 import { MFA_PATH, safeNextPath } from "@/lib/auth/routes";
 import { createClient } from "@/lib/supabase/server";
+import { signInSchema } from "@/lib/validation";
 
 export interface SignInState {
   error: string | null;
@@ -15,11 +16,9 @@ const TOO_MANY = "Demasiados intentos. Espera unos minutos y vuelve a probarlo."
 const UNAVAILABLE = "No se ha podido comprobar el acceso. Inténtalo de nuevo en unos minutos.";
 
 export async function signIn(_prev: SignInState, formData: FormData): Promise<SignInState> {
-  const email = formData.get("email");
-  const password = formData.get("password");
-  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
-    return { error: "Introduce email y contraseña." };
-  }
+  const parsed = signInSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
+  if (!parsed.success) return { error: "Introduce email y contraseña." };
+  const { email, password } = parsed.data;
 
   // Sin clave de servidor no se puede usar el freno: fallo cerrado.
   const key = process.env["LOGIN_THROTTLE_KEY"];

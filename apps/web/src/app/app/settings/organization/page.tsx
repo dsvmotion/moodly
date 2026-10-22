@@ -4,18 +4,21 @@ import Link from "next/link";
 import { InviteForm } from "@/components/invitations/invite-form";
 import { SettingsTabs } from "@/components/settings-tabs";
 import { getSessionAal, requireUser } from "@/lib/auth/session";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope } from "@/lib/scope";
 import { resolveScope } from "@/lib/scope-data";
 
-function rows<T>(label: string, result: { data: T[] | null; error: { message: string } | null }): T[] {
-  if (result.error || !result.data) throw new Error(`No se pudo cargar ${label}: ${result.error?.message ?? "sin datos"}`);
+function rows<T>(label: string, result: { data: T[]; error: unknown }): T[] {
+  if (result.error) throw new Error(`No se pudo cargar ${label}`, { cause: result.error });
   return result.data;
 }
 
-// "Mi organización": lo que el usuario conectado puede ver según RLS. Son
-// consultas normales con su JWT, sin filtros propios: si RLS no dejara ver
-// una fila, aquí no aparece. Sin diseño (tarea 4).
+const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "es");
+
+// "Mi organización": la organización activa, con lo que el usuario conectado
+// puede ver de ella según RLS. Consultas normales con su JWT, acotadas a la
+// organización activa y leídas enteras por páginas (fetchAll). Sin diseño (tarea 4).
 export default async function OrganizationPage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
   await requireUser();
   const supabase = await createClient();
@@ -28,34 +31,59 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   // rechaza cualquier cambio, así que no se ofrecen los formularios.
   const canAdminister = isAdmin && (await getSessionAal()) === "aal2";
 
-  const [organizationsResult, locationsResult, peopleResult] = await Promise.all([
-    supabase.from("organizations").select("id, name").order("name"),
-    supabase.from("locations").select("id, name, status, region_id, region:regions(name)").order("name"),
-    supabase
-      .from("memberships")
-      .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
-      .order("role"),
-  ]);
+  const organization = context.organization;
+  const orgId = organization?.id ?? "";
+  const [locationsResult, peopleResult] = organization
+    ? await Promise.all([
+        fetchAll((from, to) =>
+          supabase
+            .from("locations")
+            .select("id, name, status, region_id, region:regions(name)")
+            .eq("organization_id", orgId)
+            .order("id")
+            .range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase
+            .from("memberships")
+            .select("id, role, scope_region_ids, scope_location_ids, user:users(full_name)")
+            .eq("organization_id", orgId)
+            .order("id")
+            .range(from, to),
+        ),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
   // Invitaciones pendientes: RLS solo se las enseña a un org_admin.
-  const pending = isAdmin
-    ? rows(
-        "invitaciones",
-        await supabase
-          .from("invitations")
-          .select("id, email, role, expires_at")
-          .is("accepted_at", null)
-          .is("revoked_at", null)
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false }),
-      )
-    : [];
-  const organizations = rows("organizaciones", organizationsResult);
+  const pending =
+    isAdmin && organization
+      ? rows(
+          "invitaciones",
+          await fetchAll((from, to) =>
+            supabase
+              .from("invitations")
+              .select("id, email, role, expires_at, created_at")
+              .eq("organization_id", orgId)
+              .is("accepted_at", null)
+              .is("revoked_at", null)
+              .gt("expires_at", new Date().toISOString())
+              .order("id")
+              .range(from, to),
+          ),
+        ).sort((a, b) => b.created_at.localeCompare(a.created_at))
+      : [];
   // El alcance (?scope=) acota lo que RLS ya deja ver.
   const locations = locationsInScope(
     scope,
-    rows("locales", locationsResult).map((location) => ({ ...location, regionId: location.region_id })),
+    rows("locales", locationsResult)
+      .map((location) => ({ ...location, regionId: location.region_id }))
+      .sort(byName),
   );
-  const people = rows("personas", peopleResult).filter((person) =>
+  const people = rows("personas", peopleResult)
+    .sort((a, b) => a.role.localeCompare(b.role))
+    .filter((person) =>
     membershipInScope(
       { role: person.role, scopeRegionIds: person.scope_region_ids, scopeLocationIds: person.scope_location_ids },
       scope,
@@ -79,11 +107,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       <section aria-labelledby="orgs">
         <h2 id="orgs">{t("organization")}</h2>
         <ul>
-          {organizations.map((org) => (
-            <li key={org.id} data-testid="organization">
-              {org.name}
-            </li>
-          ))}
+          {organization ? <li data-testid="organization">{organization.name}</li> : null}
         </ul>
       </section>
 
@@ -115,13 +139,13 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
         </ul>
       </section>
 
-      {isAdmin && organizations[0] ? (
+      {isAdmin && organization ? (
         <section aria-labelledby="invitations" className="flex flex-col gap-3">
           <h2 id="invitations">{tInvitations("title")}</h2>
           <p className="text-sm">{tInvitations("help")}</p>
           {canAdminister ? (
             <InviteForm
-              organizationId={organizations[0].id}
+              organizationId={organization.id}
               regions={context.regions.map((r) => ({ id: r.id, name: r.name }))}
               locations={context.locations.map((l) => ({ id: l.id, name: l.name }))}
             />

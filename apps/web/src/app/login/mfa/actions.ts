@@ -7,6 +7,7 @@ import { isTransient, verifyTotp } from "@/lib/auth/mfa";
 import { LOGIN_PATH, safeNextPath } from "@/lib/auth/routes";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { totpCodeSchema } from "@/lib/validation";
 
 export interface MfaState {
   error: string | null;
@@ -22,9 +23,9 @@ const UNAVAILABLE = "No se ha podido comprobar el acceso. Inténtalo de nuevo en
 // código de 6 cifras no se puede probar a fuerza bruta. Si el freno no responde,
 // no se deja intentar (fallo cerrado).
 export async function verifyMfa(_prev: MfaState, formData: FormData): Promise<MfaState> {
-  const raw = formData.get("code");
-  const code = typeof raw === "string" ? raw.replace(/\s+/g, "") : "";
-  if (!/^\d{6}$/.test(code)) return { error: INVALID };
+  const parsed = totpCodeSchema.safeParse(formData.get("code"));
+  if (!parsed.success) return { error: INVALID };
+  const code = parsed.data;
 
   const user = await getCurrentUser();
   if (!user) redirect(LOGIN_PATH);

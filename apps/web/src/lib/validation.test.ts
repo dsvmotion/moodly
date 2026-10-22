@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { idSchema, inviteSchema, tokenSchema, totpCodeSchema } from "./validation";
+import { idSchema, inviteSchema, signInSchema, tokenSchema, totpCodeSchema } from "./validation";
 
 const ORG = "5eed0000-0000-4000-8000-00000000000a";
 const LOC = "5eed0002-0000-4000-8000-0000000000a1";
@@ -42,5 +42,13 @@ describe("otros esquemas", () => {
     expect(totpCodeSchema.parse("123 456")).toBe("123456");
     expect(totpCodeSchema.safeParse("12345").success).toBe(false);
     expect(totpCodeSchema.safeParse("12a456").success).toBe(false);
+  });
+
+  it("signInSchema: exige email y contraseña, recorta el email y acota longitudes", () => {
+    expect(signInSchema.parse({ email: " ana@demo.test ", password: "x" })).toEqual({ email: "ana@demo.test", password: "x" });
+    expect(signInSchema.safeParse({ email: "", password: "x" }).success).toBe(false);
+    expect(signInSchema.safeParse({ email: "ana@demo.test", password: "" }).success).toBe(false);
+    expect(signInSchema.safeParse({ email: "ana@demo.test", password: null }).success).toBe(false);
+    expect(signInSchema.safeParse({ email: "ana@demo.test", password: "x".repeat(1025) }).success).toBe(false);
   });
 });
