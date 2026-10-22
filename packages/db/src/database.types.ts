@@ -5,7 +5,26 @@ export type Database = {
   
   "public": {
           Tables: {
-            "locations": {
+            "audit_logs": {
+                  Row: {
+                    "action": string,"actor_id": string | null,"actor_type": string,"at": string,"id": string,"metadata": NonNullable<Json>,"organization_id": string | null,"target": NonNullable<Json>
+                  }
+                  Insert: {
+                    "action": string,"actor_id"?: string | null,"actor_type": string,"at"?: string,"id"?: string,"metadata"?: NonNullable<Json>,"organization_id"?: string | null,"target"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "action"?: string,"actor_id"?: string | null,"actor_type"?: string,"at"?: string,"id"?: string,"metadata"?: NonNullable<Json>,"organization_id"?: string | null,"target"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "audit_logs_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"locations": {
                   Row: {
                     "address": string | null,"created_at": string,"id": string,"name": string,"opening_hours": NonNullable<Json>,"organization_id": string,"region_id": string | null,"status": string,"timezone": string,"updated_at": string
                   }
@@ -68,6 +87,25 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"platform_staff": {
+                  Row: {
+                    "created_at": string,"id": string,"revoked_at": string | null,"role": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"revoked_at"?: string | null,"role": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"revoked_at"?: string | null,"role"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "platform_staff_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"regions": {
                   Row: {
                     "created_at": string,"id": string,"name": string,"organization_id": string,"updated_at": string
@@ -85,6 +123,31 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "organizations"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"support_grants": {
+                  Row: {
+                    "created_at": string,"expires_at": string,"granted_by": string,"id": string,"organization_id": string,"reason": string,"revoked_at": string | null,"staff_user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"expires_at": string,"granted_by": string,"id"?: string,"organization_id": string,"reason": string,"revoked_at"?: string | null,"staff_user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"expires_at"?: string,"granted_by"?: string,"id"?: string,"organization_id"?: string,"reason"?: string,"revoked_at"?: string | null,"staff_user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_grants_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "support_grants_staff_user_id_fkey"
+      columns: ["staff_user_id"]
+isOneToOne: false
+      referencedRelation: "platform_staff"
+      referencedColumns: ["user_id"]
     }
                   ]
                 },"users": {
