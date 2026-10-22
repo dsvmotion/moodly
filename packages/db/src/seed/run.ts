@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
 import {
+  seedExtraMemberships,
   seedGuests,
   seedLocations,
   seedOrganizations,
@@ -147,11 +148,13 @@ async function main(): Promise<void> {
   writeFileSync(serverKeysFile, JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey }, null, 2), { mode: 0o600 });
 
   const credentials: SeedCredential[] = [];
+  const userIds = new Map<string, string>();
   for (const user of seedUsers) {
     // 24 caracteres aleatorios + minúscula, mayúscula y dígito garantizados
     // (config.toml exige lower_upper_letters_digits).
     const password = `${randomBytes(18).toString("base64url")}aA1`;
     const userId = await upsertAuthUser(admin, user, password);
+    userIds.set(user.key, userId);
 
     const profile = await admin.from("users").upsert({ id: userId, full_name: user.fullName });
     check("users", profile.error);
@@ -168,6 +171,23 @@ async function main(): Promise<void> {
     check("memberships", membership.error);
 
     credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
+  }
+
+  // Una misma persona en varias organizaciones (e2e de organización activa).
+  for (const extra of seedExtraMemberships) {
+    const userId = userIds.get(extra.userKey);
+    if (!userId) throw new Error(`seedExtraMemberships: no existe el usuario ${extra.userKey}`);
+    const membership = await admin.from("memberships").upsert(
+      {
+        user_id: userId,
+        organization_id: extra.organizationId,
+        role: extra.role,
+        scope_region_ids: extra.scopeRegionIds,
+        scope_location_ids: extra.scopeLocationIds,
+      },
+      { onConflict: "user_id,organization_id" },
+    );
+    check("memberships (adicional)", membership.error);
   }
 
   for (const guest of seedGuests) {
