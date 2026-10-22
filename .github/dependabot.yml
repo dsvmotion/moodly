@@ -1,0 +1,27 @@
+# Actualizaciones de dependencias y de GitHub Actions (MANUAL §3: cadena de suministro).
+# cooldown: solo propone versiones con al menos 14 días publicadas (un paquete
+# comprometido suele detectarse y retirarse antes). Las alertas de seguridad de
+# Dependabot no esperan. Sus PRs tocan zonas sensibles: los revisa y mergea producto.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      parches-y-menores:
+        update-types: [minor, patch]
+    labels: [dependencias]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    labels: [dependencias]

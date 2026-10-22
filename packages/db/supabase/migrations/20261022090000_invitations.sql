@@ -15,7 +15,7 @@
 --
 -- accept_invitation es SECURITY DEFINER y escribe en memberships: requiere
 -- revisión humana (AGENTS.md → Base de datos: guardas).
--- Vuelta atrás: supabase/rollbacks/20261021110000_invitations.down.sql
+-- Vuelta atrás: supabase/rollbacks/20261022090000_invitations.down.sql
 
 create table public.invitations (
   id                 uuid primary key default gen_random_uuid(),
@@ -129,8 +129,8 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- Aceptar: security definer (crea la membership). Comprueba sesión viva, token,
--- caducidad, que no esté usada ni revocada y que el email de la sesión sea el
--- invitado. Cualquier fallo da el MISMO error, para no dar pistas a quien
+-- caducidad, que no esté usada ni revocada, que el email de la sesión sea el
+-- invitado y que la organización esté activa. Cualquier fallo da el MISMO error, para no dar pistas a quien
 -- pruebe tokens. Devuelve la organización a la que entra.
 -- ---------------------------------------------------------------------------
 create function public.accept_invitation(p_token text)
@@ -160,7 +160,9 @@ begin
      or v_inv.accepted_at is not null
      or v_inv.revoked_at is not null
      or v_inv.expires_at <= now()
-     or v_inv.email <> v_email then
+     or v_inv.email <> v_email
+     -- Una organización suspendida o archivada no admite altas (20261021130000_org_status).
+     or not private.org_is_active(v_inv.organization_id) then
     raise exception 'invitación no válida o caducada' using errcode = 'P0002';
   end if;
 

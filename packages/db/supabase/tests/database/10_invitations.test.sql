@@ -1,7 +1,7 @@
--- Invitaciones con consentimiento (20261021110000_invitations.sql).
+-- Invitaciones con consentimiento (20261022090000_invitations.sql).
 begin;
 \ir _fixtures/tenants.psql
-select plan(29);
+select plan(31);
 
 -- Como pg_temp.login, pero con el email en el JWT (lo usa accept_invitation).
 create function pg_temp.login_email(p_user uuid) returns void language plpgsql as $$
@@ -130,6 +130,24 @@ reset role;
 select pg_temp.login_email(:a_staff1);
 select throws_ok(format('select public.accept_invitation(%L)', :'tok_member'), '23505', null,
   'quien ya pertenece a la organización no puede aceptar otra invitación a ella');
+
+-- Organización suspendida: ni se crean ni se aceptan invitaciones
+-- (accept_invitation es SECURITY DEFINER: RLS no lo frena, lo comprueba ella).
+reset role;
+select pg_temp.login(:a_admin);
+select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a3]::uuid[]) as tok_suspended \gset
+reset role;
+update public.organizations set status = 'suspended' where id = :org_a;
+select pg_temp.login_email(:outsider);
+select throws_ok(format('select public.accept_invitation(%L)', :'tok_suspended'), 'P0002', null,
+  'organización suspendida: una invitación vigente no sirve (mismo error)');
+reset role;
+select pg_temp.login(:a_admin);
+select throws_ok(
+  format($$select public.create_invitation(%L, 'y@test.local', 'staff', '{}', array[%L]::uuid[])$$, :org_a, :loc_a1),
+  '42501', null, 'organización suspendida: el org_admin no puede invitar');
+reset role;
+update public.organizations set status = 'active' where id = :org_a;
 
 -- ===========================================================================
 -- 4. Sin sesión

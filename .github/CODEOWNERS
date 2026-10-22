@@ -1,0 +1,14 @@
+# Quién revisa cada zona. Con la protección de rama de GitHub (plan Team o
+# superior) estas revisiones pasan a ser obligatorias; hoy GitHub las solicita
+# automáticamente y la guarda de mergeo (scripts/merge-guard) bloquea lo sensible.
+*                                @dsvmotion
+/packages/db/                    @dsvmotion
+/apps/web/src/proxy.ts           @dsvmotion
+/apps/web/src/lib/auth/          @dsvmotion
+/apps/web/src/lib/supabase/      @dsvmotion
+/apps/web/src/lib/security/      @dsvmotion
+/.github/                        @dsvmotion
+/scripts/                        @dsvmotion
+/AGENTS.md                       @dsvmotion
+/CLAUDE.md                       @dsvmotion
+/docs/MANUAL.md                  @dsvmotion

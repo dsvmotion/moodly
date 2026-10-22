@@ -4,7 +4,7 @@
 
 ## Qué es este proyecto
 Plataforma B2B de agentes de IA que ejecutan trabajo real dentro de empresas (pymes, medianas y cadenas multi-local).
-Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `admin`) que conocen el negocio, aprenden con el tiempo, trabajan contra objetivos y actúan como coach.
+Cada empresa tiene 4 agentes integrados (`reception`, `customer`, `sales`, `admin`; ADR 0023) que conocen el negocio, aprenden con el tiempo, trabajan contra objetivos y actúan como coach.
 **Prioridad máxima del producto:** memoria que aprende (cruzada entre agentes y locales), objetivos del negocio y modo coach (MANUAL §5.12 y §6).
 **Fuente de verdad completa: `docs/MANUAL.md`.** Léelo antes de diseñar cualquier cosa.
 
@@ -12,6 +12,8 @@ Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `adm
 1. `docs/STATUS.md` — qué está hecho y verificado, en curso, bloqueado y lo próximo.
 2. Las secciones de `docs/MANUAL.md` que afectan a la tarea.
 3. Los ADRs recientes en `docs/adr/`.
+
+Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUAL.md` > `docs/design/` > prototipo `apps/site/plataforma` (solo visual) > `docs/audits/` (históricas). Ver ADR 0023.
 
 ## Metodología obligatoria: construir → probar → verificar → siguiente
 - Nada está hecho sin haberlo ejecutado y comprobado: test real, log real, flujo real. "En teoría funciona" no vale.
@@ -29,7 +31,7 @@ Cada empresa tiene 4 agentes integrados (`customer`, `sales`, `operations`, `adm
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
-TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · pg-boss · worker Node always-on · Vitest · pgTAP · Playwright · GitHub Actions.
+TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, pendiente de *spike*; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
 
 ## Estructura
 Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent-core,skills,integrations,channels,knowledge,templates,ui,evals,config}`.
@@ -56,7 +58,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
-- Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>` (ver "Mergeo autónomo")
+- Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>`, o el procedimiento con el conector de GitHub (ver "Mergeo autónomo")
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
 - Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
@@ -68,45 +70,38 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Desactivar RLS, saltarse tests o bajar umbrales de evals para que algo pase.
 - Escribir el nombre de la marca a mano (usa `BRAND_NAME`) o IDs de modelo LLM en código de negocio (usa `packages/config`).
 - Tomar `organization_id`, `location_id` o destinatarios de los argumentos que genera el LLM.
-- Escribir en tablas de tenants desde una función `SECURITY DEFINER` sin revisión humana (ver "Base de datos: guardas").
-- Mergear tu propio PR, salvo con `scripts/safe-merge.sh` (siguiente sección). Poner o quitar la etiqueta `revisado-humano`.
+- Escribir en tablas de tenants desde una función `SECURITY DEFINER` sin explicarlo en el PR y sin tests en negativo (ver "Base de datos: guardas"; con datos reales, además, revisión humana).
+- Mergear un PR sin cumplir el procedimiento de la sección siguiente (CI en verde sobre el commit exacto y sin tests debilitados). Poner o quitar la etiqueta `revisado-humano`.
 
 ## Mergeo autónomo de tus propios PRs
-**Solo con `scripts/safe-merge.sh <n>`.** Nunca con `gh pr merge` directamente ni con scripts fuera del repo. Si el script falla por cualquier motivo, **no mergees**: para y avisa a producto con la salida del script. Con cualquier duda, tampoco mergees.
+**Decisión de producto (2026-10-22): mientras no haya datos reales de clientes, el agente mergea sus propios PRs, también los que tocan zonas sensibles, sin esperar la etiqueta `revisado-humano`.** La lista de zonas sensibles está suspendida (`scripts/merge-guard/sensitive-paths.txt` vacía; la completa se conserva en `sensitive-paths.suspended.txt`). **Antes de meter el primer dato real de un cliente hay que reactivarla**, al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda: es condición de salida a producción en `docs/STATUS.md`.
 
-El script aborta ante cualquier error (`set -euo pipefail`) y solo mergea si se cumple todo lo siguiente:
-1. **CI en verde sobre el head commit actual.** Espera con `gh pr checks <n> --watch` y después confirma con la API de GitHub que cada check de `scripts/merge-guard/required-checks.txt` existe, que su ejecución más reciente sobre ese commit exacto está en `SUCCESS`, y que el head no ha cambiado durante la espera.
-2. **Ninguna zona sensible ni test debilitado.** Compara los archivos del PR con `scripts/merge-guard/sensitive-paths.txt` y busca en el diff `.skip`/`.only`/`.todo`/`.fixme`, pgTAP sin plan y tests borrados. Ese archivo es la **lista única** de zonas sensibles: la usan el script y el job de CI `sensitive-paths`. Incluye, entre otras:
-   - migraciones, rollbacks y cualquier `.sql`;
-   - `config.toml` de Supabase;
-   - autenticación y sesión: proxy, `lib/auth`, `lib/supabase`, login, logout y redirecciones tras el login;
-   - secretos: `.env*`, `local-env.ts` y el seed;
-   - motor de políticas y techos de autonomía;
-   - `.github/` y `scripts/` (incluida la propia guarda);
-   - configuración de tests, lint, TypeScript, turbo y build;
-   - dependencias (`package.json`, lockfile y workspace);
-   - `AGENTS.md`, `CLAUDE.md` y `docs/MANUAL.md`.
+Solo se mergea si se cumple **todo** lo siguiente. Si algo falla o hay dudas, **no mergees**: para y avisa a producto.
+1. **CI en verde sobre el head commit actual:** cada check de `scripts/merge-guard/required-checks.txt` existe y su ejecución más reciente sobre ese commit exacto está en `SUCCESS`.
+2. **Ningún test debilitado:** sin `.skip`/`.only`/`.todo`/`.fixme` añadidos, sin pgTAP sin plan y sin tests borrados (`scripts/merge-guard/check-sensitive.sh` sobre los archivos y el diff del PR; el job `sensitive-paths` del CI lo comprueba en cada PR).
+3. **Merge fijando el commit comprobado** (squash).
 
-   `docs/STATUS.md` y `docs/adr/**` no son sensibles por sí mismos.
-3. **Merge fijando el commit revisado:** `gh pr merge <n> --squash --delete-branch --match-head-commit <sha>`.
+Cómo:
+- **Con `gh` autenticado:** `scripts/safe-merge.sh <n>`, que hace los tres pasos.
+- **Sin `gh` (sesiones en la nube):** los mismos pasos con el conector de GitHub: leer los check runs del head, ejecutar `check-sensitive.sh` sobre los archivos y el diff del PR, y mergear con `merge_method: squash` y `expectedHeadSha` = el commit comprobado. Nunca mergear sin `expectedHeadSha`.
 
-Antes de lanzar el script, publica en el PR un comentario con el resumen, la evidencia y la lista de archivos tocados.
+Antes de mergear, publica en el PR un comentario con el resumen, la evidencia (tests ejecutados, prueba en negativo si aplica) y la lista de archivos tocados.
 
-Después del merge: `git checkout main && git pull` y verifica `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`) sobre `main`. Si algo falla, avisa enseguida.
+Después del merge: verifica `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`) sobre `main`. Si algo falla, arréglalo o revierte enseguida y avisa.
 
-**Lo que el script no puede detectar sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, no lo mergees: pide revisión.
+**Lo que la guarda no detecta sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, explícalo en el PR y avisa a producto antes de mergear.
 
-**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Sin ella, el job `sensitive-paths` falla en los PRs que tocan zonas sensibles. **Aprueba un commit concreto:** con cada commit nuevo en el PR (`synchronize`) o al reabrirlo (`reopened`), el workflow la quita automáticamente (job `invalidate-review`). En ese mismo run ya cuenta como ausente, así que un commit subido después de la revisión no hereda la aprobación: hay que volver a revisar y a ponerla. Aunque la tenga, un PR sensible nunca se mergea de forma autónoma: `safe-merge.sh` lo rechaza igual.
+**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Mientras la lista de zonas sensibles esté vacía no hace falta. El job `invalidate-review` la sigue quitando con cada commit nuevo, para cuando se reactive.
 
 Nunca desactives, relajes ni saltes tests o checks para conseguir un CI en verde.
 
-## Requiere revisión humana siempre
-Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts.
+## Requiere revisión humana (suspendido hasta el primer dato real)
+Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts. Mientras no haya datos reales de clientes, el agente las mergea con el procedimiento anterior y explica en cada PR qué cambia y cómo lo probó. Se vuelve obligatoria antes del primer dato real.
 
 ## Base de datos: guardas (ADR 0003)
 - Las reglas que RLS no puede expresar por columna viven en triggers `guard_*` de `packages/db`. Ejemplos: qué campos puede cambiar cada rol, `organization_id` inmutable, que nunca falte un `org_admin`.
 - Esas guardas **solo actúan cuando `current_user = 'authenticated'`**. La plataforma (service role, migraciones, cascadas de `auth`) no queda bloqueada, y el código que la usa debe respetar esas reglas por su cuenta.
-- Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin revisión humana. Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
+- Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin explicarlo en el PR y cubrirlo con tests en negativo (y, con datos reales, revisión humana). Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
 - Las guardas son listas blancas: una columna nueva queda protegida hasta que se decida explícitamente quién puede cambiarla.
 - Toda política RLS nueva empieza por `(select private.session_is_active()) AND …`. Así, una sesión cerrada, caducada, baneada o borrada no ve nada aunque su JWT siga siendo válido. Va envuelta en `(select …)` para que se evalúe una vez por consulta (InitPlan). Lo vigila un test estructural.
 

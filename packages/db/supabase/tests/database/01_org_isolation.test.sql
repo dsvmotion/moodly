@@ -80,7 +80,7 @@ select throws_ok(
 -- Con un segundo org_admin en A para que no salte antes la guarda del último
 -- admin; se da de baja justo después.
 -- El segundo admin lo da de alta la plataforma (el org_admin ya no puede
--- crear memberships: 20261021110000_invitations); después se sigue con la
+-- crear memberships: 20261022090000_invitations); después se sigue con la
 -- misma sesión del org_admin.
 select current_setting('request.jwt.claims', true) as claims_admin \gset
 reset role;

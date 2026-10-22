@@ -43,7 +43,7 @@ select lives_ok(
 with u as (update public.locations set name = 'Local A1 bis' where id = :loc_a1 returning 1)
 select is(count(*)::int, 1, 'org_admin A: puede modificar un local') from u;
 
--- Alta por invitación (20261021110000_invitations): el org_admin invita y la
+-- Alta por invitación (20261022090000_invitations): el org_admin invita y la
 -- persona la acepta con su sesión. El alta directa ya no existe (10_invitations).
 select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a3]::uuid[]) as tok_outsider \gset
 reset role;

@@ -1,32 +1,9 @@
-# Zonas sensibles (AGENTS.md → "Mergeo autónomo"). Fuente única: la leen
+# Zonas sensibles activas (AGENTS.md → "Mergeo autónomo"). Fuente única: la leen
 # scripts/safe-merge.sh y el job de CI "sensitive-paths".
 # Formato: <expresión regular extendida (grep -E) sobre la ruta><TAB><motivo>.
-# Un PR que toque cualquiera de estas rutas no se mergea de forma autónoma.
-^packages/db/supabase/migrations/	migraciones
-^packages/db/supabase/rollbacks/	rollbacks
-\.sql$	SQL (políticas RLS, funciones, SECURITY DEFINER)
-^packages/db/supabase/config\.toml$	config.toml de Supabase
-^apps/web/src/proxy\.ts$	auth: proxy
-^apps/web/src/lib/auth/	auth: DAL, sesión y redirecciones
-^apps/web/src/lib/supabase/	auth: clientes de Supabase
-^apps/web/src/app/login/	auth: login
-^apps/web/src/app/app/actions\.ts$	auth: logout
-^apps/web/src/app/app/page\.tsx$	auth: redirección tras el login (/app)
-^apps/web/src/app/page\.tsx$	auth: redirección de la raíz
-(^|/)\.env	secretos y variables de entorno
-^apps/web/scripts/local-env\.ts$	secretos: local-env
-^packages/db/src/seed/	secretos: seed (clave secreta local)
-^packages/agent-core/.*(polic|autonom)	motor de políticas y techos de autonomía
-^\.github/	CI y configuración de GitHub
-^scripts/	guardas de mergeo y scripts del repo
-(^|/)(vitest|playwright|eslint)\.config\.	configuración de tests y lint
-(^|/)tsconfig[^/]*\.json$	configuración de TypeScript
-^turbo\.json$	configuración de checks (turbo)
-(^|/)postcss\.config\.	configuración de build
-(^|/)next\.config\.	configuración de Next
-(^|/)package\.json$	dependencias y scripts
-^pnpm-lock\.yaml$	dependencias (lockfile)
-^pnpm-workspace\.yaml$	dependencias (workspace)
-^\.nvmrc$	versión de Node
-^(AGENTS|CLAUDE)\.md$	reglas del repo
-^docs/MANUAL\.md$	fuente de verdad (MANUAL)
+#
+# VACÍA mientras no haya datos reales de clientes (decisión de producto,
+# 2026-10-22). La lista completa está en sensitive-paths.suspended.txt y se
+# reactiva, al menos para migraciones, RLS, auth, secretos y la propia guarda,
+# antes del primer dato real (docs/STATUS.md). Los tests debilitados (.skip,
+# .only, pgTAP sin plan, tests borrados) siguen bloqueando el merge.

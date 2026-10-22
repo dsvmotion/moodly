@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261021110000_invitations.sql: devuelve a los org_admin el
+-- Vuelta atrás de 20261022090000_invitations.sql: devuelve a los org_admin el
 -- alta directa de memberships (con la misma expresión que tenía tras
 -- 20260930101908_session_revocation) y elimina las invitaciones. Las
 -- memberships creadas al aceptar invitaciones se conservan. Antes, desplegar

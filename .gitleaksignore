@@ -1,0 +1,3 @@
+# Falsos positivos de gitleaks revisados a mano (huella = commit:archivo:regla:línea).
+# Contraseña de prueba de un intento de registro que el test espera que se rechace.
+b4c26d38243ce2ee7a47fa2e64cbd9b2c1847226:apps/web/e2e/security.e2e.ts:generic-api-key:67
