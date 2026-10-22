@@ -13,7 +13,15 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
-import { seedLocations, seedOrganizations, seedRegions, seedUsers, type SeedUser } from "./data.ts";
+import {
+  seedLocations,
+  seedOrganizations,
+  seedPlatformStaff,
+  seedRegions,
+  seedUsers,
+  type PlatformStaffRole,
+  type SeedUser,
+} from "./data.ts";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
@@ -53,7 +61,7 @@ async function findAuthUserId(admin: SupabaseClient, email: string): Promise<str
   return data.users.find((u) => u.email === email)?.id;
 }
 
-async function upsertAuthUser(admin: SupabaseClient, user: SeedUser, password: string): Promise<string> {
+async function upsertAuthUser(admin: SupabaseClient, user: { email: string }, password: string): Promise<string> {
   const existing = await findAuthUserId(admin, user.email);
   if (existing) {
     const { error } = await admin.auth.admin.updateUserById(existing, { password, email_confirm: true });
@@ -70,8 +78,9 @@ interface SeedCredential {
   key: string;
   email: string;
   password: string;
-  role: SeedUser["role"];
-  organizationId: string;
+  role: SeedUser["role"] | PlatformStaffRole;
+  /** null = equipo interno (sin organización). */
+  organizationId: string | null;
 }
 
 // Tras `supabase db reset` se reinician los contenedores y Auth y PostgREST
@@ -159,6 +168,23 @@ async function main(): Promise<void> {
     credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
   }
 
+  // Equipo interno (ADR 0021, D4): cuentas dedicadas, sin membership (D2).
+  // Conceder o revocar es una operación de plataforma: aquí, con la clave
+  // secreta local; nunca desde apps/web.
+  for (const staff of seedPlatformStaff) {
+    const password = randomBytes(18).toString("base64url");
+    const userId = await upsertAuthUser(admin, staff, password);
+
+    const profile = await admin.from("users").upsert({ id: userId, full_name: staff.fullName });
+    check("users", profile.error);
+    const row = await admin
+      .from("platform_staff")
+      .upsert({ user_id: userId, role: staff.role, revoked_at: staff.revokedAt }, { onConflict: "user_id" });
+    check("platform_staff", row.error);
+
+    credentials.push({ key: staff.key, email: staff.email, password, role: staff.role, organizationId: null });
+  }
+
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {
     mode: 0o600,
@@ -166,7 +192,8 @@ async function main(): Promise<void> {
 
   console.log(
     `Seed aplicado: ${seedOrganizations.length} organizaciones, ${seedRegions.length} región, ` +
-      `${seedLocations.length} locales, ${seedUsers.length} usuarios. Credenciales en ${credentialsFile}`,
+      `${seedLocations.length} locales, ${seedUsers.length} usuarios, ${seedPlatformStaff.length} del equipo interno. ` +
+      `Credenciales en ${credentialsFile}`,
   );
 }
 
