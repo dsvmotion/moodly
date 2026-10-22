@@ -1016,7 +1016,7 @@ Los tests nunca llaman a proveedores LLM reales en la suite unitaria (se usan mo
 - **Ramas:** `main` siempre desplegable, ramas cortas por tarea y PR obligatorio.
 - **CI en cada PR:** typecheck, lint, unidad, pgTAP, integración, evals afectadas y build.
 - **Migraciones:** SQL versionado en `packages/db`. Se aplican en staging automáticamente y en producción con aprobación humana. Nada de cambios manuales en la base de datos de producción.
-- **Revisión humana obligatoria** (aunque el PR lo haya escrito un agente de código) para: migraciones, políticas RLS, auth, manejo de secretos, motor de políticas, techos de autonomía y reglas de plataforma.
+- **Revisión humana obligatoria** (aunque el PR lo haya escrito un agente de código) para: migraciones, políticas RLS, auth, manejo de secretos, motor de políticas, techos de autonomía y reglas de plataforma. **Suspendida por decisión de producto (2026-10-22) mientras no haya datos reales de clientes:** el agente mergea con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md). Se reactiva antes del primer dato real; es condición de salida a producción.
 - **Feature flags** por organización (`packages/config`) para activar funcionalidades por cliente o piloto.
 - **Releases:** despliegue continuo de la web y el worker. Los workflows en curso continúan desde su último paso tras reiniciar el worker (ADR 0027).
 - **Vuelta atrás:** cada release se puede revertir; las migraciones destructivas se hacen en dos fases (expandir y luego contraer).
