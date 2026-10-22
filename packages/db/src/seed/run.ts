@@ -231,7 +231,9 @@ async function main(): Promise<void> {
   // Conceder o revocar es una operación de plataforma: aquí, con la clave
   // secreta local; nunca desde apps/web.
   for (const staff of seedPlatformStaff) {
-    const password = randomBytes(18).toString("base64url");
+    // Mismo formato que el resto: sin el sufijo, ~5 % de las contraseñas no
+    // tenían dígito y Auth las rechazaba (el seed fallaba de forma intermitente).
+    const password = `${randomBytes(18).toString("base64url")}aA1`;
     const userId = await upsertAuthUser(admin, staff, password);
 
     const profile = await admin.from("users").upsert({ id: userId, full_name: staff.fullName });
