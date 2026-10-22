@@ -19,7 +19,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Con sesión viva: ve su organización
 -- ---------------------------------------------------------------------------
-select pg_temp.login(:a_admin) as a_admin_session \gset
+select pg_temp.login_mfa(:a_admin) as a_admin_session \gset
 select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'org_admin A con sesión viva: ve 1 org, 2 regiones, 3 locales, 5 perfiles, 5 memberships');
 select ok((select private.session_is_active()), 'session_is_active() = true con la sesión del login');
 
@@ -29,7 +29,7 @@ select ok((select private.session_is_active()), 'session_is_active() = true con 
 -- ---------------------------------------------------------------------------
 reset role;
 delete from auth.sessions where id = :'a_admin_session';
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 
 select ok(not (select private.session_is_active()), 'sesión borrada: session_is_active() = false');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'sesión borrada: no ve nada en ninguna de las 5 tablas');
@@ -54,7 +54,7 @@ select is(count(*)::int, 0, 'sesión borrada: no puede borrar memberships') from
 
 -- Un nuevo login (sesión nueva) vuelve a dar acceso.
 reset role;
-select pg_temp.login(:a_admin) as a_admin_session2 \gset
+select pg_temp.login_mfa(:a_admin) as a_admin_session2 \gset
 select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'nuevo login: vuelve a ver su organización');
 
 -- ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'nuevo login: vuelve a
 -- ---------------------------------------------------------------------------
 reset role;
 update auth.sessions set not_after = now() - interval '1 minute' where id = :'a_admin_session2';
-select pg_temp.act_as(:a_admin, :'a_admin_session2');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session2');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'sesión caducada (not_after en el pasado): no ve nada');
 
 reset role;
@@ -100,14 +100,14 @@ select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'session_id con format
 
 -- session_id de una sesión viva de OTRO usuario: no vale para suplantarle.
 reset role;
-select pg_temp.login(:b_admin) as b_session \gset
+select pg_temp.login_mfa(:b_admin) as b_session \gset
 reset role;
 select pg_temp.act_as(:a_staff1, :'b_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 0, 0], 'session_id de otro usuario: no ve nada');
 
 -- La sesión de B sigue funcionando para B y solo para B.
 reset role;
-select pg_temp.act_as(:b_admin, :'b_session');
+select pg_temp.act_as_mfa(:b_admin, :'b_session');
 select is(pg_temp.visible_counts(), array[1, 1, 1, 2, 2], 'admin B con su sesión: ve solo B');
 
 -- ---------------------------------------------------------------------------

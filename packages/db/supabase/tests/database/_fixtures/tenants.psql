@@ -47,6 +47,25 @@ begin
 end;
 $$;
 
+-- Igual, pero con el segundo factor verificado (aal2): así actúa un org_admin,
+-- que necesita MFA para cualquier cambio (20261022120000_admin_mfa).
+create function pg_temp.act_as_mfa(p_user uuid, p_session uuid) returns void language sql as $$
+  select set_config('request.jwt.claims',
+    json_build_object('sub', p_user, 'role', 'authenticated', 'session_id', p_session, 'aal', 'aal2')::text, true);
+  select set_config('role', 'authenticated', true);
+$$;
+
+create function pg_temp.login_mfa(p_user uuid) returns uuid language plpgsql as $$
+declare
+  v_session uuid := gen_random_uuid();
+begin
+  insert into auth.sessions (id, user_id, created_at, updated_at, aal)
+  values (v_session, p_user, now(), now(), 'aal2');
+  perform pg_temp.act_as_mfa(p_user, v_session);
+  return v_session;
+end;
+$$;
+
 -- Equipo interno con MFA y permiso de soporte vigente para todas las
 -- organizaciones que existan (migración support_grants, P0-3): así un test
 -- puede comprobar «lee todo» con el modelo de acceso real. Sin esto, un

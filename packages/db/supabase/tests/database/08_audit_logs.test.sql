@@ -192,7 +192,7 @@ select is(pg_temp.insert_as_staff(), '42501', 'interno con la sesión borrada (l
 
 -- Usuarios tenant: no pueden escribir filas del equipo interno (ni ninguna otra).
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select is(pg_temp.insert_as_staff(), '42501', 'org_admin A: no puede insertar filas de equipo interno');
 select is(
   pg_temp.try_sql(format(
@@ -213,7 +213,7 @@ reset role;
 select pg_temp.login(:a_staff2);
 select is(pg_temp.insert_as_staff(), '42501', 'staff A2: no puede insertar filas de equipo interno');
 reset role;
-select pg_temp.login(:b_admin);
+select pg_temp.login_mfa(:b_admin);
 select is(pg_temp.insert_as_staff(), '42501', 'org_admin B: no puede insertar filas de equipo interno');
 reset role;
 select pg_temp.login(:b_loc_mgr);
@@ -240,10 +240,10 @@ select is(pg_temp.fixture_orgs(), :all_orgs, 'platform_operator: lee las filas d
 select is((select count(*) from public.audit_logs), :all_rows::bigint, 'platform_operator: lee todas las filas que hay');
 
 reset role;
-select pg_temp.login(:a_admin) as a_admin_session \gset
+select pg_temp.login_mfa(:a_admin) as a_admin_session \gset
 select is(pg_temp.visible_orgs(), array[:org_a, :org_a], 'org_admin A: solo ve las filas de A (D5)');
 reset role;
-select pg_temp.login(:b_admin);
+select pg_temp.login_mfa(:b_admin);
 select is(pg_temp.visible_orgs(), array[:org_b, :org_b], 'org_admin B: solo ve las filas de B (D5)');
 
 reset role;
@@ -273,7 +273,7 @@ select pg_temp.staff_act_as(:p_admin, :'p_admin_session');
 select is(pg_temp.visible_orgs(), '{}', 'interno con la sesión borrada (logout): no ve ninguna fila');
 reset role;
 delete from auth.sessions where id = :'a_admin_session';
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 select is(pg_temp.visible_orgs(), '{}', 'org_admin A con la sesión borrada (logout): no ve ninguna fila');
 
 -- ===========================================================================
@@ -286,7 +286,7 @@ select throws_ok('delete from public.audit_logs', '42501', null, 'platform_admin
 select throws_ok('truncate public.audit_logs', '42501', null, 'platform_admin: no puede truncar');
 
 reset role;
-select pg_temp.login(:b_admin);
+select pg_temp.login_mfa(:b_admin);
 select throws_ok($$update public.audit_logs set action = 'borrado'$$, '42501', null, 'org_admin B: no puede modificar filas de su organización');
 select throws_ok('delete from public.audit_logs', '42501', null, 'org_admin B: no puede borrar filas de su organización');
 select throws_ok('truncate public.audit_logs', '42501', null, 'org_admin B: no puede truncar');

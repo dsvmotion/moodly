@@ -93,17 +93,24 @@ export const seedLocations: readonly SeedLocation[] = [
 
 /**
  * Identidades sin organización: pueden entrar pero no ven nada hasta aceptar una
- * invitación (las usa el e2e de invitaciones). El seed les quita las memberships
- * en cada ejecución, para que el test empiece siempre igual.
+ * invitación (las usan los e2e de invitaciones y de MFA). El seed les quita las
+ * memberships y los factores de MFA en cada ejecución, para que los tests
+ * empiecen siempre igual.
  */
 export interface SeedGuest {
   key: string;
   email: string;
   fullName: string;
+  /** Sale del seed con un segundo factor (TOTP) verificado. */
+  totp?: boolean;
 }
 
 export const seedGuests: readonly SeedGuest[] = [
   { key: "guest_no_org", email: "invitado@demo.test", fullName: "Persona invitada" },
+  // Solo para el e2e de MFA: activa y desactiva su segundo factor.
+  { key: "guest_mfa", email: "mfa@demo.test", fullName: "Persona sin MFA" },
+  // Solo para el e2e del freno de códigos MFA: queda bloqueada al terminar.
+  { key: "guest_mfa_throttle", email: "mfa.freno@demo.test", fullName: "Persona con MFA", totp: true },
 ];
 
 export const seedUsers: readonly SeedUser[] = [

@@ -47,7 +47,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Instalar: `pnpm install`
 - Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Worker: PENDIENTE (tarea 6 de la Fase 0)
 - Reaplicar migraciones desde cero: `pnpm db:reset` (borra también los usuarios de Auth: vuelve a ejecutar `pnpm db:seed`)
-- Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
+- Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución (y el secreto TOTP de los `org_admin`, que salen con MFA activado) y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
 - Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`
 - Regenerar los iconos de la PWA (los PNG se commitean): `node apps/web/scripts/pwa-icons.ts`. Si el Chromium de Playwright no está instalado, pasa su ruta en `CHROMIUM_PATH`.
 - Web en local: `pnpm db:seed` y después `pnpm --filter @repo/web env:local` (escribe `apps/web/.env.local` con la URL, la clave publicable y `LOGIN_THROTTLE_KEY`, la clave de servidor del freno del login que genera el seed) y después `pnpm --filter @repo/web dev` → http://127.0.0.1:3000
@@ -104,10 +104,12 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 - Una función `SECURITY DEFINER` se ejecuta como su dueño, no como `authenticated`. Dentro de ella **no actúan ni RLS ni las guardas**. Por eso ninguna función `SECURITY DEFINER` puede escribir en tablas de tenants sin explicarlo en el PR y cubrirlo con tests en negativo (y, con datos reales, revisión humana). Los helpers de RLS en `private` son `SECURITY DEFINER`, pero solo leen.
 - Las guardas son listas blancas: una columna nueva queda protegida hasta que se decida explícitamente quién puede cambiarla.
 - Toda política RLS nueva empieza por `(select private.session_is_active()) AND …`. Así, una sesión cerrada, caducada, baneada o borrada no ve nada aunque su JWT siga siendo válido. Va envuelta en `(select …)` para que se evalúe una vez por consulta (InitPlan). Lo vigila un test estructural.
+- Toda política de escritura (INSERT/UPDATE/DELETE) que admite a un `org_admin` o al equipo interno exige además `(select private.session_is_aal2())`: administrar pide el segundo factor (MFA). Lo vigila un test estructural (`13_admin_mfa`). En pgTAP, los `org_admin` actúan con `pg_temp.login_mfa()`/`act_as_mfa()`.
 
 ## Web: autenticación (apps/web)
 - El acceso a datos se decide en el servidor, cerca de los datos: cada página o Server Action protegida llama a `requireUser()` (`src/lib/auth/session.ts`), que usa `getUser()` y detecta sesiones cerradas. El proxy (`getClaims()`) solo hace la redirección optimista. Nunca `getSession()` en servidor.
 - El parámetro de vuelta tras el login pasa siempre por `safeNextPath()`.
+- MFA: quien tiene un segundo factor verificado no pasa de `requireUser()` hasta completar `/login/mfa` (sesión aal2). Los códigos fallidos cuentan en el mismo freno que las contraseñas. Supabase Auth cierra las sesiones aal1 de una persona cuando verifica su factor en otra sesión: en los e2e, el tramo «contraseña → código» de un mismo usuario va dentro de `withMfaLock()` (`e2e/helpers.ts`).
 - Registro público cerrado con `[auth] enable_signup = false`. No toques `[auth.email] enable_signup`: en la CLI desactiva el proveedor de email entero, también el login.
 
 ## Trabajo en paralelo (Claude Code + Codex)

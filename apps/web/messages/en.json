@@ -184,7 +184,9 @@
     "organization": "Organization",
     "locations": "Locations",
     "people": "People",
-    "noRegion": "no region"
+    "noRegion": "no region",
+    "mfaRequired": "You need two-step verification to make changes to the organization.",
+    "mfaLink": "Turn it on in Security"
   },
   "pwa": {
     "updateAvailable": "A new version is available.",
@@ -215,6 +217,30 @@
       "button": "Accept invitation",
       "invalid": "This invitation isn’t valid: it may have expired, been revoked or be meant for another account.",
       "already": "You already belong to this organization."
+    }
+  },
+  "settingsTabs": {
+    "label": "Settings",
+    "organization": "Organization",
+    "security": "Security"
+  },
+  "security": {
+    "title": "Security",
+    "mfa": "Two-step verification",
+    "on": "On: when you sign in we will ask for a code from your authenticator app.",
+    "off": "Off.",
+    "requiredForAdmins": "You manage an organization: you need it to make changes (invite people, change locations, roles or organization details).",
+    "enable": "Turn on two-step verification",
+    "scan": "Scan this code with your authenticator app (Google Authenticator, 1Password, Authy…).",
+    "qrAlt": "QR code for the authenticator app",
+    "manual": "Can't scan it? Type this key into the app:",
+    "code": "6-digit code",
+    "verify": "Verify and turn on",
+    "disable": "Turn off two-step verification",
+    "errors": {
+      "enroll": "We couldn't start the setup. Please try again.",
+      "code": "That code isn't right. Try the one your app shows now.",
+      "unavailable": "We couldn't check the code. Please try again."
     }
   },
   "orgSwitcher": {
