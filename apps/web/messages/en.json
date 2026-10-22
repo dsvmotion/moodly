@@ -242,5 +242,9 @@
       "code": "That code isn't right. Try the one your app shows now.",
       "unavailable": "We couldn't check the code. Please try again."
     }
+  },
+  "orgSwitcher": {
+    "label": "Active organization",
+    "change": "Switch"
   }
 }

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { verifyTotp } from "@/lib/auth/mfa";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { idSchema, totpCodeSchema } from "@/lib/validation";
 
 // Alta y baja del segundo factor (TOTP) de la propia cuenta. Lo hace Supabase
 // Auth con la sesión de la persona: aquí solo se validan formas. Para quitar un
@@ -48,14 +49,13 @@ export interface ConfirmState {
 export async function confirmEnrollment(_prev: ConfirmState, formData: FormData): Promise<ConfirmState> {
   await requireUser();
   const t = await getTranslations("security.errors");
-  const factorId = formData.get("factorId");
-  const raw = formData.get("code");
-  const code = typeof raw === "string" ? raw.replace(/\s+/g, "") : "";
-  if (typeof factorId !== "string" || !factorId || !/^\d{6}$/.test(code)) return { error: t("code") };
+  const factorId = idSchema.safeParse(formData.get("factorId"));
+  const code = totpCodeSchema.safeParse(formData.get("code"));
+  if (!factorId.success || !code.success) return { error: t("code") };
 
   const supabase = await createClient();
   // Verificar el factor deja la sesión en aal2.
-  const { error } = await verifyTotp(supabase, factorId, code);
+  const { error } = await verifyTotp(supabase, factorId.data, code.data);
   if (error) return { error: t(error.status !== undefined && error.status < 500 ? "code" : "unavailable") };
 
   revalidatePath("/app", "layout");

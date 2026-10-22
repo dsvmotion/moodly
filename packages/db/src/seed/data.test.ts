@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { seedGuests, seedLocations, seedOrganizations, seedPlatformStaff, seedRegions, seedUsers } from "./data.ts";
+import {
+  seedExtraMemberships,
+  seedGuests,
+  seedLocations,
+  seedOrganizations,
+  seedPlatformStaff,
+  seedRegions,
+  seedUsers,
+} from "./data.ts";
 
 // Las mismas reglas que impone la base de datos (CHECK de rol ↔ alcance,
 // trigger validate_scope, FK compuesta de locations): si el seed las rompe,
@@ -47,6 +55,22 @@ describe("seed", () => {
         expect(regions.length === 0 && locations.length > 0).toBe(true);
       }
     }
+  });
+
+  it("las memberships adicionales son de usuarios del seed, en otra organización y con alcance coherente", () => {
+    for (const extra of seedExtraMemberships) {
+      const user = seedUsers.find((u) => u.key === extra.userKey);
+      expect(user).toBeDefined();
+      expect(orgIds).toContain(extra.organizationId);
+      expect(extra.organizationId).not.toBe(user?.organizationId);
+      for (const id of extra.scopeLocationIds) expect(seedLocations.find((l) => l.id === id)?.organizationId).toBe(extra.organizationId);
+      for (const id of extra.scopeRegionIds) expect(seedRegions.find((r) => r.id === id)?.organizationId).toBe(extra.organizationId);
+      if (extra.role === "org_admin") expect([extra.scopeRegionIds.length, extra.scopeLocationIds.length]).toEqual([0, 0]);
+      if (extra.role === "staff" || extra.role === "location_manager") expect(extra.scopeLocationIds.length).toBeGreaterThan(0);
+    }
+    // Una membership por organización y usuario (unique en la base de datos).
+    const pairs = [...seedUsers.map((u) => `${u.key}:${u.organizationId}`), ...seedExtraMemberships.map((m) => `${m.userKey}:${m.organizationId}`)];
+    expect(new Set(pairs).size).toBe(pairs.length);
   });
 
   it("solo usa emails de dominios reservados para pruebas y claves únicas", () => {

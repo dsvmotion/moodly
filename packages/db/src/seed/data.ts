@@ -56,17 +56,25 @@ const ORG_B = "5eed0000-0000-4000-8000-00000000000b";
 // C solo la usa el e2e de invitaciones: así puede añadir a alguien sin cambiar lo
 // que ven los demás tests, que corren en paralelo contra A y B.
 const ORG_C = "5eed0000-0000-4000-8000-00000000000c";
+// D y E solo las usa el e2e de organización activa: una misma persona es staff
+// en las dos (seedExtraMemberships).
+const ORG_D = "5eed0000-0000-4000-8000-00000000000d";
+const ORG_E = "5eed0000-0000-4000-8000-00000000000e";
 const REGION_A_NORTE = "5eed0001-0000-4000-8000-0000000000a1";
 const LOC_A1 = "5eed0002-0000-4000-8000-0000000000a1";
 const LOC_A2 = "5eed0002-0000-4000-8000-0000000000a2";
 const LOC_A3 = "5eed0002-0000-4000-8000-0000000000a3";
 const LOC_B1 = "5eed0002-0000-4000-8000-0000000000b1";
 const LOC_C1 = "5eed0002-0000-4000-8000-0000000000c1";
+const LOC_D1 = "5eed0002-0000-4000-8000-0000000000d1";
+const LOC_E1 = "5eed0002-0000-4000-8000-0000000000e1";
 
 export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_A, name: "Demo A", vertical: "demo" },
   { id: ORG_B, name: "Demo B", vertical: "demo" },
   { id: ORG_C, name: "Demo C", vertical: "demo" },
+  { id: ORG_D, name: "Demo D", vertical: "demo" },
+  { id: ORG_E, name: "Demo E", vertical: "demo" },
 ];
 
 export const seedRegions: readonly SeedRegion[] = [
@@ -79,6 +87,8 @@ export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_A3, organizationId: ORG_A, regionId: null, name: "A3 sin región" },
   { id: LOC_B1, organizationId: ORG_B, regionId: null, name: "B1" },
   { id: LOC_C1, organizationId: ORG_C, regionId: null, name: "C1" },
+  { id: LOC_D1, organizationId: ORG_D, regionId: null, name: "D1" },
+  { id: LOC_E1, organizationId: ORG_E, regionId: null, name: "E1" },
 ];
 
 /**
@@ -150,6 +160,15 @@ export const seedUsers: readonly SeedUser[] = [
     scopeLocationIds: [],
   },
   {
+    key: "de_staff",
+    email: "staff.de@demo.test",
+    fullName: "Staff D y E",
+    organizationId: ORG_D,
+    role: "staff",
+    scopeRegionIds: [],
+    scopeLocationIds: [LOC_D1],
+  },
+  {
     key: "c_org_admin",
     email: "admin.c@demo.test",
     fullName: "Admin C",
@@ -158,6 +177,22 @@ export const seedUsers: readonly SeedUser[] = [
     scopeRegionIds: [],
     scopeLocationIds: [],
   },
+];
+
+/**
+ * Memberships adicionales de usuarios de seedUsers en otras organizaciones (una
+ * persona que trabaja para dos empresas). Las usa el e2e de organización activa.
+ */
+export interface SeedExtraMembership {
+  userKey: string;
+  organizationId: string;
+  role: MembershipRole;
+  scopeRegionIds: readonly string[];
+  scopeLocationIds: readonly string[];
+}
+
+export const seedExtraMemberships: readonly SeedExtraMembership[] = [
+  { userKey: "de_staff", organizationId: ORG_E, role: "staff", scopeRegionIds: [], scopeLocationIds: [LOC_E1] },
 ];
 
 export const seedPlatformStaff: readonly SeedPlatformStaff[] = [

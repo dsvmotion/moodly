@@ -242,5 +242,9 @@
       "code": "El código no es correcto. Prueba con el que muestra ahora la aplicación.",
       "unavailable": "No se ha podido comprobar el código. Inténtalo de nuevo."
     }
+  },
+  "orgSwitcher": {
+    "label": "Organización activa",
+    "change": "Cambiar"
   }
 }

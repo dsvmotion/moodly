@@ -2,14 +2,15 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AppSearchButton } from "@/components/app-command-center";
 import { AppFrame } from "@/components/app-frame";
+import { AppOrgSwitcher } from "@/components/app-org-switcher";
 import { AppScopeSwitcher } from "@/components/app-scope-switcher";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { requireUser } from "@/lib/auth/session";
 import { parseSidebarCollapsed, parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
 import { getScopeContext } from "@/lib/scope-data";
-import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
+import { setActiveOrganization } from "./organization-actions";
 
 // App shell (MANUAL §9.2). El layout pinta la estructura; la comprobación que
 // protege los datos está en cada página (requireUser, cerca de los datos):
@@ -17,11 +18,8 @@ import { signOut } from "./actions";
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
   const cookieStore = await cookies();
-  const supabase = await createClient();
-
-  // Organizaciones que el usuario ve según RLS (hoy, una por usuario del seed).
-  const { data: organizations } = await supabase.from("organizations").select("id, name").order("name");
-  const { options } = await getScopeContext();
+  // Sus organizaciones según RLS y la activa (active-org.ts).
+  const { options, organizations, organization } = await getScopeContext();
 
   return (
     <AppFrame
@@ -34,9 +32,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           defaultCollapsed={parseSidebarCollapsed(cookieStore.get(SIDEBAR_COOKIE)?.value)}
           header={
             <>
-              <div data-testid="org-name" className="truncate px-2 py-1.5 text-sm font-semibold">
-                {organizations?.map((organization) => organization.name).join(" · ")}
-              </div>
+              <AppOrgSwitcher organizations={organizations} activeId={organization?.id ?? null} action={setActiveOrganization} />
               <AppScopeSwitcher options={options} />
               <AppSearchButton />
             </>

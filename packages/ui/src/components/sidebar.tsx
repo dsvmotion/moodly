@@ -2,12 +2,32 @@
 
 import { ChevronRightIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { Collapsible, Slot } from "radix-ui";
-import { cloneElement, createContext, useContext, useState, type ComponentProps, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  createContext,
+  useContext,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Badge } from "@repo/ui/components/badge";
 import { formatCount } from "@repo/ui/lib/count";
 import { cn } from "@repo/ui/lib/utils";
 
 const SidebarContext = createContext<{ collapsed: boolean }>({ collapsed: false });
+
+// true en el cliente una vez hidratado, false en el HTML del servidor. Hasta
+// entonces los botones de la barra no responden: data-hydrated lo indica (los e2e
+// esperan a él antes de pulsar).
+const noopSubscribe = () => () => {};
+const useHydrated = () =>
+  useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
 
 /**
  * Barra lateral (MANUAL §9.2): secciones colapsables, contadores de
@@ -31,6 +51,7 @@ export function Sidebar({
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const hydrated = useHydrated();
   const toggle = () => {
     setCollapsed(!collapsed);
     onCollapsedChange?.(!collapsed);
@@ -42,6 +63,7 @@ export function Sidebar({
         aria-label={label}
         data-slot="sidebar"
         data-collapsed={collapsed}
+        data-hydrated={hydrated}
         className={cn(
           "flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
           collapsed ? "w-14" : "w-64",

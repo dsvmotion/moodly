@@ -8,6 +8,9 @@ const RECORDS = ["Clientes", "Conversaciones", "Recomendaciones", "Objetivos", "
 test.describe("barra lateral", () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page, "a_org_admin");
+    // Hasta que React hidrata, los botones de la barra no responden: con la
+    // máquina cargada, un clic temprano se perdía.
+    await expect(page.getByRole("navigation", { name: "Navegación principal" })).toHaveAttribute("data-hydrated", "true");
   });
 
   test("muestra las secciones del §9.2 sin contadores ni elementos inventados", async ({ page }) => {
