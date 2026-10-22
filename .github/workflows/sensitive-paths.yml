@@ -2,7 +2,9 @@ name: sensitive-paths
 
 # Falla si el PR toca zonas sensibles (scripts/merge-guard/sensitive-paths.txt,
 # los mismos patrones que usa scripts/safe-merge.sh) o debilita tests, salvo
-# que producto le haya puesto la etiqueta "revisado-humano". Se vuelve a
+# que producto le haya puesto la etiqueta "revisado-humano". Desde el
+# 2026-10-22 la lista está vacía hasta el primer dato real de un cliente
+# (docs/STATUS.md): en la práctica, el job solo bloquea tests debilitados. Se vuelve a
 # ejecutar al poner o quitar etiquetas. Los agentes nunca ponen ni quitan esa
 # etiqueta (AGENTS.md → "Mergeo autónomo").
 #
