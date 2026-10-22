@@ -12,7 +12,8 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-patterns="$here/sensitive-paths.txt"
+# SENSITIVE_PATTERNS permite a los tests usar otra lista (la suspendida).
+patterns="${SENSITIVE_PATTERNS:-$here/sensitive-paths.txt}"
 
 if [[ $# -lt 1 || ! -r "$1" ]]; then
   echo "uso: $0 <archivo-con-rutas> [<archivo-con-diff>]" >&2

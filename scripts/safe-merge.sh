@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Mergeo autónomo de un PR propio (AGENTS.md → "Mergeo autónomo"). Es la
-# ÚNICA forma permitida de que un agente mergee. Aborta ante cualquier error
-# o duda; si aborta, no se mergea y se avisa a producto.
+# Mergeo autónomo de un PR propio (AGENTS.md → "Mergeo autónomo"). Sin `gh`
+# autenticado, el agente reproduce estos mismos pasos con el conector de
+# GitHub. Aborta ante cualquier error o duda; si aborta, no se mergea y se
+# avisa a producto.
 #
 # Uso: scripts/safe-merge.sh <número-de-PR>
 #

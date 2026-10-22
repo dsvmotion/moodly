@@ -10,6 +10,10 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 safe_merge="$root/scripts/safe-merge.sh"
 check_sensitive="$root/scripts/merge-guard/check-sensitive.sh"
+# Los casos de zonas sensibles prueban la lista completa (suspendida desde el
+# 2026-10-22), para que reactivarla sea copiar líneas y nada más. Los casos de
+# la lista activa (vacía) van al final, sin esta variable.
+export SENSITIVE_PATTERNS="$root/scripts/merge-guard/sensitive-paths.suspended.txt"
 sha="0123456789abcdef0123456789abcdef01234567"
 other_sha="fedcba9876543210fedcba9876543210fedcba98"
 
@@ -190,6 +194,20 @@ for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/rollbac
   package.json apps/web/package.json pnpm-lock.yaml pnpm-workspace.yaml AGENTS.md CLAUDE.md docs/MANUAL.md; do
   check_case "sensible: $path" 1 "$path"
 done
+
+echo "== lista activa (zonas sensibles suspendidas)"
+(
+  unset SENSITIVE_PATTERNS
+  printf '%s\n' packages/db/supabase/migrations/1_x.sql apps/web/src/lib/auth/session.ts AGENTS.md docs/MANUAL.md > "$tmp/paths.txt"
+  status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
+  if [[ $status -eq 0 ]]; then echo "✓ con la lista activa vacía, una migración o auth no bloquean → 0"
+  else echo "✗ con la lista activa vacía, una migración bloquea → $status (esperado 0)"; exit 1; fi
+  printf '%s\n' "diff --git a/apps/web/e2e/roles.e2e.ts b/apps/web/e2e/roles.e2e.ts" '+  test.skip("x", async () => {});' > "$tmp/diff.patch"
+  echo "apps/web/e2e/roles.e2e.ts" > "$tmp/paths.txt"
+  status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
+  if [[ $status -eq 1 ]]; then echo "✓ con la lista activa vacía, un test.skip sigue bloqueando → 1"
+  else echo "✗ con la lista activa vacía, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
+) && passed=$((passed + 2)) || failed=$((failed + 1))
 
 echo "== required-checks.txt"
 for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "sensitive-paths"; do
