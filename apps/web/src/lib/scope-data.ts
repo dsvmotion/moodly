@@ -2,6 +2,7 @@ import "server-only";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import {
   parseScope,
@@ -29,14 +30,14 @@ export interface ScopeContext {
 export const getScopeContext = cache(async (): Promise<ScopeContext> => {
   const [supabase, user, t] = await Promise.all([createClient(), getCurrentUser(), getTranslations("scope")]);
   const [regionsResult, locationsResult, membershipResult] = await Promise.all([
-    supabase.from("regions").select("id, name"),
-    supabase.from("locations").select("id, name, region_id"),
+    fetchAll((from, to) => supabase.from("regions").select("id, name").order("id").range(from, to)),
+    fetchAll((from, to) => supabase.from("locations").select("id, name, region_id").order("id").range(from, to)),
     user
       ? supabase.from("memberships").select("role").eq("user_id", user.id).limit(1).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
   const error = regionsResult.error ?? locationsResult.error ?? membershipResult.error;
-  if (error) throw new Error(`No se pudo cargar el alcance: ${error.message}`);
+  if (error) throw new Error("No se pudo cargar el alcance", { cause: error });
 
   const rawRole = membershipResult.data?.role;
   const role = ROLES.find((candidate) => candidate === rawRole) ?? null;
