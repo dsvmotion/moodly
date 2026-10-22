@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
 import {
+  seedGuests,
   seedLocations,
   seedOrganizations,
   seedPlatformStaff,
@@ -78,8 +79,9 @@ interface SeedCredential {
   key: string;
   email: string;
   password: string;
-  role: SeedUser["role"] | PlatformStaffRole;
-  /** null = equipo interno (sin organización). */
+  /** null = identidad sin organización ni equipo interno (invitado). */
+  role: SeedUser["role"] | PlatformStaffRole | null;
+  /** null = equipo interno o invitado (sin organización). */
   organizationId: string | null;
 }
 
@@ -168,6 +170,17 @@ async function main(): Promise<void> {
     credentials.push({ key: user.key, email: user.email, password, role: user.role, organizationId: user.organizationId });
   }
 
+  for (const guest of seedGuests) {
+    const password = `${randomBytes(18).toString("base64url")}aA1`;
+    const userId = await upsertAuthUser(admin, guest, password);
+    const profile = await admin.from("users").upsert({ id: userId, full_name: guest.fullName });
+    check("users", profile.error);
+    // Sin organización: se le quita lo que haya aceptado en ejecuciones anteriores.
+    const cleanup = await admin.from("memberships").delete().eq("user_id", userId);
+    check("memberships (invitado)", cleanup.error);
+    credentials.push({ key: guest.key, email: guest.email, password, role: null, organizationId: null });
+  }
+
   // Equipo interno (ADR 0021, D4): cuentas dedicadas, sin membership (D2).
   // Conceder o revocar es una operación de plataforma: aquí, con la clave
   // secreta local; nunca desde apps/web.
@@ -192,8 +205,8 @@ async function main(): Promise<void> {
 
   console.log(
     `Seed aplicado: ${seedOrganizations.length} organizaciones, ${seedRegions.length} región, ` +
-      `${seedLocations.length} locales, ${seedUsers.length} usuarios, ${seedPlatformStaff.length} del equipo interno. ` +
-      `Credenciales en ${credentialsFile}`,
+      `${seedLocations.length} locales, ${seedUsers.length} usuarios, ${seedPlatformStaff.length} del equipo interno, ` +
+      `${seedGuests.length} sin organización. Credenciales en ${credentialsFile}`,
   );
 }
 

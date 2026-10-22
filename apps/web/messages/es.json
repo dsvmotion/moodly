@@ -190,5 +190,31 @@
     "updateAvailable": "Hay una versión nueva disponible.",
     "reload": "Recargar",
     "later": "Más tarde"
+  },
+  "invitations": {
+    "title": "Invitar a una persona",
+    "help": "La persona recibe un enlace y entra solo si lo acepta con su propia cuenta. El enlace caduca en 7 días y solo se muestra una vez.",
+    "email": "Email",
+    "role": "Rol",
+    "scope": "Alcance",
+    "allOrg": "Toda la organización",
+    "send": "Crear invitación",
+    "linkReady": "Invitación creada. Copia el enlace y envíaselo: no se volverá a mostrar.",
+    "copy": "Copiar enlace",
+    "copied": "Copiado",
+    "pending": "Invitaciones pendientes",
+    "none": "No hay invitaciones pendientes.",
+    "revoke": "Revocar",
+    "errors": {
+      "invalid": "Revisa el email, el rol y el alcance.",
+      "forbidden": "No tienes permiso para invitar a esta organización."
+    },
+    "accept": {
+      "title": "Invitación",
+      "body": "Te han invitado a una organización en {brand}. Entrarás con tu cuenta {email}.",
+      "button": "Aceptar invitación",
+      "invalid": "Esta invitación no es válida: puede haber caducado, haberse revocado o ser para otra cuenta.",
+      "already": "Ya perteneces a esta organización."
+    }
   }
 }

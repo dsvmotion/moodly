@@ -24,6 +24,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"invitations": {
+                  Row: {
+                    "accepted_at": string | null,"accepted_by": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string,"organization_id": string,"revoked_at": string | null,"role": string,"scope_location_ids": (string)[],"scope_region_ids": (string)[],"token_hash": string
+                  }
+                  Insert: {
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"created_at"?: string,"email": string,"expires_at"?: string,"id"?: string,"invited_by": string,"organization_id": string,"revoked_at"?: string | null,"role": string,"scope_location_ids"?: (string)[],"scope_region_ids"?: (string)[],"token_hash": string
+                  }
+                  Update: {
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"created_at"?: string,"email"?: string,"expires_at"?: string,"id"?: string,"invited_by"?: string,"organization_id"?: string,"revoked_at"?: string | null,"role"?: string,"scope_location_ids"?: (string)[],"scope_region_ids"?: (string)[],"token_hash"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "invitations_accepted_by_fkey"
+      columns: ["accepted_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invitations_invited_by_fkey"
+      columns: ["invited_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invitations_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"locations": {
                   Row: {
                     "address": string | null,"created_at": string,"id": string,"name": string,"opening_hours": NonNullable<Json>,"organization_id": string,"region_id": string | null,"status": string,"timezone": string,"updated_at": string
@@ -169,7 +200,13 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "login_record_failure":
+            "accept_invitation":
+{ Args: { "p_token": string }; Returns: string
+                           },
+"create_invitation":
+{ Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
+                           },
+"login_record_failure":
 { Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: undefined
                            },
 "login_record_success":

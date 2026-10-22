@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seedLocations, seedOrganizations, seedPlatformStaff, seedRegions, seedUsers } from "./data.ts";
+import { seedGuests, seedLocations, seedOrganizations, seedPlatformStaff, seedRegions, seedUsers } from "./data.ts";
 
 // Las mismas reglas que impone la base de datos (CHECK de rol ↔ alcance,
 // trigger validate_scope, FK compuesta de locations): si el seed las rompe,
@@ -55,6 +55,13 @@ describe("seed", () => {
     expect(new Set(seedUsers.map((u) => u.email)).size).toBe(seedUsers.length);
   });
 
+  it("las identidades sin organización tampoco repiten clave ni email con nadie", () => {
+    const everyone = [...seedUsers, ...seedGuests];
+    for (const guest of seedGuests) expect(guest.email).toMatch(/@[a-z0-9.-]+\.test$/);
+    expect(new Set(everyone.map((u) => u.key)).size).toBe(everyone.length);
+    expect(new Set(everyone.map((u) => u.email)).size).toBe(everyone.length);
+  });
+
   it("equipo interno: un platform_admin y un platform_operator vigentes y un interno revocado", () => {
     const active = seedPlatformStaff.filter((s) => s.revokedAt === null).map((s) => s.role).sort();
     expect(active).toEqual(["platform_admin", "platform_operator"]);
@@ -63,7 +70,7 @@ describe("seed", () => {
 
   it("equipo interno: cuentas dedicadas (D2), emails reservados y claves únicas entre todos los usuarios", () => {
     for (const staff of seedPlatformStaff) expect(staff.email).toMatch(/@[a-z0-9.-]+\.test$/);
-    const all = [...seedUsers, ...seedPlatformStaff];
+    const all = [...seedUsers, ...seedGuests, ...seedPlatformStaff];
     expect(new Set(all.map((u) => u.key)).size).toBe(all.length);
     expect(new Set(all.map((u) => u.email)).size).toBe(all.length);
   });

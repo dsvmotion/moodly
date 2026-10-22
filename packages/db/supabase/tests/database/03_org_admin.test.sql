@@ -43,11 +43,16 @@ select lives_ok(
 with u as (update public.locations set name = 'Local A1 bis' where id = :loc_a1 returning 1)
 select is(count(*)::int, 1, 'org_admin A: puede modificar un local') from u;
 
-select lives_ok(
-  format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
-           values (%L, %L, 'staff', array[%L]::uuid[])$$, :outsider, :org_a, :loc_a3),
-  'org_admin A: puede dar de alta a un usuario como staff de A3'
-);
+-- Alta por invitación (20261022090000_invitations): el org_admin invita y la
+-- persona la acepta con su sesión. El alta directa ya no existe (10_invitations).
+select public.create_invitation(:org_a, 'outsider@test.local', 'staff', '{}', array[:loc_a3]::uuid[]) as tok_outsider \gset
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', :outsider, 'role', 'authenticated',
+  'session_id', pg_temp.login(:outsider), 'email', 'outsider@test.local')::text, true);
+select is(public.accept_invitation(:'tok_outsider'), :org_a::uuid,
+  'org_admin A: puede dar de alta a un usuario como staff de A3 (invitación aceptada)');
+reset role;
+select pg_temp.login(:a_admin);
 with u as (update public.memberships set scope_location_ids = array[:loc_a2]::uuid[] where user_id = :a_staff1 returning 1)
 select is(count(*)::int, 1, 'org_admin A: puede cambiar el alcance de una membership') from u;
 

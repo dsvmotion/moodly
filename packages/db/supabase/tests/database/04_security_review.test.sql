@@ -190,7 +190,13 @@ select throws_like(
 -- Su propia membership la ve también en B (política de SELECT), así que aquí
 -- solo frena el WITH CHECK. Hace falta un segundo admin para que no salte
 -- antes la guarda del último admin.
+-- El segundo admin lo da de alta la plataforma (el org_admin ya no puede
+-- crear memberships: 20261022090000_invitations); después se sigue con la
+-- misma sesión del org_admin.
+select current_setting('request.jwt.claims', true) as claims_admin \gset
+reset role;
 insert into public.memberships (user_id, organization_id, role) values (:outsider, :org_a, 'org_admin');
+select set_config('request.jwt.claims', :'claims_admin', true), set_config('role', 'authenticated', true);
 select throws_like(
   format('update public.memberships set organization_id = %L where user_id = %L', :org_b, :a_admin),
   '%row-level security%',

@@ -53,15 +53,20 @@ export interface SeedPlatformStaff {
 
 const ORG_A = "5eed0000-0000-4000-8000-00000000000a";
 const ORG_B = "5eed0000-0000-4000-8000-00000000000b";
+// C solo la usa el e2e de invitaciones: así puede añadir a alguien sin cambiar lo
+// que ven los demás tests, que corren en paralelo contra A y B.
+const ORG_C = "5eed0000-0000-4000-8000-00000000000c";
 const REGION_A_NORTE = "5eed0001-0000-4000-8000-0000000000a1";
 const LOC_A1 = "5eed0002-0000-4000-8000-0000000000a1";
 const LOC_A2 = "5eed0002-0000-4000-8000-0000000000a2";
 const LOC_A3 = "5eed0002-0000-4000-8000-0000000000a3";
 const LOC_B1 = "5eed0002-0000-4000-8000-0000000000b1";
+const LOC_C1 = "5eed0002-0000-4000-8000-0000000000c1";
 
 export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_A, name: "Demo A", vertical: "demo" },
   { id: ORG_B, name: "Demo B", vertical: "demo" },
+  { id: ORG_C, name: "Demo C", vertical: "demo" },
 ];
 
 export const seedRegions: readonly SeedRegion[] = [
@@ -73,6 +78,22 @@ export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_A2, organizationId: ORG_A, regionId: REGION_A_NORTE, name: "A2 Norte" },
   { id: LOC_A3, organizationId: ORG_A, regionId: null, name: "A3 sin región" },
   { id: LOC_B1, organizationId: ORG_B, regionId: null, name: "B1" },
+  { id: LOC_C1, organizationId: ORG_C, regionId: null, name: "C1" },
+];
+
+/**
+ * Identidades sin organización: pueden entrar pero no ven nada hasta aceptar una
+ * invitación (las usa el e2e de invitaciones). El seed les quita las memberships
+ * en cada ejecución, para que el test empiece siempre igual.
+ */
+export interface SeedGuest {
+  key: string;
+  email: string;
+  fullName: string;
+}
+
+export const seedGuests: readonly SeedGuest[] = [
+  { key: "guest_no_org", email: "invitado@demo.test", fullName: "Persona invitada" },
 ];
 
 export const seedUsers: readonly SeedUser[] = [
@@ -117,6 +138,15 @@ export const seedUsers: readonly SeedUser[] = [
     email: "admin.b@demo.test",
     fullName: "Admin B",
     organizationId: ORG_B,
+    role: "org_admin",
+    scopeRegionIds: [],
+    scopeLocationIds: [],
+  },
+  {
+    key: "c_org_admin",
+    email: "admin.c@demo.test",
+    fullName: "Admin C",
+    organizationId: ORG_C,
     role: "org_admin",
     scopeRegionIds: [],
     scopeLocationIds: [],
