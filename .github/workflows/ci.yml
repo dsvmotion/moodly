@@ -104,6 +104,11 @@ jobs:
     name: seguridad · dependencias y secretos
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # gitleaks-action lista los commits del PR con la API de GitHub: sin
+    # pull-requests: read falla con 403 «Resource not accessible by integration».
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
