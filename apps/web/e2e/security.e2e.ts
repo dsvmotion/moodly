@@ -94,7 +94,10 @@ test("la app no ofrece página de registro", async ({ request }) => {
 // ---------------------------------------------------------------------------
 test("mismo mensaje para email inexistente y contraseña incorrecta", async ({ page }) => {
   const messages: string[] = [];
-  for (const email of [credentialsFor("a_org_admin").email, "no-existe@demo.test"]) {
+  // Un email inexistente distinto en cada ejecución: con uno fijo, sus fallos se
+  // acumularían entre ejecuciones y el freno de login (login_throttle) acabaría
+  // respondiendo «Demasiados intentos».
+  for (const email of [credentialsFor("a_org_admin").email, `no-existe-${Date.now()}@demo.test`]) {
     await page.goto("/login");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Contraseña").fill("contraseña-incorrecta-123");

@@ -205,6 +205,18 @@ isOneToOne: false
                            },
 "create_invitation":
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
+                           },
+"login_record_failure":
+{ Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: undefined
+                           },
+"login_record_success":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"login_throttle":
+{ Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: number
+                           },
+"register_server_key":
+{ Args: { "p_key_hash": string,"p_name": string }; Returns: undefined
                            }
           }
           Enums: {
