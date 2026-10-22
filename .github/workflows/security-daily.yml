@@ -1,0 +1,27 @@
+name: Seguridad diaria
+
+# Un aviso de seguridad nuevo puede dejar vulnerable `main` sin que nadie toque
+# el código (pasó el 2026-10-22 con next ≤16.4.0). El CI solo corre con cada PR o
+# push; esto revisa las dependencias de `main` cada día y falla si hay un aviso
+# alto o crítico. GitHub avisa por email de los fallos de los workflows programados.
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: dependencias · aviso diario
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm audit --audit-level=high

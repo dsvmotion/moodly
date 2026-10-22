@@ -16,64 +16,54 @@
 - Documentación de seguridad y arquitectura en `main`: revisión de los cimientos (#32), revisión de toda la plataforma (#33), ADR 0022 de identidad enterprise y `docs/design/seguridad-por-pilares.md` (#34), WorkOS como proveedor de SSO/SCIM (#35), y ADRs 0023–0030 con el MANUAL alineado (#38) — 2026-10-21.
 
 - Seguridad de los cimientos, primera tanda: dependencias sin vulnerabilidades (#28), cabeceras y CSP con nonce (#29), Auth con MFA TOTP, contraseñas y sesiones (#30), cadena de suministro (#31) y organizaciones suspendidas sin acceso (#41). Verificado sobre `main` (`b3be89e`) tras los merges: pgTAP 206/206, `db lint` limpio, `pnpm check` 52/52 (1 aviso de lint ya existente en `@repo/ui`) y e2e 91/91 — 2026-10-22.
+- Seguridad de los cimientos, segunda tanda (fase A del plan, `docs/audits/2026-10-22-reauditoria-plan.md`): equipo interno con `audit_logs` de solo inserción y acceso JIT con MFA (#16), freno del login con clave de servidor (#36), invitaciones con consentimiento y fuera el alta directa de memberships (#37), organizaciones suspendidas sin acceso (#41), gitleaks arreglado (#47), mergeo autónomo sin revisión humana hasta el primer dato real (#48, #49) y next 16.4.2 contra dos avisos críticos de ejecución remota de código (#50). Verificado sobre `main` (`b15a62f`): pgTAP 406/406, `db lint` limpio, `pnpm check` 52/52 (1 aviso de lint ya existente en `@repo/ui`) y e2e 95/95 — 2026-10-22. Al verificar apareció un fallo intermitente del seed (contraseñas del equipo interno sin dígito, ~5 % de ejecuciones): corregido en el PR de la re-auditoría.
+
 
 ## En curso
+- **Plan vigente:** `docs/audits/2026-10-22-reauditoria-plan.md` (re-auditoría del 2026-10-22, fases A–E). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
+- **A2 · MFA obligatorio para administrar (P0-6, hallazgo 2.3)** — rama `sec/mfa-admin`: toda escritura de `org_admin` y las inserciones del equipo interno en `audit_logs` exigen aal2 en RLS; `/login/mfa` tras la contraseña; Ajustes → Seguridad para activar el TOTP; los `org_admin` del seed salen con TOTP. Verificado en local: pgTAP 432/432, prueba en negativo con el rollback, `pnpm check` 52/52 y e2e 97/97 dos veces seguidas. Falta el CI del PR.
 - **Mergeo sin revisión humana (decisión de producto, 2026-10-22):** mientras no haya datos reales de clientes, el agente mergea sus PRs, también los sensibles, con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md → «Mergeo autónomo»). La lista de zonas sensibles completa se guarda en `scripts/merge-guard/sensitive-paths.suspended.txt`.
-  - **Condición de salida a producción (bloqueante):** antes de meter el primer dato real de un cliente, reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (copiar esas líneas a `sensitive-paths.txt`), y proteger `main` en GitHub.
-- **Centralización (2026-10-21):** el desarrollo sigue solo desde la sesión en la nube. La sesión del Mac («Design system for Moodly (fork)», `session_01VasfkA8hcvcB3xhbVSrmJ1`) se ha leído entera y todo lo que quedaba pendiente está en este documento; se puede borrar. En el Mac, el repo vive en `~/Developer/moodly-ai` (fuera del Escritorio de iCloud) y las copias de trabajo de los PRs abiertos están en `.claude/worktrees/`: se pueden quitar cuando estén mergeados.
-
-- **PRs abiertos, todos sensibles: los revisa y mergea producto, en este orden.** Después de cada merge, avisar al agente para que ponga al día el siguiente y verifique `main`.
-  1. #28 dependencias sin vulnerabilidades (Next 16.3.8).
-  2. #29 cabeceras de seguridad y CSP estricta con nonce.
-  3. #30 Auth: MFA TOTP, contraseñas robustas, sesiones de 12 h sin uso y 7 días como máximo.
-  4. #31 cadena de suministro: Actions fijadas a su commit, Dependabot, gitleaks y `pnpm audit` en el CI. Su check de dependencias sale en rojo hasta que entre #28 (comprobado combinando ambas ramas: 0 vulnerabilidades). `SECURITY.md` lleva un email provisional.
-  5. #16 equipo interno (`platform_staff`), `audit_logs` y `/ops` mínimo (ADR 0021). Puesto al día con `main` el 2026-10-21 (solo chocaba `docs/STATUS.md`; el código es el mismo que se verificó el día 20: pgTAP 301/301, `pnpm check` 52/52, e2e 86/86).
-  6. #36 freno contra la fuerza bruta en el login (5 fallos por email e IP → espera creciente, máximo 15 min; si el freno falla, el login se cierra). pgTAP 206/206, e2e 87/87 en 5 rondas y prueba en negativo.
-  7. #37 invitaciones con consentimiento (caducan en 7 días, revocables, solo las acepta el email invitado y con un POST); retira el alta directa de `memberships`. pgTAP 215/215, e2e 89/89 en 3 rondas y prueba en negativo. **Cambia la preparación de los tests existentes 01, 03 y 04** (no lo que comprueban): requiere revisión humana. Al mergear #16 y #36 chocará en `packages/db/src/database.types.ts` (se regenera con `pnpm db:types`) y en el seed (`data.ts`, `data.test.ts`, `run.ts`: hay que conservar los usuarios de los dos PRs).
-  - Resuelve el punto 3b de «Próximo» (invitaciones) y los dos hallazgos en código de la revisión de seguridad.
-  - **`/ops` mínimo** (ADR 0021, decisiones D1–D14 cerradas por producto el 2026-10-06) va en 4 PRs (+1 condicional). #16 es el PR 1 (base de datos). Pendientes: PR 2 (`requirePlatformStaff()` y `withPlatformStaffAudit()`, puerta 404 en `/ops`, regla en AGENTS.md/CLAUDE.md), PR 3 (`/ops/organizations` y detalle, con una fila de auditoría por vista), PR 4 (`/ops/audit`) y, si la tarea 5 ya está mergeada, PR 5 (`/ops/agent-types`). `^apps/web/src/app/ops/` pasa a `sensitive-paths.txt` con los PRs web (D13).
-
-- **Siguiente en seguridad** (`docs/audits/2026-10-20-revision-seguridad-plataforma.md`): MFA obligatorio (AAL2) para dueños, administración y equipo interno; auditoría de accesos; CAPTCHA en el login (Cloudflare Turnstile); monitorización y alertas; gestión de secretos en producción. Antes de la primera skill: cliente de base de datos acotado por organización en el worker (`tenantDb`, control 3.2) y el resto de los 14 controles previos a agentes, memoria e integraciones.
-
-- **Identidad enterprise (ADR 0022):** WorkOS decidido para SSO, SCIM y Admin Portal, con login único recomendado para todos los planes. Pendiente de una prueba técnica (login, MFA y SSO; 186+ tests de aislamiento en verde; revocación inmediata de sesiones; altas y bajas desde el directorio; firmas de los avisos). Plan B: híbrido (WorkOS solo enterprise).
-
-- Panel `/ops` mínimo (Fase 0, MANUAL §17; ADR 0021, decisiones D1–D14 cerradas por producto el 2026-10-06). Se entrega en 4 PRs (+1 condicional):
-  - **PR 1 · base de datos — abierto, pendiente de revisión humana** (zonas sensibles; rama `feat/ops-platform-staff-audit`): `platform_staff`, `private.is_platform_staff()`, identidades separadas (trigger), `audit_logs` de solo inserción con `at` fijado por la base de datos, políticas SELECT del equipo interno en las 5 tablas de tenants, seed con 1 `platform_admin`, 1 `platform_operator` y 1 interno revocado, y ADR 0021. Verificado en local: pgTAP 301/301 (115 nuevos), 4 pruebas negativas (+1 extra), rollback probado, `supabase db lint` limpio, `pnpm check` 51/51 y e2e 83/83 con el seed nuevo. Falta el CI del PR y la revisión.
-  - **Pendiente:** PR 2 (`requirePlatformStaff()` y `withPlatformStaffAudit()`, puerta 404 en `/ops`, regla en AGENTS.md/CLAUDE.md), PR 3 (`/ops/organizations` y detalle, con una fila de auditoría por vista), PR 4 (`/ops/audit`) y, si la tarea 5 ya está mergeada, PR 5 (`/ops/agent-types`). `^apps/web/src/app/ops/` pasa a `sensitive-paths.txt` con los PRs web (D13).
-- Cierre del diseño del prototipo — rama `feat/cierre-diseno`, estado a 2026-10-20: pantallas que faltaban (2FA, SSO, SCIM, claves de API, ficha de integración, auditoría, facturación), modo oscuro, plataforma en en/fr/de y accesibilidad WCAG 2.1 AA (axe: 0 fallos en las 67 pantallas, en claro y en oscuro; diálogos usables con teclado). Después, en la misma rama: estados de pantalla (cargando, vacío, error y sin permiso) en las 67 pantallas, plataforma adaptada a móvil y tableta (menú en cajón por debajo de 900 px) y traducciones con frases completas (plantillas con huecos). Lienzo de diseño actualizado (versión 74). Detalle y evidencia: `docs/audits/2026-10-20-cierre-diseno.md`. PR abierto, pendiente de revisión.
-
-- **Pendiente de la tarea 4 (app shell):** dos PRs sensibles: traducir la página de login (`apps/web/src/app/login/**`) e Inicio (P1) en `/app` como destino tras el login.
-
-- **Pendiente de producto** (anotado el 2026-10-20; las claves van siempre en un `.env` local, nunca en el chat ni en el repo):
-  - Cuenta de **WorkOS** en modo staging y su **DPA**, con la ubicación de los datos de identidad confirmada por escrito.
-  - Cuenta gratuita de **Cloudflare Turnstile** (CAPTCHA del login).
-  - **Email de seguridad** para `SECURITY.md` (#31).
-  - Cuenta de **Meta for Developers** con una app de WhatsApp y número de prueba (WhatsApp Cloud API, ADR 0020). Para clientes reales hará falta después darse de alta como *Tech Provider* (empresa verificada en Meta Business y revisión de la app).
-  - **Vertical y cliente piloto** (MANUAL §18 #3): es lo que arranca la Fase 1.
-  - **Quitar `docs/MANUAL.md` de las zonas sensibles:** lo hace producto a mano (borrar su línea en `scripts/merge-guard/sensitive-paths.txt`, quitarlo de la lista de sensibles en `scripts/merge-guard/tests/run.sh` y actualizar el apartado de zonas sensibles de `AGENTS.md`/`CLAUDE.md`). El clasificador de seguridad impide que el agente cambie sus propias guardas.
-  - **Planes:** producto hará el upgrade a GitHub Team y Supabase Pro (región UE) cuando backend y frontend estén construidos. Aviso: Supabase Free no tiene copias de seguridad, así que **ningún dato real de clientes antes de Supabase Pro**.
-  - Decidir si el script de revisión del prototipo (`apps/site/scripts/audit-prototipo.py`) pasa en cada PR; toca configuración del CI (zona sensible).
-  - En el Mac: borrar 4 ramas locales ya mergeadas (el sistema de permisos lo bloqueó al agente): `git -C ~/Developer/moodly-ai branch -D docs/traspaso-diseno-canvas feat/cierre-diseno feat/pwa-movil-fase0 feat/site-landings`. `~/Developer/moodly` (clon antiguo) y `~/Desktop/moodly-ai-pwa` están en la Papelera.
-- **Decisiones de producto anotadas:** el número de sedes de la clínica de la demo da igual (se queda en 2: Centro y Norte); SSO y SCIM con «lo más profesional, seguro y escalable» → WorkOS; modelos en todas las regiones (ADR 0019); WhatsApp directo con Meta (ADR 0020); 4 agentes de serie y estructura ampliable (ADR 0030).
-- **Notas de proceso:** `scripts/safe-merge.sh` se lanza desde la copia principal (no desde un worktree) y cuando GitHub ya ha registrado los checks del PR.
+  - **Condición de salida a producción (bloqueante):** antes de meter el primer dato real de un cliente, reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (copiar esas líneas a `sensitive-paths.txt`), hacer que el job `sensitive-paths` lea la lista de la rama base y no de la del PR, y proteger `main` en GitHub.
+- **Dependabot:** #43 (pnpm/action-setup 6.1.0) y #45 (13 menores y parches) en rebase tras #50; #42 (gitleaks-action v3) y #44 (setup-cli v3) son mayores: se mergean solo si su CI pasa entero. #46 cerrado (Node 24 fija `@types/node` 24).
+- **Centralización (2026-10-21):** el desarrollo sigue solo desde la sesión en la nube. La sesión del Mac (`session_01VasfkA8hcvcB3xhbVSrmJ1`) se puede borrar.
+- **Decisiones de producto anotadas:** el número de sedes de la clínica de la demo da igual (se queda en 2: Centro y Norte); SSO y SCIM con «lo más profesional, seguro y escalable» → WorkOS; modelos en todas las regiones (ADR 0019); WhatsApp directo con Meta (ADR 0020); 4 agentes de serie y estructura ampliable (ADR 0030); construir frente a adoptar (ADR 0031).
+- **Cuentas creadas por producto (2026-10-22):** Vercel Pro, Supabase, Railway, Cloudflare, WorkOS, Sentry, Meta for Developers, Resend, GitHub y dominios en Hostinger. Estado de cada una en la re-auditoría §2.4. Las claves van siempre en el gestor de secretos del proveedor o en un `.env` local, nunca en el chat ni en el repo.
 
 ## Bloqueado
-- `SECURITY.md` (#31) necesita un email de contacto de seguridad: lo decide producto.
-- App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS de la rama y un iPhone; la hace producto. Hasta entonces la fase no pasa a "Hecho y verificado".
-- Protección de la rama `main` (PR y CI obligatorios antes de mergear) — GitHub devuelve 403 tanto en branch protection como en rulesets: "Upgrade to GitHub Pro or make this repository public" (repo privado en plan Free) — hace falta que producto decida si pasa a GitHub Pro/Team o hace el repo público. Mientras tanto, la regla "no mergear sin CI en verde" solo la sostiene el proceso (AGENTS.md), y eso incluye el mergeo autónomo del agente: GitHub no impediría un merge con el CI en rojo.
-- Uso alojado o en producción de `/ops`: requiere antes MFA (AAL2) para el equipo interno (ADR 0021, D12), a verificar contra el plan de Supabase (MANUAL §18 #11). En local no se exige en la Fase 0.
-- Fase 1 depende de decisiones abiertas (MANUAL §18): vertical piloto (#3), AI Gateway y proveedor de embeddings (#5; los proveedores LLM ya están cerrados en el ADR 0019 y el canal de WhatsApp en el ADR 0020) y proveedor de KMS (#6). No bloquean la Fase 0.
+- **Staging alojado (fase B2):** los conectores de **Supabase y Vercel** están conectados en claude.ai pero **desactivados en la sesión del agente**; sin ellos no puede crear los proyectos. Además falta decidir el dominio (propuesta: `moodly.com` y `staging.moodly.com`).
+- `SECURITY.md` necesita un email de contacto de seguridad: lo decide producto.
+- App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
+- Protección de la rama `main`: GitHub devuelve 403 en branch protection y rulesets en un repo privado del plan Free. Hace falta GitHub Pro/Team o hacer el repo público. Hasta entonces, «no mergear sin CI en verde» solo lo sostiene el proceso (AGENTS.md).
+- Datos reales de clientes: Supabase Free no tiene copias de seguridad. **Ningún dato real antes de Supabase Pro en la UE** con una restauración probada, la revisión humana reactivada y los DPAs firmados.
+- Fase 1 depende de decisiones abiertas (MANUAL §18): vertical y cliente piloto (#3), AI Gateway y proveedor de embeddings (#5) y proveedor de KMS (#6). No bloquean la Fase 0.
 
-## Próximo (Fase 0 — Cimientos, MANUAL §17)
-3b. Invitaciones de miembros — **en PR (`sec/invitaciones`), pendiente de revisión humana y mergeo por producto**: tabla `invitations` (solo el hash SHA-256 del token, caducidad de 7 días, revocación sin borrado), `create_invitation` (invoker, pasa por RLS: solo `org_admin`) y `accept_invitation` (`SECURITY DEFINER`, escribe `users` y `memberships`: requiere revisión humana) que exige sesión viva y que el email de la sesión sea el invitado; se retira `memberships_insert`. UI en "Mi organización" (invitar, pendientes, revocar) y `/app/invitation` (acepta solo con un POST). Verificado en local: pgTAP 215/215, `db lint` limpio, rollback probado, `pnpm check` 52/52, e2e 89/89 en 3 rondas y prueba negativa (sin la comprobación de email, otra cuenta entra y el e2e falla). Cambia aserciones de setup en los pgTAP 01, 03 y 04 (el alta directa ya no existe): revisarlo. Queda:
-   - Envío del enlace por email (hoy se copia a mano), cuando haya proveedor de email.
-   - Invitar staff por parte del `location_manager` (en sus locales), sobre el mismo flujo.
-   - Alta de la cuenta de Auth de quien no tiene cuenta: hoy la persona invitada debe existir ya en Auth (registro público cerrado). Llega con WorkOS (ADR 0022) o con un alta controlada.
-3c-2. Configuración de Auth de producción, cuando exista el proyecto alojado de staging: límites de intentos (`sign_in_sign_ups`, `token_refresh`, `token_verifications`), captcha en el login, longitud mínima y requisitos de contraseña, y `jwt_expiry`. `config.toml` solo aplica en local: hay que fijarlo en el proyecto alojado y verificarlo allí.
-3d. Cuando se use Supabase Realtime (bandeja, conversaciones, aprobaciones: MANUAL §9.9): verificar que `private.session_is_active()` también se aplica en las suscripciones, es decir, que una sesión cerrada deja de recibir eventos, con un test que lo demuestre.
-3e. Identidad de GitHub separada para el agente, con permisos limitados (p. ej. una GitHub App o una cuenta de máquina con acceso de escritura a ramas y PRs, pero sin permiso para gestionar etiquetas ni para mergear sin checks). Hoy el agente usa la cuenta de producto: técnicamente podría poner la etiqueta `revisado-humano`, y solo lo impide la regla de AGENTS.md. Con la identidad separada, además, se pueden exigir revisiones de una persona distinta del autor.
-4. App shell en `apps/web` con `packages/ui` (MANUAL §9.2): barra lateral, selector de organización y alcance, búsqueda, ⌘K y `DataTable` base mostrando locales y usuarios reales del seed. Verificar con capturas que cada rol ve solo lo que le corresponde.
-5. Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` + resolución de configuración con herencia y bloqueos, con tests. Nace con el modelo ampliable del ADR 0030 (agentes y skills de plataforma y propios).
-6. Worker always-on con ejecución duradera: primero el *spike* de DBOS del ADR 0027 (reanudación tras matar el proceso, deduplicación, una ejecución por conversación, espera de aprobación). Después, un workflow encolado desde la web y procesado por el worker, con evidencia en logs.
-7. Borrado RGPD frente a `audit_logs` de solo inserción (ADR 0021, D6): decidir con el trabajo de §11 si se seudonimiza `actor_id`/`target` o se borra. Mientras tanto, borrar una organización con auditoría falla (`on delete restrict`).
-8. Redactar ADRs 0001–0017 (MANUAL §19, con el estado de cada uno). El 0003 (Supabase + RLS) ya está redactado en la tarea 2.
+## Próximo (plan de la re-auditoría del 2026-10-22)
+**Fase A — cerrar la seguridad de los cimientos**
+- A2 · MFA obligatorio para administrar (en curso, arriba).
+- A3 · Higiene de la web: organización activa explícita en lugar de `.limit(1)` (hallazgo 1.6), paginación de Registros (`max_rows = 1000` trunca en silencio), errores sin concatenar en los `throw` (1.5), Zod en las Server Actions y `graphql_public` fuera de la API.
+- A4 · CI: revisión diaria de dependencias (`security-daily.yml`), PRs de Dependabot y caché de los navegadores de Playwright.
+- Pendientes menores de la fase: traducir la página de login, Inicio (P1) como destino tras el login, `location_manager` que invita en sus locales, alta de la cuenta de Auth de quien aún no la tiene (llega con WorkOS).
+
+**Fase B — staging alojado y operación**
+- B1 · Observabilidad: Sentry en `apps/web` (organización en la región UE; *tunnel* propio para no abrir la CSP; sin datos personales) y logs estructurados con `organization_id` y `trace_id`. Alertas mínimas: ráfagas de fallos de login, accesos del equipo interno, cambios de rol y desactivación de MFA.
+- B2 · Staging: Supabase en la UE y Vercel (`fra1`) en `staging.<dominio>`, con migraciones desde el CI (`supabase db push`), nunca a mano.
+- B3 · Auth de producción (antes 3c-2) en el proyecto alojado: límites de intentos, `jwt_expiry`, sesiones (el *timebox* necesita Pro), Cloudflare Turnstile y `LOGIN_THROTTLE_KEY` registrada.
+- B4 · Email transaccional con Resend (dominio con SPF, DKIM y DMARC): las invitaciones llegan por email.
+
+**Fase C — identidad enterprise**
+- *Spike* de WorkOS (ADR 0022) contra su entorno Staging: login, MFA, SSO de prueba, revocación inmediata y los tests de aislamiento en verde.
+
+**Fase D — runtime de agentes**
+- Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` con herencia y bloqueos (antes tarea 5; ADR 0030).
+- *Spike* de DBOS (ADR 0027) y worker en Railway (antes tarea 6).
+- Controles previos a la primera skill: `tenantDb(orgId)` con regla de lint (3.2), aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
+- `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
+
+**Fase E — canales e integraciones**
+- WhatsApp Cloud API (ADR 0020) con webhooks firmados (7.1); OAuth (7.2).
+
+**Siempre abiertos**
+- 3d. Con Supabase Realtime: comprobar que una sesión cerrada deja de recibir eventos.
+- 3e. Identidad de GitHub separada para el agente, con permisos limitados.
+- Borrado RGPD frente a `audit_logs` de solo inserción (ADR 0021, D6).
+- Redactar ADRs 0001–0017 (MANUAL §19). El 0003 ya está.
