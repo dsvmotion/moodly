@@ -62,9 +62,11 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
 - Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
+- Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. La web de staging la despliega Vercel desde `main`.
 
 ## Prohibido
 - Inventar credenciales, cuentas o proveedores de integración. Pídelos.
+- Aplicar migraciones o DDL a mano en un proyecto alojado (conector de Supabase, SQL editor, `db push` desde tu máquina): solo el CI migra staging y producción.
 - Usar la service role de Supabase en `apps/web` para datos de usuario.
 - Consultas del worker sin `organization_id` explícito.
 - Desactivar RLS, saltarse tests o bajar umbrales de evals para que algo pase.

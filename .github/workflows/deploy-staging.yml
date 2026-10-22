@@ -1,0 +1,83 @@
+name: Despliegue a staging
+
+# Migraciones de la base de datos de staging desde el CI, nunca a mano (STATUS,
+# fase B2). Corre cuando el CI termina en verde sobre main, con el commit exacto
+# que comprobó el CI, o a mano desde main (Actions → Despliegue a staging → Run
+# workflow).
+#
+# La web la despliega Vercel desde main por su cuenta, a la vez. Por eso cada
+# migración tiene que ser compatible con la versión anterior de la web
+# (expandir → desplegar → contraer).
+#
+# Secretos del entorno `staging` de GitHub (Settings → Environments → staging):
+#   SUPABASE_ACCESS_TOKEN  token personal de Supabase (Account → Access Tokens)
+#   SUPABASE_DB_PASSWORD   contraseña de la base de datos del proyecto de staging
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Nunca dos despliegues a la vez, y ninguno se cancela a medias.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  # Proyecto moodly-staging (eu-central-1). No es secreto: va en la URL pública.
+  SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
+
+jobs:
+  migrations:
+    name: staging · migraciones
+    # workflow_run filtra por el nombre de la rama de origen, y un PR desde un
+    # fork puede llamar a su rama «main»: solo vale un push a este repositorio.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    defaults:
+      run:
+        working-directory: packages/db
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Misma versión que en local y en el CI.
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Secretos del entorno staging
+        run: |
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta el secreto $name en el entorno staging de GitHub"
+              exit 1
+            fi
+          done
+
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Lista lo que se va a aplicar antes de aplicarlo (queda en el log).
+      - name: Migraciones pendientes
+        run: supabase db push --dry-run
+
+      - name: Aplicar migraciones
+        run: supabase db push --yes
+
+      - name: Historial tras el despliegue
+        run: supabase migration list

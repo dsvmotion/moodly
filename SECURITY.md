@@ -1,7 +1,7 @@
 # Política de seguridad
 
 ## Cómo informar de una vulnerabilidad
-Escríbenos a **[EMAIL DE SEGURIDAD — por definir]** con:
+Escríbenos a **dsv.motion@gmail.com** con:
 - qué has encontrado y dónde (URL, pantalla o componente);
 - los pasos para reproducirlo;
 - el impacto que crees que tiene.
