@@ -202,7 +202,10 @@ echo "== lista activa (zonas sensibles suspendidas)"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
   if [[ $status -eq 0 ]]; then echo "✓ con la lista activa vacía, una migración o auth no bloquean → 0"
   else echo "✗ con la lista activa vacía, una migración bloquea → $status (esperado 0)"; exit 1; fi
-  printf '%s\n' "diff --git a/apps/web/e2e/roles.e2e.ts b/apps/web/e2e/roles.e2e.ts" '+  test.skip("x", async () => {});' > "$tmp/diff.patch"
+  # La llamada se compone por partes: escrita literal, la propia guarda la
+  # detectaría en el diff de cualquier PR que toque este archivo.
+  skip_call="test"".skip"
+  printf '%s\n' "diff --git a/apps/web/e2e/roles.e2e.ts b/apps/web/e2e/roles.e2e.ts" "+  ${skip_call}(\"x\", async () => {});" > "$tmp/diff.patch"
   echo "apps/web/e2e/roles.e2e.ts" > "$tmp/paths.txt"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
   if [[ $status -eq 1 ]]; then echo "✓ con la lista activa vacía, un test.skip sigue bloqueando → 1"
