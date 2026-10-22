@@ -137,7 +137,9 @@ async function main(): Promise<void> {
 
   const credentials: SeedCredential[] = [];
   for (const user of seedUsers) {
-    const password = randomBytes(18).toString("base64url");
+    // 24 caracteres aleatorios + minúscula, mayúscula y dígito garantizados
+    // (config.toml exige lower_upper_letters_digits).
+    const password = `${randomBytes(18).toString("base64url")}aA1`;
     const userId = await upsertAuthUser(admin, user, password);
 
     const profile = await admin.from("users").upsert({ id: userId, full_name: user.fullName });

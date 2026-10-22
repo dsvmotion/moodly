@@ -64,7 +64,7 @@ test("sin sesión, el HTML de una ruta protegida no contiene datos", async ({ re
 test("nadie puede registrarse por su cuenta en Supabase Auth", async ({ request }) => {
   const { url, publishableKey } = supabasePublicEnv();
   const email = `intruso-${Date.now()}@demo.test`;
-  const password = "Intruso-1234567890";
+  const password = "Intruso-1234567890"; // gitleaks:allow — contraseña de prueba de un alta que se rechaza
 
   const signup = await request.post(`${url}/auth/v1/signup`, {
     headers: { apikey: publishableKey },
