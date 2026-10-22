@@ -19,7 +19,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Línea base: con A activa, a_admin ve su organización
 -- ---------------------------------------------------------------------------
-select pg_temp.login(:a_admin) as a_admin_session \gset
+select pg_temp.login_mfa(:a_admin) as a_admin_session \gset
 select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'A activa: org_admin ve 1 org, 2 regiones, 3 locales, 5 perfiles, 5 memberships');
 
 -- ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'A activa: org_admin v
 reset role;
 update public.organizations set status = 'suspended' where id = :org_a;
 
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 1, 1], 'A suspendida: org_admin solo ve su perfil y su membership');
 select ok(not private.has_org_role(:org_a), 'A suspendida: has_org_role = false');
 select ok(not private.can_access_location(:org_a, :loc_a1), 'A suspendida: can_access_location = false');
@@ -67,7 +67,7 @@ select is(pg_temp.visible_counts(), array[0, 0, 0, 1, 1], 'A suspendida: staff s
 
 -- B no se ve afectada
 reset role;
-select pg_temp.login(:b_admin) as b_admin_session \gset
+select pg_temp.login_mfa(:b_admin) as b_admin_session \gset
 select is(pg_temp.visible_counts(), array[1, 1, 1, 2, 2], 'B activa: su org_admin sigue viendo su organización');
 with u as (update public.locations set opening_hours = '{"ok": 1}' where id = :loc_b1 returning 1)
 select is(count(*)::int, 1, 'B activa: su org_admin sigue pudiendo escribir') from u;
@@ -77,13 +77,13 @@ select is(count(*)::int, 1, 'B activa: su org_admin sigue pudiendo escribir') fr
 -- ---------------------------------------------------------------------------
 reset role;
 update public.organizations set status = 'archived' where id = :org_a;
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 select is(pg_temp.visible_counts(), array[0, 0, 0, 1, 1], 'A archivada: org_admin solo ve su perfil y su membership');
 
 -- El org_admin no puede reactivarla (status es de la plataforma)
 reset role;
 update public.organizations set status = 'suspended' where id = :org_a;
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 with u as (update public.organizations set status = 'active' where id = :org_a returning 1)
 select is(count(*)::int, 0, 'A suspendida: el org_admin no puede reactivarla') from u;
 
@@ -92,7 +92,7 @@ select is(count(*)::int, 0, 'A suspendida: el org_admin no puede reactivarla') f
 -- ---------------------------------------------------------------------------
 reset role;
 update public.organizations set status = 'active' where id = :org_a;
-select pg_temp.act_as(:a_admin, :'a_admin_session');
+select pg_temp.act_as_mfa(:a_admin, :'a_admin_session');
 select is(pg_temp.visible_counts(), array[1, 2, 3, 5, 5], 'A reactivada: el org_admin vuelve a verlo todo');
 with u as (update public.locations set opening_hours = '{"ok": 1}' where id = :loc_a1 returning 1)
 select is(count(*)::int, 1, 'A reactivada: el org_admin vuelve a poder escribir') from u;

@@ -1,7 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import { revokeInvitation } from "@/app/app/invitations-actions";
+import Link from "next/link";
 import { InviteForm } from "@/components/invitations/invite-form";
-import { requireUser } from "@/lib/auth/session";
+import { SettingsTabs } from "@/components/settings-tabs";
+import { getSessionAal, requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { locationsInScope, membershipInScope } from "@/lib/scope";
 import { resolveScope } from "@/lib/scope-data";
@@ -22,6 +24,9 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   const tRecords = await getTranslations("records");
   const tInvitations = await getTranslations("invitations");
   const isAdmin = context.role === "org_admin";
+  // Administrar exige el segundo factor (migración admin_mfa): sin él, RLS
+  // rechaza cualquier cambio, así que no se ofrecen los formularios.
+  const canAdminister = isAdmin && (await getSessionAal()) === "aal2";
 
   const [organizationsResult, locationsResult, peopleResult] = await Promise.all([
     supabase.from("organizations").select("id, name").order("name"),
@@ -60,7 +65,16 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 [&_h2]:mt-2 [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
+      <SettingsTabs current="organization" />
       <h1 className="text-xl font-semibold">{t("title")}</h1>
+      {isAdmin && !canAdminister ? (
+        <p role="note" data-testid="mfa-required" className="rounded-md border p-3 text-sm">
+          {t("mfaRequired")}{" "}
+          <Link href="/app/settings/security" className="underline">
+            {t("mfaLink")}
+          </Link>
+        </p>
+      ) : null}
 
       <section aria-labelledby="orgs">
         <h2 id="orgs">{t("organization")}</h2>
@@ -105,11 +119,13 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
         <section aria-labelledby="invitations" className="flex flex-col gap-3">
           <h2 id="invitations">{tInvitations("title")}</h2>
           <p className="text-sm">{tInvitations("help")}</p>
-          <InviteForm
-            organizationId={organizations[0].id}
-            regions={context.regions.map((r) => ({ id: r.id, name: r.name }))}
-            locations={context.locations.map((l) => ({ id: l.id, name: l.name }))}
-          />
+          {canAdminister ? (
+            <InviteForm
+              organizationId={organizations[0].id}
+              regions={context.regions.map((r) => ({ id: r.id, name: r.name }))}
+              locations={context.locations.map((l) => ({ id: l.id, name: l.name }))}
+            />
+          ) : null}
           <h3 className="font-medium">{tInvitations("pending")}</h3>
           {pending.length === 0 ? (
             <p className="text-sm">{tInvitations("none")}</p>
@@ -120,12 +136,14 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
                   <span data-testid="pending-invitation-email">{invitation.email}</span>
                   {" · "}
                   {tRecords(`roles.${invitation.role as "org_admin" | "region_manager" | "location_manager" | "staff"}`)}
-                  <form action={revokeInvitation}>
-                    <input type="hidden" name="id" value={invitation.id} />
-                    <button type="submit" className="rounded-md border px-2 py-0.5 text-sm">
-                      {tInvitations("revoke")}
-                    </button>
-                  </form>
+                  {canAdminister ? (
+                    <form action={revokeInvitation}>
+                      <input type="hidden" name="id" value={invitation.id} />
+                      <button type="submit" className="rounded-md border px-2 py-0.5 text-sm">
+                        {tInvitations("revoke")}
+                      </button>
+                    </form>
+                  ) : null}
                 </li>
               ))}
             </ul>

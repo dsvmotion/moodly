@@ -77,7 +77,7 @@ select is(
 -- 2a. Integridad: el alcance de una membership de A no puede apuntar a B
 --     (trigger validate_scope), ni en alta ni en modificación.
 -- ===========================================================================
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
@@ -157,7 +157,7 @@ alter table public.memberships   disable trigger guard_immutable;
 insert into public.regions (id, organization_id, name)
 values ('a1000000-0000-4000-8000-0000000000ff', :org_a, 'Temporal');
 
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 select throws_like(
   format($$update public.regions set organization_id = %L where id = 'a1000000-0000-4000-8000-0000000000ff'$$, :org_b),

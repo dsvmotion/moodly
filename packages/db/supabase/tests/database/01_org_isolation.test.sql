@@ -7,7 +7,7 @@ select plan(31);
 -- ---------------------------------------------------------------------------
 -- Lectura: el org_admin de A solo ve A
 -- ---------------------------------------------------------------------------
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 select results_eq(
   'select id from public.organizations',

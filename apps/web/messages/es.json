@@ -184,7 +184,9 @@
     "organization": "Organización",
     "locations": "Locales",
     "people": "Personas",
-    "noRegion": "sin región"
+    "noRegion": "sin región",
+    "mfaRequired": "Para hacer cambios en la organización necesitas la verificación en dos pasos.",
+    "mfaLink": "Actívala en Seguridad"
   },
   "pwa": {
     "updateAvailable": "Hay una versión nueva disponible.",
@@ -215,6 +217,30 @@
       "button": "Aceptar invitación",
       "invalid": "Esta invitación no es válida: puede haber caducado, haberse revocado o ser para otra cuenta.",
       "already": "Ya perteneces a esta organización."
+    }
+  },
+  "settingsTabs": {
+    "label": "Ajustes",
+    "organization": "Organización",
+    "security": "Seguridad"
+  },
+  "security": {
+    "title": "Seguridad",
+    "mfa": "Verificación en dos pasos",
+    "on": "Activada: al entrar te pediremos un código de tu aplicación de autenticación.",
+    "off": "Desactivada.",
+    "requiredForAdmins": "Administras una organización: la necesitas para hacer cambios (invitar, cambiar locales, roles o datos de la organización).",
+    "enable": "Activar la verificación en dos pasos",
+    "scan": "Escanea este código con tu aplicación de autenticación (Google Authenticator, 1Password, Authy…).",
+    "qrAlt": "Código QR para la aplicación de autenticación",
+    "manual": "¿No puedes escanearlo? Escribe esta clave en la aplicación:",
+    "code": "Código de 6 cifras",
+    "verify": "Verificar y activar",
+    "disable": "Desactivar la verificación en dos pasos",
+    "errors": {
+      "enroll": "No se ha podido empezar el alta. Inténtalo de nuevo.",
+      "code": "El código no es correcto. Prueba con el que muestra ahora la aplicación.",
+      "unavailable": "No se ha podido comprobar el código. Inténtalo de nuevo."
     }
   }
 }

@@ -12,7 +12,7 @@ select plan(21);
 -- ===========================================================================
 -- 1. Campos de la organización
 -- ===========================================================================
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 with u as (
   update public.organizations set name = 'Org A S.L.', vertical = 'peluquería', default_locale = 'ca-ES'
@@ -59,7 +59,7 @@ update public.organizations set status = 'active' where id = :org_a;
 -- ===========================================================================
 -- 2. organization_id y user_id inmutables desde la app
 -- ===========================================================================
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 select throws_ok(
   format('update public.regions set organization_id = %L where id = %L', :org_b, :region_a_s),
@@ -105,7 +105,7 @@ select lives_ok(
 -- ===========================================================================
 -- 3. Activar o desactivar un local: solo org_admin
 -- ===========================================================================
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 with u as (update public.locations set status = 'inactive' where id = :loc_a3 returning 1)
 select is(count(*)::int, 1, 'org_admin: puede desactivar un local') from u;
 
@@ -136,7 +136,7 @@ select is(
 select pg_temp.login(:outsider);
 select throws_ok('truncate public.memberships', '42501', null, 'usuario sin membership: no puede truncar memberships');
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 select throws_ok('truncate public.locations cascade', '42501', null, 'org_admin: no puede truncar locations');
 
 reset role;

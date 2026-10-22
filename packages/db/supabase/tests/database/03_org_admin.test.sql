@@ -4,7 +4,7 @@ begin;
 \ir _fixtures/tenants.psql
 select plan(21);
 
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 -- ---------------------------------------------------------------------------
 -- Lectura de toda la organización
@@ -52,7 +52,7 @@ select set_config('request.jwt.claims', json_build_object('sub', :outsider, 'rol
 select is(public.accept_invitation(:'tok_outsider'), :org_a::uuid,
   'org_admin A: puede dar de alta a un usuario como staff de A3 (invitación aceptada)');
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 with u as (update public.memberships set scope_location_ids = array[:loc_a2]::uuid[] where user_id = :a_staff1 returning 1)
 select is(count(*)::int, 1, 'org_admin A: puede cambiar el alcance de una membership') from u;
 
@@ -101,7 +101,7 @@ select results_eq(
 -- La organización nunca se queda sin org_admin
 -- ---------------------------------------------------------------------------
 reset role;
-select pg_temp.login(:a_admin);
+select pg_temp.login_mfa(:a_admin);
 
 select throws_ok(
   format($$update public.memberships set role = 'staff', scope_location_ids = array[%L]::uuid[] where user_id = %L$$, :loc_a1, :a_admin),
