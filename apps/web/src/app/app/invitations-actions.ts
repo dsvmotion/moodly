@@ -4,17 +4,18 @@ import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
+import { idSchema, inviteSchema, tokenSchema } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 
 // Invitaciones con consentimiento (migración invitations). La barrera real es la
 // base de datos: create_invitation pasa por RLS (solo org_admin de esa
 // organización) y accept_invitation comprueba token, caducidad y email. Aquí solo
-// se validan formas y se traducen los errores.
+// se validan formas (Zod) y se traducen los errores.
 
-const ROLES = ["org_admin", "region_manager", "location_manager", "staff"] as const;
-type Role = (typeof ROLES)[number];
-const isRole = (value: unknown): value is Role => typeof value === "string" && (ROLES as readonly string[]).includes(value);
-const text = (value: FormDataEntryValue | null) => (typeof value === "string" ? value.trim() : "");
+const field = (formData: FormData, name: string) => {
+  const value = formData.get(name);
+  return typeof value === "string" ? value.trim() : undefined;
+};
 
 export interface InviteState {
   error: string | null;
@@ -25,11 +26,14 @@ export interface InviteState {
 export async function createInvitation(_prev: InviteState, formData: FormData): Promise<InviteState> {
   await requireUser();
   const t = await getTranslations("invitations");
-  const organizationId = text(formData.get("organizationId"));
-  const email = text(formData.get("email"));
-  const role = formData.get("role");
-  const scopeId = text(formData.get("scopeId"));
-  if (!organizationId || !email || !isRole(role)) return { error: t("errors.invalid"), link: null };
+  const parsed = inviteSchema.safeParse({
+    organizationId: field(formData, "organizationId"),
+    email: field(formData, "email"),
+    role: field(formData, "role"),
+    scopeId: field(formData, "scopeId"),
+  });
+  if (!parsed.success) return { error: t("errors.invalid"), link: null };
+  const { organizationId, email, role, scopeId } = parsed.data;
 
   // El alcance depende del rol (la base de datos exige la misma coherencia).
   const regions = role === "region_manager" && scopeId ? [scopeId] : [];
@@ -51,8 +55,9 @@ export async function createInvitation(_prev: InviteState, formData: FormData): 
 
 export async function revokeInvitation(formData: FormData): Promise<void> {
   await requireUser();
-  const id = text(formData.get("id"));
-  if (!id) return;
+  const parsed = idSchema.safeParse(field(formData, "id"));
+  if (!parsed.success) return;
+  const id = parsed.data;
   const supabase = await createClient();
   // RLS: solo un org_admin de su organización; la guarda solo deja revocar.
   await supabase.from("invitations").update({ revoked_at: new Date().toISOString() }).eq("id", id);
@@ -66,8 +71,9 @@ export interface AcceptState {
 export async function acceptInvitation(_prev: AcceptState, formData: FormData): Promise<AcceptState> {
   await requireUser();
   const t = await getTranslations("invitations.accept");
-  const token = text(formData.get("token"));
-  if (!token) return { error: t("invalid") };
+  const parsed = tokenSchema.safeParse(field(formData, "token"));
+  if (!parsed.success) return { error: t("invalid") };
+  const token = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("accept_invitation", { p_token: token });
