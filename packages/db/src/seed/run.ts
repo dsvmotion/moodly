@@ -88,7 +88,7 @@ interface SeedCredential {
   role: SeedUser["role"] | PlatformStaffRole | null;
   /** null = equipo interno o invitado (sin organización). */
   organizationId: string | null;
-  /** Secreto TOTP (base32) de los org_admin: lo usan los e2e para el paso de MFA. */
+  /** Secreto TOTP (base32) de los org_admin y de los invitados con `totp`: lo usan los e2e para el paso de MFA. */
   totpSecret?: string;
 }
 
@@ -224,7 +224,15 @@ async function main(): Promise<void> {
     const cleanup = await admin.from("memberships").delete().eq("user_id", userId);
     check("memberships (invitado)", cleanup.error);
     await resetFactors(admin, userId);
-    credentials.push({ key: guest.key, email: guest.email, password, role: null, organizationId: null });
+    const totpSecret = guest.totp ? await enrollTotp(local, guest.email, password) : undefined;
+    credentials.push({
+      key: guest.key,
+      email: guest.email,
+      password,
+      role: null,
+      organizationId: null,
+      ...(totpSecret ? { totpSecret } : {}),
+    });
   }
 
   // Equipo interno (ADR 0021, D4): cuentas dedicadas, sin membership (D2).

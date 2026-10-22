@@ -41,11 +41,15 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     return { error: GENERIC_ERROR };
   }
 
-  // Ya con sesión: borra los fallos de este email (solo los suyos).
-  await supabase.rpc("login_record_success");
   const next = safeNextPath(formData.get("next"));
   // Con un segundo factor activado, la contraseña sola da una sesión aal1: falta
-  // el código (y requireUser() no dejaría pasar sin él).
+  // el código (y requireUser() no dejaría pasar sin él). Los fallos NO se borran
+  // aquí, sino al verificar el código: si no, quien sepa la contraseña podría
+  // vaciar el freno entrando de nuevo y probar códigos sin límite.
   const hasFactor = (data.user.factors ?? []).some((factor) => factor.status === "verified");
-  redirect(hasFactor ? `${MFA_PATH}?next=${encodeURIComponent(next)}` : next);
+  if (hasFactor) redirect(`${MFA_PATH}?next=${encodeURIComponent(next)}`);
+
+  // Ya con sesión completa: borra los fallos de este email (solo los suyos).
+  await supabase.rpc("login_record_success");
+  redirect(next);
 }

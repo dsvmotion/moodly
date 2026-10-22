@@ -74,3 +74,47 @@ test("activar la verificación en dos pasos, entrar con ella y desactivarla", as
   await page.getByRole("button", { name: "Desactivar la verificación en dos pasos" }).click();
   await expect(page.getByTestId("mfa-status")).toHaveText("Desactivada.");
 });
+
+// Los códigos fallidos cuentan en el freno del login, y volver a entrar con la
+// contraseña no lo vacía. Si lo vaciara, quien sepa la contraseña esperaría a que
+// pase la primera espera (30 s), entraría de nuevo y tendría otros 5 intentos,
+// sin la espera creciente. Usa una IP propia en cada ejecución (el freno cuenta
+// por email e IP) para no depender de ejecuciones anteriores.
+test("el freno de códigos MFA no se vacía volviendo a entrar con la contraseña", async ({ browser }) => {
+  test.slow();
+  const { email, password, totpSecret } = credentialsFor("guest_mfa_throttle");
+  if (!totpSecret) throw new Error("El seed no ha dado de alta el TOTP de guest_mfa_throttle: ejecuta pnpm db:seed");
+  const ip = `198.51.100.${Math.floor(Math.random() * 250) + 1}`;
+  const context = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": ip } });
+  const page = await context.newPage();
+  const passwordLogin = async () => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Contraseña").fill(password);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    await expect(page).toHaveURL(/\/login\/mfa/);
+  };
+  const tryCode = async (code: string) => {
+    await page.goto(page.url());
+    await page.getByLabel("Código de verificación").fill(code);
+    await page.getByRole("button", { name: "Verificar" }).click();
+    await expect(formError(page)).toBeVisible();
+    return formError(page).innerText();
+  };
+  const badCode = "El código no es correcto. Prueba con el que muestra ahora tu aplicación.";
+  const tooMany = "Demasiados intentos. Espera unos minutos y vuelve a probarlo.";
+
+  await passwordLogin();
+  for (let attempt = 1; attempt <= 5; attempt++) expect(await tryCode(wrongCode(totpSecret))).toBe(badCode);
+  // Frenado: ni el código correcto pasa.
+  expect(await tryCode(totp(totpSecret))).toBe(tooMany);
+
+  // Pasada la primera espera (30 s), vuelve a entrar con la contraseña.
+  await page.getByRole("button", { name: "Salir" }).click();
+  await page.waitForTimeout(31_000);
+  await passwordLogin();
+  // Un fallo más y vuelve a estar frenado (ahora 60 s): los 5 anteriores siguen contando.
+  expect(await tryCode(wrongCode(totpSecret))).toBe(badCode);
+  expect(await tryCode(wrongCode(totpSecret))).toBe(tooMany);
+  await context.close();
+});
