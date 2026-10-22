@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verifyTotp } from "@/lib/auth/mfa";
 import { requireUser } from "@/lib/auth/session";
+import { securityEvent } from "@/lib/observability/logger";
 import { createClient } from "@/lib/supabase/server";
 import { idSchema, totpCodeSchema } from "@/lib/validation";
 
@@ -47,7 +48,7 @@ export interface ConfirmState {
 }
 
 export async function confirmEnrollment(_prev: ConfirmState, formData: FormData): Promise<ConfirmState> {
-  await requireUser();
+  const user = await requireUser();
   const t = await getTranslations("security.errors");
   const factorId = idSchema.safeParse(formData.get("factorId"));
   const code = totpCodeSchema.safeParse(formData.get("code"));
@@ -58,6 +59,7 @@ export async function confirmEnrollment(_prev: ConfirmState, formData: FormData)
   const { error } = await verifyTotp(supabase, factorId.data, code.data);
   if (error) return { error: t(error.status !== undefined && error.status < 500 ? "code" : "unavailable") };
 
+  securityEvent("auth.mfa_enabled", { userId: user.id });
   revalidatePath("/app", "layout");
   redirect(SECURITY_PATH);
 }
@@ -68,6 +70,7 @@ export async function disableMfa(): Promise<void> {
   for (const factor of user.factors ?? []) await supabase.auth.mfa.unenroll({ factorId: factor.id });
   // La sesión vuelve a aal1 al renovar el token.
   await supabase.auth.refreshSession();
+  securityEvent("auth.mfa_disabled", { userId: user.id });
   revalidatePath("/app", "layout");
   redirect(SECURITY_PATH);
 }
