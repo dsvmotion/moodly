@@ -41,7 +41,9 @@ const expectations = {
 for (const [key, expected] of Object.entries(expectations)) {
   test(`${key} ve exactamente su organización, sus locales y sus personas`, async ({ page }, testInfo) => {
     await signIn(page, key);
-    await expect(page).toHaveURL(/\/app\/ajustes\/general$/);
+    // Tras entrar se llega a Inicio (P1); «Mi organización» está en Ajustes → General.
+    await expect(page).toHaveURL(/\/app$/);
+    await page.goto("/app/ajustes/general");
     await expect(page.getByRole("heading", { name: "Mi organización" })).toBeVisible();
 
     expect(await texts(page, "organization")).toEqual(expected.organizations);

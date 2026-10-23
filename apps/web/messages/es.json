@@ -82,6 +82,23 @@
     "favorites": "Aún no hay favoritos.",
     "recent": "Aún no hay actividad reciente."
   },
+  "home": {
+    "greeting": "Hola, {name}",
+    "noOrganization": "Todavía no perteneces a ninguna organización.",
+    "todo": "Pendiente para ti",
+    "mfaDone": "Verificación en dos pasos activada",
+    "mfaTodo": "Activa la verificación en dos pasos",
+    "mfaRequired": "Administras una organización: la necesitas para hacer cambios.",
+    "mfaAction": "Activarla",
+    "invitations": "{count, plural, one {# invitación pendiente de aceptar} other {# invitaciones pendientes de aceptar}}",
+    "invitationsAction": "Ver",
+    "agents": "Tus agentes",
+    "scope": "Tu alcance",
+    "locations": "{count, plural, =0 {Ninguna sede en tu alcance} one {# sede en tu alcance} other {# sedes en tu alcance}}",
+    "locationsAction": "Ver sedes",
+    "inbox": "Bandeja del día",
+    "inboxEmpty": "Aún no hay nada en la bandeja"
+  },
   "sections": {
     "home": {
       "title": "Inicio",

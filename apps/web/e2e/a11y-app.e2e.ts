@@ -27,6 +27,7 @@ for (const theme of ["light", "dark"] as const) {
 
     test("pantallas de la app", async ({ page }) => {
       for (const path of [
+        "/app",
         "/app/ajustes/general",
         "/app/ajustes/seguridad",
         "/app/conversaciones",

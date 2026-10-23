@@ -28,6 +28,7 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
   });
 
   await signIn(page, "a_org_admin");
+  await page.goto("/app/ajustes/general");
   await expect(page.getByTestId("location-name")).toHaveCount(3);
   await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
