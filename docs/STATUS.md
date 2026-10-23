@@ -53,6 +53,11 @@
   - con datos: General, Miembros, Sedes, Seguridad y acceso, Mi perfil (nueva, de solo lectura: nombre, email, MFA, organizaciones y rol) y Preferencias (nueva: tema e idioma);
   - las 7 pendientes dicen qué habrá y con qué llega, sin datos inventados; una sección inventada da 404.
   - **Verificado en local:** e2e 109/109; test estructural (cada sección con contenido tiene su carpeta y las pendientes tienen sus textos en es/en).
+- Pantallas de acceso con marca y traducidas (auditoría del frontend, F-7) — PR siguiente al de Ajustes:
+  - login y segundo paso (MFA) con logotipo, tarjeta centrada y componentes de `packages/ui`; al pie, «se entra por invitación de tu organización»;
+  - en es y en; las acciones devuelven códigos de error que traduce el formulario, con los mismos textos en español que antes y el mismo mensaje genérico;
+  - sin cambios en la lógica de acceso, el freno ni el MFA.
+  - **Verificado en local:** e2e 113/113 (axe del login en claro y en oscuro, con el error visible, y del segundo paso).
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -100,7 +105,7 @@
 1. Navegación canónica (F-1, F-5, F-6 y F-12): #61. Menú de usuario desplegable (F-4): siguiente PR.
 2. Ajustes como área P6 con navegación secundaria (F-3): PR siguiente al del menú. Después, «Mi perfil» editable, con una guarda de columnas en `public.users` (ADR 0003), junto a R-20.
 3. Inicio P1 (F-2) con lo que existe de verdad: organización, locales en alcance, invitaciones pendientes, MFA y los 4 agentes sin configurar.
-4. Login y MFA con marca y traducidos (F-7).
+4. Login y MFA con marca y traducidos (F-7): PR siguiente al de Ajustes.
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.
 
 **Fase D — runtime de agentes** (propuesta de la auditoría del 2026-10-23: antes que la C, salvo un cliente enterprise a la vista; decide producto)

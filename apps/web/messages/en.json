@@ -2,6 +2,35 @@
   "common": {
     "loading": "Loading…"
   },
+  "login": {
+    "title": "Sign in to {brand}",
+    "description": "With your account's email and password.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "invitationOnly": "No account yet? Access is by invitation from your organization.",
+    "errors": {
+      "missing": "Enter your email and password.",
+      "invalid": "Incorrect email or password.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "unavailable": "We could not check your access. Try again in a few minutes."
+    }
+  },
+  "mfaLogin": {
+    "title": "Two-step verification",
+    "description": "Open your authenticator app and enter the 6-digit code for {email}.",
+    "code": "Verification code",
+    "submit": "Verify",
+    "submitting": "Verifying…",
+    "signOut": "Sign out",
+    "errors": {
+      "invalid": "Enter the 6-digit code from your authenticator app.",
+      "badCode": "That code is not correct. Try the one your app shows now.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "unavailable": "We could not check your access. Try again in a few minutes."
+    }
+  },
   "shell": {
     "skipToContent": "Skip to content",
     "openMenu": "Open menu",

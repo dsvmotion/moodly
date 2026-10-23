@@ -8,22 +8,21 @@ import { securityEvent } from "@/lib/observability/logger";
 import { createClient } from "@/lib/supabase/server";
 import { signInSchema } from "@/lib/validation";
 
-export interface SignInState {
-  error: string | null;
-}
+// Códigos de error: el formulario los traduce (messages/*.json → login.errors).
+export type SignInError = "missing" | "invalid" | "tooMany" | "unavailable";
 
-const GENERIC_ERROR = "Email o contraseña incorrectos.";
-const TOO_MANY = "Demasiados intentos. Espera unos minutos y vuelve a probarlo.";
-const UNAVAILABLE = "No se ha podido comprobar el acceso. Inténtalo de nuevo en unos minutos.";
+export interface SignInState {
+  error: SignInError | null;
+}
 
 export async function signIn(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const parsed = signInSchema.safeParse({ email: formData.get("email"), password: formData.get("password") });
-  if (!parsed.success) return { error: "Introduce email y contraseña." };
+  if (!parsed.success) return { error: "missing" };
   const { email, password } = parsed.data;
 
   // Sin clave de servidor no se puede usar el freno: fallo cerrado.
   const key = process.env["LOGIN_THROTTLE_KEY"];
-  if (!key) return { error: UNAVAILABLE };
+  if (!key) return { error: "unavailable" };
 
   const supabase = await createClient();
   const ip = clientIp(await headers());
@@ -31,10 +30,10 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   // Freno a la fuerza bruta (migración login_throttle). Si no se puede
   // comprobar, no se deja intentar: fallo cerrado.
   const throttle = await supabase.rpc("login_throttle", { p_email: email, p_ip: ip, p_key: key });
-  if (throttle.error) return { error: UNAVAILABLE };
+  if (throttle.error) return { error: "unavailable" };
   if (throttle.data > 0) {
     securityEvent("auth.login_throttled", { email, ip, wait_seconds: throttle.data });
-    return { error: TOO_MANY };
+    return { error: "tooMany" };
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -42,7 +41,7 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     await supabase.rpc("login_record_failure", { p_email: email, p_ip: ip, p_key: key });
     securityEvent("auth.login_failed", { email, ip });
     // Mensaje genérico: no revela si el email existe.
-    return { error: GENERIC_ERROR };
+    return { error: "invalid" };
   }
 
   const next = safeNextPath(formData.get("next"));

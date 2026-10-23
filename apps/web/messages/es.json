@@ -2,6 +2,35 @@
   "common": {
     "loading": "Cargando…"
   },
+  "login": {
+    "title": "Entrar en {brand}",
+    "description": "Con el email y la contraseña de tu cuenta.",
+    "email": "Email",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "invitationOnly": "¿Aún no tienes cuenta? Se entra por invitación de tu organización.",
+    "errors": {
+      "missing": "Introduce email y contraseña.",
+      "invalid": "Email o contraseña incorrectos.",
+      "tooMany": "Demasiados intentos. Espera unos minutos y vuelve a probarlo.",
+      "unavailable": "No se ha podido comprobar el acceso. Inténtalo de nuevo en unos minutos."
+    }
+  },
+  "mfaLogin": {
+    "title": "Verificación en dos pasos",
+    "description": "Abre tu aplicación de autenticación y escribe el código de 6 cifras para {email}.",
+    "code": "Código de verificación",
+    "submit": "Verificar",
+    "submitting": "Verificando…",
+    "signOut": "Salir",
+    "errors": {
+      "invalid": "Escribe el código de 6 cifras de tu aplicación de autenticación.",
+      "badCode": "El código no es correcto. Prueba con el que muestra ahora tu aplicación.",
+      "tooMany": "Demasiados intentos. Espera unos minutos y vuelve a probarlo.",
+      "unavailable": "No se ha podido comprobar el acceso. Inténtalo de nuevo en unos minutos."
+    }
+  },
   "shell": {
     "skipToContent": "Saltar al contenido",
     "openMenu": "Abrir menú",
