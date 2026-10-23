@@ -15,6 +15,7 @@ import pg from "pg";
 import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
+  seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
   seedLocations,
@@ -171,6 +172,26 @@ async function main(): Promise<void> {
     seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })),
   );
   check("locations", locations.error);
+
+  // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
+  // alta cada organización (20261023150000_agent_catalog).
+  const agentTypes = await admin.from("agent_types").upsert(
+    seedCustomAgentTypes.map((t) => ({
+      id: t.id,
+      organization_id: t.organizationId,
+      origin: "custom",
+      key: t.key,
+      name: t.name,
+      description: t.description,
+      color: t.color,
+    })),
+  );
+  check("agent_types", agentTypes.error);
+  const customAgents = await admin.from("agents").upsert(
+    seedCustomAgentTypes.map((t) => ({ organization_id: t.organizationId, agent_type_id: t.id })),
+    { onConflict: "organization_id,agent_type_id", ignoreDuplicates: true },
+  );
+  check("agents", customAgents.error);
 
   // Clave de servidor del freno del login (migración login_throttle): en la
   // base de datos solo se registra su hash.

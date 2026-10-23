@@ -1,6 +1,6 @@
 # 0030 — Agentes y skills ampliables: 4 agentes de serie, agentes propios y skills que se añaden a cada agente
 
-- **Estado:** propuesto
+- **Estado:** aceptado por producto el 2026-10-23 (contenido decidido el 2026-10-20)
 - **Fecha:** 2026-10-20
 - **Secciones del MANUAL afectadas:** §1.4, §4.2 (`agent_types`, `agents`, `skills`, `agent_skills`), §5.4, §5.5, §5.6, §9.4, §17
 - **Relación:** ADR 0023 (catálogo de serie), ADR 0029 (asistente), `docs/audits/2026-10-20-revision-seguridad-plataforma.md` §7 (MCP de terceros)

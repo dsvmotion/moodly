@@ -44,9 +44,23 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       # Por variable de entorno, nunca interpolado en el script: así no se
-      # puede inyectar nada en el shell.
+      # puede inyectar nada en el shell. GitHub imprime el `env:` de cada paso,
+      # así que el primer paso enmascara el email antes de que salga en el log.
       ADMIN_EMAIL: ${{ inputs.admin_email }}
     steps:
+      # Lo lee del evento (no de una variable ni del script, que sí se
+      # imprimirían) y lo registra como secreto: a partir de aquí sale como ***.
+      # También en minúsculas, que es como lo usa el SQL.
+      - name: Ocultar el email en los logs
+        env:
+          ADMIN_EMAIL: ""
+        run: |
+          raw=$(jq -r '.inputs.admin_email // ""' "$GITHUB_EVENT_PATH")
+          if [ -n "$raw" ]; then
+            echo "::add-mask::$raw"
+            echo "::add-mask::$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1

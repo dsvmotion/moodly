@@ -31,7 +31,7 @@ Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUA
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
-TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, *spike* superado y pendiente de aceptar; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
+TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, aceptado; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
 
 ## Estructura
 Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent-core,skills,integrations,channels,knowledge,templates,ui,evals,config}`.
@@ -61,11 +61,12 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Subir de versión DBOS: en el mismo PR, la versión exacta de `@dbos-inc/dbos-sdk` en `apps/worker`, una migración nueva con el SQL de `pnpm --filter @repo/worker exec dbos schema --print-migrations <primera migración nueva>` y la versión del esquema que comprueba `19_dbos_schema.test.sql`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
+- Tests de la comprobación de configuración del despliegue a staging (`config-drift.sh`): `bash scripts/supabase/tests/config-drift.test.sh`
 - Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>`, o el procedimiento con el conector de GitHub (ver "Mergeo autónomo")
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
 - Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`, la integración de `tenantDb` y del worker, y el e2e (`pnpm db:seed` + `pnpm --filter @repo/db test:integration` + `pnpm --filter @repo/worker test:integration` + `pnpm --filter @repo/web e2e`)
-- Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. Ese mismo despliegue aplica la configuración de `config.toml` (con su `[remotes.staging]`) al proyecto alojado con `supabase config push`, y falla si después queda alguna diferencia (`supabase config diff`). La web de staging la despliega Vercel desde `main`.
+- Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. Ese mismo despliegue aplica la configuración de `config.toml` (con su `[remotes.staging]`) al proyecto alojado con `supabase config push`, y falla si después queda alguna diferencia (`supabase config diff`), salvo las que el propio `config push` declara que no puede aplicar, que salen como aviso (`scripts/supabase/config-drift.sh`). La web de staging la despliega Vercel desde `main`.
 - Organización de demo y primer `org_admin` de staging (R-34): la persona crea su cuenta en el panel de Supabase (Authentication → Users → Add user, con su contraseña y el email confirmado) y lanza Actions → «Staging · organización de demo» → Run workflow con ese email (`.github/workflows/staging-demo.yml`, idempotente).
 
 ## Prohibido

@@ -51,10 +51,27 @@ export interface SeedPlatformStaff {
   revokedAt: string | null;
 }
 
+/**
+ * Tipo de agente propio de una organización (ADR 0030): el seed crea uno para
+ * que los e2e comprueben que la web pinta cualquier agente del catálogo, no
+ * solo los de serie. Su clave no puede coincidir con la de uno de serie: las
+ * rutas de los agentes van por clave.
+ */
+export interface SeedCustomAgentType {
+  id: string;
+  organizationId: string;
+  key: string;
+  name: string;
+  description: string;
+  /** Un color de la paleta --agent-* (packages/ui). */
+  color: string;
+}
+
 const ORG_A = "5eed0000-0000-4000-8000-00000000000a";
 const ORG_B = "5eed0000-0000-4000-8000-00000000000b";
-// C solo la usa el e2e de invitaciones: así puede añadir a alguien sin cambiar lo
-// que ven los demás tests, que corren en paralelo contra A y B.
+// C solo la usan el e2e de invitaciones (así puede añadir a alguien sin cambiar
+// lo que ven los demás tests, que corren en paralelo contra A y B) y el de un
+// agente propio (seedCustomAgentTypes).
 const ORG_C = "5eed0000-0000-4000-8000-00000000000c";
 // D y E solo las usa el e2e de organización activa: una misma persona es staff
 // en las dos (seedExtraMemberships).
@@ -93,7 +110,7 @@ export const seedLocations: readonly SeedLocation[] = [
 
 /**
  * Identidades sin organización: pueden entrar pero no ven nada hasta aceptar una
- * invitación (las usan los e2e de invitaciones y de MFA). El seed les quita las
+ * invitación (las usan los e2e de invitaciones, de MFA y de agentes). El seed les quita las
  * memberships y los factores de MFA en cada ejecución, para que los tests
  * empiecen siempre igual.
  */
@@ -107,6 +124,8 @@ export interface SeedGuest {
 
 export const seedGuests: readonly SeedGuest[] = [
   { key: "guest_no_org", email: "invitado@demo.test", fullName: "Persona invitada" },
+  // Solo para el e2e de agentes: nadie la invita, así que siempre está sin organización.
+  { key: "guest_alone", email: "sin.organizacion@demo.test", fullName: "Persona sin organización" },
   // Solo para el e2e de MFA: activa y desactiva su segundo factor.
   { key: "guest_mfa", email: "mfa@demo.test", fullName: "Persona sin MFA" },
   // Solo para el e2e del freno de códigos MFA: queda bloqueada al terminar.
@@ -193,6 +212,17 @@ export interface SeedExtraMembership {
 
 export const seedExtraMemberships: readonly SeedExtraMembership[] = [
   { userKey: "de_staff", organizationId: ORG_E, role: "staff", scopeRegionIds: [], scopeLocationIds: [LOC_E1] },
+];
+
+export const seedCustomAgentTypes: readonly SeedCustomAgentType[] = [
+  {
+    id: "5eed0003-0000-4000-8000-0000000000c1",
+    organizationId: ORG_C,
+    key: "events",
+    name: "Eventos",
+    description: "Prepara presupuestos de eventos y reserva salas.",
+    color: "agent-sales",
+  },
 ];
 
 export const seedPlatformStaff: readonly SeedPlatformStaff[] = [
