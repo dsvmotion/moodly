@@ -40,6 +40,7 @@ for (const [key, expected] of Object.entries(expectedOptions)) {
 
 test("org_admin: filtrar por región y por local cambia la vista y la URL", async ({ page }) => {
   await signIn(page, "a_org_admin");
+  await page.goto("/app/ajustes/general");
   await expect(page.getByTestId("location-name")).toHaveCount(3);
 
   await chooseScope(page, "A Norte");

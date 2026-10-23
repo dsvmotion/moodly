@@ -82,6 +82,23 @@
     "favorites": "No favorites yet.",
     "recent": "No recent activity yet."
   },
+  "home": {
+    "greeting": "Hi, {name}",
+    "noOrganization": "You do not belong to any organization yet.",
+    "todo": "To do",
+    "mfaDone": "Two-step verification is on",
+    "mfaTodo": "Turn on two-step verification",
+    "mfaRequired": "You manage an organization: you need it to make changes.",
+    "mfaAction": "Turn it on",
+    "invitations": "{count, plural, one {# invitation waiting to be accepted} other {# invitations waiting to be accepted}}",
+    "invitationsAction": "View",
+    "agents": "Your agents",
+    "scope": "Your scope",
+    "locations": "{count, plural, =0 {No locations in your scope} one {# location in your scope} other {# locations in your scope}}",
+    "locationsAction": "View locations",
+    "inbox": "Today's inbox",
+    "inboxEmpty": "Nothing in the inbox yet"
+  },
   "sections": {
     "home": {
       "title": "Home",

@@ -7,6 +7,7 @@ export {
   BotIcon,
   BrainIcon,
   Building2Icon,
+  CheckIcon,
   CheckSquareIcon,
   ChevronsUpDownIcon,
   ContactIcon,

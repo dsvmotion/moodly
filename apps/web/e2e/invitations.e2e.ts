@@ -64,7 +64,7 @@ test("solo la persona invitada entra, y solo cuando acepta", async ({ browser })
   await expect(guest).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
   await expect(guest.getByTestId("org-name")).toHaveText("");
   await guest.getByRole("button", { name: "Aceptar invitación" }).click();
-  await expect(guest).toHaveURL(/\/app\/ajustes\/general$/);
+  await expect(guest).toHaveURL(/\/app$/);
   await expect(guest.getByTestId("org-name")).toHaveText("Demo C");
   await guest.goto("/app/ajustes/general");
   await expect(guest.getByTestId("location-name")).toHaveText(["C1"]);

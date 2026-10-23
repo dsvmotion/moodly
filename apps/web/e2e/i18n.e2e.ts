@@ -5,6 +5,7 @@ import { openUserMenu, signIn } from "./helpers";
 // recordado en una cookie.
 test("español por defecto; se cambia a inglés, se recuerda y se vuelve al español", async ({ page }) => {
   await signIn(page, "a_org_admin");
+  await page.goto("/app/ajustes/general");
   const html = page.locator("html");
   const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
   await expect(html).toHaveAttribute("lang", "es");

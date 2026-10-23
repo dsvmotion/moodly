@@ -58,6 +58,10 @@
   - en es y en; las acciones devuelven códigos de error que traduce el formulario, con los mismos textos en español que antes y el mismo mensaje genérico;
   - sin cambios en la lógica de acceso, el freno ni el MFA.
   - **Verificado en local:** e2e 113/113 (axe del login en claro y en oscuro, con el error visible, y del segundo paso).
+- Inicio (auditoría del frontend, F-2) — PR siguiente al del login:
+  - `/app` deja de redirigir a General: es Inicio, el destino tras entrar;
+  - solo datos reales: saludo, organización y rol; lo pendiente (segundo factor y, para quien administra, invitaciones sin aceptar); sus 4 agentes «Sin configurar»; las sedes de su alcance; y la bandeja del día vacía, que dice cuándo llega.
+  - **Verificado en local:** e2e 116/116 (incluido axe de Inicio en claro y en oscuro).
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -83,7 +87,7 @@
 - A2 · MFA obligatorio para administrar: hecho (#53). Quedan códigos de recuperación y alertas al desactivar MFA (con B1).
 - A3 · Higiene de la web: hecho (#54 paginación, errores y GraphQL; #56 organización activa y Zod). **Fase A cerrada**: verificado sobre `main` (`0974d31`) pgTAP 432/432, `pnpm check` 52/52 y e2e 100/100 — 2026-10-22.
 - A4 · CI: hecho (#52 revisión diaria de dependencias, #55 Actions y caché de Playwright).
-- Pendientes menores de la fase: traducir la página de login, Inicio (P1) como destino tras el login, `location_manager` que invita en sus locales, alta de la cuenta de Auth de quien aún no la tiene (llega con WorkOS).
+- Pendientes menores de la fase: `location_manager` que invita en sus locales y alta de la cuenta de Auth de quien aún no la tiene (llega con WorkOS). Traducir el login e Inicio como destino tras el login: en los PRs del frontend.
 
 **Fase B — staging alojado y operación**
 - B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57).
@@ -104,7 +108,7 @@
 **Frontend — diseño real en staging** (`docs/audits/2026-10-23-auditoria-frontend.md`; cada incremento con sus e2e y sin datos inventados)
 1. Navegación canónica (F-1, F-5, F-6 y F-12): #61. Menú de usuario desplegable (F-4): siguiente PR.
 2. Ajustes como área P6 con navegación secundaria (F-3): PR siguiente al del menú. Después, «Mi perfil» editable, con una guarda de columnas en `public.users` (ADR 0003), junto a R-20.
-3. Inicio P1 (F-2) con lo que existe de verdad: organización, locales en alcance, invitaciones pendientes, MFA y los 4 agentes sin configurar.
+3. Inicio P1 (F-2): PR siguiente al del login. Es el destino tras entrar.
 4. Login y MFA con marca y traducidos (F-7): PR siguiente al de Ajustes.
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.
 

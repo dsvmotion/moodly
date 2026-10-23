@@ -58,12 +58,13 @@ const externalNextValues = [
 for (const next of externalNextValues) {
   test(`next=${JSON.stringify(next)} no redirige fuera de la app`, async ({ page }) => {
     await signIn(page, "a_org_admin", next);
-    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app\/ajustes\/general$/);
+    // Cae a Inicio, dentro de la app: mismo origen y ruta exacta.
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app$/);
   });
 }
 
 test("con sesión, /login redirige a la app", async ({ page }) => {
   await signIn(page, "b_org_admin");
   await page.goto("/login");
-  await expect(page).toHaveURL(/\/app\/ajustes\/general$/);
+  await expect(page).toHaveURL(/\/app$/);
 });
