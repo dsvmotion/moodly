@@ -78,11 +78,13 @@
   - *tunnel* propio que solo reenvía a nuestro proyecto.
   - **Verificado en staging:** desde un Vercel Sandbox limitado a `staging.moodlycrm.com`, `GET /monitoring` da 405, un sobre de otro proyecto 400 y el nuestro 200. El evento llegó a Sentry (MOODLY-WEB-1, resuelto) con la IP del servidor de Vercel que reenvía, no la de una persona.
   - Coste: ~55 KB gzip de JavaScript por página; producto lo da por bueno (2026-10-23).
-- Mínimo privilegio y guarda de perfiles (R-20 y R-35):
+- Mínimo privilegio y guarda de perfiles (R-20 y R-35) — #72:
   - `authenticated` pierde los privilegios que no usa ninguna política: INSERT y DELETE en `organizations`, DELETE en `regions`, `locations` y `users`, e INSERT en `memberships` (las altas, solo por `accept_invitation`). Antes RLS los dejaba en 0 filas; ahora ni llegan a RLS (42501).
   - Guarda `guard_fields` en `public.users`: desde la app, cada persona solo cambia su `full_name` y su `locale`. Prepara «Mi perfil» editable.
   - Test estructural: ningún privilegio de `authenticated` en `public` sin una política que lo use. Así, una tabla nueva que olvide los revokes no pasa el CI.
   - **Verificado en local:** pgTAP 471/471 (16 nuevos en `15_least_privilege`); prueba en negativo (devolver DELETE en `organizations` hace fallar 3 tests y quitar la guarda, otros 3); `db lint` limpio. Cambian 10 aserciones existentes, todas a algo igual o más estricto (explicado en el PR).
+  - **Verificado sobre `main`** (`c380893`): CI en verde en los 5 checks; en local, `pnpm check` 52/52 (1 aviso de lint ya existente en `@repo/ui`), `db lint` limpio, pgTAP 471/471 y e2e 118/118. Migración aplicada en staging por el despliegue del CI (historial 10/10, igual al del repo) — 2026-10-23.
+- Organización de demo de staging (R-34) — #71: workflow manual «Staging · organización de demo», probado en local (email sin cuenta, primera ejecución, segunda idempotente que devuelve el rol de `org_admin`). Falta que producto cree su cuenta (ver «Bloqueado»).
 - **Frontend y seguridad del 2026-10-23 (#61–#69), verificado sobre `main`** (`e1b27d5`): CI en verde en los 5 checks y despliegue a staging en verde (run 39924025758). La web de staging sirve ese commit.
 
 ## En curso
@@ -97,6 +99,8 @@
 - **Cuentas creadas por producto (2026-10-22):** Vercel Pro, Supabase, Railway, Cloudflare, WorkOS, Sentry, Meta for Developers, Resend, GitHub y dominios en Hostinger. Estado de cada una en la re-auditoría §2.4. Las claves van siempre en el gestor de secretos del proveedor o en un `.env` local, nunca en el chat ni en el repo.
 
 ## Bloqueado
+- **Configuración de staging como código, paso 2 (R-17) — #70:** el despliegue ya aplica `config.toml` con `supabase config push`, pero **falla con un 403** (`Missing required permission(s): data_api_config_write`). El `SUPABASE_ACCESS_TOKEN` del entorno `staging` es un token con permisos acotados: lee la configuración (el diff funciona) y migra la base de datos, pero no escribe configuración. No se ha aplicado nada (el push se corta en el primer paso, la API) y las migraciones siguen aplicándose antes. Desde #70 el despliegue sale en rojo por eso. **Falta que producto genere un token nuevo** con escritura en Data API Config, Auth Config, Project Settings, Database Config, Connection Pooling, Storage Config y Realtime Config (además de Database), lo guarde en ese secreto y relance el despliegue. Diferencias pendientes de aplicar: 6 (`api.schemas`, `site_url`, `additional_redirect_urls`, `secure_password_change`, `minimum_password_length` y Twilio).
+- **Resend (B4):** `moodlycrm.com` ya tiene en Hostinger los registros de Resend (DKIM `resend._domainkey`, y MX y SPF en `send`, región `eu-west-1`), pero la cuenta de Resend conectada al agente no tiene ningún dominio. El dominio se creó en otra cuenta de Resend. Producto dice en cuál está (o conecta esa cuenta); crear otro dominio generaría otra clave DKIM que chocaría con la publicada. Falta también DMARC (`_dmarc`).
 - **Plan de Vercel (R-19):** la API de logs respondió como plan Hobby (retención de 1 h). Producto confirma si el equipo `diegosanjuan` es Pro; si no, se mueve el proyecto al equipo Pro (Hobby no permite uso comercial ni *log drains*).
 - **Primer usuario de staging (R-34):** el workflow manual «Staging · organización de demo» ya lo prepara (Clínica Demo: región Madrid, sedes Centro y Norte, y la cuenta como `org_admin`). **Falta que producto cree su cuenta** en el panel de Supabase de staging (Authentication → Users → Add user, con su contraseña y el email confirmado) y lance el workflow con ese email, o que pida al agente que lo lance. Después, activar el MFA en Ajustes → Seguridad: administrar lo exige.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
@@ -117,7 +121,7 @@
 - B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
 - B3 · Auth y MFA de verdad:
   - R-16: hecho (#60).
-  - Auth como código, R-17. **Paso 1**, hecho (#68). **Paso 2**, en curso (aprobado por producto, 2026-10-23): el despliegue aplica `config.toml` con `supabase config push` y falla si después queda alguna diferencia comparable. Staging conserva lo que tiene más estricto que local (confirmación de email, códigos de 8 cifras) y lo que depende de su instancia (pooler). Las sesiones siguen sin caducidad hasta el plan Pro.
+  - Auth como código, R-17. **Paso 1**, hecho (#68). **Paso 2**, mergeado (#70) y bloqueado por los permisos del token del CI (ver «Bloqueado»), aprobado por producto el 2026-10-23: el despliegue aplica `config.toml` con `supabase config push` y falla si después queda alguna diferencia comparable. Staging conserva lo que tiene más estricto que local (confirmación de email, códigos de 8 cifras) y lo que depende de su instancia (pooler). Las sesiones siguen sin caducidad hasta el plan Pro.
   - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno), R-24 (cookies `Secure`) y R-29 (cookies de sesión `httpOnly`): hecho (#66).
   - Cloudflare Turnstile.
 - B4 · Email transaccional con Resend (dominio de `moodlycrm.com` para staging, con SPF, DKIM y DMARC): las invitaciones llegan por email, con el token fuera de la query (R-22).
