@@ -1,21 +1,24 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from "@/i18n/config";
-import { parseTheme, PREFERENCE_COOKIE_MAX_AGE, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
+import { appCookieOptions, isHttpsRequest } from "@/lib/cookie-options";
+import { parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
 
 // Preferencias de interfaz (no son datos de negocio ni de sesión). Se validan
 // siempre: cualquier valor desconocido cae al valor por defecto.
-const cookieOptions = { path: "/", maxAge: PREFERENCE_COOKIE_MAX_AGE, sameSite: "lax" as const, httpOnly: true };
+async function setPreference(name: string, value: string): Promise<void> {
+  (await cookies()).set(name, value, appCookieOptions(isHttpsRequest(await headers())));
+}
 
 export async function setTheme(theme: string): Promise<void> {
-  (await cookies()).set(THEME_COOKIE, parseTheme(theme), cookieOptions);
+  await setPreference(THEME_COOKIE, parseTheme(theme));
 }
 
 export async function setSidebarCollapsed(collapsed: boolean): Promise<void> {
-  (await cookies()).set(SIDEBAR_COOKIE, collapsed ? "1" : "0", cookieOptions);
+  await setPreference(SIDEBAR_COOKIE, collapsed ? "1" : "0");
 }
 
 export async function setLocale(locale: string): Promise<void> {
-  (await cookies()).set(LOCALE_COOKIE, isLocale(locale) ? locale : DEFAULT_LOCALE, cookieOptions);
+  await setPreference(LOCALE_COOKIE, isLocale(locale) ? locale : DEFAULT_LOCALE);
 }

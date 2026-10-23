@@ -10,8 +10,10 @@ interface AuthErrorLike {
   status?: number | undefined;
 }
 
+/** ¿Fallo de Auth o de red (5xx, o status 0/ausente: auth-js marca así los fallos de fetch) y no de credenciales? */
 export function isTransient(error: AuthErrorLike): boolean {
-  return (error.status ?? 500) >= 500;
+  const status = error.status ?? 0;
+  return status === 0 || status >= 500;
 }
 
 export async function verifyTotp(

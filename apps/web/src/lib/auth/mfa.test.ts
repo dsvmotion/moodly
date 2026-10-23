@@ -40,4 +40,11 @@ describe("verifyTotp", () => {
     expect(isTransient({})).toBe(true);
     expect(isTransient({ status: 429 })).toBe(false);
   });
+
+  it("status 0 (fallo de fetch de auth-js) y 5xx son transitorios; 4xx no (auditoría R-23)", () => {
+    expect(isTransient({ status: 0 })).toBe(true);
+    expect(isTransient({ status: 502 })).toBe(true);
+    expect(isTransient({ status: 400 })).toBe(false);
+    expect(isTransient({ status: 422 })).toBe(false);
+  });
 });

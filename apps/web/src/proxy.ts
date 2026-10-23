@@ -2,6 +2,7 @@ import type { Database } from "@repo/db";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { routeRedirect } from "./lib/auth/routes";
+import { sessionCookieOptions } from "./lib/cookie-options";
 import { contentSecurityPolicy, createNonce } from "./lib/security/headers";
 import { supabasePublicEnv } from "./lib/supabase/env";
 
@@ -26,6 +27,7 @@ export async function proxy(request: NextRequest) {
   const { url, publishableKey } = supabasePublicEnv();
 
   const supabase = createServerClient<Database>(url, publishableKey, {
+    cookieOptions: sessionCookieOptions(https),
     cookies: {
       getAll() {
         return request.cookies.getAll();

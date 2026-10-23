@@ -37,6 +37,17 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
   expect(leaks).toEqual([]);
 });
 
+// Auditoría R-29: el navegador no habla con Supabase, así que la sesión no
+// tiene por qué ser legible desde JavaScript (un XSS no podría llevársela).
+test("las cookies de sesión y de la app no se pueden leer desde JavaScript", async ({ page }) => {
+  await signIn(page, "a_staff");
+  const cookies = await page.context().cookies();
+  const session = cookies.filter((cookie) => cookie.name.startsWith("sb-"));
+  expect(session.length).toBeGreaterThan(0);
+  for (const cookie of cookies) expect(cookie.httpOnly, cookie.name).toBe(true);
+  expect(await page.evaluate(() => document.cookie)).toBe("");
+});
+
 // ---------------------------------------------------------------------------
 // 3. Protección en servidor: sin sesión, cada ruta protegida responde con una
 //    redirección HTTP al login (sin JavaScript: no depende del cliente).

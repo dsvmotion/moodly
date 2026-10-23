@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { disableMfa } from "@/app/app/mfa-actions";
+import { MfaDisable } from "@/components/mfa/mfa-disable";
 import { MfaEnroll } from "@/components/mfa/mfa-enroll";
 import { hasVerifiedFactor, requireUser } from "@/lib/auth/session";
 import { getScopeContext } from "@/lib/scope-data";
@@ -26,15 +26,7 @@ export default async function SecurityPage() {
             {t("requiredForAdmins")}
           </p>
         ) : null}
-        {enabled ? (
-          <form action={disableMfa}>
-            <button type="submit" className="rounded-md border px-3 py-1.5">
-              {t("disable")}
-            </button>
-          </form>
-        ) : (
-          <MfaEnroll />
-        )}
+        {enabled ? <MfaDisable /> : <MfaEnroll />}
       </section>
     </div>
   );

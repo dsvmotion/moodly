@@ -69,8 +69,16 @@ test("activar la verificación en dos pasos, entrar con ella y desactivarla", as
   await completeMfa(page, secret);
   await expect(page.getByTestId("current-user")).toHaveText(email);
 
-  // Desactivarla (Auth exige aal2 para quitar un factor verificado).
+  // Desactivarla: Auth exige aal2 y la app, además, un código actual (auditoría
+  // R-21). Con la sesión sola o un código incorrecto no se desactiva.
   await page.goto("/app/ajustes/seguridad");
+  await page.getByLabel("Código actual").fill(wrongCode(secret));
+  await page.getByRole("button", { name: "Desactivar la verificación en dos pasos" }).click();
+  await expect(formError(page)).toHaveText("El código no es correcto. Prueba con el que muestra ahora la aplicación.");
+  await page.reload();
+  await expect(page.getByTestId("mfa-status")).toHaveText(/^Activada/);
+
+  await page.getByLabel("Código actual").fill(totp(secret));
   await page.getByRole("button", { name: "Desactivar la verificación en dos pasos" }).click();
   await expect(page.getByTestId("mfa-status")).toHaveText("Desactivada.");
 });

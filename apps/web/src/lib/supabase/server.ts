@@ -1,7 +1,8 @@
 import "server-only";
 import type { Database } from "@repo/db";
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { isHttpsRequest, sessionCookieOptions } from "../cookie-options";
 import { supabasePublicEnv } from "./env";
 
 /**
@@ -10,10 +11,11 @@ import { supabasePublicEnv } from "./env";
  * consultas pasan por RLS. La app nunca usa la service role (AGENTS.md).
  */
 export async function createClient() {
-  const cookieStore = await cookies();
+  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
   const { url, publishableKey } = supabasePublicEnv();
 
   return createServerClient<Database>(url, publishableKey, {
+    cookieOptions: sessionCookieOptions(isHttpsRequest(requestHeaders)),
     cookies: {
       getAll() {
         return cookieStore.getAll();
