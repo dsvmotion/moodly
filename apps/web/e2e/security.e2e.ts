@@ -40,7 +40,7 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
 // 3. Protección en servidor: sin sesión, cada ruta protegida responde con una
 //    redirección HTTP al login (sin JavaScript: no depende del cliente).
 // ---------------------------------------------------------------------------
-const protectedRoutes = ["/", "/app", "/app/settings/organization", "/app/ruta-que-no-existe"];
+const protectedRoutes = ["/", "/app", "/app/ajustes/general", "/app/ruta-que-no-existe"];
 
 for (const route of protectedRoutes) {
   test(`sin sesión, ${route} redirige al login desde el servidor`, async ({ request }) => {
@@ -53,7 +53,7 @@ for (const route of protectedRoutes) {
 }
 
 test("sin sesión, el HTML de una ruta protegida no contiene datos", async ({ request }) => {
-  const response = await request.get("/app/settings/organization");
+  const response = await request.get("/app/ajustes/general");
   expect(new URL(response.url()).pathname).toBe("/login");
   expect(await response.text()).not.toMatch(/Demo A|Demo B|A1 Norte|Admin A/);
 });

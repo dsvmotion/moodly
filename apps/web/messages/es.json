@@ -21,12 +21,10 @@
     "inbox": "Bandeja",
     "tasks": "Tareas",
     "activity": "Actividad",
-    "analytics": "Analítica",
+    "analytics": "Informes",
     "agents": "Agentes",
     "records": "Registros",
     "contacts": "Clientes",
-    "conversations": "Conversaciones",
-    "recommendations": "Recomendaciones",
     "goals": "Objetivos",
     "knowledge": "Conocimiento",
     "memory": "Memoria",
@@ -41,7 +39,13 @@
     "themeSystem": "Sistema",
     "themeLight": "Claro",
     "themeDark": "Oscuro",
-    "pendingCount": "{count} pendientes"
+    "pendingCount": "{count} pendientes",
+    "agentTypes": {
+      "reception": "Recepción",
+      "customer": "Atención al cliente",
+      "sales": "Comercial",
+      "admin": "Administración"
+    }
   },
   "sidebarEmpty": {
     "agents": "Los agentes aparecerán aquí cuando se configuren.",
@@ -75,20 +79,12 @@
       "description": "El registro de lo que hacen los agentes aparecerá aquí."
     },
     "analytics": {
-      "title": "Analítica",
+      "title": "Informes",
       "description": "Los paneles con métricas aparecerán cuando haya actividad."
     },
     "contacts": {
       "title": "Clientes",
       "description": "Tus clientes aparecerán aquí."
-    },
-    "conversations": {
-      "title": "Conversaciones",
-      "description": "No hay conversaciones todavía."
-    },
-    "recommendations": {
-      "title": "Recomendaciones",
-      "description": "No hay recomendaciones todavía."
     },
     "goals": {
       "title": "Objetivos",
@@ -172,7 +168,8 @@
     "empty": "Sin resultados.",
     "navigation": "Navegación",
     "records": "Registros",
-    "settings": "Ajustes"
+    "settings": "Ajustes",
+    "agents": "Agentes"
   },
   "language": {
     "label": "Idioma",
@@ -222,7 +219,9 @@
   "settingsTabs": {
     "label": "Ajustes",
     "organization": "Organización",
-    "security": "Seguridad"
+    "security": "Seguridad",
+    "team": "Miembros",
+    "locations": "Sedes"
   },
   "security": {
     "title": "Seguridad",
@@ -246,5 +245,18 @@
   "orgSwitcher": {
     "label": "Organización activa",
     "change": "Cambiar"
+  },
+  "agentPage": {
+    "title": "Agentes",
+    "intro": "Tu organización tiene cuatro agentes de serie. Cada uno se especializa según tu negocio y lo puedes activar, pausar y personalizar.",
+    "notConfigured": "Sin configurar",
+    "emptyTitle": "Aún no está configurado",
+    "emptyDescription": "Aquí verás su conversación, lo que ha hecho y lo que tiene pendiente. Llega con el catálogo de agentes: instrucciones, skills, canales y autonomía.",
+    "descriptions": {
+      "reception": "Agenda y citas: crea, mueve y cancela citas, gestiona la lista de espera y los recordatorios, organiza recursos y salas y atiende la línea de teléfono del negocio.",
+      "customer": "Atiende a tus clientes por WhatsApp, Instagram, email y la web: resuelve dudas e incidencias, gestiona reseñas y pasa a una persona lo que lo necesita.",
+      "sales": "Capta y cualifica leads, lleva el CRM, prepara presupuestos, hace el seguimiento, recupera clientes y ejecuta las campañas que proponga el coach.",
+      "admin": "Facturación a través de tu software, cobros, gastos, inventario y proveedores, documentos y la información que necesita tu gestoría."
+    }
   }
 }

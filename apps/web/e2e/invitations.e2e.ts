@@ -33,13 +33,13 @@ async function newSignedInPage(browser: Browser, key: string, next?: string): Pr
 }
 
 async function invite(page: Page, location: string): Promise<string> {
-  await page.goto("/app/settings/organization");
+  await page.goto("/app/ajustes/general");
   await page.getByLabel("Email").fill(GUEST_EMAIL);
   await page.getByRole("combobox", { name: "Rol", exact: true }).selectOption({ label: "Personal" });
   await page.getByRole("combobox", { name: "Alcance", exact: true }).selectOption({ label: location });
   await page.getByRole("button", { name: "Crear invitación" }).click();
   const link = (await page.getByTestId("invitation-url").innerText()).trim();
-  expect(link).toMatch(/\/app\/invitation\?token=[A-Za-z0-9_-]{40,}$/);
+  expect(link).toMatch(/\/app\/invitacion\?token=[A-Za-z0-9_-]{40,}$/);
   return new URL(link).pathname + new URL(link).search;
 }
 
@@ -64,9 +64,9 @@ test("solo la persona invitada entra, y solo cuando acepta", async ({ browser })
   await expect(guest).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
   await expect(guest.getByTestId("org-name")).toHaveText("");
   await guest.getByRole("button", { name: "Aceptar invitación" }).click();
-  await expect(guest).toHaveURL(/\/app\/settings\/organization$/);
+  await expect(guest).toHaveURL(/\/app\/ajustes\/general$/);
   await expect(guest.getByTestId("org-name")).toHaveText("Demo C");
-  await guest.goto("/app/settings/organization");
+  await guest.goto("/app/ajustes/general");
   await expect(guest.getByTestId("location-name")).toHaveText(["C1"]);
 
   // Ya usada: ni la propia persona puede repetirla.
@@ -94,7 +94,7 @@ test("una invitación revocada ya no sirve", async ({ browser }) => {
 
 test("quien no es org_admin no ve el formulario de invitar", async ({ page }) => {
   await signIn(page, "a_staff");
-  await page.goto("/app/settings/organization");
+  await page.goto("/app/ajustes/general");
   await expect(page.getByRole("heading", { name: "Mi organización" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Crear invitación" })).toHaveCount(0);
 });

@@ -31,17 +31,17 @@ describe("preferencias", () => {
 describe("isActive", () => {
   it("Inicio solo coincide con /app exacto", () => {
     expect(isActive("/app", "/app")).toBe(true);
-    expect(isActive("/app/inbox", "/app")).toBe(false);
+    expect(isActive("/app/conversaciones", "/app")).toBe(false);
   });
 
   it("una sección coincide consigo misma y sus subrutas, no con prefijos parecidos", () => {
-    expect(isActive("/app/records/locations", "/app/records/locations")).toBe(true);
-    expect(isActive("/app/records/locations/abc", "/app/records/locations")).toBe(true);
-    expect(isActive("/app/records/locationsx", "/app/records/locations")).toBe(false);
+    expect(isActive("/app/clientes", "/app/clientes")).toBe(true);
+    expect(isActive("/app/clientes/abc", "/app/clientes")).toBe(true);
+    expect(isActive("/app/clientesx", "/app/clientes")).toBe(false);
   });
 
-  it("Ajustes coincide con cualquier subruta de /app/settings", () => {
-    expect(isActive("/app/settings/organization", "/app/settings/organization")).toBe(true);
-    expect(isActive("/app/settings/users", "/app/settings/organization")).toBe(true);
+  it("Ajustes coincide con cualquier subruta de /app/ajustes", () => {
+    expect(isActive("/app/ajustes/general", "/app/ajustes/general")).toBe(true);
+    expect(isActive("/app/ajustes/equipo", "/app/ajustes/general")).toBe(true);
   });
 });

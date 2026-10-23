@@ -44,8 +44,9 @@ const ROLES = {
 } as const;
 
 const SIDEBAR_LINKS = [
-  "Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Analítica",
-  "Clientes", "Conversaciones", "Recomendaciones", "Objetivos", "Conocimiento", "Memoria", "Locales", "Personas", "Ajustes",
+  "Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Informes",
+  "Recepción", "Atención al cliente", "Comercial", "Administración",
+  "Clientes", "Objetivos", "Conocimiento", "Memoria", "Ajustes",
 ];
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
@@ -84,9 +85,10 @@ for (const theme of ["light", "dark"] as const) {
       await shot(page, testInfo, `${key}-${theme}-1-alcance`);
       await page.keyboard.press("Escape");
 
-      // Registros → Locales y Personas.
-      await sidebar.getByRole("link", { name: "Locales", exact: true }).click();
-      await expect(page).toHaveURL(/\/app\/records\/locations/);
+      // Ajustes → Sedes y Miembros (rutas del ADR 0023).
+      await sidebar.getByRole("link", { name: "Ajustes", exact: true }).click();
+      await page.getByTestId("settings-tabs").getByRole("link", { name: "Sedes", exact: true }).click();
+      await expect(page).toHaveURL(/\/app\/ajustes\/sedes/);
       expect(await firstColumn(page, "locations-table")).toEqual([...want.locations]);
       await shot(page, testInfo, `${key}-${theme}-2-locales`);
 
@@ -95,8 +97,8 @@ for (const theme of ["light", "dark"] as const) {
       await shot(page, testInfo, `${key}-${theme}-3-vista-previa`);
       await page.keyboard.press("Escape");
 
-      await sidebar.getByRole("link", { name: "Personas", exact: true }).click();
-      await expect(page).toHaveURL(/\/app\/records\/people/);
+      await page.getByTestId("settings-tabs").getByRole("link", { name: "Miembros", exact: true }).click();
+      await expect(page).toHaveURL(/\/app\/ajustes\/equipo/);
       expect(await firstColumn(page, "people-table")).toEqual([...want.people]);
       await shot(page, testInfo, `${key}-${theme}-4-personas`);
     });

@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { CommandPalette, type CommandPaletteGroup } from "@repo/ui/components/command-palette";
 import { GlobalSearch } from "@repo/ui/components/global-search";
-import { MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
+import { cn } from "@repo/ui/lib/utils";
+import { AGENTS_NAV, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, SETTINGS_SECTIONS, type NavItem } from "@/lib/navigation";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
 
 const CommandCenterContext = createContext<() => void>(() => {});
@@ -26,14 +27,33 @@ export function CommandCenterProvider({ children }: { children: ReactNode }) {
     id: entry.key,
     label: t(`nav.${entry.key}`),
     icon: <entry.icon aria-hidden="true" />,
-    keywords: [entry.key, entry.href],
+    keywords: [entry.key],
     onSelect: () => router.push(withScope(entry.href, scope)),
   });
 
   const groups: CommandPaletteGroup[] = [
     { heading: t("command.navigation"), items: MAIN_NAV.map(toItem) },
+    {
+      heading: t("command.agents"),
+      items: AGENTS_NAV.map((agent) => ({
+        id: `agent-${agent.key}`,
+        label: t(`nav.agentTypes.${agent.key}`),
+        icon: <span aria-hidden="true" className={cn("size-2.5 rounded-full", agent.dotClass)} />,
+        keywords: [agent.key, t("nav.agents")],
+        onSelect: () => router.push(withScope(agent.href, scope)),
+      })),
+    },
     { heading: t("command.records"), items: RECORDS_NAV.map(toItem) },
-    { heading: t("command.settings"), items: [toItem(SETTINGS_NAV)] },
+    {
+      heading: t("command.settings"),
+      items: SETTINGS_SECTIONS.map((section) => ({
+        id: `settings-${section.key}`,
+        label: t(`settingsTabs.${section.key}`),
+        icon: <SETTINGS_NAV.icon aria-hidden="true" />,
+        keywords: [section.key, t("nav.settings")],
+        onSelect: () => router.push(withScope(section.href, scope)),
+      })),
+    },
   ];
 
   return (

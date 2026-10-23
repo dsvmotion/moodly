@@ -5,9 +5,9 @@ const days = { mon: "L", tue: "M", wed: "X", thu: "J", fri: "V", sat: "S", sun: 
 
 describe("withRecord", () => {
   it("abre y cierra la vista previa conservando el alcance", () => {
-    expect(withRecord("/app/records/locations?scope=all", "abc")).toBe("/app/records/locations?scope=all&record=abc");
-    expect(withRecord("/app/records/locations?scope=all&record=abc", null)).toBe("/app/records/locations?scope=all");
-    expect(withRecord("/app/records/locations?record=abc", null)).toBe("/app/records/locations");
+    expect(withRecord("/app/ajustes/sedes?scope=all", "abc")).toBe("/app/ajustes/sedes?scope=all&record=abc");
+    expect(withRecord("/app/ajustes/sedes?scope=all&record=abc", null)).toBe("/app/ajustes/sedes?scope=all");
+    expect(withRecord("/app/ajustes/sedes?record=abc", null)).toBe("/app/ajustes/sedes");
   });
 });
 

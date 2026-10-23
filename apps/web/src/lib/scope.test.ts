@@ -99,9 +99,9 @@ describe("filtros", () => {
 
 describe("withScope", () => {
   it("añade, sustituye y quita ?scope= conservando otros parámetros", () => {
-    expect(withScope("/app/inbox", "location:l1")).toBe("/app/inbox?scope=location%3Al1");
-    expect(withScope("/app/inbox?view=kanban&scope=all", "region:rn")).toBe("/app/inbox?view=kanban&scope=region%3Arn");
-    expect(withScope("/app/inbox?scope=location%3Al1", "all")).toBe("/app/inbox");
-    expect(withScope("/app/inbox?view=kanban", null)).toBe("/app/inbox?view=kanban");
+    expect(withScope("/app/conversaciones", "location:l1")).toBe("/app/conversaciones?scope=location%3Al1");
+    expect(withScope("/app/conversaciones?view=kanban&scope=all", "region:rn")).toBe("/app/conversaciones?view=kanban&scope=region%3Arn");
+    expect(withScope("/app/conversaciones?scope=location%3Al1", "all")).toBe("/app/conversaciones");
+    expect(withScope("/app/conversaciones?view=kanban", null)).toBe("/app/conversaciones?view=kanban");
   });
 });

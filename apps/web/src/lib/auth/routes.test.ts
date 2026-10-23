@@ -3,8 +3,8 @@ import { HOME_PATH, LOGIN_PATH, routeRedirect, safeNextPath } from "./routes";
 
 describe("routeRedirect", () => {
   it("sin sesión, cualquier ruta privada va al login conservando el destino", () => {
-    expect(routeRedirect("/app/settings/organization", "", false)).toBe(
-      `${LOGIN_PATH}?next=${encodeURIComponent("/app/settings/organization")}`,
+    expect(routeRedirect("/app/ajustes/general", "", false)).toBe(
+      `${LOGIN_PATH}?next=${encodeURIComponent("/app/ajustes/general")}`,
     );
     expect(routeRedirect("/app", "?tab=1", false)).toBe(`${LOGIN_PATH}?next=${encodeURIComponent("/app?tab=1")}`);
     expect(routeRedirect("/", "", false)).toBe(LOGIN_PATH);
@@ -18,13 +18,13 @@ describe("routeRedirect", () => {
     // /login con sesión redirige desde la propia página tras getUser(): si lo
     // hiciera el proxy con getClaims(), una sesión revocada causaría un bucle.
     expect(routeRedirect(LOGIN_PATH, "", true)).toBeNull();
-    expect(routeRedirect("/app/settings/organization", "", true)).toBeNull();
+    expect(routeRedirect("/app/ajustes/general", "", true)).toBeNull();
   });
 });
 
 describe("safeNextPath", () => {
   it("acepta rutas internas, con query y hash", () => {
-    expect(safeNextPath("/app/settings/organization")).toBe("/app/settings/organization");
+    expect(safeNextPath("/app/ajustes/general")).toBe("/app/ajustes/general");
     expect(safeNextPath("/app?tab=1#x")).toBe("/app?tab=1#x");
     // Codificado sigue siendo una ruta interna (el navegador no lo decodifica a host).
     expect(safeNextPath("/%2F%2Fevil.test")).toBe("/%2F%2Fevil.test");

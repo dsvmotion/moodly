@@ -14,7 +14,7 @@ import { idSchema, totpCodeSchema } from "@/lib/validation";
 // Auth con la sesión de la persona: aquí solo se validan formas. Para quitar un
 // factor ya verificado, Auth exige una sesión aal2 (requireUser también).
 
-const SECURITY_PATH = "/app/settings/security";
+const SECURITY_PATH = "/app/ajustes/seguridad";
 
 export interface EnrollState {
   error: string | null;

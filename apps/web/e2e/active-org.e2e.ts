@@ -11,14 +11,14 @@ test("quien pertenece a dos organizaciones trabaja con una y la cambia desde la 
   const rows = page.getByTestId("locations-table-row");
 
   // Sin elegir: la primera por nombre.
-  await page.goto("/app/records/locations");
+  await page.goto("/app/ajustes/sedes");
   await expect(switcher.locator("option:checked")).toHaveText("Demo D");
   await expect(rows).toHaveCount(1);
   await expect(rows).toContainText("D1");
 
   // Cambia a E: solo sus locales, y se recuerda al recargar.
   await switcher.selectOption({ label: "Demo E" });
-  await expect(page).toHaveURL(/\/app\/records\/locations$/);
+  await expect(page).toHaveURL(/\/app\/ajustes\/sedes$/);
   await expect(switcher.locator("option:checked")).toHaveText("Demo E");
   await expect(rows).toHaveCount(1);
   await expect(rows).toContainText("E1");
