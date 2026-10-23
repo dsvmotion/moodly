@@ -1,6 +1,6 @@
 # 0027 — Ejecución duradera con DBOS Transact sobre Postgres (sustituye a pg-boss + reanudación a mano)
 
-- **Estado:** propuesto. *Spike* superado el 2026-10-23 (ver «Resultados del *spike*»); falta que producto lo acepte
+- **Estado:** aceptado por producto el 2026-10-23, tras superar el *spike* ese mismo día (ver «Resultados del *spike*»)
 - **Fecha:** 2026-10-20
 - **Secciones del MANUAL afectadas:** §3.1, §3.2 (cola de trabajos, worker), §5.1, §5.7, §5.8, §5.11, §14
 - **Sustituye en parte a:** el futuro ADR 0006 (cola en Postgres con pg-boss); se mantiene «todo en Postgres» y el worker siempre encendido.
