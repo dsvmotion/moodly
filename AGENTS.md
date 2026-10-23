@@ -51,7 +51,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`
 - Regenerar los iconos de la PWA (los PNG se commitean): `node apps/web/scripts/pwa-icons.ts`. Si el Chromium de Playwright no está instalado, pasa su ruta en `CHROMIUM_PATH`.
 - Web en local: `pnpm db:seed` y después `pnpm --filter @repo/web env:local` (escribe `apps/web/.env.local` con la URL, la clave publicable y `LOGIN_THROTTLE_KEY`, la clave de servidor del freno del login que genera el seed) y después `pnpm --filter @repo/web dev` → http://127.0.0.1:3000
-- Tests e2e (Playwright; con Supabase levantado, seed aplicado y la web compilada con `pnpm build`): `pnpm --filter @repo/web e2e`. La primera vez: `pnpm --filter @repo/web exec playwright install chromium`
+- Tests e2e (Playwright; con Supabase levantado, seed aplicado y la web compilada con `pnpm build`): `pnpm --filter @repo/web e2e`. La primera vez: `pnpm --filter @repo/web exec playwright install chromium`. Si no se puede descargar el navegador, `CHROMIUM_PATH=/ruta/al/chrome` usa uno ya instalado.
 - Typecheck: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`

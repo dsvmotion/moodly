@@ -68,6 +68,10 @@
   - R-24: las cookies de preferencias y de organización activa salen con `Secure` cuando la petición llega por https;
   - R-29 (nuevo, de la segunda pasada de la auditoría): las cookies de sesión de Supabase eran legibles desde JavaScript (valores por defecto de `@supabase/ssr`). Ahora son `httpOnly` (el navegador nunca habla con Supabase) y `Secure` por https.
   - **Verificado en local:** e2e 117/117 con la base limpia (incluido un e2e nuevo: ninguna cookie es legible desde JavaScript) y tests unitarios de `isTransient` y de las opciones de cookie.
+- Higiene de desarrollo (segunda pasada de la auditoría, R-30, R-31 y R-32) — PR siguiente al de seguridad:
+  - el seed vacía los fallos del freno de sus usuarios con TOTP: pasadas de e2e seguidas ya no dependen de las anteriores (prueba en negativo: sin el cambio, la tercera pasada falla);
+  - `CHROMIUM_PATH` para Playwright (documentado en AGENTS.md);
+  - fuera los textos huérfanos y test de paridad de claves es/en.
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22), con la del frontend (`2026-10-23-auditoria-frontend.md`) y la segunda pasada (`2026-10-23-auditoria-segunda-pasada.md`: R-29…R-36 y orden propuesto para la revisión con producto). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.

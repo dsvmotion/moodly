@@ -57,8 +57,6 @@
     "goals": "Objetivos",
     "knowledge": "Conocimiento",
     "memory": "Memoria",
-    "locations": "Locales",
-    "people": "Personas",
     "savedViews": "Vistas guardadas",
     "favorites": "Favoritos",
     "recent": "Recientes",
@@ -77,7 +75,6 @@
     }
   },
   "sidebarEmpty": {
-    "agents": "Los agentes aparecerán aquí cuando se configuren.",
     "savedViews": "Aún no hay vistas guardadas.",
     "favorites": "Aún no hay favoritos.",
     "recent": "Aún no hay actividad reciente."

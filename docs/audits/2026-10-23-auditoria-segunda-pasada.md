@@ -1,7 +1,7 @@
 # Auditoría total, segunda pasada — 2026-10-23
 
 > Tercera pieza del día, tras `2026-10-23-auditoria-estado.md` (R-16…R-28) y `2026-10-23-auditoria-frontend.md` (F-1…F-12).
-> - **Qué hace:** repasa todo después de aplicar los arreglos (#60–#66), anota lo nuevo (R-29…R-36) y propone el orden para la revisión de mañana.
+> - **Qué hace:** repasa todo después de aplicar los arreglos (#60–#66), anota lo nuevo (R-29…R-37) y propone el orden para la revisión de mañana.
 > - **Rango:** histórico (`docs/audits/`). Manda el estado de `docs/STATUS.md`.
 
 ## 0. Resumen
@@ -64,13 +64,14 @@
 | # | Hallazgo | Gravedad | Propuesta |
 |---|---|---|---|
 | R-29 | **Cookies de sesión de Supabase legibles desde JavaScript.** `@supabase/ssr` las pone por defecto con `httpOnly: false` y sin `Secure`. Un XSS podría llevarse el token; la CSP con nonce lo dificulta, pero no debe ser la única barrera. | Media | **Corregido en el PR de seguridad.** `httpOnly` (el navegador nunca habla con Supabase: no hay cliente de navegador y `connect-src 'self'`) y `Secure` por https, en los dos clientes de servidor. e2e: ninguna cookie es legible desde JS. |
-| R-30 | **El seed no vacía el freno del login (`private.login_failures`).** Varias pasadas locales seguidas en menos de 15 minutos acumulan más de 20 fallos por email en `guest_mfa_throttle`, y el test del freno de MFA falla por estado y no por código. El CI no se ve afectado porque parte de cero. Los factores MFA sí los borra el seed (`resetFactors`). En una pasada, el MFA de `guest_mfa` siguió activo tras un seed cuya salida no se miró: probablemente falló sin verse, sin confirmar. | Baja | Que `db:seed` vacíe los fallos del freno de los emails del seed y que su salida se compruebe siempre. Así una pasada local repetida da lo mismo que el CI. |
-| R-31 | **El e2e local depende de la *build* exacta del navegador de Playwright.** En el entorno del agente hubo que lanzarlo con una configuración temporal fuera del repo para usar el Chromium instalado. | Baja | Aceptar `CHROMIUM_PATH` en `playwright.config.ts` (como ya hace el script de los iconos de la PWA) y documentarlo en AGENTS.md. |
-| R-32 | **Textos huérfanos y sin test de paridad.** `sidebarEmpty.agents`, `nav.locations` y `nav.people` ya no se usan. Hoy es y en tienen las mismas claves (comprobado), pero nada lo vigila. | Baja | Borrarlos y añadir un test unitario de paridad de claves es/en. |
+| R-30 | **Pasadas de e2e locales seguidas fallaban por estado y no por código.** Dos causas. (1) **De proceso (del agente):** `pnpm db:seed` necesita la CLI de Supabase en el `PATH`; en varias pasadas no estaba, el seed fallaba al arrancar sin cambiar nada y su salida iba a `/dev/null`, así que el estado no se limpiaba (de ahí el MFA de `guest_mfa` que seguía activo). (2) **Del seed:** no vaciaba el freno del login, y tres pasadas en menos de 15 minutos superan los 20 fallos por email de `guest_mfa_throttle`. El CI no se ve afectado porque parte de cero. | Baja | **Corregido en el PR de higiene:** el seed vacía los fallos del freno de sus usuarios con TOTP (`login_record_success`, como un login con éxito). Prueba en negativo: sin el cambio, la tercera pasada seguida falla; con él, pasan las tres. Y comprobar siempre la salida del seed. |
+| R-31 | **El e2e local depende de la *build* exacta del navegador de Playwright.** En el entorno del agente hubo que lanzarlo con una configuración temporal fuera del repo para usar el Chromium instalado. | Baja | **Corregido en el PR de higiene:** `playwright.config.ts` acepta `CHROMIUM_PATH` (como ya hace el script de los iconos de la PWA), documentado en AGENTS.md. |
+| R-32 | **Textos huérfanos y sin test de paridad.** `sidebarEmpty.agents`, `nav.locations` y `nav.people` ya no se usan. Hoy es y en tienen las mismas claves (comprobado), pero nada lo vigila. | Baja | **Corregido en el PR de higiene:** borrados, y un test unitario comprueba que es y en tienen las mismas claves y ningún texto vacío. |
 | R-33 | **cmdk 1.1.1 no reordena los grupos** al buscar: los busca por su id en `data-value`, donde guarda el título. | Info (resuelto) | `orderGroupsBySearch()` en `packages/ui`, con tests. Quitarlo cuando cmdk lo arregle (vigilar al actualizarlo). |
 | R-34 | **Staging sin usuarios.** El diseño ya se ve en `staging.moodlycrm.com`, pero solo hasta el login: no hay a quién enseñárselo. | Media (bloquea la revisión de producto) | Decisión de producto. Propuesta: (1) producto crea su usuario en el panel de Supabase de staging; (2) un workflow manual del CI crea la organización de demo con sus locales y le da la membership de `org_admin`, sin service role en la app y sin migraciones a mano. |
 | R-35 | **`public.users` no tiene guarda de columnas.** Con `users_update_self`, cada persona puede cambiar cualquier columna de su fila, también `created_at` y `locale`. Las guardas son listas blancas (ADR 0003) y esta tabla no tiene ninguna. | Baja | Guarda `guard_users_*` con solo `full_name` (y `locale`) editables por la propia persona, con pgTAP en negativo. Va antes de hacer editable «Mi perfil», junto a R-20. |
 | R-36 | **Ramas apiladas y *previews*.** Para no bloquearse, hoy se han encadenado PRs (rutas → menú → Ajustes → login → Inicio → seguridad), rebasando cada rama sobre `main` tras cada merge con el árbol idéntico comprobado. Funciona, pero cada empuje genera un *preview* con las claves de staging (R-18). | Info | Mantener el procedimiento (rebase con `--onto` y `git diff` vacío como prueba) y resolver R-18 antes de seguir apilando. |
+| R-37 | **Todos los textos de la app viajan al navegador en cada página**, también en el login sin sesión (`NextIntlClientProvider` recibe el catálogo entero; comprobado en `staging.moodlycrm.com/login`). No hay secretos, pero pesa cada vez más y enseña textos internos antes de entrar. | Baja | Pasar al cliente solo los espacios de nombres que usan sus componentes cliente (`pick` por ruta, o mensajes por *layout*: acceso y app). |
 
 ## 4. Hallazgos de la primera pasada (R-16…R-28)
 
@@ -95,14 +96,16 @@
    - D antes que C (R-28);
    - visto bueno al diseño en staging, en cuanto haya usuario.
 2. **B5, higiene de staging:**
-   - R-18a: quitar `LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY` del entorno Preview de Vercel. Los *previews* no necesitan login: sin clave, el login falla cerrado.
+   - R-18a: quitar `LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY` del entorno Preview de Vercel (confirmado hoy: están en Production y Preview). Los *previews* no necesitan login: sin clave, el login falla cerrado y los logs omiten el seudónimo.
+     - **Lo hace producto en el panel:** Settings → Environment Variables → editar cada una → desmarcar Preview.
+     - El agente no lo hace por API: son variables *sensitive*. Si la edición exigiera reenviar el valor, se perdería, y habría que rotar la clave y registrar su hash, que solo puede hacer una persona o el CI.
    - R-18b: restringir el entorno `staging` de GitHub a `main`.
    - *Log drain* y alertas en cuanto se confirme el plan.
 3. **B1b, Sentry:** `@sentry/nextjs` con *tunnel* propio, sin datos personales, sin *replay* y con `tracesSampleRate` 0. El proyecto y el DSN ya están.
 4. **B3:**
    - R-17 (Auth como código);
    - R-20 + R-35 (privilegios y guarda de `users`), y con ellos «Mi perfil» editable.
-5. **Higiene de desarrollo:** R-30 (el seed vacía también el freno), R-31 (`CHROMIUM_PATH`) y R-32 (textos y paridad). Es un PR pequeño.
+5. **Higiene de desarrollo:** R-30, R-31 y R-32, ya en su PR (el siguiente al de seguridad).
 6. **Fase D** (si producto la confirma antes que la C):
    - catálogo de agentes (ADR 0030);
    - *spike* de DBOS y worker en Railway;
