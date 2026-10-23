@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
   seedLocations,
@@ -97,5 +98,18 @@ describe("seed", () => {
     const all = [...seedUsers, ...seedGuests, ...seedPlatformStaff];
     expect(new Set(all.map((u) => u.key)).size).toBe(all.length);
     expect(new Set(all.map((u) => u.email)).size).toBe(all.length);
+  });
+
+  it("agentes propios: de una organización del seed, con clave y color válidos y sin pisar a uno de serie", () => {
+    // Las claves y colores de los de serie (20261023150000_agent_catalog).
+    const builtinKeys = ["reception", "customer", "sales", "admin"];
+    expect(seedCustomAgentTypes.length).toBeGreaterThan(0);
+    for (const type of seedCustomAgentTypes) {
+      expect(orgIds.has(type.organizationId)).toBe(true);
+      expect(type.key).toMatch(/^[a-z][a-z0-9_]{1,39}$/);
+      expect(builtinKeys).not.toContain(type.key);
+      expect(type.color).toMatch(/^agent-(reception|customer|sales|admin)$/);
+    }
+    expect(new Set(seedCustomAgentTypes.map((t) => t.id)).size).toBe(seedCustomAgentTypes.length);
   });
 });
