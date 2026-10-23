@@ -144,7 +144,9 @@
   - D2: `config_overrides` y `config_snapshots` con herencia y bloqueos (§4.3).
   - D3: la web pinta los agentes desde el catálogo, no desde `AGENT_TYPES` (ADR 0030 §1), con el test estructural de «ninguna lógica sobre claves de agente».
 - *Spike* de DBOS (ADR 0027) y worker en Railway (antes tarea 6).
-- Controles previos a la primera skill: `tenantDb(orgId)` con regla de lint (3.2), aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
+- Controles previos a la primera skill:
+  - **3.2, en curso:** `createServiceDb().forOrganization(orgId)` en `@repo/db/service`. Solo admite tablas con `organization_id` obligatorio, añade el filtro a toda lectura, actualización y borrado, pone la organización al insertar y rechaza filas de otra, y no ofrece `upsert`, `rpc` ni recursos embebidos. Una regla de lint y un test estructural impiden importar un cliente de Supabase fuera de `packages/db` y `apps/web`, y `apps/web` no puede importar `@repo/db/service`. Tests unitarios con el cliente real y un `fetch` falso (8 mutaciones, todas detectadas) e integración contra Supabase local en el job de e2e (3 tests, con prueba en negativo de cada filtro).
+  - Aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
 - Primera pieza de la prioridad del producto: memoria con procedencia (ADR 0024) y objetivos.
 

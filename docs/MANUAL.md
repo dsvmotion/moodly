@@ -439,7 +439,7 @@ resolved = template.defaults
 - RLS activado en **todas** las tablas con datos de cliente, sin excepciones.
 - Las políticas se basan en la pertenencia del usuario (`memberships`): organización, rol y alcance de regiones y locales.
 - Un `location_manager` solo ve datos de sus locales. Un `org_admin` ve toda la organización.
-- La **service role** solo se usa en el worker y siempre con un `organization_id` explícito en cada consulta. Existe una función helper obligatoria que lo exige.
+- La **service role** solo se usa en el worker y siempre con un `organization_id` explícito en cada consulta. La exige `createServiceDb().forOrganization(orgId)` (`@repo/db/service`): solo admite tablas con `organization_id` obligatorio, añade el filtro a toda lectura, actualización y borrado, pone la organización al insertar y no ofrece `upsert`, `rpc` ni recursos embebidos. Una regla de lint y un test estructural impiden crear otro cliente fuera de `packages/db`.
 - El acceso del equipo interno (`platform_staff`) a datos de un cliente queda registrado en `audit_logs` y, para contenido de conversaciones, requiere un modo de soporte explícito.
 - Tests pgTAP obligatorios: para cada tabla, un usuario de la organización A no puede leer ni escribir datos de la B, y un manager del local 1 no ve el local 2.
 
