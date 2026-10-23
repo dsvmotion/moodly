@@ -78,11 +78,11 @@
 | # | Estado |
 |---|---|
 | R-16 | Hecho (#60), verificado en `main` y en staging. |
-| R-17 | Abierto: Auth como código (`[remotes.staging]` + `config diff`/`push` desde el CI). |
+| R-17 | En curso: paso 1 (`[remotes.staging]` y `config diff` de solo lectura en el despliegue); paso 2, `config push` tras leer ese diff. |
 | R-18 | **Abierto, sube de prioridad** (R-36): (a) claves de servidor fuera de Preview; (b) entorno `staging` restringido a `main`. |
 | R-19 | Abierto: confirmar el plan de Vercel (producto). |
 | R-20 | Abierto: revocar los privilegios que sobran. Cambia aserciones de los tests de privilegios, así que irá en un PR explicado, con R-35. |
-| R-21, R-23, R-24 | En el PR de seguridad (verificado en local, 117/117). |
+| R-21, R-23, R-24 | Hecho (#66), con R-29. |
 | R-22 | Abierto: el token de la invitación, fuera de la query (con B4, los emails). |
 | R-25 | Corregido (proceso). |
 | R-26 | Resuelto: el hook de Semgrep dejó de actuar al reiniciarse la sesión. Desbloquea Sentry (B1b) y R-17. |

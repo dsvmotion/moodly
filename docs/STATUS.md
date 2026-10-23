@@ -105,8 +105,8 @@
 - B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
 - B3 · Auth y MFA de verdad:
   - R-16: hecho (#60).
-  - Auth como código, R-17: `[remotes.staging]` y `supabase config diff`/`push` desde el CI, con registro cerrado, contraseñas, `site_url` y TOTP.
-  - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno), R-24 (cookies `Secure`) y R-29 (cookies de sesión `httpOnly`): PR siguiente al de Inicio.
+  - Auth como código, R-17, en dos pasos. **Paso 1**, hecho: `[remotes.staging]` en `config.toml` (`site_url` y redirecciones a `staging.moodlycrm.com`, frecuencia de emails por defecto) y `supabase config diff` de solo lectura en el despliegue a staging. **Paso 2**, tras leer ese diff en `main`: `config push` desde el CI y un `config diff --exit-code` que falle si queda alguna diferencia. Antes se decide qué hacer con lo que exige plan Pro (`[auth.sessions]`) o SMTP propio.
+  - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno), R-24 (cookies `Secure`) y R-29 (cookies de sesión `httpOnly`): hecho (#66).
   - Cloudflare Turnstile.
 - B4 · Email transaccional con Resend (dominio de `moodlycrm.com` para staging, con SPF, DKIM y DMARC): las invitaciones llegan por email, con el token fuera de la query (R-22).
 - B5 · Higiene de staging (nuevo):

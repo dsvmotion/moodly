@@ -425,3 +425,22 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Proyecto alojado de staging (moodly-staging, eu-central-1). Cuando la CLI apunta
+# a este project_id, estos valores sustituyen a los de arriba; el resto de la
+# configuración es la misma que en local (registro cerrado, contraseñas de 12
+# con mayúsculas, minúsculas y dígitos, TOTP). El despliegue a staging
+# (.github/workflows/deploy-staging.yml) muestra las diferencias con
+# `supabase config diff`, de solo lectura (auditoría R-17). Ojo: la CLI no avisa
+# de claves mal escritas; compruébalo en ese diff.
+[remotes.staging]
+project_id = "sgeswmdqstonegceusej"
+
+# Los enlaces de los emails de Auth apuntan a la web de staging, no a localhost.
+[remotes.staging.auth]
+site_url = "https://staging.moodlycrm.com"
+additional_redirect_urls = ["https://staging.moodlycrm.com"]
+
+# En local, 1 s para no esperar en las pruebas; alojado, el valor por defecto.
+[remotes.staging.auth.email]
+max_frequency = "60s"

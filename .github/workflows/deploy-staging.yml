@@ -1,7 +1,7 @@
 name: Despliegue a staging
 
 # Migraciones de la base de datos de staging desde el CI, nunca a mano (STATUS,
-# fase B2). Corre cuando el CI termina en verde sobre main, con el commit exacto
+# fase B2), y diferencias de configuración del proyecto con config.toml. Corre cuando el CI termina en verde sobre main, con el commit exacto
 # que comprobó el CI, o a mano desde main (Actions → Despliegue a staging → Run
 # workflow).
 #
@@ -81,3 +81,9 @@ jobs:
 
       - name: Historial tras el despliegue
         run: supabase migration list
+
+      # Auth y el resto de la configuración del proyecto como código (auditoría
+      # R-17): lo que cambiaría `supabase config push` con config.toml y su
+      # [remotes.staging]. Solo lee; todavía no se aplica nada.
+      - name: Configuración, diferencias con staging (solo lectura)
+        run: supabase config diff --project-ref "$SUPABASE_PROJECT_REF"
