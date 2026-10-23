@@ -4,7 +4,8 @@ import { EmptyState } from "@repo/ui/components/empty-state";
 import { CheckIcon, HomeIcon, ShieldIcon, UsersIcon } from "@repo/ui/lib/icons";
 import { cn } from "@repo/ui/lib/utils";
 import { hasVerifiedFactor, requireUser } from "@/lib/auth/session";
-import { AGENTS_NAV, settingsSection } from "@/lib/navigation";
+import { getOrgAgents } from "@/lib/agents-data";
+import { settingsSection } from "@/lib/navigation";
 import { getProfileName } from "@/lib/profile-data";
 import { locationsInScope, withScope } from "@/lib/scope";
 import { resolveScope } from "@/lib/scope-data";
@@ -18,12 +19,11 @@ import { displayName } from "@/lib/user-display";
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
   const user = await requireUser();
   const rawScope = (await searchParams).scope;
-  const [{ scope, context }, name, t, tRoles, tAgents, tAgentPage, tSections] = await Promise.all([
+  const [{ scope, context }, name, t, tRoles, tAgentPage, tSections] = await Promise.all([
     resolveScope(rawScope),
     getProfileName(user.id),
     getTranslations("home"),
     getTranslations("records.roles"),
-    getTranslations("nav.agentTypes"),
     getTranslations("agentPage"),
     getTranslations("sections.home"),
   ]);
@@ -31,6 +31,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const mfa = hasVerifiedFactor(user);
   const isAdmin = context.role === "org_admin";
   const locations = locationsInScope(scope, context.locations);
+  const agents = await getOrgAgents(context.organization?.id ?? null);
 
   // Invitaciones pendientes: RLS solo se las enseña a un org_admin.
   let pendingInvitations = 0;
@@ -104,20 +105,26 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <h2 id="home-agents" className="font-semibold">
             {t("agents")}
           </h2>
-          <ul className="flex flex-col gap-2" data-testid="home-agents">
-            {AGENTS_NAV.map((agent) => (
-              <li key={agent.key}>
-                <Link
-                  href={withScope(agent.href, scopeParam)}
-                  className="flex items-center gap-3 rounded-lg border px-4 py-3 hover:bg-accent"
-                >
-                  <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", agent.dotClass)} />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{tAgents(agent.key)}</span>
-                  <span className="text-xs text-muted-foreground">{tAgentPage("notConfigured")}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {agents.length === 0 ? (
+            <p className="text-sm text-muted-foreground" data-testid="home-agents-empty">
+              {tAgentPage("noAgentsDescription")}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2" data-testid="home-agents">
+              {agents.map((agent) => (
+                <li key={agent.key}>
+                  <Link
+                    href={withScope(agent.href, scopeParam)}
+                    className="flex items-center gap-3 rounded-lg border px-4 py-3 hover:bg-accent"
+                  >
+                    <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", agent.dotClass)} />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{agent.label}</span>
+                    <span className="text-xs text-muted-foreground">{tAgentPage(`status.${agent.status}`)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section aria-labelledby="home-scope" className="flex flex-col gap-3">

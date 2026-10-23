@@ -77,7 +77,8 @@
   "sidebarEmpty": {
     "savedViews": "Aún no hay vistas guardadas.",
     "favorites": "Aún no hay favoritos.",
-    "recent": "Aún no hay actividad reciente."
+    "recent": "Aún no hay actividad reciente.",
+    "agents": "Sin agentes hasta que entres en una organización."
   },
   "home": {
     "greeting": "Hola, {name}",
@@ -368,15 +369,22 @@
   },
   "agentPage": {
     "title": "Agentes",
-    "intro": "Tu organización tiene cuatro agentes de serie. Cada uno se especializa según tu negocio y lo puedes activar, pausar y personalizar.",
-    "notConfigured": "Sin configurar",
+    "intro": "Los agentes de tu organización. Cada uno se especializa según tu negocio y lo puedes activar, pausar y personalizar.",
     "emptyTitle": "Aún no está configurado",
-    "emptyDescription": "Aquí verás su conversación, lo que ha hecho y lo que tiene pendiente. Llega con el catálogo de agentes: instrucciones, skills, canales y autonomía.",
+    "emptyDescription": "Aquí verás su conversación, lo que ha hecho y lo que tiene pendiente cuando empiece a trabajar: con sus instrucciones, skills, canales y autonomía.",
     "descriptions": {
       "reception": "Agenda y citas: crea, mueve y cancela citas, gestiona la lista de espera y los recordatorios, organiza recursos y salas y atiende la línea de teléfono del negocio.",
       "customer": "Atiende a tus clientes por WhatsApp, Instagram, email y la web: resuelve dudas e incidencias, gestiona reseñas y pasa a una persona lo que lo necesita.",
       "sales": "Capta y cualifica leads, lleva el CRM, prepara presupuestos, hace el seguimiento, recupera clientes y ejecuta las campañas que proponga el coach.",
       "admin": "Facturación a través de tu software, cobros, gastos, inventario y proveedores, documentos y la información que necesita tu gestoría."
-    }
+    },
+    "status": {
+      "draft": "Sin configurar",
+      "testing": "En pruebas",
+      "live": "Activo",
+      "paused": "En pausa"
+    },
+    "noAgentsTitle": "Aún no tienes agentes",
+    "noAgentsDescription": "Tus agentes aparecen cuando perteneces a una organización: acepta la invitación que te hayan enviado."
   }
 }

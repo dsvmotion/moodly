@@ -77,7 +77,8 @@
   "sidebarEmpty": {
     "savedViews": "No saved views yet.",
     "favorites": "No favorites yet.",
-    "recent": "No recent activity yet."
+    "recent": "No recent activity yet.",
+    "agents": "No agents until you join an organization."
   },
   "home": {
     "greeting": "Hi, {name}",
@@ -368,15 +369,22 @@
   },
   "agentPage": {
     "title": "Agents",
-    "intro": "Your organization has four built-in agents. Each one specializes in your business, and you can turn it on, pause it and customize it.",
-    "notConfigured": "Not configured",
+    "intro": "Your organization's agents. Each one specializes in your business, and you can turn it on, pause it and customize it.",
     "emptyTitle": "Not configured yet",
-    "emptyDescription": "Here you will see its conversation, what it has done and what it has pending. It arrives with the agent catalog: instructions, skills, channels and autonomy.",
+    "emptyDescription": "Here you will see its conversation, what it has done and what it has pending once it starts working: with its instructions, skills, channels and autonomy.",
     "descriptions": {
       "reception": "Scheduling: creates, moves and cancels appointments, manages the waiting list and reminders, organizes resources and rooms, and answers the business phone line.",
       "customer": "Serves your customers on WhatsApp, Instagram, email and the web: answers questions and issues, handles reviews and hands over to a person when needed.",
       "sales": "Captures and qualifies leads, keeps the CRM, prepares quotes, follows up, wins back customers and runs the campaigns the coach proposes.",
       "admin": "Invoicing through your own software, collections, expenses, inventory and suppliers, documents and the information your accountant needs."
-    }
+    },
+    "status": {
+      "draft": "Not configured",
+      "testing": "Testing",
+      "live": "Live",
+      "paused": "Paused"
+    },
+    "noAgentsTitle": "You have no agents yet",
+    "noAgentsDescription": "Your agents appear once you belong to an organization: accept the invitation you were sent."
   }
 }

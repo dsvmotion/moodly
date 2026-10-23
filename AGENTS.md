@@ -56,20 +56,22 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
+- Tests de integración de `tenantDb` (con Supabase levantado y el seed aplicado): `pnpm --filter @repo/db test:integration`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
+- Tests de la comprobación de configuración del despliegue a staging (`config-drift.sh`): `bash scripts/supabase/tests/config-drift.test.sh`
 - Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>`, o el procedimiento con el conector de GitHub (ver "Mergeo autónomo")
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
-- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`)
-- Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. Ese mismo despliegue aplica la configuración de `config.toml` (con su `[remotes.staging]`) al proyecto alojado con `supabase config push`, y falla si después queda alguna diferencia (`supabase config diff`). La web de staging la despliega Vercel desde `main`.
+- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`, la integración de `tenantDb` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/db test:integration` + `pnpm --filter @repo/web e2e`)
+- Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. Ese mismo despliegue aplica la configuración de `config.toml` (con su `[remotes.staging]`) al proyecto alojado con `supabase config push`, y falla si después queda alguna diferencia (`supabase config diff`), salvo las que el propio `config push` declara que no puede aplicar, que salen como aviso (`scripts/supabase/config-drift.sh`). La web de staging la despliega Vercel desde `main`.
 - Organización de demo y primer `org_admin` de staging (R-34): la persona crea su cuenta en el panel de Supabase (Authentication → Users → Add user, con su contraseña y el email confirmado) y lanza Actions → «Staging · organización de demo» → Run workflow con ese email (`.github/workflows/staging-demo.yml`, idempotente).
 
 ## Prohibido
 - Inventar credenciales, cuentas o proveedores de integración. Pídelos.
 - Aplicar migraciones o DDL a mano en un proyecto alojado (conector de Supabase, SQL editor, `db push` desde tu máquina): solo el CI migra staging y producción.
 - Usar la service role de Supabase en `apps/web` para datos de usuario.
-- Consultas del worker sin `organization_id` explícito.
+- Consultas del worker sin `organization_id` explícito. El worker accede a los datos de una organización solo con `createServiceDb().forOrganization(orgId)` (`@repo/db/service`); fuera de `packages/db` y `apps/web` nadie importa un cliente de Supabase (regla de lint y test estructural).
 - Desactivar RLS, saltarse tests o bajar umbrales de evals para que algo pase.
 - Escribir el nombre de la marca a mano (usa `BRAND_NAME`) o IDs de modelo LLM en código de negocio (usa `packages/config`).
 - Tomar `organization_id`, `location_id` o destinatarios de los argumentos que genera el LLM.

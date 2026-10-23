@@ -6,15 +6,15 @@
 // - Genera una contraseña nueva para cada usuario en cada ejecución y la
 //   escribe solo en packages/db/.seed/credentials.local.json (ignorado por
 //   git, permisos 0600). No se imprime por pantalla.
-import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { assertLocalSupabaseUrl } from "./local-only.ts";
+import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
+  seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
   seedLocations,
@@ -32,30 +32,6 @@ const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
 // ejecuciones para no invalidar apps/web/.env.local; `pnpm --filter @repo/web
 // env:local` las copia allí. Ignorado por git, permisos 0600.
 const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
-
-interface LocalSupabase {
-  apiUrl: string;
-  secretKey: string;
-  publishableKey: string;
-}
-
-function readLocalSupabase(): LocalSupabase {
-  const raw = execFileSync("supabase", ["status", "-o", "json"], {
-    cwd: packageRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  const status = JSON.parse(raw) as Record<string, string | undefined>;
-  const apiUrl = status["API_URL"];
-  const secretKey = status["SECRET_KEY"] ?? status["SERVICE_ROLE_KEY"];
-  const publishableKey = status["PUBLISHABLE_KEY"] ?? status["ANON_KEY"];
-  if (!apiUrl || !secretKey || !publishableKey) {
-    throw new Error("supabase status no devuelve API_URL/SECRET_KEY/PUBLISHABLE_KEY: ¿está levantado (pnpm db:start)?");
-  }
-
-  assertLocalSupabaseUrl(apiUrl);
-  return { apiUrl, secretKey, publishableKey };
-}
 
 function check(label: string, error: { message: string } | null): void {
   if (error) throw new Error(`${label}: ${error.message}`);
@@ -174,6 +150,26 @@ async function main(): Promise<void> {
     seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })),
   );
   check("locations", locations.error);
+
+  // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
+  // alta cada organización (20261023150000_agent_catalog).
+  const agentTypes = await admin.from("agent_types").upsert(
+    seedCustomAgentTypes.map((t) => ({
+      id: t.id,
+      organization_id: t.organizationId,
+      origin: "custom",
+      key: t.key,
+      name: t.name,
+      description: t.description,
+      color: t.color,
+    })),
+  );
+  check("agent_types", agentTypes.error);
+  const customAgents = await admin.from("agents").upsert(
+    seedCustomAgentTypes.map((t) => ({ organization_id: t.organizationId, agent_type_id: t.id })),
+    { onConflict: "organization_id,agent_type_id", ignoreDuplicates: true },
+  );
+  check("agents", customAgents.error);
 
   // Clave de servidor del freno del login (migración login_throttle): en la
   // base de datos solo se registra su hash.

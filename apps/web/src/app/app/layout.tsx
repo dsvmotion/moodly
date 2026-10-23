@@ -8,6 +8,7 @@ import { AppOrgSwitcher } from "@/components/app-org-switcher";
 import { AppScopeSwitcher } from "@/components/app-scope-switcher";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
+import { getOrgAgents } from "@/lib/agents-data";
 import { requireUser } from "@/lib/auth/session";
 import { parseSidebarCollapsed, parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
 import { getProfileName } from "@/lib/profile-data";
@@ -28,12 +29,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     getTranslations("records.roles"),
   ]);
   const { options, organizations, organization, role } = scopeContext;
+  // Del catálogo, con RLS (ADR 0030): la web no supone cuántos agentes hay.
+  const agents = await getOrgAgents(organization?.id ?? null);
 
   return (
     <AppFrame
-      topbar={<AppTopbar />}
+      agents={agents}
+      topbar={<AppTopbar agents={agents} />}
       sidebar={
         <AppSidebar
+          agents={agents}
           user={{
             name,
             email: user.email ?? "",

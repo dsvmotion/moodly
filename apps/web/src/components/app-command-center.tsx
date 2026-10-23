@@ -6,7 +6,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { CommandPalette, type CommandPaletteGroup } from "@repo/ui/components/command-palette";
 import { GlobalSearch } from "@repo/ui/components/global-search";
 import { cn } from "@repo/ui/lib/utils";
-import { AGENTS_NAV, MAIN_NAV, RECORDS_NAV, SETTINGS_SECTIONS, type NavItem } from "@/lib/navigation";
+import type { AgentView } from "@/lib/agents";
+import { MAIN_NAV, RECORDS_NAV, SETTINGS_SECTIONS, type NavItem } from "@/lib/navigation";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
 
 const CommandCenterContext = createContext<() => void>(() => {});
@@ -17,7 +18,7 @@ const CommandCenterContext = createContext<() => void>(() => {});
  * de teclado; la barra lateral (que en móvil se monta también en el menú) solo
  * pone el botón. Por ahora navega entre secciones conservando el alcance.
  */
-export function CommandCenterProvider({ children }: { children: ReactNode }) {
+export function CommandCenterProvider({ agents, children }: { agents: readonly AgentView[]; children: ReactNode }) {
   const t = useTranslations();
   const router = useRouter();
   const scope = useSearchParams().get(SCOPE_PARAM);
@@ -35,9 +36,9 @@ export function CommandCenterProvider({ children }: { children: ReactNode }) {
     { heading: t("command.navigation"), items: MAIN_NAV.map(toItem) },
     {
       heading: t("command.agents"),
-      items: AGENTS_NAV.map((agent) => ({
+      items: agents.map((agent) => ({
         id: `agent-${agent.key}`,
-        label: t(`nav.agentTypes.${agent.key}`),
+        label: agent.label,
         icon: <span aria-hidden="true" className={cn("size-2.5 rounded-full", agent.dotClass)} />,
         keywords: [agent.key, t("nav.agents")],
         onSelect: () => router.push(withScope(agent.href, scope)),
