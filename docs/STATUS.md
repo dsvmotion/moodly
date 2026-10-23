@@ -78,6 +78,11 @@
   - *tunnel* propio que solo reenvía a nuestro proyecto.
   - **Verificado en staging:** desde un Vercel Sandbox limitado a `staging.moodlycrm.com`, `GET /monitoring` da 405, un sobre de otro proyecto 400 y el nuestro 200. El evento llegó a Sentry (MOODLY-WEB-1, resuelto) con la IP del servidor de Vercel que reenvía, no la de una persona.
   - Coste: ~55 KB gzip de JavaScript por página; producto lo da por bueno (2026-10-23).
+- Mínimo privilegio y guarda de perfiles (R-20 y R-35):
+  - `authenticated` pierde los privilegios que no usa ninguna política: INSERT y DELETE en `organizations`, DELETE en `regions`, `locations` y `users`, e INSERT en `memberships` (las altas, solo por `accept_invitation`). Antes RLS los dejaba en 0 filas; ahora ni llegan a RLS (42501).
+  - Guarda `guard_fields` en `public.users`: desde la app, cada persona solo cambia su `full_name` y su `locale`. Prepara «Mi perfil» editable.
+  - Test estructural: ningún privilegio de `authenticated` en `public` sin una política que lo use. Así, una tabla nueva que olvide los revokes no pasa el CI.
+  - **Verificado en local:** pgTAP 471/471 (16 nuevos en `15_least_privilege`); prueba en negativo (devolver DELETE en `organizations` hace fallar 3 tests y quitar la guarda, otros 3); `db lint` limpio. Cambian 10 aserciones existentes, todas a algo igual o más estricto (explicado en el PR).
 - **Frontend y seguridad del 2026-10-23 (#61–#69), verificado sobre `main`** (`e1b27d5`): CI en verde en los 5 checks y despliegue a staging en verde (run 39924025758). La web de staging sirve ese commit.
 
 ## En curso
@@ -119,12 +124,12 @@
 - B5 · Higiene de staging (nuevo):
   - R-18: *previews* de Vercel sin claves de servidor y entorno `staging` de GitHub restringido a `main`;
   - R-19: plan de Vercel;
-  - R-20: revocar los privilegios que sobran a `authenticated`;
+  - R-20: revocar los privilegios que sobran a `authenticated`: hecho, con R-35 (guarda de `public.users`);
   - *log drain* y alertas.
 
 **Frontend — diseño real en staging** (`docs/audits/2026-10-23-auditoria-frontend.md`; cada incremento con sus e2e y sin datos inventados)
 1. Navegación canónica (F-1, F-5, F-6 y F-12): #61. Menú de usuario desplegable (F-4): siguiente PR.
-2. Ajustes como área P6 con navegación secundaria (F-3): PR siguiente al del menú. Después, «Mi perfil» editable, con una guarda de columnas en `public.users` (ADR 0003), junto a R-20.
+2. Ajustes como área P6 con navegación secundaria (F-3): PR siguiente al del menú. Después, «Mi perfil» editable: la guarda de columnas de `public.users` (R-35) ya está.
 3. Inicio P1 (F-2): PR siguiente al del login. Es el destino tras entrar.
 4. Login y MFA con marca y traducidos (F-7): PR siguiente al de Ajustes.
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.

@@ -81,7 +81,7 @@
 | R-17 | Paso 1 hecho (#68): el diff encontró 16 diferencias en el alojado. Paso 2 en curso: `config push` desde el despliegue, aprobado por producto. Sesiones sin caducidad hasta el plan Pro. |
 | R-18 | **Abierto, sube de prioridad** (R-36): (a) claves de servidor fuera de Preview; (b) entorno `staging` restringido a `main`. |
 | R-19 | Abierto: confirmar el plan de Vercel (producto). |
-| R-20 | Abierto: revocar los privilegios que sobran. Cambia aserciones de los tests de privilegios, así que irá en un PR explicado, con R-35. |
+| R-20 | Hecho, con R-35: revocados los privilegios sin política y test estructural para que no vuelvan. Cambian 10 aserciones existentes, todas a algo igual o más estricto (explicado en el PR). |
 | R-21, R-23, R-24 | Hecho (#66), con R-29. |
 | R-22 | Abierto: el token de la invitación, fuera de la query (con B4, los emails). |
 | R-25 | Corregido (proceso). |
