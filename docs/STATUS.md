@@ -62,11 +62,12 @@
   - `/app` deja de redirigir a General: es Inicio, el destino tras entrar;
   - solo datos reales: saludo, organización y rol; lo pendiente (segundo factor y, para quien administra, invitaciones sin aceptar); sus 4 agentes «Sin configurar»; las sedes de su alcance; y la bandeja del día vacía, que dice cuándo llega.
   - **Verificado en local:** e2e 116/116 (incluido axe de Inicio en claro y en oscuro).
-- Arreglos de seguridad de la auditoría (R-21, R-23 y R-24) — PR siguiente al de Inicio:
+- Arreglos de seguridad de la auditoría (R-21, R-23, R-24 y R-29) — PR siguiente al de Inicio:
   - R-21: desactivar el MFA pide el código actual, con el mismo freno que el login; una sesión aal2 robada ya no basta;
   - R-23: una caída de Auth o de la red (5xx o fallo de fetch) no cuenta como contraseña incorrecta en el freno;
-  - R-24: las cookies de preferencias y de organización activa salen con `Secure` cuando la petición llega por https.
-  - **Verificado en local:** e2e 116/116 y tests unitarios de `isTransient` y de las opciones de cookie.
+  - R-24: las cookies de preferencias y de organización activa salen con `Secure` cuando la petición llega por https;
+  - R-29 (nuevo, de la segunda pasada de la auditoría): las cookies de sesión de Supabase eran legibles desde JavaScript (valores por defecto de `@supabase/ssr`). Ahora son `httpOnly` (el navegador nunca habla con Supabase) y `Secure` por https.
+  - **Verificado en local:** e2e 117/117 con la base limpia (incluido un e2e nuevo: ninguna cookie es legible desde JavaScript) y tests unitarios de `isTransient` y de las opciones de cookie.
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -101,7 +102,7 @@
 - B3 · Auth y MFA de verdad:
   - R-16: hecho (#60).
   - Auth como código, R-17: `[remotes.staging]` y `supabase config diff`/`push` desde el CI, con registro cerrado, contraseñas, `site_url` y TOTP.
-  - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno) y R-24 (cookies `Secure`): PR siguiente al de Inicio.
+  - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno), R-24 (cookies `Secure`) y R-29 (cookies de sesión `httpOnly`): PR siguiente al de Inicio.
   - Cloudflare Turnstile.
 - B4 · Email transaccional con Resend (dominio de `moodlycrm.com` para staging, con SPF, DKIM y DMARC): las invitaciones llegan por email, con el token fuera de la query (R-22).
 - B5 · Higiene de staging (nuevo):

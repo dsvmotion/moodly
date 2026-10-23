@@ -13,3 +13,12 @@ export function isHttpsRequest(headers: Headers): boolean {
 export function appCookieOptions(https: boolean) {
   return { path: "/", maxAge: PREFERENCE_COOKIE_MAX_AGE, sameSite: "lax", httpOnly: true, secure: https } as const;
 }
+
+/**
+ * Cookies de sesión de Supabase (auditoría R-29): httpOnly, porque el navegador
+ * nunca habla con Supabase (connect-src 'self'; todo pasa por el servidor), y
+ * Secure por https. El resto, los valores por defecto de @supabase/ssr.
+ */
+export function sessionCookieOptions(https: boolean) {
+  return { httpOnly: true, secure: https } as const;
+}
