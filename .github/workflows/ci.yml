@@ -36,6 +36,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: Tests de la comprobación de configuración del despliegue
+        run: bash scripts/supabase/tests/config-drift.test.sh
       - run: pnpm build
 
   db:
