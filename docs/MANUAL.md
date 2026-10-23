@@ -67,7 +67,7 @@ Los cuatro comparten una **capa común de conocimiento y memoria del negocio** (
 
 **Tipos de agente como catálogo [DECIDIDO el principio]:** los tipos de agente se definen como datos (tabla `agent_types`), no como un valor fijo en el código. Los 4 anteriores son el catálogo inicial para empresas. Así el mismo runtime podrá servir en el futuro otros catálogos (por ejemplo, el agente personal del responsable) sin reescribir el núcleo.
 
-**Agentes y skills ampliables [DECIDIDO: producto, 2026-10-20; diseño PROPUESTO en el ADR 0030]:** además de los 4 de serie, habrá agentes de plantilla por vertical y **agentes propios** creados por cada organización (instrucciones + skills + canales + autonomía), todos sobre el mismo runtime, motor de políticas, memoria y coach. Las skills son de tres tipos (`code` de la plataforma, `composed` creadas por el cliente sin programar y `mcp` de integraciones conectadas) y **cualquier skill se añade a cualquier agente de forma individual**. Ningún código puede suponer que hay 4 agentes.
+**Agentes y skills ampliables [DECIDIDO: producto, 2026-10-20; diseño en el ADR 0030, aceptado el 2026-10-23]:** además de los 4 de serie, habrá agentes de plantilla por vertical y **agentes propios** creados por cada organización (instrucciones + skills + canales + autonomía), todos sobre el mismo runtime, motor de políticas, memoria y coach. Las skills son de tres tipos (`code` de la plataforma, `composed` creadas por el cliente sin programar y `mcp` de integraciones conectadas) y **cualquier skill se añade a cualquier agente de forma individual**. Ningún código puede suponer que hay 4 agentes.
 
 **Visión de fondo — prioridad máxima del producto [DECIDIDO]:** cada empresa tiene una IA que **conoce el negocio a fondo, entiende sus objetivos, aprende con el tiempo y las interacciones, hace el trabajo delegable y actúa como coach**, proponiendo mejoras y detectando debilidades. Se materializa en tres piezas del núcleo:
 
@@ -228,7 +228,7 @@ flowchart LR
 | Auth | Supabase Auth con email/magic link; SSO SAML/OIDC para cadenas | **[PROPUESTO]** | Verificar qué plan de Supabase incluye SSO antes de venderlo. |
 | Orquestación LLM | Vercel AI SDK | **[PROPUESTO]** | Tool-calling, streaming, salidas estructuradas y multi-proveedor sin framework pesado. |
 | Proveedores LLM | Enrutador multi-proveedor y multi-región: API directa, Bedrock, Vertex, Azure OpenAI y Mistral; claves de la plataforma, BYOK o modelos en la nube del cliente | **[DECIDIDO: ADR 0019]** | La residencia del procesamiento es una política por organización. Pendiente en piloto: AI Gateway y proveedor de embeddings. |
-| Ejecución duradera y colas | DBOS Transact (librería) sobre el mismo Postgres, esquema `dbos` | **[PROPUESTO: ADR 0027]** | Runs como workflows con pasos guardados, reanudación tras aprobaciones o caídas, colas con prioridad y concurrencia por tenant, y tareas programadas. Sustituye a pg-boss. Salida si no cumple: Temporal. |
+| Ejecución duradera y colas | DBOS Transact (librería) sobre el mismo Postgres, esquema `dbos` | **[DECIDIDO: ADR 0027, aceptado el 2026-10-23]** | Runs como workflows con pasos guardados, reanudación tras aprobaciones o caídas, colas con prioridad y concurrencia por tenant, y tareas programadas. Sustituye a pg-boss. Salida si no cumple: Temporal. |
 | Worker | Contenedor Node always-on (Fly.io o Railway, región UE) | **[PROPUESTO]** | Webhooks de canales, workflows de agentes y tareas programadas. El mismo contenedor sirve para celdas dedicadas y BYOC (ADR 0028). |
 | Hosting web | Vercel con funciones en región UE; imagen de contenedor (`output: "standalone"`) para celdas dedicadas | **[PROPUESTO: ADR 0028]** | Despliegues por PR y previews. Nada del núcleo depende de APIs exclusivas de Vercel. |
 | Integraciones | MCP (Model Context Protocol) cuando exista un servidor fiable; conector propio si no | **[PROPUESTO]** | Ampliar el catálogo rápido sin escribir cada API a mano. |
@@ -1141,7 +1141,7 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 | 18 | Si hace falta un agente de marketing propio o basta con el comercial | Catálogo de agentes | Producto |
 | 19 | Revisión legal de los avisos legales, fiscales y contables del coach (texto de descargo y responsabilidad) | Cumplimiento | Legal |
 | 20 | Proveedor de SSO y SCIM: Supabase SAML + SCIM propio, o WorkOS (ADR 0022) | Identidad enterprise | Producto + técnico |
-| 21 | Aceptar DBOS tras el *spike* del ADR 0027 (o pasar a Temporal) | Runtime | Técnico |
+| 21 | Aceptar DBOS tras el *spike* del ADR 0027 (o pasar a Temporal). **Decidido: DBOS** (ADR 0027 aceptado el 2026-10-23) | Runtime | Técnico |
 
 ---
 
@@ -1179,10 +1179,10 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | propuesto |
 | 0025 | Búsqueda vectorial con muchas empresas en un solo Postgres | propuesto |
 | 0026 | Un solo Postgres al principio: reparto de cargas, umbrales y celdas | propuesto |
-| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (*spike* superado el 2026-10-23; pendiente de aceptar) |
+| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | aceptado (2026-10-23, tras el *spike*) |
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
-| 0030 | Agentes y skills ampliables | propuesto |
+| 0030 | Agentes y skills ampliables | aceptado (2026-10-23) |
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
 
