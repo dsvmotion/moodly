@@ -12,6 +12,8 @@ export interface LocalSupabase {
   apiUrl: string;
   secretKey: string;
   publishableKey: string;
+  /** Postgres local con el rol postgres (solo para el seed: da login a dbos_worker). */
+  dbUrl: string;
 }
 
 export function readLocalSupabase(): LocalSupabase {
@@ -24,10 +26,12 @@ export function readLocalSupabase(): LocalSupabase {
   const apiUrl = status["API_URL"];
   const secretKey = status["SECRET_KEY"] ?? status["SERVICE_ROLE_KEY"];
   const publishableKey = status["PUBLISHABLE_KEY"] ?? status["ANON_KEY"];
-  if (!apiUrl || !secretKey || !publishableKey) {
-    throw new Error("supabase status no devuelve API_URL/SECRET_KEY/PUBLISHABLE_KEY: ¿está levantado (pnpm db:start)?");
+  const dbUrl = status["DB_URL"];
+  if (!apiUrl || !secretKey || !publishableKey || !dbUrl) {
+    throw new Error("supabase status no devuelve API_URL/SECRET_KEY/PUBLISHABLE_KEY/DB_URL: ¿está levantado (pnpm db:start)?");
   }
 
   assertLocalSupabaseUrl(apiUrl);
-  return { apiUrl, secretKey, publishableKey };
+  assertLocalSupabaseUrl(dbUrl);
+  return { apiUrl, secretKey, publishableKey, dbUrl };
 }

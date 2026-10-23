@@ -13,6 +13,15 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "env:local": "node scripts/local-env.ts",
+    "dev": "node --env-file=.env.local src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@dbos-inc/dbos-sdk": "5.2.11",
+    "pino": "10.4.0",
+    "zod": "4.6.5"
   }
 }

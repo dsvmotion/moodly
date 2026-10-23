@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import pg from "pg";
 import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
@@ -27,9 +28,10 @@ import {
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
-// Claves de servidor locales (p. ej. LOGIN_THROTTLE_KEY). Se reutilizan entre
-// ejecuciones para no invalidar apps/web/.env.local; `pnpm --filter @repo/web
-// env:local` las copia allí. Ignorado por git, permisos 0600.
+// Claves de servidor locales (p. ej. LOGIN_THROTTLE_KEY y la contraseña local de
+// dbos_worker). Se reutilizan entre ejecuciones para no invalidar los .env.local;
+// `pnpm --filter @repo/web env:local` y `pnpm --filter @repo/worker env:local`
+// las copian allí. Ignorado por git, permisos 0600.
 const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
 
 function check(label: string, error: { message: string } | null): void {
@@ -126,6 +128,26 @@ async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60
   throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
 }
 
+// Rol del worker (migración dbos_worker_role): nace sin login. En local, el
+// seed se lo da con una contraseña que se reutiliza entre ejecuciones, como las
+// claves de servidor, para no invalidar apps/worker/.env.local.
+async function enableWorkerDbLogin(dbUrl: string, password: string): Promise<void> {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    // ALTER ROLE no admite parámetros: format(%L) entrecomilla la contraseña.
+    const { rows } = await client.query<{ stmt: string }>(
+      "select format('alter role dbos_worker with login password %L', $1::text) as stmt",
+      [password],
+    );
+    const stmt = rows[0]?.stmt;
+    if (!stmt) throw new Error("no se pudo preparar el ALTER ROLE de dbos_worker");
+    await client.query(stmt);
+  } finally {
+    await client.end();
+  }
+}
+
 function readServerKeys(): Record<string, string> {
   if (!existsSync(serverKeysFile)) return {};
   return JSON.parse(readFileSync(serverKeysFile, "utf8")) as Record<string, string>;
@@ -160,7 +182,13 @@ async function main(): Promise<void> {
   });
   check("server_keys", registered.error);
   mkdirSync(dirname(serverKeysFile), { recursive: true });
-  writeFileSync(serverKeysFile, JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey }, null, 2), { mode: 0o600 });
+  const workerDbPassword = serverKeys.worker_db_password ?? randomBytes(24).toString("base64url");
+  await enableWorkerDbLogin(local.dbUrl, workerDbPassword);
+  writeFileSync(
+    serverKeysFile,
+    JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword }, null, 2),
+    { mode: 0o600 },
+  );
 
   const credentials: SeedCredential[] = [];
   const userIds = new Map<string, string>();
