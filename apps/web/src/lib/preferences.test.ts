@@ -41,7 +41,7 @@ describe("isActive", () => {
   });
 
   it("Ajustes coincide con cualquier subruta de /app/ajustes", () => {
-    expect(isActive("/app/ajustes/general", "/app/ajustes/general")).toBe(true);
-    expect(isActive("/app/ajustes/equipo", "/app/ajustes/general")).toBe(true);
+    expect(isActive("/app/ajustes/general", "/app/ajustes")).toBe(true);
+    expect(isActive("/app/ajustes/equipo", "/app/ajustes")).toBe(true);
   });
 });

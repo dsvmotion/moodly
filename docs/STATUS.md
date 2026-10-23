@@ -48,6 +48,11 @@
     - cerrar sesión.
   - No modal, como el selector de alcance; con teclado, el foco vuelve al botón al cerrarse.
   - **Verificado en local:** e2e 104/104 (incluido axe con el menú abierto); tests unitarios de las iniciales del avatar.
+- Ajustes como área propia (auditoría del frontend, F-3 y F-10) — PR siguiente al del menú:
+  - navegación secundaria con las 13 secciones de MANUAL §9.4 en 5 grupos (Personal, Equipo y permisos, Tu negocio, IA y conexiones, Seguridad), con migas «Ajustes/<sección>»;
+  - con datos: General, Miembros, Sedes, Seguridad y acceso, Mi perfil (nueva, de solo lectura: nombre, email, MFA, organizaciones y rol) y Preferencias (nueva: tema e idioma);
+  - las 7 pendientes dicen qué habrá y con qué llega, sin datos inventados; una sección inventada da 404.
+  - **Verificado en local:** e2e 109/109; test estructural (cada sección con contenido tiene su carpeta y las pendientes tienen sus textos en es/en).
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -93,7 +98,7 @@
 
 **Frontend — diseño real en staging** (`docs/audits/2026-10-23-auditoria-frontend.md`; cada incremento con sus e2e y sin datos inventados)
 1. Navegación canónica (F-1, F-5, F-6 y F-12): #61. Menú de usuario desplegable (F-4): siguiente PR.
-2. Ajustes como área P6 con navegación secundaria (F-3): General, Miembros, Sedes y Seguridad con datos; Mi perfil y Preferencias, nuevas; el resto, con un vacío que dice qué habrá.
+2. Ajustes como área P6 con navegación secundaria (F-3): PR siguiente al del menú. Después, «Mi perfil» editable, con una guarda de columnas en `public.users` (ADR 0003), junto a R-20.
 3. Inicio P1 (F-2) con lo que existe de verdad: organización, locales en alcance, invitaciones pendientes, MFA y los 4 agentes sin configurar.
 4. Login y MFA con marca y traducidos (F-7).
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.

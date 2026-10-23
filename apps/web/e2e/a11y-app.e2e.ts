@@ -34,6 +34,9 @@ for (const theme of ["light", "dark"] as const) {
         "/app/ajustes/equipo",
         "/app/agentes",
         "/app/agentes/reception",
+        "/app/ajustes/perfil",
+        "/app/ajustes/preferencias",
+        "/app/ajustes/roles",
       ]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

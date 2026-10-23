@@ -220,12 +220,82 @@
       "already": "You already belong to this organization."
     }
   },
-  "settingsTabs": {
+  "settings": {
     "label": "Settings",
+    "groups": {
+      "personal": "Personal",
+      "people": "Team and permissions",
+      "business": "Your business",
+      "ai": "AI and connections",
+      "security": "Security"
+    },
+    "sections": {
+      "profile": "My profile",
+      "preferences": "Preferences",
+      "privacy": "Privacy",
+      "team": "Members",
+      "roles": "Roles",
+      "organization": "General",
+      "locations": "Locations",
+      "plan": "Plan and usage",
+      "billing": "Billing",
+      "models": "AI models",
+      "integrations": "Integrations",
+      "security": "Security and access",
+      "audit": "Audit log"
+    },
+    "pending": {
+      "notYet": "Not available yet",
+      "arrives": "Arrives with {what}.",
+      "privacy": {
+        "description": "What data about you the platform keeps, downloading it and asking for it to be deleted.",
+        "what": "data export and deletion (GDPR)"
+      },
+      "roles": {
+        "description": "What each role (administration, region and location managers, staff) can see and do, and in which scope.",
+        "what": "the policy engine and the agents' autonomy caps"
+      },
+      "plan": {
+        "description": "Your plan, what you have used this month and its limits.",
+        "what": "usage metering and paid plans"
+      },
+      "billing": {
+        "description": "Billing details, payment method and invoices.",
+        "what": "paid plans"
+      },
+      "models": {
+        "description": "Which AI models each agent uses and in which region data is processed.",
+        "what": "the agent runtime"
+      },
+      "integrations": {
+        "description": "WhatsApp, email, calendar and the rest of your agents' connections.",
+        "what": "channels and integrations"
+      },
+      "audit": {
+        "description": "Who changed what and when in your organization: access, permissions and settings.",
+        "what": "the customer audit log"
+      }
+    }
+  },
+  "profilePage": {
+    "title": "My profile",
+    "account": "Account",
+    "name": "Name",
+    "noName": "(no name)",
+    "nameReadOnly": "It cannot be changed from here yet.",
+    "email": "Email",
+    "organizations": "Your organizations",
+    "noOrganizations": "You do not belong to any organization yet.",
     "organization": "Organization",
-    "security": "Security",
-    "team": "Members",
-    "locations": "Locations"
+    "role": "Role",
+    "mfa": "Two-step verification",
+    "mfaOn": "On",
+    "mfaOff": "Off",
+    "manageMfa": "Manage in Security and access"
+  },
+  "preferencesPage": {
+    "title": "Preferences",
+    "intro": "How you see the platform. Saved in this browser."
   },
   "security": {
     "title": "Security",

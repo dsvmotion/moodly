@@ -8,15 +8,28 @@ import {
   ActivityIcon,
   BarChart3Icon,
   BookOpenIcon,
+  BotIcon,
   BrainIcon,
+  Building2Icon,
   CheckSquareIcon,
   ContactIcon,
+  CreditCardIcon,
   HomeIcon,
   InboxIcon,
+  KeyRoundIcon,
+  LockIcon,
+  PlugIcon,
+  ReceiptIcon,
+  ScrollTextIcon,
   SettingsIcon,
+  ShieldIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
   StampIcon,
+  StoreIcon,
   TargetIcon,
+  UserIcon,
+  UsersIcon,
   type LucideIcon,
 } from "@repo/ui/lib/icons";
 
@@ -68,17 +81,88 @@ export const AGENTS_NAV: readonly AgentNavItem[] = AGENT_TYPES.map((agent) => ({
 }));
 
 export const SETTINGS_ROOT = "/app/ajustes";
-export const SETTINGS_NAV: NavItem = { key: "settings", href: `${SETTINGS_ROOT}/general`, icon: SettingsIcon };
+/** Entrada «Ajustes» de la barra lateral: /app/ajustes abre General y queda activa en todas las secciones. */
+export const SETTINGS_NAV: NavItem = { key: "settings", href: SETTINGS_ROOT, icon: SettingsIcon };
 
-/** Secciones de Ajustes con datos reales hoy (etiquetas en settingsTabs.<key>). */
-export const SETTINGS_SECTIONS = [
-  { key: "organization", href: `${SETTINGS_ROOT}/general` },
-  { key: "team", href: `${SETTINGS_ROOT}/equipo` },
-  { key: "locations", href: `${SETTINGS_ROOT}/sedes` },
-  { key: "security", href: `${SETTINGS_ROOT}/seguridad` },
+// Ajustes (P6, MANUAL §9.4): área propia con navegación secundaria agrupada,
+// como el prototipo. Etiquetas en settings.groups.<grupo> y
+// settings.sections.<sección>. `ready: false` = aún sin contenido: la página
+// dice qué habrá y con qué llega (settings.pending.<sección>).
+const SETTINGS_GROUP_DEFS = [
+  {
+    key: "personal",
+    sections: [
+      { key: "profile", slug: "perfil", icon: UserIcon, ready: true },
+      { key: "preferences", slug: "preferencias", icon: SlidersHorizontalIcon, ready: true },
+      { key: "privacy", slug: "privacidad", icon: ShieldIcon, ready: false },
+    ],
+  },
+  {
+    key: "people",
+    sections: [
+      { key: "team", slug: "equipo", icon: UsersIcon, ready: true },
+      { key: "roles", slug: "roles", icon: KeyRoundIcon, ready: false },
+    ],
+  },
+  {
+    key: "business",
+    sections: [
+      { key: "organization", slug: "general", icon: Building2Icon, ready: true },
+      { key: "locations", slug: "sedes", icon: StoreIcon, ready: true },
+      { key: "plan", slug: "plan", icon: CreditCardIcon, ready: false },
+      { key: "billing", slug: "facturacion", icon: ReceiptIcon, ready: false },
+    ],
+  },
+  {
+    key: "ai",
+    sections: [
+      { key: "models", slug: "modelos", icon: BotIcon, ready: false },
+      { key: "integrations", slug: "integraciones", icon: PlugIcon, ready: false },
+    ],
+  },
+  {
+    key: "security",
+    sections: [
+      { key: "security", slug: "seguridad", icon: LockIcon, ready: true },
+      { key: "audit", slug: "auditoria", icon: ScrollTextIcon, ready: false },
+    ],
+  },
 ] as const;
 
-export type SettingsSectionKey = (typeof SETTINGS_SECTIONS)[number]["key"];
+type SettingsSectionDef = (typeof SETTINGS_GROUP_DEFS)[number]["sections"][number];
+export type SettingsSectionKey = SettingsSectionDef["key"];
+
+export interface SettingsSection {
+  key: SettingsSectionKey;
+  slug: string;
+  href: string;
+  icon: LucideIcon;
+  ready: boolean;
+}
+
+export interface SettingsGroup {
+  key: (typeof SETTINGS_GROUP_DEFS)[number]["key"];
+  sections: readonly SettingsSection[];
+}
+
+export const SETTINGS_GROUPS: readonly SettingsGroup[] = SETTINGS_GROUP_DEFS.map((group) => ({
+  key: group.key,
+  sections: group.sections.map((section: SettingsSectionDef) => ({ ...section, href: `${SETTINGS_ROOT}/${section.slug}` })),
+}));
+
+/** Las 13 secciones, en el orden de la navegación. */
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = SETTINGS_GROUPS.flatMap((group) => group.sections);
+
+export function settingsSection(key: SettingsSectionKey): SettingsSection {
+  const section = SETTINGS_SECTIONS.find((candidate) => candidate.key === key);
+  if (!section) throw new Error(`Sección de Ajustes desconocida: ${key}`);
+  return section;
+}
+
+/** Sección por su tramo de URL (`/app/ajustes/<slug>`), o null. */
+export function settingsSectionBySlug(slug: string): SettingsSection | null {
+  return SETTINGS_SECTIONS.find((section) => section.slug === slug) ?? null;
+}
 
 /** ¿Es una clave de agente de serie? Para validar `/app/agentes/[tipo]`. */
 export function isAgentKey(value: string): value is AgentTypeKey {
@@ -88,6 +172,5 @@ export function isAgentKey(value: string): value is AgentTypeKey {
 /** ¿La ruta actual corresponde a esta entrada? /app solo coincide exacto. */
 export function isActive(pathname: string, href: string): boolean {
   if (href === "/app") return pathname === "/app";
-  if (href.startsWith(SETTINGS_ROOT)) return pathname === SETTINGS_ROOT || pathname.startsWith(`${SETTINGS_ROOT}/`);
   return pathname === href || pathname.startsWith(`${href}/`);
 }
