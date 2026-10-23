@@ -1,7 +1,7 @@
 # ROADMAP_ENTERPRISE — de agentes para centros de estética a plataforma de agentes para empresas
 
 **Fecha:** 23/10/2026 · **Autor:** Grok Bot, para Diego (producto) · **Base:** `main` en `b21b052` (incluye #83 y #84), PRs abiertos #80 y #82
-**Estado del documento:** guía de negocio y arquitectura, versión 3 (revisada con producto el 23/10/2026; el 24/10/2026 se añade el mapa del diseño del frontend, §5.0, a partir de `docs/design/design-review.md`). Según el ADR 0023 (jerarquía de fuentes), esto tiene rango de `docs/design/`: **no es una decisión** hasta que cada punto pase a un ADR aceptado o al `docs/MANUAL.md`. Donde dice **«ADR propuesto»** es un ADR que todavía hay que escribir.
+**Estado del documento:** guía de negocio y arquitectura, versión 4 (24/10/2026: añade el producto en cuatro equipos de agentes y el copiloto con modo coach, §1.5–1.6; verticales por plantilla, §1.7; tabla de arquitectura enterprise «decidir ya / preparado / se activa con», §1.8; épicas B19–B24 y C10, ADR propuesto 0046. La v3 añadió el mapa del diseño del frontend, §5.0). Según el ADR 0023 (jerarquía de fuentes), esto tiene rango de `docs/design/`: **no es una decisión** hasta que cada punto pase a un ADR aceptado o al `docs/MANUAL.md`. Donde dice **«ADR propuesto»** es un ADR que todavía hay que escribir.
 
 > **Cómo leer este documento.** Es una **hoja de ruta de servicios futuros y de necesidades clave de arquitectura**, no un corsé. Describe opciones, disparadores y decisiones reversibles para que escalar sea fácil cuando llegue el momento, **sin limitar lo que se construye ahora**. Solo hay una lista corta de **cimientos no negociables** (sección 1.4): controles de seguridad, aislamiento entre clientes, abstracción de modelos y residencia de datos / RGPD. Todo lo demás (herramientas, orden de los PRs, precios, nombres, fases) son **opciones** que se pueden cambiar si el desarrollo o el mercado lo aconsejan, dejando constancia en el STATUS o en un ADR.
 
@@ -105,6 +105,85 @@
 
 ---
 
+### 1.5 El producto: cuatro equipos de agentes y el copiloto (v4)
+
+Moodly no son «4 bots de WhatsApp»: son **cuatro equipos de agentes** que llevan el día a día del negocio de principio a fin, por **voz, WhatsApp, Instagram y email**, 24 h, conectados a su CRM, agenda, facturación y proveedores. Cada equipo corresponde a uno de los 4 tipos de serie que ya existen en el catálogo (`AGENT_TYPES` en `@repo/config`; `create_builtin_agents` crea los 4 en `draft` en cada organización nueva).
+
+| Equipo | Tipo de serie | Qué hace (de fábrica) | Skills e integraciones que necesita | Clase de efecto típica | Épicas |
+|---|---|---|---|---|---|
+| **Recepción** | `reception` | Reservar, mover y cancelar citas · recordatorio 24 h antes · **lista de espera automática** (ofrece el hueco liberado) · llamadas de voz fuera de horario | `BookingProvider` (Booksy, Treatwell, Fresha, Koibox, Mindbody, Google Calendar), voz (ADR propuesto 0045), WhatsApp con plantillas | `internal_write` / `external_message` | B1, B11, B17, B18, **B19** |
+| **Atención al cliente** | `customer` | Precios, horarios y aseguradoras · instrucciones antes de la cita · **deriva cualquier duda médica a una persona** (nunca consejo médico) · pide reseña tras la visita | `KnowledgeRetriever` (ADR propuesto 0037), memoria (ADR 0024), Google Business Profile para reseñas | `read` / `external_message` | A9, B2, **B20** |
+| **Comercial** | `sales` | Seguimiento de presupuestos · bonos y paquetes · reactivar clientes inactivos · cobros pendientes (aviso y enlace de pago) | `CrmProvider`, `PaymentProvider` (Stripe), segmentos de contactos | `external_message` / `financial` con aprobación | B7, B13, B14, **B21** |
+| **Administración** | `admin` | Facturas a clientes, aseguradoras y proveedores · cobros pendientes y suscripciones · **aviso de material bajo mínimos y gestión de stock** | `InvoicingProvider` (Holded, Sage, Quipu…), `PaymentProvider`, `InventoryProvider` (nuevo) | `financial` (siempre con aprobación hasta que el techo lo permita) | **B22**, C5, C9 |
+
+**Reglas comunes:** los cuatro equipos usan el mismo motor de políticas, la misma memoria y el mismo contacto en todos los canales; ninguno llama a un modelo directamente (enrutador, §3.1); cualquier efecto `financial` o de mensaje saliente pasa por los controles 3.3, 3.4 y 3.8 y por aprobación atada al hash. Lo que se activa en el piloto F0 es Recepción + Atención; Comercial y Administración entran en F1 (Administración es la que más toca zona financiera y, por tanto, la última en salir de `draft`).
+
+### 1.6 El copiloto de Moodly (y su modo coach)
+
+Por encima de los equipos está el **copiloto**: un agente con visión de **toda la plataforma** que ayuda a cada empresa a configurarlo y gestionarlo todo **desde dentro** (crear y ajustar agentes, conectar herramientas, revisar conversaciones, aprobar, explicar por qué un agente hizo algo). Su **modo coach** analiza los datos de la propia organización y **propone mejoras, detecta debilidades y señala oportunidades** (p. ej. «el 30 % de las llamadas perdidas son los sábados» es un ejemplo de formato, no un dato).
+
+Es la evolución del asistente del ADR 0029 (actúa **con los permisos del usuario**) y del coach del MANUAL §5.12 + bucle de aprendizaje (§3.7, ADR propuesto 0042). «Control total» se entiende **gobernado**:
+
+| Regla de gobierno | Cómo se cumple |
+|---|---|
+| Nunca más permisos que la persona que lo usa | El motor de políticas recibe al usuario que da la orden (control 3.6, ADR 0029); sin rol de servicio |
+| Leer es libre, cambiar se confirma | Cada cambio es una **propuesta** con vista previa (diff de configuración) que la persona confirma; las de zona financiera o de alcance de cadena exigen aprobación de un admin |
+| Todo queda auditado | Cada propuesta, confirmación y cambio en `audit_log` con el hash de lo aprobado y el actor real (persona + copiloto) |
+| Probar antes de publicar | Los cambios de agentes pasan por las evals del vertical y `agent_versions` (B15) con vuelta atrás en un clic |
+| El coach recomienda, no ejecuta | Las recomendaciones llevan evidencia (consulta y periodo) y se convierten en `proposals`; nunca cambia un agente solo |
+| Aislamiento | Solo datos de su organización; patrones agregados entre clientes solo anónimos y con k ≥ 5 (§3.6) |
+| Resistente a inyección | Lo que lee de conversaciones o MCP es dato, no instrucción (control 3.8); set de ataque específico del copiloto |
+
+Fases: **lectura y explicación en F1** (B9), **cambios confirmados en F2–F3** (B23, D9), **coach con datos internos en F1–F2** (B4, C7, B24), **copiloto de cadena** (comparativa entre sedes) en F2. Se fija en el **ADR propuesto 0046**.
+
+### 1.7 Verticales: muchas soluciones, un motor
+
+Como HeyDiga, Moodly se enseña **por sectores**; a diferencia de HeyDiga, cada sector es una **plantilla** sobre la misma plataforma (`agent_templates`, herencia con bloqueos 🟢), no un producto aparte.
+
+| Vertical | Qué cambia en la plantilla | Integración clave | Cuándo |
+|---|---|---|---|
+| **Centros de estética** (piloto) | Bonos y paquetes, lista de espera, reseñas | Booksy, Treatwell, Fresha, Koibox | **F0, piloto en Madrid** |
+| Gimnasios y estudios | Altas, bajas, reactivación, clases | Mindbody, sistemas propios | F1 (B7) |
+| Clínicas dentales y clínicas | Aseguradoras, instrucciones previas, derivación médica estricta | Software clínico | F1, **solo tras revisión legal** (B10, ADR propuesto 0043) |
+| Restaurantes | Reservas por voz, grupos, alérgenos derivados | TheFork, CoverManager | F1 (B12) |
+| Talleres | Presupuestos, aviso de coche listo, ITV | Software de taller / calendario | F1 (B12) |
+| Otros (fisioterapia, peluquerías, academias, inmobiliarias…) | Plantilla nueva sobre los mismos 4 equipos | La que use el cliente (MCP o nativa) | Por demanda |
+
+**El piloto de estética es la prueba, no el techo:** demuestra que los agentes hacen trabajo real y da los datos del bucle de aprendizaje. La web y el pitch pueden **mostrar** muchas verticales desde el principio; **activar** una exige sus evals en verde.
+
+### 1.8 Arquitectura enterprise: qué se decide ya, qué queda preparado y qué se activa con cada cliente
+
+Lo que hace a Langdock apto para empresas grandes no es usar cuatro nubes: es que el cliente **elige modelo y región, trae sus claves, conecta sus herramientas, tiene SSO y auditoría, y sus datos nunca se mezclan**. Casi todo eso ya está en los cimientos (RLS multi-tenant, organizaciones con regiones y sedes, auditoría, MFA, WorkOS decidido para SSO, agentes y skills extensibles, ADR 0030). Regla: **diseñar ya para empresas grandes, construir solo lo que pide el cliente que tenemos.**
+
+**Decidir ahora, sobre el papel (barato, evita reescrituras):**
+- **Enrutador de modelos propio** (§3.1, ADR 0019 + propuesto 0033): ningún agente llama a un proveedor; añadir Bedrock, Azure o Vertex es configuración.
+- **BYOK y residencia en el modelo de datos** (§3.2, propuestos 0034/0035): cada organización con proveedor, claves cifradas y región; activarlo es cosa de un cliente grande.
+- **Conectores como skills `mcp`** (§3.4, propuesto 0036): MCP es el estándar del sector (también Langdock) y da Salesforce, Jira o SAP sin atarse a Apigee.
+- **Conocimiento detrás de una interfaz común** (§3.5, propuesto 0037): pgvector hoy; Azure AI Search o Vertex/Agent Search mañana si un cliente lo exige.
+
+**Añadir cuando un cliente lo justifique:**
+- **Gateway de IA** (Vercel o Cloudflare): **pronto**, porque es barato y da caché, límites de gasto y respaldo.
+- **Bedrock, Vertex y Azure:** cuando un cliente diga «solo uso mi nube».
+- **Apigee, Vertex Pipelines, Agent Builder de Google:** solo si un cliente grande ya los tiene contratados.
+- **LangGraph y Firestore:** probablemente nunca; DBOS (ADR 0027) y Supabase ya cubren eso y duplicarían el sistema.
+
+| Pieza | 📝 Decidir ahora | 🧱 Preparado (columnas, interfaz, tests) | ⚡ Se activa con… | Pyme / autónomo (F0–F1) | Cadena multi-sede (F2) | Mid-market (F3) | Enterprise (F4) |
+|---|---|---|---|---|---|---|---|
+| Enrutador de modelos | ✔ ADR 0033 | `ModelRouter`, lint que prohíbe SDKs de proveedor | Primer agente (A6) | Modelos de Moodly, UE | Igual + topes por sede | Elección de modelo por organización | Modelos en su nube (E2) |
+| Gateway de IA | ✔ elección | Detrás del enrutador | Pronto (coste, caché) | ✔ | ✔ | ✔ | Opcional: el suyo |
+| BYOK | ✔ ADR 0034 | `org_model_settings`, secretos cifrados por KMS | Cliente que trae claves | — | — | ✔ claves de modelo (D3) | ✔ + clave de cifrado propia |
+| Residencia de datos | ✔ ADR 0035 | `region` por organización, región registrada por llamada | Cliente que la exige | UE por defecto | UE | Informe de residencia | Celda dedicada (E1) |
+| Conectores | ✔ ADR 0036 | `skills.kind = 'mcp'`, interfaces por tipo | Herramienta del cliente | Reservas, calendario, Stripe | + facturación, CRM | MCP propios del cliente (D5) | + Apigee/pasarela suya |
+| Conocimiento | ✔ ADR 0037 | `KnowledgeRetriever`, versión de embeddings | Índice externo del cliente | pgvector | pgvector | pgvector | Azure AI Search / Agent Search (E3) |
+| Identidad | 🔵 WorkOS | `accounts`, dominios | Cuestionario de seguridad | Email + MFA | Roles por sede (C1) | SSO/SCIM (D1) | + revisiones de acceso (E6) |
+| Agentes y skills propios | 🟢 ADR 0030 | `origin = 'custom'`, `kind = 'composed'` | Cliente que quiere crear | Plantillas del sector | Plantillas de cadena | Agentes propios (D4) | Agent Builder (E4) |
+| Copiloto | ✔ ADR 0046 | Permisos del usuario, `proposals`, auditoría | Desde F1 | Lectura + coach | Cambios confirmados, comparativa sedes | + gobierno por admin | + asistente de trabajo (E5) |
+| Ejecución duradera | 🔵 ADR 0027 (DBOS) | Esquema `dbos`, worker | Ya | ✔ | ✔ | ✔ | ✔ (sin LangGraph) |
+
+**El salto de negocio:** pasar de 4 agentes a **plataforma** = que el cliente cree sus agentes y skills (eso es Langdock) partiendo de plantillas por sector. Segmentos en orden: **autónomos y pymes → cadenas con muchas sedes** (el modelo de regiones y sedes ya está pensado para eso) **→ empresas medianas y grandes.**
+
+---
+
 ## 2. Segmentos y fases de negocio
 
 ### 2.1 Vista general
@@ -197,7 +276,7 @@ Las fases de negocio (F0–F4) no son las fases técnicas del MANUAL §17 (0–5
 | Agentes propios | El cliente crea los suyos con skills del catálogo | 🟢 `agent_types.origin = 'custom'` (el seed ya crea «Eventos») | F3 |
 | Skills `mcp` | Cada herramienta de un servidor MCP conectado se vuelve skill | 🟢 `skills.kind = 'mcp'` | F3 |
 | Skills `composed` | El cliente combina piezas sin programar | 🟢 `skills.kind = 'composed'`, `definition` jsonb | F4 |
-| Asistente | Punto de entrada único: dirige agentes, explica y configura | 🟡 ADR 0029 | Lectura en F2, cambios en F3, espacio de trabajo en F4 |
+| Copiloto (antes «asistente») | Punto de entrada único: dirige agentes, explica, configura y, en modo coach, propone mejoras (§1.6) | 🟡 ADR 0029 · ⚪ ADR propuesto 0046 | Lectura y coach en F1, cambios confirmados en F2–F3, espacio de trabajo en F4 |
 | Marketplace | Agentes y skills de terceros con revisión | 🟡 ADR 0030 fase 5 | Después de F4 |
 
 ### 2.8 Precios: hipótesis abiertas y qué medir para decidir
@@ -638,6 +717,12 @@ El PDF de diseño «Moodly AI-selection» (84 pantallas, revisado en `docs/desig
 | B16 | **App móvil sobre datos reales** (págs. 24–25): aprobar, chats, tomar el control y pausar agentes, con avisos *push* en la PWA | A13 | e2e móvil; aviso recibido en un iPhone real | Medio: *push* en iOS |
 | B17 | **Conectores de reservas del sector** (Booksy, Treatwell, Fresha, Koibox, Mindbody…; no están en el catálogo del diseño) por API, socio o MCP, el que use cada piloto | B1 | Cita creada y anulada en el sistema real sin duplicados | Alto: APIs cerradas |
 | B18 | **Plantillas y *opt-in* de WhatsApp** (pág. 78): estado de revisión de Meta sincronizado y consentimiento de contacto | A11 | Plantilla aprobada usada fuera de la ventana de 24 h; envío bloqueado sin *opt-in* | Bajo |
+| B19 | **Recepción completa:** recordatorio 24 h (workflow programado DBOS + plantilla WhatsApp), **lista de espera automática** que ofrece el hueco liberado por orden y caduca la oferta, y atención de voz fuera de horario | B1, B11, B18 | Hueco cancelado → ofrecido → reservado sin intervención; sin dobles reservas al reintentar | Medio |
+| B20 | **Atención al cliente:** aseguradoras y precios desde conocimiento, instrucciones previas a la cita, **derivación obligatoria de dudas médicas** a una persona y petición de reseña tras la visita | A9, B2 | Evals: cero consejo médico; reseña pedida solo tras cita completada y con consentimiento | Medio: legal en clínicas |
+| B21 | **Comercial:** seguimiento de presupuestos, venta de bonos y paquetes, reactivación de inactivos y recordatorio de cobros pendientes con enlace de pago | B13, B14 | Bono vendido y cobrado en prueba; mensajes salientes con *opt-in* | Medio |
+| B22 | **Administración:** `InvoicingProvider` (facturas a clientes, aseguradoras y proveedores en borrador), cobros pendientes y suscripciones (Stripe), `InventoryProvider` con **aviso de stock bajo mínimos** y propuesta de pedido a proveedor | A8, B13, C9 | Factura en borrador aprobada y emitida en el sistema del cliente; aviso de stock real; ninguna factura ni pedido sin aprobación | Alto: zona financiera |
+| B23 | **Copiloto v1 (gobernado):** acciones de configuración como `proposals` con diff y confirmación, actor doble en auditoría, set de ataque propio (ADR propuesto 0046) | B9, B15, controles 3.3/3.4/3.6/3.8 | Cero cambios sin confirmación; aprobación de admin en cambios financieros o de cadena | Medio |
+| B24 | **Modo coach del copiloto v0:** informe semanal con debilidades y oportunidades con evidencia (consulta y periodo), convertibles en propuestas | B4, B3 | Recomendación aceptada con impacto medido en el piloto | Bajo |
 
 ### Bloque C · Cadenas multi-sede (F2)
 
@@ -652,6 +737,7 @@ El PDF de diseño «Moodly AI-selection» (84 pantallas, revisado en `docs/desig
 | C7 | **Coach sobre datos internos** (MANUAL §5.12) con recomendaciones con evidencia | B3, B4 | Recomendaciones aceptadas con impacto medido | Medio |
 | C8 | **Voz saliente** (recordatorios y confirmaciones de servicio; campañas solo con consentimiento y números +34 400) y llamadas simultáneas por sede | B11 | Recordatorio real con resultado registrado; consentimientos respetados en las evals | Medio: legal y reputación del número |
 | C9 | **Facturación/ERP y helpdesk** (el que pida el primer cliente: Holded, Sage…; Zendesk, Freshdesk…) detrás de su interfaz, por MCP o nativo | A8, A12 | Acción real en el sistema del cliente con su clase de efecto y aprobación | Medio |
+| C10 | **Copiloto de cadena:** comparativa entre sedes, propuestas que la central aprueba y aplica por herencia con bloqueos | B23, C1 | Propuesta aplicada a N sedes con una aprobación, auditada por sede | Medio |
 
 ### Bloque D · Mid-market (F3)
 
@@ -703,6 +789,7 @@ Casi todas son **reversibles** (la recomendación es un punto de partida, no un 
 | ☐ | **Orden de integraciones** (MANUAL §13, §18 #7) | Reservas del sector, calendarios, pagos, CRM, facturación/ERP, helpdesk, espacio de trabajo (sección 3.15) | Reservas o calendario para el piloto; el resto, por disparador (lo que use el siguiente cliente) | B1 y siguientes | `packages/integrations` + ADR propuesto 0036 |
 | ☐ | **Stack de voz** (MANUAL §18 #9) | Cascada (LiveKit/Pipecat + STT + enrutador + TTS) o *speech-to-speech* (OpenAI Realtime u otro); plataforma gestionada para prototipos; telefonía Twilio, Telnyx u operador español | Decidir tras el *spike* A18 con latencia, calidad en español, residencia y coste por minuto medidos; reversible detrás de `RealtimeVoiceProvider` | B11 | ADR propuesto 0045 |
 | ☐ | **Sistema de reservas del piloto** (MANUAL §13) | Booksy, Treatwell, Fresha, Koibox, Google Calendar | El que use el centro piloto; Google Calendar como mínimo garantizado | B1 | ADR propuesto 0036 |
+| ☐ | **Alcance del copiloto** | Solo lectura; cambios confirmados; cambios autónomos | Lectura + coach en F1; cambios siempre confirmados (nunca autónomos) | B23 | ADR propuesto 0046 |
 | ☐ | **Aceptar o cerrar ADRs propuestos** | 0022 (resto), 0024, 0025, 0026, 0028, 0029 | Aceptar 0025 y 0026 con A5/A9; 0024 con B2; 0029 con B9; 0022 completo con D1; 0028 con E1 | Según la fila | MANUAL §19 |
 | ☐ | **Redactar los ADR «por redactar»** que este plan usa | 0004, 0007, 0008, 0009, 0012, 0013 | Redactarlos en el PR que los implanta (0008 con A8, 0009 con A3, 0007 con D5…) en vez de abrir números nuevos | Según la fila | `docs/adr/` |
 
@@ -737,6 +824,8 @@ Todos son **ADR propuesto**: hay que escribirlos con la plantilla `docs/adr/0000
 **ADR propuesto 0044 · Personalización por organización.** Decide qué puede cambiar cada organización sin código: marca (logo, color de acento con tokens, ADR 0018), nombre y tono de cada agente, plantilla del sector, idioma, horarios, reglas y límites, y qué está bloqueado por la central en cadenas (herencia, ADR 0005 por redactar). Todo es configuración en datos validada con Zod y versionada, nunca código por cliente. Consecuencia: «muy fácil de personalizar» sin ramas por cliente.
 
 **ADR propuesto 0045 · Voz como canal principal.** Fija la voz como canal de primer nivel y su arquitectura: un contacto y una memoria para todos los canales, la voz usando las mismas skills y el mismo motor de políticas, la capa `VoiceGateway`/`RealtimeVoiceProvider` detrás de la abstracción de modelos, y el servicio de tiempo real separado del worker de colas. Elige el stack inicial con los datos del *spike* A18 (latencia, español, residencia, coste) dejando las demás opciones como alternativas. Define los objetivos de latencia, el aviso de IA, la política de transcripción y grabación (sin audio por defecto, retención corta, base jurídica revisada por asesoría legal), el consentimiento para clonación de voz y para llamadas comerciales salientes, y cómo se miden y cobran los minutos (enlaza con el ADR propuesto 0039). Actualiza MANUAL §17 y §18 #9.
+
+**ADR propuesto 0046 · Copiloto de Moodly y modo coach.** Decide que el copiloto es la evolución del asistente del ADR 0029 y del coach (MANUAL §5.12, ADR propuesto 0042): actúa siempre con los permisos de la persona; leer es libre y todo cambio es una `proposal` con vista previa, confirmación y, en zona financiera o de alcance de cadena, aprobación de un admin; registra en `audit_log` el actor real (persona + copiloto) y el hash de lo aprobado; el modo coach solo recomienda con evidencia y nunca ejecuta; trata como dato (no instrucción) todo lo que lee (control 3.8); y fija sus evals (escalada, inyección, fuga entre organizaciones). Consecuencia: «control total de la plataforma» sin saltarse el motor de políticas.
 
 ---
 
