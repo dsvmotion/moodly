@@ -83,10 +83,11 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- Regiones y locales no se borran desde la app: se desactivan
 -- ---------------------------------------------------------------------------
-with d as (delete from public.locations where id = :loc_a3 returning 1)
-select is(count(*)::int, 0, 'org_admin A: no puede borrar locales (se desactivan)') from d;
-with d as (delete from public.regions where id = :region_a_s returning 1)
-select is(count(*)::int, 0, 'org_admin A: no puede borrar regiones') from d;
+-- Sin DELETE para authenticated (20261023130000): ni siquiera llega a RLS.
+select throws_ok(format('delete from public.locations where id = %L', :loc_a3), '42501', null,
+  'org_admin A: no puede borrar locales (se desactivan)');
+select throws_ok(format('delete from public.regions where id = %L', :region_a_s), '42501', null,
+  'org_admin A: no puede borrar regiones');
 
 -- El usuario dado de alta ya ve lo que le toca.
 reset role;

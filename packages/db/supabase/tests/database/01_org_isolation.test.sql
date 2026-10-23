@@ -62,11 +62,12 @@ select is(count(*)::int, 0, 'org_admin A: no puede modificar memberships de B') 
 with u as (update public.users set full_name = 'hackeado' where id = :b_admin returning 1)
 select is(count(*)::int, 0, 'org_admin A: no puede modificar perfiles de B') from u;
 
-with d as (delete from public.regions where organization_id = :org_b returning 1)
-select is(count(*)::int, 0, 'org_admin A: no puede borrar regiones de B') from d;
-
-with d as (delete from public.locations where organization_id = :org_b returning 1)
-select is(count(*)::int, 0, 'org_admin A: no puede borrar locales de B') from d;
+-- Regiones y locales no se borran desde la app: authenticated no tiene DELETE
+-- (20261023130000), así que ni siquiera llega a RLS.
+select throws_ok(format('delete from public.regions where organization_id = %L', :org_b), '42501', null,
+  'org_admin A: no puede borrar regiones de B');
+select throws_ok(format('delete from public.locations where organization_id = %L', :org_b), '42501', null,
+  'org_admin A: no puede borrar locales de B');
 
 with d as (delete from public.memberships where organization_id = :org_b returning 1)
 select is(count(*)::int, 0, 'org_admin A: no puede borrar memberships de B') from d;

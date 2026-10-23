@@ -224,7 +224,7 @@ select ok((select private.is_platform_staff()), 'platform_admin: is_platform_sta
 select ok((select private.is_platform_staff(array['platform_admin'])), 'platform_admin: is_platform_staff([platform_admin]) = true');
 select ok(not (select private.is_platform_staff(array['platform_operator'])), 'platform_admin: is_platform_staff([platform_operator]) = false');
 
-\set staff_write_expected 'array[''insert organizations: 42501'', ''insert regions: 42501'', ''insert locations: 42501'', ''insert memberships: 42501'', ''insert users: 42501'', ''update organizations: ok:0'', ''update regions: ok:0'', ''update locations: ok:0'', ''update memberships: ok:0'', ''update users: ok:0'', ''delete organizations: ok:0'', ''delete regions: ok:0'', ''delete locations: ok:0'', ''delete memberships: ok:0'', ''delete users: ok:0'']'
+\set staff_write_expected 'array[''insert organizations: 42501'', ''insert regions: 42501'', ''insert locations: 42501'', ''insert memberships: 42501'', ''insert users: 42501'', ''update organizations: ok:0'', ''update regions: ok:0'', ''update locations: ok:0'', ''update memberships: ok:0'', ''update users: ok:0'', ''delete organizations: 42501'', ''delete regions: 42501'', ''delete locations: 42501'', ''delete memberships: ok:0'', ''delete users: 42501'']'
 select is(pg_temp.staff_write_probe(), :staff_write_expected, 'platform_admin: ningún INSERT/UPDATE/DELETE en las 5 tablas de tenants');
 
 reset role;
@@ -323,11 +323,13 @@ select throws_ok(
   '23514', 'una cuenta del equipo interno (platform_staff) no puede tener memberships de tenants',
   'plataforma: no puede dar una membership a un interno'
 );
+-- Un org_admin no da altas directas (sin INSERT en memberships desde
+-- 20261023130000): solo por invitación, que pasa por la misma integridad.
 select pg_temp.login_mfa(:a_admin);
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
            values (%L, %L, 'staff', array[%L]::uuid[])$$, :p_admin, :org_a, :loc_a1),
-  '23514', 'una cuenta del equipo interno (platform_staff) no puede tener memberships de tenants',
+  '42501', null,
   'org_admin A: no puede dar de alta a un interno en su organización'
 );
 reset role;

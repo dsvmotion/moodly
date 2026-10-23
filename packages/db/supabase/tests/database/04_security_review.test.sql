@@ -75,32 +75,36 @@ select is(
 
 -- ===========================================================================
 -- 2a. Integridad: el alcance de una membership de A no puede apuntar a B
---     (trigger validate_scope), ni en alta ni en modificación.
+--     (trigger validate_scope), ni en alta ni en modificación. Las altas solo
+--     las hace la plataforma (accept_invitation; authenticated no tiene INSERT
+--     en memberships desde 20261023130000), y validate_scope actúa también
+--     para ella.
 -- ===========================================================================
-select pg_temp.login_mfa(:a_admin);
-
+reset role;
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
            values (%L, %L, 'location_manager', array[%L, %L]::uuid[])$$, :outsider, :org_a, :loc_a1, :loc_b1),
   '23503', null,
-  'org_admin A: alta con un local de B en el alcance → rechazada'
+  'plataforma: alta con un local de B en el alcance → rechazada'
 );
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_region_ids)
            values (%L, %L, 'region_manager', array[%L]::uuid[])$$, :outsider, :org_a, :region_b_c),
   '23503', null,
-  'org_admin A: alta con una región de B en el alcance → rechazada'
-);
-select throws_ok(
-  format('update public.memberships set scope_location_ids = array[%L]::uuid[] where user_id = %L', :loc_b1, :a_staff1),
-  '23503', null,
-  'org_admin A: modificar alcance a un local de B → rechazado'
+  'plataforma: alta con una región de B en el alcance → rechazada'
 );
 select throws_ok(
   format($$insert into public.memberships (user_id, organization_id, role, scope_location_ids)
            values (%L, %L, 'staff', array[%L]::uuid[])$$, :outsider, :org_a, gen_random_uuid()),
   '23503', null,
-  'org_admin A: alta con un local inexistente en el alcance → rechazada'
+  'plataforma: alta con un local inexistente en el alcance → rechazada'
+);
+
+select pg_temp.login_mfa(:a_admin);
+select throws_ok(
+  format('update public.memberships set scope_location_ids = array[%L]::uuid[] where user_id = %L', :loc_b1, :a_staff1),
+  '23503', null,
+  'org_admin A: modificar alcance a un local de B → rechazado'
 );
 
 -- ===========================================================================
@@ -210,6 +214,9 @@ alter table public.regions       enable trigger guard_immutable;
 alter table public.locations     enable trigger guard_immutable;
 alter table public.memberships   enable trigger guard_immutable;
 
+-- La guarda de public.users (guard_fields, R-35) frenaría antes el cambio de id:
+-- fuera mientras se comprueba el WITH CHECK.
+alter table public.users disable trigger guard_fields;
 select pg_temp.login(:outsider);
 select throws_like(
   format('update public.users set id = %L where id = %L', gen_random_uuid(), :outsider),
@@ -223,6 +230,7 @@ select throws_like(
 );
 
 reset role;
+alter table public.users enable trigger guard_fields;
 select is(
   (select count(*)::int from public.locations where organization_id = :org_b),
   1,
