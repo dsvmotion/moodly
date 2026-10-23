@@ -1,9 +1,9 @@
 name: Despliegue a staging
 
-# Migraciones de la base de datos de staging desde el CI, nunca a mano (STATUS,
-# fase B2), y diferencias de configuración del proyecto con config.toml. Corre cuando el CI termina en verde sobre main, con el commit exacto
-# que comprobó el CI, o a mano desde main (Actions → Despliegue a staging → Run
-# workflow).
+# Migraciones y configuración (Auth, API, base de datos) del proyecto de staging
+# desde el CI, nunca a mano (STATUS, fase B2; auditoría R-17). Corre cuando el
+# CI termina en verde sobre main, con el commit exacto que comprobó el CI, o a
+# mano desde main (Actions → Despliegue a staging → Run workflow).
 #
 # La web la despliega Vercel desde main por su cuenta, a la vez. Por eso cada
 # migración tiene que ser compatible con la versión anterior de la web
@@ -83,7 +83,21 @@ jobs:
         run: supabase migration list
 
       # Auth y el resto de la configuración del proyecto como código (auditoría
-      # R-17): lo que cambiaría `supabase config push` con config.toml y su
-      # [remotes.staging]. Solo lee; todavía no se aplica nada.
-      - name: Configuración, diferencias con staging (solo lectura)
+      # R-17), con config.toml y su [remotes.staging]: primero lo que va a
+      # cambiar (queda en el log), después se aplica y al final se comprueba
+      # que no queda ninguna diferencia.
+      - name: Configuración, diferencias con staging
         run: supabase config diff --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Aplicar configuración
+        run: supabase config push --project-ref "$SUPABASE_PROJECT_REF" --yes
+
+      # Las «local-only» son propiedades que la API no devuelve (p. ej.
+      # password_requirements): no se pueden comparar y no cuentan.
+      - name: Configuración, sin diferencias pendientes
+        run: |
+          supabase config diff --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee config-diff.txt
+          if grep -Eq '\[(update|remote-only)\]' config-diff.txt; then
+            echo "::error::La configuración de staging no coincide con config.toml después del push"
+            exit 1
+          fi

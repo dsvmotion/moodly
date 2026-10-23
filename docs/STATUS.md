@@ -33,14 +33,14 @@
   - `private.session_is_active()` exige aal2 a quien tiene un factor verificado. Con la contraseña sola ya no se lee nada por la API de Supabase; antes se leían la organización, los locales, las memberships y las invitaciones.
   - Cubre las 28 políticas y `accept_invitation` sin tocar ninguna.
   - **Verificado:** pgTAP 455/455 (23 nuevos en `14_mfa_reads`); prueba en negativo con la vuelta atrás (fallan 9 de 23); e2e `mfa-reads` contra Auth y PostgREST reales; CI del PR en verde en los 5 checks; CI de `main` (`0bb0daf`) en verde y migración aplicada en staging por el despliegue del CI (historial 9/9, igual al del repo) — 2026-10-23.
-- Navegación canónica del frontend (auditoría del frontend, incremento 1; F-1, F-5, F-6 y F-12) — este PR:
+- Navegación canónica del frontend (auditoría del frontend, incremento 1; F-1, F-5, F-6 y F-12) — #61:
   - rutas en español del ADR 0023 (`/app/conversaciones`, `/app/ajustes/general`…);
   - la sección Agentes con los 4 de serie y su ventana (`/app/agentes/[tipo]`), honesta: «Sin configurar»;
   - una entrada por destino: fuera los duplicados de Registros; Locales y Personas pasan a Ajustes (Sedes y Miembros);
   - logotipo en la barra lateral;
   - ⌘K pone la mejor coincidencia primero aunque esté en otro grupo. Antes, «sede» + Enter abría Administración, por un fallo de cmdk 1.1.1 al ordenar los grupos.
-  - **Verificado en local** sobre la rama al día con `main`: `pnpm check`, y e2e 103/103 contra Supabase local con las 9 migraciones (antes de los arreglos, 101/103, con 2 fallos reales). Falta el CI del PR y la verificación sobre `main`.
-- Menú de usuario (auditoría del frontend, F-4) — PR siguiente a #61:
+  - **Verificado en local** sobre la rama al día con `main`: `pnpm check`, y e2e 103/103 contra Supabase local con las 9 migraciones (antes de los arreglos, 101/103, con 2 fallos reales).
+- Menú de usuario (auditoría del frontend, F-4) — #62:
   - el pie de la barra lateral pasa de cuatro controles sueltos (tema, idioma, email y salir) a un desplegable con:
     - quién es (nombre y email) y su rol en la organización activa;
     - Seguridad de la cuenta y Ajustes de la organización;
@@ -48,30 +48,37 @@
     - cerrar sesión.
   - No modal, como el selector de alcance; con teclado, el foco vuelve al botón al cerrarse.
   - **Verificado en local:** e2e 104/104 (incluido axe con el menú abierto); tests unitarios de las iniciales del avatar.
-- Ajustes como área propia (auditoría del frontend, F-3 y F-10) — PR siguiente al del menú:
+- Ajustes como área propia (auditoría del frontend, F-3 y F-10) — #63:
   - navegación secundaria con las 13 secciones de MANUAL §9.4 en 5 grupos (Personal, Equipo y permisos, Tu negocio, IA y conexiones, Seguridad), con migas «Ajustes/<sección>»;
   - con datos: General, Miembros, Sedes, Seguridad y acceso, Mi perfil (nueva, de solo lectura: nombre, email, MFA, organizaciones y rol) y Preferencias (nueva: tema e idioma);
   - las 7 pendientes dicen qué habrá y con qué llega, sin datos inventados; una sección inventada da 404.
   - **Verificado en local:** e2e 109/109; test estructural (cada sección con contenido tiene su carpeta y las pendientes tienen sus textos en es/en).
-- Pantallas de acceso con marca y traducidas (auditoría del frontend, F-7) — PR siguiente al de Ajustes:
+- Pantallas de acceso con marca y traducidas (auditoría del frontend, F-7) — #64:
   - login y segundo paso (MFA) con logotipo, tarjeta centrada y componentes de `packages/ui`; al pie, «se entra por invitación de tu organización»;
   - en es y en; las acciones devuelven códigos de error que traduce el formulario, con los mismos textos en español que antes y el mismo mensaje genérico;
   - sin cambios en la lógica de acceso, el freno ni el MFA.
   - **Verificado en local:** e2e 113/113 (axe del login en claro y en oscuro, con el error visible, y del segundo paso).
-- Inicio (auditoría del frontend, F-2) — PR siguiente al del login:
+- Inicio (auditoría del frontend, F-2) — #65:
   - `/app` deja de redirigir a General: es Inicio, el destino tras entrar;
   - solo datos reales: saludo, organización y rol; lo pendiente (segundo factor y, para quien administra, invitaciones sin aceptar); sus 4 agentes «Sin configurar»; las sedes de su alcance; y la bandeja del día vacía, que dice cuándo llega.
   - **Verificado en local:** e2e 116/116 (incluido axe de Inicio en claro y en oscuro).
-- Arreglos de seguridad de la auditoría (R-21, R-23, R-24 y R-29) — PR siguiente al de Inicio:
+- Arreglos de seguridad de la auditoría (R-21, R-23, R-24 y R-29) — #66:
   - R-21: desactivar el MFA pide el código actual, con el mismo freno que el login; una sesión aal2 robada ya no basta;
   - R-23: una caída de Auth o de la red (5xx o fallo de fetch) no cuenta como contraseña incorrecta en el freno;
   - R-24: las cookies de preferencias y de organización activa salen con `Secure` cuando la petición llega por https;
   - R-29 (nuevo, de la segunda pasada de la auditoría): las cookies de sesión de Supabase eran legibles desde JavaScript (valores por defecto de `@supabase/ssr`). Ahora son `httpOnly` (el navegador nunca habla con Supabase) y `Secure` por https.
   - **Verificado en local:** e2e 117/117 con la base limpia (incluido un e2e nuevo: ninguna cookie es legible desde JavaScript) y tests unitarios de `isTransient` y de las opciones de cookie.
-- Higiene de desarrollo (segunda pasada de la auditoría, R-30, R-31 y R-32) — PR siguiente al de seguridad:
+- Higiene de desarrollo (segunda pasada de la auditoría, R-30, R-31 y R-32) — #67:
   - el seed vacía los fallos del freno de sus usuarios con TOTP: pasadas de e2e seguidas ya no dependen de las anteriores (prueba en negativo: sin el cambio, la tercera pasada falla);
   - `CHROMIUM_PATH` para Playwright (documentado en AGENTS.md);
   - fuera los textos huérfanos y test de paridad de claves es/en.
+- Configuración de staging como código, paso 1 (R-17) — #68: `[remotes.staging]` en `config.toml` y `supabase config diff` de solo lectura en el despliegue. El primer diff real encontró 16 diferencias en el alojado, entre ellas contraseñas de 6 caracteres sin requisitos, `site_url` en `localhost:3000`, sesiones sin caducidad, cambio de contraseña sin reautenticación, `graphql_public` expuesto y Twilio activado.
+- Errores a Sentry, región UE (B1b, ADR 0032) — #69:
+  - servidor y navegador, solo errores, sin datos personales: `dataCollection` apagado (la SDK 11 ya no tiene `sendDefaultPii`) y limpieza propia;
+  - *tunnel* propio que solo reenvía a nuestro proyecto.
+  - **Verificado en staging:** desde un Vercel Sandbox limitado a `staging.moodlycrm.com`, `GET /monitoring` da 405, un sobre de otro proyecto 400 y el nuestro 200. El evento llegó a Sentry (MOODLY-WEB-1, resuelto) con la IP del servidor de Vercel que reenvía, no la de una persona.
+  - Coste: ~55 KB gzip de JavaScript por página; producto lo da por bueno (2026-10-23).
+- **Frontend y seguridad del 2026-10-23 (#61–#69), verificado sobre `main`** (`e1b27d5`): CI en verde en los 5 checks y despliegue a staging en verde (run 39924025758). La web de staging sirve ese commit.
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22), con la del frontend (`2026-10-23-auditoria-frontend.md`) y la segunda pasada (`2026-10-23-auditoria-segunda-pasada.md`: R-29…R-36 y orden propuesto para la revisión con producto). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -89,7 +96,7 @@
 - **Primer usuario de staging (R-34):** decisión de producto sobre cómo crearlo (propuesta en la segunda pasada de la auditoría, §3). Sin él, el diseño de staging solo se ve hasta el login.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
 - Protección de la rama `main`: GitHub devuelve 403 en branch protection y rulesets en un repo privado del plan Free. Hace falta GitHub Pro/Team o hacer el repo público. Hasta entonces, «no mergear sin CI en verde» solo lo sostiene el proceso (AGENTS.md).
-- Datos reales de clientes: Supabase Free no tiene copias de seguridad. **Ningún dato real antes de Supabase Pro en la UE** con una restauración probada, la revisión humana reactivada y los DPAs firmados.
+- Datos reales de clientes: Supabase Free no tiene copias de seguridad ni caducidad de sesiones (en staging, una sesión no caduca nunca). **Ningún dato real antes de Supabase Pro en la UE** con una restauración probada, la caducidad de sesiones de `config.toml` aplicada, la revisión humana reactivada y los DPAs firmados. Producto sube el plan cuando haga falta (2026-10-23).
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical y cliente piloto (#3), AI Gateway y proveedor de embeddings (#5) y proveedor de KMS (#6). No bloquean la Fase 0.
 
 ## Próximo (plan de la auditoría del 2026-10-23)
@@ -101,11 +108,11 @@
 
 **Fase B — staging alojado y operación**
 - B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57).
-- B1b · Sentry: `@sentry/nextjs` 11 en servidor y navegador, solo errores, sin datos personales (`dataCollection` apagado y limpieza propia) y con *tunnel* propio que solo reenvía a nuestro proyecto (ADR 0032). Verificado en local con el DSN real hasta el tunnel. La llegada a Sentry se comprueba en staging tras el merge (el proxy del entorno del agente no deja salir a Sentry). Coste: ~55 KB gzip de JavaScript por página.
+- B1b · Sentry: hecho (#69) y verificado en staging.
 - B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
 - B3 · Auth y MFA de verdad:
   - R-16: hecho (#60).
-  - Auth como código, R-17, en dos pasos. **Paso 1**, hecho: `[remotes.staging]` en `config.toml` (`site_url` y redirecciones a `staging.moodlycrm.com`, frecuencia de emails por defecto) y `supabase config diff` de solo lectura en el despliegue a staging. **Paso 2**, tras leer ese diff en `main`: `config push` desde el CI y un `config diff --exit-code` que falle si queda alguna diferencia. Antes se decide qué hacer con lo que exige plan Pro (`[auth.sessions]`) o SMTP propio.
+  - Auth como código, R-17. **Paso 1**, hecho (#68). **Paso 2**, en curso (aprobado por producto, 2026-10-23): el despliegue aplica `config.toml` con `supabase config push` y falla si después queda alguna diferencia comparable. Staging conserva lo que tiene más estricto que local (confirmación de email, códigos de 8 cifras) y lo que depende de su instancia (pooler). Las sesiones siguen sin caducidad hasta el plan Pro.
   - R-21 (pedir el código para desactivar el MFA), R-23 (no contar los 5xx de Auth en el freno), R-24 (cookies `Secure`) y R-29 (cookies de sesión `httpOnly`): hecho (#66).
   - Cloudflare Turnstile.
 - B4 · Email transaccional con Resend (dominio de `moodlycrm.com` para staging, con SPF, DKIM y DMARC): las invitaciones llegan por email, con el token fuera de la query (R-22).
@@ -122,7 +129,7 @@
 4. Login y MFA con marca y traducidos (F-7): PR siguiente al de Ajustes.
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.
 
-**Fase D — runtime de agentes** (propuesta de la auditoría del 2026-10-23: antes que la C, salvo un cliente enterprise a la vista; decide producto)
+**Fase D — runtime de agentes**: antes que la C (WorkOS), aprobado por producto (2026-10-23), salvo que aparezca un cliente enterprise que necesite SSO
 - Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` con herencia y bloqueos (antes tarea 5; ADR 0030).
 - *Spike* de DBOS (ADR 0027) y worker en Railway (antes tarea 6).
 - Controles previos a la primera skill: `tenantDb(orgId)` con regla de lint (3.2), aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
