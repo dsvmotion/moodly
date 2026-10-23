@@ -116,6 +116,10 @@ async function enrollTotp(local: LocalSupabase, email: string, password: string)
   if (!enrolled.data) throw new Error(`mfa.enroll no devolvió el factor de ${email}`);
   const verified = await client.auth.mfa.challengeAndVerify({ factorId: enrolled.data.id, code: totp(enrolled.data.totp.secret) });
   check("mfa.verify", verified.error);
+  // Vacía los fallos del freno de este email (los suyos, como un login con
+  // éxito): pasadas de e2e seguidas no deben depender de las anteriores (R-30).
+  const cleared = await client.rpc("login_record_success");
+  check("login_record_success", cleared.error);
   const signOut = await client.auth.signOut({ scope: "local" });
   check("signOut", signOut.error);
   return enrolled.data.totp.secret;

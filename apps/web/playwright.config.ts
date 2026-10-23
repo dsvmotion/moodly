@@ -23,6 +23,9 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // Un Chromium ya instalado, si la versión de Playwright espera otra build
+    // (p. ej. en entornos sin descarga de navegadores): CHROMIUM_PATH=/ruta/al/chrome.
+    ...(process.env["CHROMIUM_PATH"] ? { launchOptions: { executablePath: process.env["CHROMIUM_PATH"] } } : {}),
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
