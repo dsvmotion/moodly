@@ -35,7 +35,8 @@ La plataforma no tenía logs estructurados, ni registro de errores del servidor,
    - **Solo errores:**
      - sin `tracesSampleRate`: con 0, la SDK seguiría propagando cabeceras de traza;
      - en el navegador, fuera `BrowserTracing`, `WebVitals` y `SpanStreaming` (la SDK de Next añade `BrowserTracing` aunque no haya muestreo), y `BrowserSession` (una sesión por página cargada). En el servidor la SDK añade `SpanStreaming` por su cuenta, pero sin muestreo no registra ni envía ninguna traza;
-     - sin *session replay*.
+     - sin *session replay*;
+     - `withSentryConfig` añade a cada página `<meta name="sentry-trace">` y `<meta name="baggage">`: identificador de traza, entorno, release y clave pública, sin datos personales. No se puede quitar con una opción, y une el error del navegador con el render del servidor que lo originó.
    - **Sin DSN (local, CI, e2e), Sentry no se activa** y `/monitoring` responde 404.
    - **Build:** `withSentryConfig` sin subir *source maps* ni crear releases (no hay token de Sentry en el build) y sin telemetría del plugin.
    - **Coste:** unos 55 KB gzip más de JavaScript en cada página (medido: 297 → 353 KB en total). Con Turbopack, el código de trazas no se elimina del bundle aunque no se use. Cargar la SDK en diferido lo quitaría de la carga inicial, pero perdería los errores de la hidratación; queda como opción si hace falta.
