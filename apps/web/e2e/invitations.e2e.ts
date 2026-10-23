@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
-import { totp } from "../../../packages/db/src/seed/totp";
-import { credentialsFor, signIn, withMfaLock } from "./helpers";
+import { apiToken, credentialsFor, signIn, supabasePublicEnv } from "./helpers";
 
 // Invitaciones con consentimiento (migración invitations). Usa solo Demo C y la
 // identidad sin organización del seed, para no cambiar lo que ven los demás
@@ -10,45 +9,12 @@ const GUEST_EMAIL = credentialsFor("guest_no_org").email;
 
 test.describe.configure({ mode: "serial" });
 
-function supabasePublicEnv(): { url: string; publishableKey: string } {
-  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
-  const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !publishableKey) throw new Error("Falta apps/web/.env.local: pnpm --filter @repo/web env:local");
-  return { url, publishableKey };
-}
-
-// Token aal2 del org_admin de Demo C: contraseña y después el código TOTP, como
-// en la app (sus cambios exigen MFA: migración admin_mfa).
-async function orgCAdminToken(request: APIRequestContext): Promise<string> {
-  const { url, publishableKey } = supabasePublicEnv();
-  const { email, password, totpSecret } = credentialsFor("c_org_admin");
-  if (!totpSecret) throw new Error("El seed no ha dado de alta el TOTP de c_org_admin: ejecuta pnpm db:seed");
-  return withMfaLock("c_org_admin", async () => {
-    const login = await request.post(`${url}/auth/v1/token?grant_type=password`, {
-      headers: { apikey: publishableKey },
-      data: { email, password },
-    });
-    expect(login.status()).toBe(200);
-    const session = (await login.json()) as { access_token: string; user: { factors?: { id: string; status: string }[] } };
-    const factor = session.user.factors?.find((f) => f.status === "verified");
-    if (!factor) throw new Error("c_org_admin no tiene un factor verificado");
-    const auth = { apikey: publishableKey, Authorization: `Bearer ${session.access_token}` };
-    const challenge = await request.post(`${url}/auth/v1/factors/${factor.id}/challenge`, { headers: auth });
-    expect(challenge.status()).toBe(200);
-    const verify = await request.post(`${url}/auth/v1/factors/${factor.id}/verify`, {
-      headers: auth,
-      data: { challenge_id: ((await challenge.json()) as { id: string }).id, code: totp(totpSecret) },
-    });
-    expect(verify.status()).toBe(200);
-    return ((await verify.json()) as { access_token: string }).access_token;
-  });
-}
-
 // Deja Demo C como la crea el seed: solo su org_admin y sin invitaciones
-// pendientes. Lo hace el propio org_admin con su JWT (RLS), como desde la app.
+// pendientes. Lo hace el propio org_admin con su JWT (RLS) y con el segundo
+// factor (sus cambios exigen MFA: migración admin_mfa), como desde la app.
 async function resetOrgC(request: APIRequestContext): Promise<void> {
   const { url, publishableKey } = supabasePublicEnv();
-  const token = await orgCAdminToken(request);
+  const token = await apiToken(request, "c_org_admin");
   const removed = await request.delete(`${url}/rest/v1/memberships?organization_id=eq.${ORG_C}&role=neq.org_admin`, {
     headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
   });

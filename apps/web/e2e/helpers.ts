@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { totp } from "../../../packages/db/src/seed/totp";
 
 // Credenciales que genera `pnpm db:seed` en cada ejecución (archivo local,
@@ -23,6 +23,13 @@ export function credentialsFor(key: string): SeedCredential {
   return user;
 }
 
+export function supabasePublicEnv(): { url: string; publishableKey: string } {
+  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
+  const publishableKey = process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !publishableKey) throw new Error("Falta apps/web/.env.local: pnpm --filter @repo/web env:local");
+  return { url, publishableKey };
+}
+
 export async function signIn(page: Page, key: string, next?: string): Promise<void> {
   const { email, password, totpSecret } = credentialsFor(key);
   const login = async () => {
@@ -34,6 +41,63 @@ export async function signIn(page: Page, key: string, next?: string): Promise<vo
     await expect(page.getByTestId("current-user")).toHaveText(email);
   };
   await (totpSecret ? withMfaLock(key, login) : login());
+}
+
+/** Token de solo contraseña (sesión aal1) de la API de Supabase Auth, y el factor TOTP verificado si lo hay. */
+export async function passwordToken(
+  request: APIRequestContext,
+  key: string,
+): Promise<{ token: string; factorId: string | null }> {
+  const { url, publishableKey } = supabasePublicEnv();
+  const { email, password } = credentialsFor(key);
+  const response = await request.post(`${url}/auth/v1/token?grant_type=password`, {
+    headers: { apikey: publishableKey },
+    data: { email, password },
+  });
+  expect(response.status()).toBe(200);
+  const session = (await response.json()) as { access_token: string; user: { factors?: { id: string; status: string }[] } };
+  const factor = session.user.factors?.find((f) => f.status === "verified");
+  return { token: session.access_token, factorId: factor?.id ?? null };
+}
+
+/** Verifica el código TOTP sobre una sesión aal1 y devuelve el token aal2. */
+export async function verifyTotpApi(request: APIRequestContext, key: string, token: string, factorId: string): Promise<string> {
+  const { url, publishableKey } = supabasePublicEnv();
+  const { totpSecret } = credentialsFor(key);
+  if (!totpSecret) throw new Error(`El seed no ha dado de alta el TOTP de ${key}: ejecuta pnpm db:seed`);
+  const auth = { apikey: publishableKey, Authorization: `Bearer ${token}` };
+  const challenge = await request.post(`${url}/auth/v1/factors/${factorId}/challenge`, { headers: auth });
+  expect(challenge.status()).toBe(200);
+  const verify = await request.post(`${url}/auth/v1/factors/${factorId}/verify`, {
+    headers: auth,
+    data: { challenge_id: ((await challenge.json()) as { id: string }).id, code: totp(totpSecret) },
+  });
+  expect(verify.status()).toBe(200);
+  return ((await verify.json()) as { access_token: string }).access_token;
+}
+
+/**
+ * Token de la API como lo obtiene la app: contraseña y, si la persona tiene el
+ * segundo factor, también el código (sesión aal2). Con MFA, la contraseña sola
+ * no lee datos (migración mfa_reads) ni administra (admin_mfa).
+ */
+export async function apiToken(request: APIRequestContext, key: string): Promise<string> {
+  if (!credentialsFor(key).totpSecret) return (await passwordToken(request, key)).token;
+  return withMfaLock(key, async () => {
+    const { token, factorId } = await passwordToken(request, key);
+    if (!factorId) throw new Error(`${key} no tiene un factor verificado`);
+    return verifyTotpApi(request, key, token, factorId);
+  });
+}
+
+/** Filas que devuelve la API REST de Supabase con ese token (RLS decide). */
+export async function restRows(request: APIRequestContext, token: string, path: string): Promise<unknown[]> {
+  const { url, publishableKey } = supabasePublicEnv();
+  const response = await request.get(`${url}/rest/v1/${path}`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+  });
+  expect(response.status()).toBe(200);
+  return (await response.json()) as unknown[];
 }
 
 /**
