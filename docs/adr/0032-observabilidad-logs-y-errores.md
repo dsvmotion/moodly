@@ -1,6 +1,6 @@
 # 0032 — Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) para errores
 
-- **Estado:** aceptado (logs y eventos); Sentry pendiente de que exista el proyecto
+- **Estado:** aceptado (logs, eventos y Sentry)
 - **Fecha:** 2026-10-22
 - **Secciones del MANUAL afectadas:** §3.2 (tabla del stack), §12
 - **Relación:** ADR 0031 (construir frente a adoptar), revisión de seguridad del 2026-10-20 (hallazgo 8.1), re-auditoría del 2026-10-22 (fase B1)
@@ -24,12 +24,21 @@ La plataforma no tenía logs estructurados, ni registro de errores del servidor,
    - `org.invitation_created|revoked|accepted`.
 
    Los fallos, los frenos y la desactivación de MFA van con nivel `warn`.
-5. **Errores con contexto: Sentry, en la región UE** (`de.sentry.io`):
-   - con *tunnel* propio, para no abrir la CSP (`connect-src 'self'`);
-   - `sendDefaultPii: false`, el mismo filtrado que los logs y sin *session replay*;
-   - solo errores al principio (`tracesSampleRate: 0`).
-
-   **Pendiente:** el conector no puede crear el proyecto (la organización no permite que sus miembros creen proyectos). Se integra cuando producto cree `moodly-web` o lo permita.
+5. **Errores con contexto: Sentry, en la región UE** (`de.sentry.io`, proyecto `moodly-ai/moodly-web`), con `@sentry/nextjs` 11 (`src/lib/observability/sentry.ts`):
+   - **Servidor:** `captureRequestError` en el mismo `onRequestError` que escribe `request.error`.
+   - **Navegador:** `instrumentation-client.ts`, por un *tunnel* propio (`POST /monitoring`), así que la CSP sigue en `connect-src 'self'`. El tunnel solo reenvía sobres con el DSN de nuestro proyecto, y la URL de ingesta se construye con el DSN esperado. El tunnel por *rewrite* de la SDK reenvía a cualquier proyecto de Sentry. Límite de 1 MiB, y fuera del proxy (llegan errores también desde el login).
+   - **Sin datos personales:**
+     - la SDK 11 lo recoge todo por defecto, y ya no tiene `sendDefaultPii`; `dataCollection` lo apaga todo: usuario e IP (`infer_ip: never`), cookies, cabeceras, cuerpos, query, variables y código de los frames;
+     - además, `beforeSend`/`beforeBreadcrumb`: de la petición, solo método y ruta; rutas de los contextos sin query; emails censurados en mensajes y excepciones; sin breadcrumbs de consola;
+     - sin `cause` encadenadas (`LinkedErrors`), como en los logs;
+     - un `satisfies` contra el tipo de `init` hace que una opción que la SDK no conoce no compile.
+   - **Solo errores:**
+     - sin `tracesSampleRate`: con 0, la SDK seguiría propagando cabeceras de traza;
+     - en el navegador, fuera `BrowserTracing`, `WebVitals` y `SpanStreaming` (la SDK de Next añade `BrowserTracing` aunque no haya muestreo), y `BrowserSession` (una sesión por página cargada). En el servidor la SDK añade `SpanStreaming` por su cuenta, pero sin muestreo no registra ni envía ninguna traza;
+     - sin *session replay*.
+   - **Sin DSN (local, CI, e2e), Sentry no se activa** y `/monitoring` responde 404.
+   - **Build:** `withSentryConfig` sin subir *source maps* ni crear releases (no hay token de Sentry en el build) y sin telemetría del plugin.
+   - **Coste:** unos 55 KB gzip más de JavaScript en cada página (medido: 297 → 353 KB en total). Con Turbopack, el código de trazas no se elimina del bundle aunque no se use. Cargar la SDK en diferido lo quitaría de la carga inicial, pero perdería los errores de la hidratación; queda como opción si hace falta.
 6. **OpenTelemetry y Langfuse** siguen propuestos: llegan con el worker y los agentes (fase D).
 
 ## Alternativas consideradas
@@ -51,3 +60,7 @@ La plataforma no tenía logs estructurados, ni registro de errores del servidor,
   - Se registran todos los tipos de evento.
   - En el log no aparece ningún email, contraseña ni secreto TOTP del seed, ninguna IP de los tests y ningún `token=`.
 - Con PostgREST parado y una URL con `?token=…`, `request.error` lleva la ruta sin la query y el mensaje genérico.
+- Sentry (2026-10-23):
+  - unitarios de la limpieza de eventos, las opciones y el tunnel, con pruebas de mutación de cada comparación del DSN;
+  - e2e: sin DSN, el tunnel da 404 y un error del navegador no se envía;
+  - prueba real con el DSN de staging en local. Un error del navegador con `?token=` en la URL y un email en el mensaje llega a `/monitoring` sin token, con el email censurado, sin consola, cookies ni IP, y con `infer_ip: never`. Un error del servidor sale igual de limpio, también en `contexts.nextjs`. El proxy del entorno del agente no deja salir a `ingest.de.sentry.io`, así que la llegada a Sentry se comprueba en staging.

@@ -37,6 +37,26 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
   expect(leaks).toEqual([]);
 });
 
+// Sentry (ADR 0032): sin DSN (local y CI) no se activa. El tunnel no existe y un
+// error del navegador no sale de la página.
+test("sin DSN de Sentry, el tunnel no existe y los errores del navegador no se envían", async ({ page, request }) => {
+  expect((await request.post("/monitoring", { data: "{}" })).status()).toBe(404);
+
+  const tunnel: string[] = [];
+  page.on("request", (sent) => {
+    if (new URL(sent.url()).pathname === "/monitoring") tunnel.push(sent.url());
+  });
+  await page.goto("/login");
+  await page.evaluate(() => {
+    setTimeout(() => {
+      throw new Error("error de prueba en el navegador");
+    }, 0);
+  });
+  // Lo que se enviaría saldría enseguida; se espera un poco para comprobar que no sale nada.
+  await page.waitForTimeout(1000);
+  expect(tunnel).toEqual([]);
+});
+
 // Auditoría R-29: el navegador no habla con Supabase, así que la sesión no
 // tiene por qué ser legible desde JavaScript (un XSS no podría llevársela).
 test("las cookies de sesión y de la app no se pueden leer desde JavaScript", async ({ page }) => {
