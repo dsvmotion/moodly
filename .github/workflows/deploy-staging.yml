@@ -89,15 +89,20 @@ jobs:
       - name: Configuración, diferencias con staging
         run: supabase config diff --project-ref "$SUPABASE_PROJECT_REF"
 
+      # La salida se guarda: el paso siguiente necesita saber qué propiedades
+      # declara config push que no puede aplicar.
       - name: Aplicar configuración
-        run: supabase config push --project-ref "$SUPABASE_PROJECT_REF" --yes
+        run: |
+          set -o pipefail
+          supabase config push --project-ref "$SUPABASE_PROJECT_REF" --yes 2>&1 | tee config-push.txt
 
-      # Las «local-only» son propiedades que la API no devuelve (p. ej.
-      # password_requirements): no se pueden comparar y no cuentan.
+      # Ninguna diferencia pendiente ([update] o [remote-only]) salvo las que
+      # config push acaba de declarar que no puede aplicar (p. ej.
+      # auth.sms.twilio.enabled), que salen como aviso. Las «local-only» son
+      # propiedades que la API no devuelve (p. ej. password_requirements): no se
+      # pueden comparar y no cuentan. Tests: scripts/supabase/tests.
       - name: Configuración, sin diferencias pendientes
         run: |
+          set -o pipefail
           supabase config diff --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee config-diff.txt
-          if grep -Eq '\[(update|remote-only)\]' config-diff.txt; then
-            echo "::error::La configuración de staging no coincide con config.toml después del push"
-            exit 1
-          fi
+          bash scripts/supabase/config-drift.sh config-push.txt config-diff.txt
