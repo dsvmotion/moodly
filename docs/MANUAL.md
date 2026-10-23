@@ -433,6 +433,7 @@ resolved = template.defaults
 - Si una clave está en `locked_keys` de un nivel, los niveles inferiores **no** pueden sobrescribirla. El intento se rechaza al guardar, no al resolver.
 - La resolución produce un `config_snapshot` inmutable con hash. Cada `agent_run` referencia su snapshot, de modo que cualquier ejecución pasada es reproducible y auditable.
 - Cambiar de versión de plantilla es una migración explícita por organización, nunca automática.
+- Implementado en `20261023170000_agent_config` (fase D2): las claves bloqueadas son rutas con puntos (`tone`, `messages.welcome`); bloquear una clave también protege lo que cuelga de ella, y reemplazar el objeto que la contiene cuenta como cambiarla. El bloqueo se comprueba al guardar en los dos sentidos (un nivel inferior no cambia lo bloqueado, y no se bloquea lo que un nivel inferior ya cambia), y la resolución tampoco aplica lo bloqueado aunque llegara a estar. La base es `{}` hasta que existan las plantillas (`agent_templates`). `private.snapshot_agent_config()` (solo la service role, para el worker) crea el snapshot o reutiliza el que tenga el mismo hash.
 
 ### 4.4 Aislamiento con RLS **[DECIDIDO el principio]**
 
