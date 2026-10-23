@@ -19,17 +19,21 @@
 - Seguridad de los cimientos, segunda tanda (fase A del plan, `docs/audits/2026-10-22-reauditoria-plan.md`): equipo interno con `audit_logs` de solo inserción y acceso JIT con MFA (#16), freno del login con clave de servidor (#36), invitaciones con consentimiento y fuera el alta directa de memberships (#37), organizaciones suspendidas sin acceso (#41), gitleaks arreglado (#47), mergeo autónomo sin revisión humana hasta el primer dato real (#48, #49) y next 16.4.2 contra dos avisos críticos de ejecución remota de código (#50). Verificado sobre `main` (`b15a62f`): pgTAP 406/406, `db lint` limpio, `pnpm check` 52/52 (1 aviso de lint ya existente en `@repo/ui`) y e2e 95/95 — 2026-10-22. Al verificar apareció un fallo intermitente del seed (contraseñas del equipo interno sin dígito, ~5 % de ejecuciones): corregido en el PR de la re-auditoría.
 - MFA obligatorio para administrar (fase A2 del plan; hallazgo 2.3, P0-6) — #53: toda escritura de `org_admin` y las inserciones del equipo interno en `audit_logs` exigen aal2 en RLS (test estructural incluido); `/login/mfa` tras la contraseña, con los códigos fallidos en el mismo freno que las contraseñas; `requireUser()` no deja pasar una sesión aal1 de quien tiene un factor; Ajustes → Seguridad para activar y desactivar el TOTP; los `org_admin` del seed salen con TOTP. Verificado en local sobre la rama al día con `main`: pgTAP 432/432 (26 nuevos), prueba en negativo con el rollback (fallan 19/26), `pnpm check` 52/52, e2e 97/97 dos veces seguidas; en el CI del PR; y sobre `main` (`d79d9e6`) tras el merge: pgTAP 432/432, `db lint` limpio, `pnpm check` 52/52 y e2e 98/98 — 2026-10-22. Encontrados por el camino dos comportamientos de Supabase Auth (verificaciones simultáneas que chocan y cierre de las sesiones aal1 al verificar): resueltos con reintentos en la app y con `withMfaLock()` en los e2e (re-auditoría R-15). En la revisión previa al merge apareció un fallo propio: entrar con la contraseña vaciaba también los fallos de códigos MFA (quien supiera la contraseña tenía 5 intentos nuevos cada 30 s); corregido, con un e2e que falla sin la corrección.
 - Higiene de la web y CI (fases A3 y A4 del plan): listas completas por páginas en lugar del corte silencioso de PostgREST en 1.000 filas (#54; probado contra PostgREST con 1.203 locales: la consulta normal devolvía 1.000), errores sin concatenar, GraphQL fuera de la API y `agentGuidance: false` en turbo (turbo 2.11.7 escribía en `AGENTS.md`) (#54); Actions al día en Node 24 (pnpm/action-setup 6.1.0, setup-cli v3.0.1, gitleaks-action v3.0.0) y caché de Playwright (#55); 11 dependencias menores (#51). Dependabot #42–#46 cerrados o sustituidos. Verificado sobre `main` (`d79d9e6`, con #53) — 2026-10-22.
-- Observabilidad, primera parte (fase B1; ADR 0032) — #57: logs JSON con pino en la salida estándar (censura de contraseñas, tokens, emails y cabeceras de sesión; seudónimos HMAC con `LOG_PSEUDONYM_KEY`), `request.error` por cada error del servidor (deduplicado por *digest*) y eventos de seguridad de login, MFA, invitaciones y organización. Verificado sobre `main` (`d067498`) tras el merge: pgTAP 432/432, `db lint` limpio, `pnpm check` 52/52 y e2e 100/100 — 2026-10-22. Sentry sigue bloqueado (ver «Bloqueado»).
+- Observabilidad, primera parte (fase B1; ADR 0032) — #57: logs JSON con pino en la salida estándar (censura de contraseñas, tokens, emails y cabeceras de sesión; seudónimos HMAC con `LOG_PSEUDONYM_KEY`), `request.error` por cada error del servidor (deduplicado por *digest*) y eventos de seguridad de login, MFA, invitaciones y organización. Verificado sobre `main` (`d067498`) tras el merge: pgTAP 432/432, `db lint` limpio, `pnpm check` 52/52 y e2e 100/100 — 2026-10-22. Sentry, en B1b.
+- Staging alojado (fase B2) — #58 y conectores:
+  - **Supabase:** `moodly-staging` (organización `dsvmotion`, Free, `eu-central-1`, Postgres 17, ref `sgeswmdqstonegceusej`), con las 8 migraciones del repo:
+    - las 4 primeras, aplicadas con el conector antes de recordar que B2 exige el CI; se verificó por MD5 que el SQL es idéntico al del repo y se alineó el historial;
+    - las otras 4, aplicadas por el primer despliegue del CI.
+  - **CI → staging:** `.github/workflows/deploy-staging.yml` corre `supabase db push` tras el CI verde de `main`, con el commit exacto. Usa los secretos del entorno `staging` de GitHub.
+  - **Vercel:** proyecto `moodly-staging` (`fra1`, Node 24, turbo con typecheck) sirve `main` en `staging.moodlycrm.com`, con CNAME en Hostinger.
+  - **Login:** clave del freno registrada (solo el hash); registro público cerrado a mano por producto.
+  - **Verificado:** CI de `main` (`872e1c8`) en verde en los 5 checks; despliegue a staging en verde (run 39871956506); historial de staging igual al del repo; `/login` en staging responde con la CSP con nonce y las cabeceras de seguridad; sin errores de ejecución en Vercel. Avisos de Supabase revisados (solo los esperados).
+  - **Falta:** el primer usuario de staging, para probar el login de punta a punta allí — 2026-10-23.
 
 ## En curso
-- **Staging (fase B2), en marcha (2026-10-22):**
-  - **Dominio (decisión de producto):** staging en `staging.moodlycrm.com`. Producción irá directamente en `moodly.com` cuando esté lista, así que no hay mudanza: `moodlycrm.com` se queda para staging, y estrenar `moodly.com` solo pide darlo de alta en Vercel y en Resend.
-  - **Supabase:** proyecto `moodly-staging` en la organización `dsvmotion` (plan Free, `eu-central-1`, Postgres 17, ref `sgeswmdqstonegceusej`). Las 4 primeras migraciones se aplicaron con el conector antes de recordar que B2 exige el CI. Se comprobó que el SQL aplicado es idéntico byte a byte a los archivos del repo (mismo MD5) y se alineó el historial con sus versiones, así que desde ahora solo migra el CI. Las otras 4 (`login_throttle`, `org_status`, `invitations`, `admin_mfa`) las aplicará el primer despliegue del CI.
-  - **CI → staging:** `.github/workflows/deploy-staging.yml` aplica las migraciones (`supabase db push`) cuando el CI termina en verde sobre `main`, con el commit exacto que comprobó el CI, o a mano desde Actions. Necesita dos secretos del entorno `staging` de GitHub que solo puede poner producto (ver «Bloqueado»).
-  - **Vercel:** proyecto `moodly-staging` (equipo de Diego) enlazado a este repo, raíz `apps/web`, Node 24, funciones en `fra1`, compilación con `turbo run build --filter=@repo/web` (incluye el typecheck). Variables en Production y Preview: URL y clave publicable de Supabase, `ENABLE_EXPERIMENTAL_COREPACK=1` (pnpm 11) y, como *sensitive*, `LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY`. Estas dos las generó el agente solo para staging: **se rotan antes de cualquier dato real, y las de producción las genera una persona directamente en Vercel**.
-  - **DNS:** CNAME `staging` → Vercel en la zona de `moodlycrm.com` (Hostinger). En esa zona ya están los registros de Resend (DKIM y `send`), útiles para B4.
-  - **Falta:** los secretos del CI, el primer despliegue y su verificación de extremo a extremo, registrar el hash de `LOGIN_THROTTLE_KEY` cuando exista `register_server_key`, y la configuración de Auth del proyecto alojado (B3: `site_url`, URLs de vuelta, registro cerrado, TOTP, contraseñas).
-- **Plan vigente:** `docs/audits/2026-10-22-reauditoria-plan.md` (re-auditoría del 2026-10-22, fases A–E). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
+- **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
+- **Dominio (decisión de producto, 2026-10-22):** staging en `staging.moodlycrm.com`. Producción irá directamente en `moodly.com` cuando esté lista, así que no hay mudanza: `moodlycrm.com` se queda para staging, y estrenar `moodly.com` solo pide darlo de alta en Vercel y en Resend.
+- **Claves de servidor de staging** (`LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY`, *sensitive* en Vercel): las generó el agente solo para staging. **Se rotan antes de cualquier dato real, y las de producción las genera una persona directamente en Vercel.**
 - **Mergeo sin revisión humana (decisión de producto, 2026-10-22):** mientras no haya datos reales de clientes, el agente mergea sus PRs, también los sensibles, con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md → «Mergeo autónomo»). La lista de zonas sensibles completa se guarda en `scripts/merge-guard/sensitive-paths.suspended.txt`.
   - **Condición de salida a producción (bloqueante):** antes de meter el primer dato real de un cliente, reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (copiar esas líneas a `sensitive-paths.txt`), hacer que el job `sensitive-paths` lea la lista de la rama base y no de la del PR, y proteger `main` en GitHub.
 - **Dependabot:** sin PRs abiertos. Ojo: los comandos `@dependabot …` escritos desde el conector de GitHub no le llegan (el conector los escapa); para actualizarlos, un PR propio con los mismos commits fijados.
@@ -38,14 +42,15 @@
 - **Cuentas creadas por producto (2026-10-22):** Vercel Pro, Supabase, Railway, Cloudflare, WorkOS, Sentry, Meta for Developers, Resend, GitHub y dominios en Hostinger. Estado de cada una en la re-auditoría §2.4. Las claves van siempre en el gestor de secretos del proveedor o en un `.env` local, nunca en el chat ni en el repo.
 
 ## Bloqueado
-- **Sentry (B1):** el conector sigue sin poder crear proyectos (403: la organización no deja que sus miembros los creen). Producto crea el proyecto `moodly-web` (Projects → Create Project → Next.js, equipo `dsv-cbd-lab-sl`) o activa «Let Members Create Projects» (Settings → General → Members). Con el proyecto creado, el agente lee el DSN y hace la integración.
-- **Secretos del despliegue a staging (B2):** en GitHub → Settings → Environments → `staging`, dos secretos: `SUPABASE_ACCESS_TOKEN` (Supabase → Account → Access Tokens) y `SUPABASE_DB_PASSWORD` (Supabase → `moodly-staging` → Project Settings → Database → Reset database password; el proyecto lo creó el conector y nadie conoce la contraseña actual). Se pegan directamente en GitHub, nunca en el chat.
+- **Código en la sesión del agente (R-26):** el plugin Semgrep Guardian no puede conectarse (el proxy del entorno bloquea sus dominios) y, sin sesión iniciada, bloquea las ediciones de código y las instalaciones de paquetes. Producto lo desactivó en claude.ai, pero sigue cargado hasta que la sesión vuelva a arrancar. Bloquea Sentry (B1b) y la configuración de Auth como código (B3). El proyecto `moodly-ai/moodly-web` ya existe en Sentry y su DSN está en Vercel.
+- **Plan de Vercel (R-19):** la API de logs respondió como plan Hobby (retención de 1 h). Producto confirma si el equipo `diegosanjuan` es Pro; si no, se mueve el proyecto al equipo Pro (Hobby no permite uso comercial ni *log drains*).
+- **Primer usuario de staging:** decisión de producto sobre cómo crearlo (propuesta en la auditoría del 2026-10-23, §5).
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
 - Protección de la rama `main`: GitHub devuelve 403 en branch protection y rulesets en un repo privado del plan Free. Hace falta GitHub Pro/Team o hacer el repo público. Hasta entonces, «no mergear sin CI en verde» solo lo sostiene el proceso (AGENTS.md).
 - Datos reales de clientes: Supabase Free no tiene copias de seguridad. **Ningún dato real antes de Supabase Pro en la UE** con una restauración probada, la revisión humana reactivada y los DPAs firmados.
 - Fase 1 depende de decisiones abiertas (MANUAL §18): vertical y cliente piloto (#3), AI Gateway y proveedor de embeddings (#5) y proveedor de KMS (#6). No bloquean la Fase 0.
 
-## Próximo (plan de la re-auditoría del 2026-10-22)
+## Próximo (plan de la auditoría del 2026-10-23)
 **Fase A — cerrar la seguridad de los cimientos**
 - A2 · MFA obligatorio para administrar: hecho (#53). Quedan códigos de recuperación y alertas al desactivar MFA (con B1).
 - A3 · Higiene de la web: hecho (#54 paginación, errores y GraphQL; #56 organización activa y Zod). **Fase A cerrada**: verificado sobre `main` (`0974d31`) pgTAP 432/432, `pnpm check` 52/52 y e2e 100/100 — 2026-10-22.
@@ -53,19 +58,30 @@
 - Pendientes menores de la fase: traducir la página de login, Inicio (P1) como destino tras el login, `location_manager` que invita en sus locales, alta de la cuenta de Auth de quien aún no la tiene (llega con WorkOS).
 
 **Fase B — staging alojado y operación**
-- B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57). **Sentry bloqueado** (ver «Bloqueado»). Las alertas se configuran con el proveedor de logs del staging.
-- B2 · Staging: Supabase en la UE y Vercel (`fra1`) en `staging.moodlycrm.com`, con migraciones desde el CI (`supabase db push`), nunca a mano. En marcha (ver «En curso»).
-- B3 · Auth de producción (antes 3c-2) en el proyecto alojado: límites de intentos, `jwt_expiry`, sesiones (el *timebox* necesita Pro), Cloudflare Turnstile y `LOGIN_THROTTLE_KEY` registrada.
-- B4 · Email transaccional con Resend (dominio con SPF, DKIM y DMARC): las invitaciones llegan por email.
+- B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57).
+- B1b · Sentry: `@sentry/nextjs` con *tunnel* propio, sin datos personales y sin *replay*. Bloqueado por R-26.
+- B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
+- B3 · Auth y MFA de verdad:
+  - **R-16 primero (alta):** el MFA no protege las lecturas en la capa de datos. Con la contraseña sola (aal1) se lee por REST todo lo de sus organizaciones; comprobado en local. Arreglo: `session_is_active()` exige aal2 a quien tiene un factor verificado.
+  - Auth como código, R-17: `[remotes.staging]` y `supabase config diff`/`push` desde el CI, con registro cerrado, contraseñas, `site_url` y TOTP.
+  - R-21 (pedir el código para desactivar el MFA) y R-23 (no contar los 5xx de Auth en el freno).
+  - Cloudflare Turnstile.
+- B4 · Email transaccional con Resend (dominio de `moodlycrm.com` para staging, con SPF, DKIM y DMARC): las invitaciones llegan por email, con el token fuera de la query (R-22).
+- B5 · Higiene de staging (nuevo):
+  - R-18: *previews* de Vercel sin claves de servidor y entorno `staging` de GitHub restringido a `main`;
+  - R-19: plan de Vercel;
+  - R-20: revocar los privilegios que sobran a `authenticated`;
+  - *log drain* y alertas.
 
-**Fase C — identidad enterprise**
-- *Spike* de WorkOS (ADR 0022) contra su entorno Staging: login, MFA, SSO de prueba, revocación inmediata y los tests de aislamiento en verde.
-
-**Fase D — runtime de agentes**
+**Fase D — runtime de agentes** (propuesta de la auditoría del 2026-10-23: antes que la C, salvo un cliente enterprise a la vista; decide producto)
 - Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` con herencia y bloqueos (antes tarea 5; ADR 0030).
 - *Spike* de DBOS (ADR 0027) y worker en Railway (antes tarea 6).
 - Controles previos a la primera skill: `tenantDb(orgId)` con regla de lint (3.2), aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
+- Primera pieza de la prioridad del producto: memoria con procedencia (ADR 0024) y objetivos.
+
+**Fase C — identidad enterprise**
+- *Spike* de WorkOS (ADR 0022) contra su entorno Staging: login, MFA, SSO de prueba, revocación inmediata y los tests de aislamiento en verde.
 
 **Fase E — canales e integraciones**
 - WhatsApp Cloud API (ADR 0020) con webhooks firmados (7.1); OAuth (7.2).
