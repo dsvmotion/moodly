@@ -105,4 +105,5 @@ jobs:
         run: |
           set -o pipefail
           supabase config diff --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee config-diff.txt
-          bash scripts/supabase/config-drift.sh config-push.txt config-diff.txt
+          # El job corre en packages/db (defaults.run.working-directory): ruta desde la raíz.
+          bash "$GITHUB_WORKSPACE/scripts/supabase/config-drift.sh" config-push.txt config-diff.txt
