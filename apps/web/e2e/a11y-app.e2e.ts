@@ -53,6 +53,11 @@ for (const theme of ["light", "dark"] as const) {
       await expectNoViolations(page, "selector de alcance");
       await page.keyboard.press("Escape");
 
+      await page.getByTestId("user-menu").click();
+      await expect(page.getByTestId("user-menu-content")).toBeVisible();
+      await expectNoViolations(page, "menú de usuario");
+      await page.keyboard.press("Escape");
+
       await page.keyboard.press("ControlOrMeta+k");
       await expect(page.getByRole("dialog", { name: "Paleta de comandos" })).toBeVisible();
       await expectNoViolations(page, "paleta de comandos");

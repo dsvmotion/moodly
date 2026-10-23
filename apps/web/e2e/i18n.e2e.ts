@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { openUserMenu, signIn } from "./helpers";
 
 // i18n (MANUAL §9.9): español por defecto e inglés, elegido por el usuario y
 // recordado en una cookie.
@@ -10,7 +10,8 @@ test("español por defecto; se cambia a inglés, se recuerda y se vuelve al espa
   await expect(html).toHaveAttribute("lang", "es");
   await expect(sidebar.getByRole("link", { name: "Bandeja", exact: true })).toBeVisible();
 
-  await page.getByTestId("language-switcher").getByRole("radio", { name: "English" }).click();
+  await openUserMenu(page);
+  await page.getByTestId("language-switcher").getByRole("menuitemradio", { name: "English" }).click();
   await expect(html).toHaveAttribute("lang", "en");
   const sidebarEn = page.getByRole("navigation", { name: "Main navigation" });
   await expect(sidebarEn.getByRole("link", { name: "Inbox", exact: true })).toBeVisible();
@@ -27,7 +28,8 @@ test("español por defecto; se cambia a inglés, se recuerda y se vuelve al espa
   await expect(page.getByRole("columnheader", { name: /Time zone/ })).toBeVisible();
   await expect(page.getByTestId("locations-table-count")).toHaveText("3 of 3");
 
-  await page.getByTestId("language-switcher").getByRole("radio", { name: "Español" }).click();
+  await openUserMenu(page);
+  await page.getByTestId("language-switcher").getByRole("menuitemradio", { name: "Español" }).click();
   await expect(html).toHaveAttribute("lang", "es");
   await expect(page.getByRole("columnheader", { name: /Zona horaria/ })).toBeVisible();
 });

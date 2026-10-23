@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { credentialsFor, signIn } from "./helpers";
+import { credentialsFor, signIn, signOutFromMenu } from "./helpers";
 
 function supabasePublicEnv(): { url: string; publishableKey: string } {
   const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
@@ -29,7 +29,7 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
 
   await signIn(page, "a_org_admin");
   await expect(page.getByTestId("location-name")).toHaveCount(3);
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
 
   expect(foreignRequests).toEqual([]);

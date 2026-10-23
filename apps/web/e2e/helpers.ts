@@ -43,6 +43,18 @@ export async function signIn(page: Page, key: string, next?: string): Promise<vo
   await (totpSecret ? withMfaLock(key, login) : login());
 }
 
+/** Abre el menú de usuario del pie de la barra lateral (auditoría del frontend, F-4). */
+export async function openUserMenu(page: Page): Promise<void> {
+  await page.getByTestId("user-menu").click();
+  await expect(page.getByTestId("user-menu-content")).toBeVisible();
+}
+
+/** Cierra la sesión desde el menú de usuario, como en la app. */
+export async function signOutFromMenu(page: Page): Promise<void> {
+  await openUserMenu(page);
+  await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
+}
+
 /** Token de solo contraseña (sesión aal1) de la API de Supabase Auth, y el factor TOTP verificado si lo hay. */
 export async function passwordToken(
   request: APIRequestContext,

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { totp } from "../../../packages/db/src/seed/totp";
-import { completeMfa, credentialsFor, signIn, withMfaLock } from "./helpers";
+import { completeMfa, credentialsFor, signIn, signOutFromMenu, withMfaLock } from "./helpers";
 
 // MFA obligatorio para administrar (migración admin_mfa): quien tiene un
 // segundo factor no entra sin el código, y un org_admin solo puede hacer
@@ -61,7 +61,7 @@ test("activar la verificación en dos pasos, entrar con ella y desactivarla", as
   await expect(page.getByTestId("mfa-status")).toHaveText(/^Activada/);
 
   // Sale y vuelve a entrar: ahora la contraseña sola no basta.
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Contraseña").fill(password);

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { signIn, signOutFromMenu } from "./helpers";
 
 test("cerrar sesión devuelve al login y vuelve a proteger /app", async ({ page }) => {
   await signIn(page, "a_location_manager");
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
 
   await page.goto("/app/ajustes/general");
@@ -17,7 +17,7 @@ test("tras cerrar sesión, las cookies de sesión copiadas antes ya no dan acces
   await signIn(page, "a_org_admin");
   const stolenCookies = await page.context().cookies();
 
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
 
   const attacker = await browser.newContext();

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { AppSearchButton } from "@/components/app-command-center";
 import { AppBrand } from "@/components/app-brand";
@@ -9,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { requireUser } from "@/lib/auth/session";
 import { parseSidebarCollapsed, parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
+import { getProfileName } from "@/lib/profile-data";
 import { getScopeContext } from "@/lib/scope-data";
 import { signOut } from "./actions";
 import { setActiveOrganization } from "./organization-actions";
@@ -18,16 +20,25 @@ import { setActiveOrganization } from "./organization-actions";
 // según la guía de Next.js, los layouts no se vuelven a renderizar al navegar.
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
-  const cookieStore = await cookies();
-  // Sus organizaciones según RLS y la activa (active-org.ts).
-  const { options, organizations, organization } = await getScopeContext();
+  const [cookieStore, scopeContext, name, tRoles] = await Promise.all([
+    cookies(),
+    // Sus organizaciones según RLS y la activa (active-org.ts).
+    getScopeContext(),
+    getProfileName(user.id),
+    getTranslations("records.roles"),
+  ]);
+  const { options, organizations, organization, role } = scopeContext;
 
   return (
     <AppFrame
       topbar={<AppTopbar />}
       sidebar={
         <AppSidebar
-          userEmail={user.email ?? ""}
+          user={{
+            name,
+            email: user.email ?? "",
+            context: organization && role ? `${tRoles(role)} · ${organization.name}` : null,
+          }}
           signOutAction={signOut}
           theme={parseTheme(cookieStore.get(THEME_COOKIE)?.value)}
           defaultCollapsed={parseSidebarCollapsed(cookieStore.get(SIDEBAR_COOKIE)?.value)}
