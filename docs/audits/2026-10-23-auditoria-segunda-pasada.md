@@ -78,7 +78,7 @@
 | # | Estado |
 |---|---|
 | R-16 | Hecho (#60), verificado en `main` y en staging. |
-| R-17 | En curso: paso 1 (`[remotes.staging]` y `config diff` de solo lectura en el despliegue); paso 2, `config push` tras leer ese diff. |
+| R-17 | Paso 1 hecho (#68): el diff encontró 16 diferencias en el alojado. Paso 2 en curso: `config push` desde el despliegue, aprobado por producto. Sesiones sin caducidad hasta el plan Pro. |
 | R-18 | **Abierto, sube de prioridad** (R-36): (a) claves de servidor fuera de Preview; (b) entorno `staging` restringido a `main`. |
 | R-19 | Abierto: confirmar el plan de Vercel (producto). |
 | R-20 | Abierto: revocar los privilegios que sobran. Cambia aserciones de los tests de privilegios, así que irá en un PR explicado, con R-35. |
