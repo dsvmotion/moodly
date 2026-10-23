@@ -356,10 +356,13 @@
     "code": "6-digit code",
     "verify": "Verify and turn on",
     "disable": "Turn off two-step verification",
+    "disableHelp": "To turn it off, enter the code your app shows now.",
+    "currentCode": "Current code",
     "errors": {
       "enroll": "We couldn't start the setup. Please try again.",
       "code": "That code isn't right. Try the one your app shows now.",
-      "unavailable": "We couldn't check the code. Please try again."
+      "unavailable": "We couldn't check the code. Please try again.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again."
     }
   },
   "orgSwitcher": {

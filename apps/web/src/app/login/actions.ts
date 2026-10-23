@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/auth/client-ip";
+import { isTransient } from "@/lib/auth/mfa";
 import { MFA_PATH, safeNextPath } from "@/lib/auth/routes";
 import { securityEvent } from "@/lib/observability/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +38,9 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  // Una caída de Auth o de la red no es una contraseña incorrecta: no cuenta en
+  // el freno, o frenaría a quien sí la sabe (auditoría R-23).
+  if (error && isTransient(error)) return { error: "unavailable" };
   if (error) {
     await supabase.rpc("login_record_failure", { p_email: email, p_ip: ip, p_key: key });
     securityEvent("auth.login_failed", { email, ip });

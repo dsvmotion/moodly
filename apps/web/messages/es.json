@@ -356,10 +356,13 @@
     "code": "Código de 6 cifras",
     "verify": "Verificar y activar",
     "disable": "Desactivar la verificación en dos pasos",
+    "disableHelp": "Para desactivarla, escribe el código que muestra ahora tu aplicación.",
+    "currentCode": "Código actual",
     "errors": {
       "enroll": "No se ha podido empezar el alta. Inténtalo de nuevo.",
       "code": "El código no es correcto. Prueba con el que muestra ahora la aplicación.",
-      "unavailable": "No se ha podido comprobar el código. Inténtalo de nuevo."
+      "unavailable": "No se ha podido comprobar el código. Inténtalo de nuevo.",
+      "tooMany": "Demasiados intentos. Espera unos minutos y vuelve a probarlo."
     }
   },
   "orgSwitcher": {
