@@ -341,8 +341,8 @@ Convenciones:
 |---|---|
 | `memories` | `organization_id`, `scope` (`organization`/`location`/`contact`), `scope_id`, `kind` (`fact`/`preference`/`pattern`), `content`, `embedding vector`, `source_type` (`conversation`/`execution`/`human`), `source_ref`, `trust` (`owner`/`system`/`contact`; `contact` solo con `scope = contact`, ADR 0024), `source_actor`, `confidence`, `status` (`proposed`/`active`/`rejected`/`superseded`), `superseded_by?`, `last_used_at`, `expires_at?` |
 | `memory_usages` | `memory_id`, `run_id`, `organization_id`: qué ejecuciones usaron cada memoria (ADR 0024) |
-| `goals` | `organization_id`, `scope` (`organization`/`region`/`location`), `scope_id`, `title`, `metric_key`, `target_value`, `period` / `due_date`, `owner_user_id`, `status` |
-| `goal_progress` | `goal_id`, `organization_id`, `value`, `measured_at`, `source` (métrica interna o integración) |
+| `goals` | `organization_id`, `scope` (`organization`/`region`/`location`), `scope_id`, `title`, `metric_key`, `direction` (`at_least`/`at_most`: llegar al valor o no pasarse, p. ej. tiempo de respuesta), `target_value`, `period` (`week`/`month`/`quarter`/`year` recurrentes desde `starts_on`, u `once` con `due_date`), `owner_user_id` (de la organización), `status` (`active`/`paused`/`achieved`/`missed`/`archived`). Los gestionan el `org_admin` (aal2) en cualquier alcance, el `region_manager` en sus regiones y locales y el `location_manager` en sus locales; los lee cualquiera con acceso al alcance (`20261023190000_goals`) |
+| `goal_progress` | `goal_id`, `organization_id` (la del objetivo), `value`, `measured_at`, `source` (`internal`/`integration`/`manual`). Lo escribe la plataforma; la app solo lo lee |
 | `coach_reviews` | `organization_id`, `scope`, `scope_id`, `period`, `summary`, `status` (`draft`/`delivered`/`acknowledged`) |
 | `recommendations` | `organization_id`, `scope`, `scope_id`, `review_id?`, `domain` (`management`/`finance`/`legal`/`marketing`/`trends`/`competition`/`calendar`/`operations`/`customer`), `type` (`improvement`/`weakness`/`risk`/`opportunity`), `title`, `rationale`, `evidence` (jsonb: datos y fuentes citadas), `expected_impact`, `confidence`, `proposed_action?` (skill + input), `target_agent_type?`, `due_by?`, `status` (`open`/`accepted`/`dismissed`/`done`/`expired`) |
 | `recommendation_feedback` | `recommendation_id`, `user_id`, `verdict` (`useful`/`not_useful`/`wrong`), `comment?`: realimenta la priorización del coach |
@@ -1179,7 +1179,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | propuesto |
 | 0025 | Búsqueda vectorial con muchas empresas en un solo Postgres | propuesto |
 | 0026 | Un solo Postgres al principio: reparto de cargas, umbrales y celdas | propuesto |
-| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (pendiente de *spike*) |
+| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (*spike* superado el 2026-10-23; pendiente de aceptar) |
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
 | 0030 | Agentes y skills ampliables | propuesto |
