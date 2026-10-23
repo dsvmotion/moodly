@@ -43,6 +43,8 @@
 
 ### 1.1 La tesis en cinco frases
 
+> **Tesis central: empezamos como GuruSup o heydiga (voz + WhatsApp, atención y ventas para pymes) con la vista puesta en Langdock, para ir escalando servicios y capacidades.** Primero, lo que una pyme entiende y paga hoy: que nadie se quede sin respuesta por teléfono o WhatsApp y que eso se convierta en citas y ventas. Después, sobre el mismo motor, lo que pide una empresa grande: agentes gobernados, conectados a sus herramientas, con sus modelos y sus reglas. Referencias verificadas el 23/10/2026 (anexo A): GuruSup ofrece agentes de IA omnicanal (WhatsApp, voz, email, web e Instagram, con contexto compartido entre canales y trabajo dentro del helpdesk del cliente); heydiga, recepcionista IA de teléfono y WhatsApp en Madrid; Langdock, plataforma de agentes para empresas.
+
 1. **Moodly se vende por vertical y se construye como plataforma.** El cliente de hoy compra «mi WhatsApp contestado al momento». El de mañana compra «agentes gobernados sobre mis datos, mis modelos y mis herramientas». El motor es el mismo.
 2. **Lo que hace «enterprise» a una plataforma de agentes no es usar muchas nubes.** Es dar al cliente **control**: qué modelo, en qué región, con qué claves, conectado a qué, quién entra, qué queda auditado, qué puede hacer cada agente sin permiso y cómo se demuestra todo eso.
 3. **Moodly ya tiene decididos, y en parte construidos, los cimientos de ese control.** Lo que falta es construir el *runtime* de agentes y dejar **interfaces propias** en cada punto donde mañana habrá varias opciones (modelos, conocimiento, conectores, claves, celdas).
@@ -479,6 +481,23 @@ export interface KnowledgeRetriever {
 
 **Cuándo entra (sin fechas, con disparadores):** *spike* de voz en paralelo al bloque A en cuanto exista el enrutador y el conocimiento v0 (A18); voz en producción en F1 (B11), y antes si el piloto o un cliente lo pide. Abre los verticales que viven del teléfono (restaurantes, talleres, clínicas tras su revisión legal) y deja de ser una desventaja frente a competidores que empiezan por la voz.
 
+### 3.15 Capa de integraciones que crece por fases
+
+**Idea:** el valor de los agentes crece con lo que pueden **consultar y hacer** en las herramientas del negocio. La capa de integraciones crece fase a fase, siempre por el mismo camino: **interfaz interna por tipo** (`BookingProvider`, `CalendarProvider`, `CrmProvider`, `PaymentProvider`, `InvoicingProvider`, `HelpdeskProvider`…), con **conectores nativos** donde mueven el negocio y **servidores MCP** donde existan y sean fiables, y cada herramienta convertida en **skill** con su clase de efecto, techo de autonomía y aprobación (ADR 0030, motor de políticas A8). Lo fijo es eso (credenciales del tenant en `SecretVault`, respuestas tratadas como datos no confiables, nada sin clasificar fuera de `draft`); **qué conectores, en qué orden y con qué proveedor son opciones** que se activan con su disparador.
+
+| Categoría | Ejemplos | Fase orientativa | Vía probable | Disparador | Notas |
+|---|---|---|---|---|---|
+| **Reservas del sector** (España) | Booksy, Treatwell, Fresha, Koibox y otros del vertical; en restauración TheFork, CoverManager | F0–F1 | Nativo, según la API o el acceso de socio que ofrezca cada uno | El sistema que use el centro piloto o el siguiente cliente | El acceso a sus APIs varía y puede requerir acuerdo de socio; alternativa mínima: Google Calendar + petición de cita en `draft` |
+| **Calendarios** | Google Calendar, Microsoft 365 / Outlook | F0–F1 | Nativo (OAuth) | Centros sin software de reservas; equipos que reservan en su calendario | Base de la skill de citas cuando no hay software del sector |
+| **Pagos** | Stripe (enlaces de pago, señales o depósitos contra no-shows), TPV o pasarelas que use el negocio | F1 | Nativo | Un centro que quiere cobrar señal al reservar | Clase de efecto financiera: aprobación y `aal2` según el techo (control 3.3) |
+| **CRM** | HubSpot, Pipedrive, Zoho CRM, Salesforce | F1–F3 (pymes: HubSpot, Pipedrive, Zoho; mid-market: Salesforce) | MCP si hay servidor oficial fiable; si no, nativo | Cliente que ya trabaja con su CRM; agente `sales` con leads | Moodly no sustituye el CRM: lee y escribe en el suyo (ADR 0023, fuente de verdad) |
+| **Facturación y ERP** (España) | Holded, Sage, a3, Odoo y otros habituales | F2–F3 | Nativo o MCP, según el proveedor | Agente `admin` activado por un cliente | Siempre a través del software del cliente (Verifactu es suyo, MANUAL §11); MANUAL §18 #7 deja abierto cuáles primero |
+| **Helpdesk** | Zendesk, Freshdesk, Intercom, Zoho Desk | F2–F3 | MCP o nativo | Cliente con equipo de soporte que no quiere cambiar de herramienta | El agente trabaja dentro de su helpdesk (abre, actualiza, resume tickets) |
+| **Espacio de trabajo** | Google Workspace (Gmail, Drive), Microsoft 365 (Outlook, SharePoint, Teams) | F2 (email como canal) → F4 (conocimiento y asistente de trabajo) | Nativo para email; MCP o adaptador de conocimiento para documentos | Email como canal (C6); asistente de trabajo (E5) | Los documentos entran por `KnowledgeRetriever` con los permisos de la persona (ADR 0029) |
+| **Pasarelas de APIs y conectores del cliente** | Apigee API hub, servidores MCP propios, iPaaS del cliente | F3–F4 | MCP | Cliente con su catálogo de APIs gobernado | Ver sección 4 (Apigee como servidor MCP) |
+
+**Cómo se ve en el producto:** Ajustes → Integraciones con el estado de cada conexión (conectada, con error, caducada), qué skills habilita y qué agente las usa; los fallos de integración aparecen en la bandeja unificada (ADR propuesto 0040). **Cómo se ve en el código:** una carpeta por tipo y proveedor en `packages/integrations`, tests de contrato por interfaz, y el cliente MCP genérico detrás de las mismas interfaces (sección 3.4).
+
 ---
 
 ## 4. Evaluación de las herramientas propuestas
@@ -556,8 +575,8 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | A14 | **`/ops` mínimo** (ADR 0021, PRs 2–4): `requirePlatformStaff()`, organizaciones, auditoría, acceso JIT | — | e2e del equipo interno; cada acceso queda en `audit_logs` | Bajo |
 | A15 | **Langfuse (UE) + OpenTelemetry** en el worker | A6 | Una conversación de staging se sigue de punta a punta con su coste | Bajo |
 | A16 | **Email con Resend (B4)** para invitaciones y avisos, sin token en la query (R-22) | Cuenta de Resend correcta | Invitación recibida en staging | Bajo |
-| A18 | ***Spike* de voz** (en paralelo, con datos de prueba): número de prueba con desvío SIP, agente `reception` que responde con el conocimiento v0 y transfiere a una persona, aviso de IA al inicio; comparar cascada (LiveKit + STT + enrutador + TTS) frente a *speech-to-speech*; medir latencia, calidad en español y coste por minuto; esbozo de `VoiceGateway`/`RealtimeVoiceProvider` y del ADR propuesto 0045 | A6, A9 | Informe con p50/p95 de latencia, tasa de error en español, coste por minuto desglosado y recomendación de stack | Medio: latencia y calidad del español |
 | A17 | **Condiciones de salida a producción:** Supabase Pro en la UE con restauración probada, revisión humana reactivada (lista leída de la rama base), claves rotadas y generadas por una persona, proyecto de producción separado, Vercel Pro con *log drain*, DPAs (piloto y subencargados) | Todo lo anterior | Lista del STATUS marcada con evidencia | Alto: bloquea el piloto si se retrasa |
+| A18 | ***Spike* de voz** (en paralelo, con datos de prueba): número de prueba con desvío SIP, agente `reception` que responde con el conocimiento v0 y transfiere a una persona, aviso de IA al inicio; comparar cascada (LiveKit + STT + enrutador + TTS) frente a *speech-to-speech*; medir latencia, calidad en español y coste por minuto; esbozo de `VoiceGateway`/`RealtimeVoiceProvider` y del ADR propuesto 0045 | A6, A9 | Informe con p50/p95 de latencia, tasa de error en español, coste por minuto desglosado y recomendación de stack | Medio: latencia y calidad del español |
 
 ### Bloque B · Producto para pymes (F1)
 
@@ -572,9 +591,11 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | B7 | **Plantilla de gimnasios** y agente `sales` v0 (reactivación, bonos) | A10, B5 | Evals del vertical en verde | Bajo |
 | B8 | **Idioma:** `en` por defecto de plataforma, `organizations.default_locale` y `users.locale` (ADR propuesto 0041) | — | e2e en los dos idiomas; test de paridad de claves | Bajo |
 | B9 | **Asistente en modo lectura** (ADR 0029 fase 2): diagnóstico y enseñar, con los permisos del usuario | A13 | Evals de escalada e inyección en verde | Medio |
+| B10 | **Vertical regulado (preparación):** revisión legal, EIPD y plantilla de clínicas con bloqueos | §18 #12 | Informe legal favorable antes de cualquier dato de salud | Alto: legal |
 | B11 | **Voz en producción:** llamadas desviadas del número del negocio, contacto unificado con WhatsApp (misma memoria), reservas por teléfono con las skills de B1, confirmación por WhatsApp, transferencia a humano, transcripción, grabación de audio solo si la organización la activa, minutos en `usage_records`, pantalla `/app/llamadas` | A18, B1, A11 | Llamada real → cita creada en el sistema del centro → confirmación por WhatsApp; latencia dentro del objetivo; aviso de IA en las evals | Medio: calidad y coste |
 | B12 | **Plantillas de restaurantes y talleres** (sobre voz), con integración de su sistema de reservas (TheFork, CoverManager…) cuando exista | B11 | Evals del vertical en verde | Medio |
-| B10 | **Vertical regulado (preparación):** revisión legal, EIPD y plantilla de clínicas con bloqueos | §18 #12 | Informe legal favorable antes de cualquier dato de salud | Alto: legal |
+| B13 | **Pagos:** `PaymentProvider` + Stripe (enlace de pago o señal al reservar), como skill financiera con aprobación según techo | A8, B1 | Señal cobrada en una reserva de prueba; aprobación atada al hash | Medio: zona financiera |
+| B14 | **Primer CRM** (HubSpot, Pipedrive o Zoho, el que traiga el cliente) detrás de `CrmProvider` | A8, A12 | Lead creado y actualizado en el CRM del cliente desde una conversación | Bajo |
 
 ### Bloque C · Cadenas multi-sede (F2)
 
@@ -586,8 +607,9 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | C4 | **Analítica multi-sede** (P7) y comparativa | A15 | Métricas por sede cuadran con los runs | Medio |
 | C5 | **Coordinación entre agentes** por eventos (cita → recurso → cobro en borrador, MANUAL §5.8) | A3, B1 | Flujo completo con un cliente real | Medio |
 | C6 | **Instagram DM y email** en `packages/channels`, con el mismo contacto y memoria que WhatsApp y voz | A11 | Mensaje real por cada canal; un contacto que escribe por Instagram y llama ve un único historial | Medio: revisión de Meta |
-| C8 | **Voz saliente** (recordatorios y confirmaciones de servicio; campañas solo con consentimiento y números +34 400) y llamadas simultáneas por sede | B11 | Recordatorio real con resultado registrado; consentimientos respetados en las evals | Medio: legal y reputación del número |
 | C7 | **Coach sobre datos internos** (MANUAL §5.12) con recomendaciones con evidencia | B3, B4 | Recomendaciones aceptadas con impacto medido | Medio |
+| C8 | **Voz saliente** (recordatorios y confirmaciones de servicio; campañas solo con consentimiento y números +34 400) y llamadas simultáneas por sede | B11 | Recordatorio real con resultado registrado; consentimientos respetados en las evals | Medio: legal y reputación del número |
+| C9 | **Facturación/ERP y helpdesk** (el que pida el primer cliente: Holded, Sage…; Zendesk, Freshdesk…) detrás de su interfaz, por MCP o nativo | A8, A12 | Acción real en el sistema del cliente con su clase de efecto y aprobación | Medio |
 
 ### Bloque D · Mid-market (F3)
 
@@ -636,6 +658,7 @@ Casi todas son **reversibles** (la recomendación es un punto de partida, no un 
 | ☐ | **Momento de Supabase Pro** (§18 #11) | Ahora; antes del primer dato real | Antes del primer dato real, con copia de seguridad restaurada en una prueba | A17 | STATUS |
 | ☐ | **Reactivar la revisión humana** en rutas sensibles | Ahora; antes del primer dato real | Antes del primer dato real; la lista se lee de la rama base | A17 | AGENTS.md + `sensitive-paths.txt` |
 | ☐ | **Plantilla de DPA y lista de subencargados** | Redactar ahora; al primer cliente | Ahora (es corta y la pide el primer centro serio) | A17 | Centro de confianza |
+| ☐ | **Orden de integraciones** (MANUAL §13, §18 #7) | Reservas del sector, calendarios, pagos, CRM, facturación/ERP, helpdesk, espacio de trabajo (sección 3.15) | Reservas o calendario para el piloto; el resto, por disparador (lo que use el siguiente cliente) | B1 y siguientes | `packages/integrations` + ADR propuesto 0036 |
 | ☐ | **Stack de voz** (MANUAL §18 #9) | Cascada (LiveKit/Pipecat + STT + enrutador + TTS) o *speech-to-speech* (OpenAI Realtime u otro); plataforma gestionada para prototipos; telefonía Twilio, Telnyx u operador español | Decidir tras el *spike* A18 con latencia, calidad en español, residencia y coste por minuto medidos; reversible detrás de `RealtimeVoiceProvider` | B11 | ADR propuesto 0045 |
 | ☐ | **Sistema de reservas del piloto** (MANUAL §13) | Booksy, Treatwell, Fresha, Koibox, Google Calendar | El que use el centro piloto; Google Calendar como mínimo garantizado | B1 | ADR propuesto 0036 |
 | ☐ | **Aceptar o cerrar ADRs propuestos** | 0022 (resto), 0024, 0025, 0026, 0028, 0029 | Aceptar 0025 y 0026 con A5/A9; 0024 con B2; 0029 con B9; 0022 completo con D1; 0028 con E1 | Según la fila | MANUAL §19 |
@@ -977,6 +1000,7 @@ Todas se abrieron el 23/10/2026. Antes de aceptar un ADR que dependa de ellas, *
 | Apigee | Servidor MCP remoto de API hub (regiones UE: `europe-north1`, `europe-west1`, `europe-west9`; no Fráncfort) | https://docs.cloud.google.com/apigee/docs/reference/apis/apihub/mcp/use-apihub-mcp · https://docs.cloud.google.com/apigee/docs/api-platform/apigee-mcp/apigee-mcp-overview |
 | MCP | Especificación 2026-07-28 (sin estado); gobierno en la Agentic AI Foundation (Linux Foundation) | https://modelcontextprotocol.io/specification/2026-07-28 · https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation |
 | Ley de IA de la UE | Art. 50 desde el 2/08/2026; alto riesgo del anexo III aplazado al 2/12/2027; anexo I al 2/08/2028 | https://ai-act-service-desk.ec.europa.eu/en/ai-act/timeline/timeline-implementation-eu-ai-act |
+| Omnicanal: GuruSup | Agentes de IA para WhatsApp, voz, email, web e Instagram con contexto compartido entre canales; trabaja dentro de Zendesk, Intercom, Freshdesk o Zoho Desk | https://gurusup.com/es/soluciones-agentes-ia-empresas/whatsapp · https://gurusup.com/es/servicios |
 | Voz: competidor en Madrid | heydiga: recepcionista IA de teléfono y WhatsApp, planes por minutos (49 €/200 min … 169 €/900 min), aviso de asistente virtual | https://heydiga.com/es · https://heydiga.com/es/precios · https://heydiga.com/es/empresas |
 | Voz: OpenAI Realtime | SIP con endpoint de residencia UE (`sip-eu.api.openai.com`); `gpt-realtime-2.1` por tokens de audio; recargo del 10 % en procesamiento regional para modelos recientes | https://developers.openai.com/api/docs/guides/realtime-sip · https://developers.openai.com/api/docs/pricing |
 | Voz: ElevenLabs Agents | 0,08 $/min adicional, LLM aparte, telefonía del operador aparte; residencia UE en Enterprise | https://elevenlabs.io/pricing/agents · https://elevenlabs.io/blog/introducing-european-data-residency |
