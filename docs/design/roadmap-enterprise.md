@@ -1,7 +1,7 @@
 # ROADMAP_ENTERPRISE — de agentes para centros de estética a plataforma de agentes para empresas
 
 **Fecha:** 23/10/2026 · **Autor:** Grok Bot, para Diego (producto) · **Base:** `main` en `b21b052` (incluye #83 y #84), PRs abiertos #80 y #82
-**Estado del documento:** guía de negocio y arquitectura, versión 2 (revisada con producto el 23/10/2026). Según el ADR 0023 (jerarquía de fuentes), esto tiene rango de `docs/design/`: **no es una decisión** hasta que cada punto pase a un ADR aceptado o al `docs/MANUAL.md`. Donde dice **«ADR propuesto»** es un ADR que todavía hay que escribir.
+**Estado del documento:** guía de negocio y arquitectura, versión 3 (revisada con producto el 23/10/2026; el 24/10/2026 se añade el mapa del diseño del frontend, §5.0, a partir de `docs/design/design-review.md`). Según el ADR 0023 (jerarquía de fuentes), esto tiene rango de `docs/design/`: **no es una decisión** hasta que cada punto pase a un ADR aceptado o al `docs/MANUAL.md`. Donde dice **«ADR propuesto»** es un ADR que todavía hay que escribir.
 
 > **Cómo leer este documento.** Es una **hoja de ruta de servicios futuros y de necesidades clave de arquitectura**, no un corsé. Describe opciones, disparadores y decisiones reversibles para que escalar sea fácil cuando llegue el momento, **sin limitar lo que se construye ahora**. Solo hay una lista corta de **cimientos no negociables** (sección 1.4): controles de seguridad, aislamiento entre clientes, abstracción de modelos y residencia de datos / RGPD. Todo lo demás (herramientas, orden de los PRs, precios, nombres, fases) son **opciones** que se pueden cambiar si el desarrollo o el mercado lo aconsejan, dejando constancia en el STATUS o en un ADR.
 
@@ -554,6 +554,43 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 
 **Ya resuelto, no repetir:** el despliegue a staging (arreglado en el PR #83), la protección de `main` (ruleset «main protection», id 25750907, con los 5 checks) y DMARC en `moodlycrm.com` (modo `p=none`).
 
+### 5.0 Del diseño del frontend a las fases (24/10/2026)
+
+El PDF de diseño «Moodly AI-selection» (84 pantallas, revisado en `docs/design/design-review.md`) dibuja casi todo el producto, desde el piloto hasta enterprise. **No obliga a construirlo en este orden**: la tabla dice en qué fase tiene sentido activar cada módulo y de qué pieza técnica depende, para que el diseño y el backend avancen juntos. Mientras su backend no exista, una pantalla puede vivir en el prototipo (#27) con datos de ejemplo.
+
+| Módulo del diseño (págs. del PDF) | Fase sugerida | Depende de | IDs |
+|---|---|---|---|
+| Inicio, Conversaciones, tomar el control, Aprobaciones (31–35) | F0 | Runs y aprobaciones, contactos y mensajes, motor de políticas | A4, A5, A8, A13 |
+| Conocimiento e ingesta con preguntas sin respuesta (53–54) | F0 | Conocimiento v0 | A9 |
+| Reglas y autonomía (48–49) | F0 | Motor de políticas | A8 |
+| Probar con comprobaciones del sector (46) | F0–F1 | Arnés de evals como puerta de activación | A7, B15 |
+| Publicar, versiones y vuelta atrás (47) | F1 (básico) → F4 (gradual) | `agent_versions` | B15, E4 |
+| Conectar canales y plantillas de WhatsApp (60, 78) | F0 | WhatsApp Cloud API, secretos | A11, A12, B18 |
+| Llamadas y voz: elegir y clonar (40, 51) | *Spike* en F0, producción en F1 | Voz | A18, B11 |
+| Agenda y horarios (36–37) | F1 | `BookingProvider`, conectores del sector | B1, B17 |
+| Clientes y leads (38–39) | F0 (clientes), F1 (leads) | Contactos, agente `sales`, CRM | A5, B7, B14 |
+| Memoria con confirmar o descartar (52) | F1 | ADR 0024 | B2 |
+| Onboarding por sector, checkout, plan y facturación (57–58, 76–77) | F1 | Plantillas, Stripe, planes como datos | B5, B6 |
+| Asistente (56) | F1 (lectura) → F3 (cambios) | ADR 0029 | B9, D9 |
+| Privacidad RGPD del cliente final (68, 72) | F0–F1 | Borrado y exportación en cascada | A19 |
+| App móvil: aprobar, chats, pausar agentes (24–25) | F1 | Bandeja y avisos *push* sobre la PWA | A13, B16 |
+| Facturas (41) | F1–F2 | Pagos y ERP | B13, C9 |
+| Coach y flujos Cuando / Si / Haz (50, 55) | F2 | Aprendizaje, eventos y DBOS | B4, C5, C7 |
+| Red de franquicia con herencia, informes por sede (42–43) | F2 | Herencia y analítica | C2, C4 |
+| Roles configurables (74) | F2 | ADR 0022 | C1 |
+| Modelos: proveedores, residencia, topes, BYOK, subencargados (61–65, 67) | F1 (residencia y topes) → F3 (BYOK) | Enrutador, KMS, `usage_limits`, centro de confianza | A6, B5, D3, D8 |
+| Integraciones con permisos y «proponer en vez de hacer» (78–79) | F1 → F3 (MCP) | Secretos y MCP | A12, D5 |
+| API y webhooks (80) | F3 | API pública | D7 |
+| SSO, SCIM, IPs y auditoría (83–84) | F3 | WorkOS y exportación | D1, D6 |
+| Tu nube (66) y despliegue dedicado (27) | F4 | BYOC | E1, E2, E8 |
+
+**Qué cambia en las fases a raíz del diseño** (sugerencias; se pueden reordenar):
+- La **voz y la app móvil** suben a F1 como parte del producto pyme, no como extras.
+- **Probar y publicar** con versiones básicas pasa a F1. El diseño las pone como puerta de activación y encaja con el control 3.8.
+- El **RGPD por cliente final** se adelanta a la salida a producción, porque el diseño lo enseña al cliente desde el principio.
+- **Residencia y topes** se activan en F1 con valores seguros (UE por defecto, paso a una persona al llegar al tope). La pantalla completa de proveedores y BYOK queda para F3.
+- **Decisiones de producto que salen de la revisión** (no bloquean el desarrollo): unificar las variantes de precio en una tabla de planes en datos; residencia UE por defecto; un solo comportamiento al llegar al tope; aviso de IA siempre activado en voz y en el primer mensaje; inglés por defecto (ADR propuesto 0041); KPIs casi monocromos.
+
 ### Bloque A · Del estado actual al piloto en producción (F0)
 
 | ID | Entregable | Depende de | Hecho cuando | Riesgo |
@@ -577,6 +614,7 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | A16 | **Email con Resend (B4)** para invitaciones y avisos, sin token en la query (R-22) | Cuenta de Resend correcta | Invitación recibida en staging | Bajo |
 | A17 | **Condiciones de salida a producción:** Supabase Pro en la UE con restauración probada, revisión humana reactivada (lista leída de la rama base), claves rotadas y generadas por una persona, proyecto de producción separado, Vercel Pro con *log drain*, DPAs (piloto y subencargados) | Todo lo anterior | Lista del STATUS marcada con evidencia | Alto: bloquea el piloto si se retrasa |
 | A18 | ***Spike* de voz** (en paralelo, con datos de prueba): número de prueba con desvío SIP, agente `reception` que responde con el conocimiento v0 y transfiere a una persona, aviso de IA al inicio; comparar cascada (LiveKit + STT + enrutador + TTS) frente a *speech-to-speech*; medir latencia, calidad en español y coste por minuto; esbozo de `VoiceGateway`/`RealtimeVoiceProvider` y del ADR propuesto 0045 | A6, A9 | Informe con p50/p95 de latencia, tasa de error en español, coste por minuto desglosado y recomendación de stack | Medio: latencia y calidad del español |
+| A19 | **RGPD del cliente final** (pantalla «Privacidad», págs. 68 y 72 del diseño): exportar y borrar un contacto en cascada (mensajes, memoria, llamadas, conocimiento derivado), con registro en auditoría | A5 | pgTAP y e2e: tras borrar, ninguna tabla conserva datos del contacto salvo la entrada de auditoría | Medio: alcance del borrado |
 
 ### Bloque B · Producto para pymes (F1)
 
@@ -596,6 +634,10 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | B12 | **Plantillas de restaurantes y talleres** (sobre voz), con integración de su sistema de reservas (TheFork, CoverManager…) cuando exista | B11 | Evals del vertical en verde | Medio |
 | B13 | **Pagos:** `PaymentProvider` + Stripe (enlace de pago o señal al reservar), como skill financiera con aprobación según techo | A8, B1 | Señal cobrada en una reserva de prueba; aprobación atada al hash | Medio: zona financiera |
 | B14 | **Primer CRM** (HubSpot, Pipedrive o Zoho, el que traiga el cliente) detrás de `CrmProvider` | A8, A12 | Lead creado y actualizado en el CRM del cliente desde una conversación | Bajo |
+| B15 | **Probar y publicar** (págs. 46–47): las evals del vertical como puerta para activar un agente, `agent_versions` con publicar y volver atrás (la publicación gradual sigue en E4) | A7, A10 | Un agente que no pasa sus comprobaciones no se activa; vuelta atrás en un clic probada | Medio |
+| B16 | **App móvil sobre datos reales** (págs. 24–25): aprobar, chats, tomar el control y pausar agentes, con avisos *push* en la PWA | A13 | e2e móvil; aviso recibido en un iPhone real | Medio: *push* en iOS |
+| B17 | **Conectores de reservas del sector** (Booksy, Treatwell, Fresha, Koibox, Mindbody…; no están en el catálogo del diseño) por API, socio o MCP, el que use cada piloto | B1 | Cita creada y anulada en el sistema real sin duplicados | Alto: APIs cerradas |
+| B18 | **Plantillas y *opt-in* de WhatsApp** (pág. 78): estado de revisión de Meta sincronizado y consentimiento de contacto | A11 | Plantilla aprobada usada fuera de la ventana de 24 h; envío bloqueado sin *opt-in* | Bajo |
 
 ### Bloque C · Cadenas multi-sede (F2)
 
