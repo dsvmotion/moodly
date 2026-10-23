@@ -99,6 +99,56 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"goal_progress": {
+                  Row: {
+                    "created_at": string,"goal_id": string,"id": string,"measured_at": string,"organization_id": string,"source": string,"value": number
+                  }
+                  Insert: {
+                    "created_at"?: string,"goal_id": string,"id"?: string,"measured_at"?: string,"organization_id": string,"source": string,"value": number
+                  }
+                  Update: {
+                    "created_at"?: string,"goal_id"?: string,"id"?: string,"measured_at"?: string,"organization_id"?: string,"source"?: string,"value"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "goal_progress_goal_id_fkey"
+      columns: ["goal_id"]
+isOneToOne: false
+      referencedRelation: "goals"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "goal_progress_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"goals": {
+                  Row: {
+                    "created_at": string,"direction": string,"due_date": string | null,"id": string,"metric_key": string,"organization_id": string,"owner_user_id": string | null,"period": string,"scope": string,"scope_id": string,"starts_on": string,"status": string,"target_value": number,"title": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"direction"?: string,"due_date"?: string | null,"id"?: string,"metric_key": string,"organization_id": string,"owner_user_id"?: string | null,"period": string,"scope": string,"scope_id": string,"starts_on"?: string,"status"?: string,"target_value": number,"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"direction"?: string,"due_date"?: string | null,"id"?: string,"metric_key"?: string,"organization_id"?: string,"owner_user_id"?: string | null,"period"?: string,"scope"?: string,"scope_id"?: string,"starts_on"?: string,"status"?: string,"target_value"?: number,"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "goals_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "goals_owner_user_id_fkey"
+      columns: ["owner_user_id"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"invitations": {
                   Row: {
                     "accepted_at": string | null,"accepted_by": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string,"organization_id": string,"revoked_at": string | null,"role": string,"scope_location_ids": (string)[],"scope_region_ids": (string)[],"token_hash": string
