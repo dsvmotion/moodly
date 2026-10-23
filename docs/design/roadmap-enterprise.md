@@ -111,8 +111,8 @@ Las fases de negocio (F0–F4) no son las fases técnicas del MANUAL §17 (0–5
 
 | Fase de negocio | Cliente | Oferta | Fases del MANUAL §17 que necesita | Disparador para empezarla |
 |---|---|---|---|---|
-| **F0 · Piloto estética** | 2–3 centros de estética independientes en Madrid, sin tratamientos médicos | Agente `customer` en WhatsApp + web chat, 4 semanas gratis | Cierre de la 0 + la 1 | Ahora |
-| **F1 · Pymes multi-vertical** | Estética → gimnasios y estudios → clínicas y dentistas → restaurantes y talleres | 4 agentes con plantilla por sector, autoservicio | 1 → 2 y parte de la 3 (onboarding, Stripe, plantillas) | Piloto F0 cumple los criterios de la semana 4 y producción cumple sus condiciones de salida |
+| **F0 · Piloto estética** | 2–3 centros de estética independientes en Madrid, sin tratamientos médicos | Agente `customer` en WhatsApp + web chat, 4 semanas gratis; **voz como opción** si el centro recibe muchas llamadas (*spike* A18) | Cierre de la 0 + la 1 | Ahora |
+| **F1 · Pymes multi-vertical** | Estética → gimnasios y estudios → clínicas y dentistas → restaurantes y talleres | 4 agentes con plantilla por sector, autoservicio; **voz como canal principal** junto a WhatsApp, Instagram y email | 1 → 2 y parte de la 3 (onboarding, Stripe, plantillas) | Piloto F0 cumple los criterios de la semana 4 y producción cumple sus condiciones de salida |
 | **F2 · Cadenas multi-sede** | Grupos de 3–50 sedes (estética, gimnasios, clínicas) | Panel central, herencia con bloqueos, comparativa entre sedes, aprobaciones por sede | 2 y 3 (alta de sedes en lote, SSO opcional) | ≥ 10 pymes pagando, o una cadena que lo pide |
 | **F3 · Mid-market** | Empresas de 50–1.000 empleados, con TI propia | Agentes propios, conectores MCP, SSO/SCIM, auditoría exportable, BYOK, residencia | 3 | Primer cliente que pide SSO o pasa un cuestionario de seguridad |
 | **F4 · Enterprise (tipo Langdock)** | Grupos grandes, sectores regulados | Constructor de agentes, asistente de trabajo para empleados, conocimiento de empresa, «modelos en tu nube», celda dedicada | 3 (celdas) + 4 (Agent Builder) + 5 (Marketplace, opcional) | Carta de intención firmada que exige residencia, BYOK/BYOC o celda dedicada |
@@ -122,7 +122,7 @@ Las fases de negocio (F0–F4) no son las fases técnicas del MANUAL §17 (0–5
 ### 2.2 F0 · Piloto con centros de estética (ahora)
 
 - **Cliente objetivo:** centros de estética y belleza independientes en Madrid, **sin tratamientos médicos** (fuera de los datos de salud). La mayoría de sus consultas llegan por escrito (WhatsApp e Instagram). Reservas en Booksy, Treatwell, Fresha o Koibox. Alternativa: gimnasios y estudios *boutique*.
-- **Oferta:** agente `customer` en WhatsApp (Cloud API directa, ADR 0020) y web chat. Responde precios, horarios, dudas de tratamientos y recoge peticiones de cita. Lo que no sabe lo pregunta al dueño (`knowledge_request`, MANUAL §5.9) y lo delicado lo pasa a una persona (§5.10).
+- **Oferta:** agente `customer` en WhatsApp (Cloud API directa, ADR 0020) y web chat; **opcionalmente, la voz** (agente `reception` contestando las llamadas desviadas del centro) si el *spike* A18 está listo y el centro recibe muchas llamadas. Responde precios, horarios, dudas de tratamientos y recoge peticiones de cita. Lo que no sabe lo pregunta al dueño (`knowledge_request`, MANUAL §5.9) y lo delicado lo pasa a una persona (§5.10).
   - Semana 0: DPA, servicios, precios, horarios, políticas y las 30 preguntas más comunes; número de WhatsApp y línea base de volumen y tiempos de respuesta.
   - Semana 1: solo borradores (autonomía `draft`). Semana 2: responde solo las preguntas frecuentes. Semana 3: peticiones de cita. Semana 4: medir y ampliar.
 - **Precio (opción para el piloto):** gratis 4 semanas a cambio de un caso de estudio y del permiso para medir (con DPA). Alternativa: piloto de pago simbólico para medir disposición a pagar. Durante el piloto se recogen los datos de la sección 2.8 para elegir modelo de precios.
@@ -143,7 +143,7 @@ Las fases de negocio (F0–F4) no son las fases técnicas del MANUAL §17 (0–5
   1. **Estética** (el piloto convertido en producto).
   2. **Gimnasios y estudios *boutique*:** mismos canales escritos; encaja muy bien con el agente `sales` (reactivar socios, bonos).
   3. **Clínicas y dentistas:** solo después de la revisión legal de datos de salud (MANUAL §18 #12), con una **EIPD/DPIA**, minimización (citas y dudas generales, nunca historial clínico, MANUAL §11) y plantillas que bloqueen ciertas respuestas (nada de consejo médico).
-  4. **Restaurantes y talleres:** son sobre todo de **teléfono**, así que dependen de la fase **Voz** (MANUAL §17). Los restaurantes ya tienen plataformas de reservas (TheFork, CoverManager) que hay que integrar, no sustituir.
+  4. **Restaurantes y talleres:** son sobre todo de **teléfono**, así que llegan con la **voz** (sección 3.14), que este documento propone adelantar a F1. Los restaurantes ya tienen plataformas de reservas (TheFork, CoverManager) que hay que integrar, no sustituir.
 - **Oferta:** los 4 agentes de serie con **plantilla por sector** (`agent_templates`: tono, mensajes, skills activas, autonomía, reglas). Onboarding en 6 pasos sin ayuda (MANUAL §9.6). Coach con datos internos (fase 2 del MANUAL).
 - **Precio (opciones a validar, sección 2.8):** suscripción por agente con conversaciones incluidas (ejemplo de `modelo-precios.md`: 49 €/agente/mes con 250 conversaciones y 0,10 € la extra), suscripción por sede, paquete de agentes, o un híbrido con consumo. Referencias del sector (informe del piloto): Booksy 34,99 €/mes, recepcionista IA de Treatwell desde 69 €/mes, Luvia desde 89 €/mes. Sea cual sea el modelo, conviene un **límite de gasto con aviso** para que la pyme no se lleve sorpresas.
 - **Cómo se vende:** casos del piloto, alianzas con distribuidores del sector (academias, proveedores de cosmética, software de reservas), contenido local (`docs/design/verticales-seo.md`), prueba de 14 días.
@@ -208,19 +208,22 @@ Las fases de negocio (F0–F4) no son las fases técnicas del MANUAL §17 (0–5
 | **Por agente** con conversaciones incluidas (hipótesis de `modelo-precios.md`) | Cuota por cada agente activo; extra por encima de un umbral | Fácil de entender; se expande activando agentes | Si un agente hace mucho y otro poco, el precio no refleja el valor | Pymes (F1) | Conversaciones por agente y mes (p50/p90); qué agentes activan primero |
 | **Por sede** | Cuota por cada local, con agentes incluidos o por niveles | Natural para cadenas; crece con el cliente | Una sede pequeña y una grande pagan igual | Cadenas (F2) | Variación del volumen entre sedes de la misma cadena |
 | **Por usuario (asiento)** | Cuota por persona con acceso | Estándar en herramientas para empleados (Langdock) | No encaja con agentes que atienden a clientes finales; incentiva compartir cuentas | Asistente interno (F3–F4) | Usuarios internos activos por organización |
-| **Por consumo** | Precio por conversación, mensaje o minuto de voz | Alineado con el coste; sin barrera de entrada | Factura impredecible; a la pyme le asustan las sorpresas | Voz, picos estacionales, API | Coste por conversación y por minuto; dispersión mensual |
+| **Por consumo** | Precio por conversación, mensaje o **minuto de voz** | Alineado con el coste; sin barrera de entrada | Factura impredecible; a la pyme le asustan las sorpresas | Voz, picos estacionales, API | Coste por conversación y por minuto; dispersión mensual |
 | **Por resultado** | Precio por cita confirmada, lead cualificado o conversación resuelta | Máxima alineación con el valor; argumento comercial fuerte | Hay que demostrar la atribución; riesgo de disputas; ingresos variables | Agentes de recepción y comercial | Citas atribuibles al agente, verificadas en el sistema de reservas; ticket medio |
+| **Minutos de voz** (dentro de cualquier modelo) | Bolsa de minutos incluida por plan y precio por minuto extra, o voz como complemento aparte | Es como se vende la voz en el mercado; el cliente lo entiende | El coste por minuto varía mucho según el stack | Cualquier segmento con teléfono | Coste real por minuto (STT + LLM + TTS + telefonía + plataforma), minutos por centro y mes, duración media de llamada |
 | **Híbrido** | Cuota base (por agente o sede) + consumo o resultado por encima | Combina previsibilidad y alineación | Más difícil de explicar | Probable modelo final en varios segmentos | Todo lo anterior |
 
 **Qué medir en el piloto (F0) para decidir:**
 
-- **Coste:** coste de IA por conversación y por centro y mes (tokens, modelo, región), coste de WhatsApp por conversación, horas de soporte y de implantación de Moodly por centro.
-- **Uso:** conversaciones por centro y mes, con su distribución (p50, p90) y estacionalidad; mensajes por conversación; reparto por agente y por sede.
+- **Coste:** coste de IA por conversación y por centro y mes (tokens, modelo, región), coste de WhatsApp por conversación, **coste por minuto de voz desglosado** (STT, LLM, TTS o modelo *realtime*, telefonía y plataforma), horas de soporte y de implantación de Moodly por centro.
+- **Uso:** conversaciones por centro y mes, con su distribución (p50, p90) y estacionalidad; mensajes por conversación; **llamadas y minutos por centro y mes, duración media y % fuera de horario**; reparto por canal, agente y sede.
 - **Valor:** tasa de resolución autónoma; citas creadas o captadas por el agente y su ticket medio; respuestas fuera de horario; tiempo de recepción ahorrado (estimado con el centro).
 - **Disposición a pagar:** entrevistas al final del piloto (qué pagarían, qué les parece caro o barato, si prefieren cuota fija o variable), qué pagan hoy por sus herramientas (Booksy, Treatwell, recepcionista) y qué agente o función valoran más.
 - **Criterios para elegir:** margen bruto suficiente con el coste medido, que la pyme entienda la factura en una frase, previsibilidad para el cliente, alineación con el valor que percibe y que el modelo escale a cadenas y empresas sin rehacerlo.
 
-**Para que la arquitectura no cierre ninguna opción:** medir desde el primer día en `usage_records` cada unidad candidata (conversaciones, mensajes, minutos, runs, citas, usuarios activos, sedes y agentes activos), con eventos de resultado verificables (`domain_events`); guardar los **planes y precios como datos** (no en el código), y tratar Stripe como una implementación que lee esas medidas. Así cambiar de modelo de precios es configuración, no un desarrollo.
+**Referencias de voz (23/10/2026, para dimensionar, no para copiar):** `modelo-precios.md` maneja como hipótesis 0,20 €/minuto; heydiga vende planes desde 49 €/mes con 200 minutos hasta 169 €/mes con 900 (más WhatsApp como complemento). Del lado del coste, las tarifas públicas de componentes van, según el stack, desde unos céntimos hasta más de 0,10 $ por minuto antes de telefonía (anexo A). El margen de la voz depende sobre todo del stack elegido en el *spike*.
+
+**Para que la arquitectura no cierre ninguna opción:** medir desde el primer día en `usage_records` cada unidad candidata (conversaciones, mensajes, minutos de voz, runs, citas, usuarios activos, sedes y agentes activos), con eventos de resultado verificables (`domain_events`); guardar los **planes y precios como datos** (no en el código), y tratar Stripe como una implementación que lee esas medidas. Así cambiar de modelo de precios es configuración, no un desarrollo.
 
 ---
 
@@ -430,6 +433,52 @@ export interface KnowledgeRetriever {
 | **Personalización muy fácil por organización** | Tres capas (plantilla → interruptores → Modo avanzado, §1.7) sobre la herencia organización → región → sede con bloqueos (🟢 D2); el asistente propone cambios con vista previa y confirmación (ADR 0029); marca de la organización (logo y color de acento) con tokens | 🟢 herencia; ⚪ plantillas, interruptores y marca por organización |
 | **Inglés por defecto, español como alternativa** | Hoy el código fija `DEFAULT_LOCALE = "es"` (`packages/config/src/index.ts`) y el MANUAL §9.9 dice «español por defecto e inglés». Propuesta: la **plataforma** usa `en` por defecto (web pública, alta de organizaciones nuevas, correos genéricos), cada **organización** tiene su idioma (`organizations.default_locale`, ya existe 🟢) y cada **persona** el suyo (`users.locale`, ya existe 🟢). La organización del piloto en Madrid queda en `es` | ⚪ ADR propuesto 0041; cambia MANUAL §9.9 y la constante |
 
+### 3.14 Voz y omnicanal: un agente, una memoria, todos los canales
+
+**Decisión de producto (23/10/2026): la voz (llamadas de teléfono) será un canal principal**, al mismo nivel que WhatsApp, Instagram y email, y entra **pronto** en la hoja de ruta. Motivo competitivo: en Madrid ya hay competidores que empiezan por la voz (p. ej. **heydiga**, recepcionista IA de teléfono y WhatsApp, con planes desde 49 €/mes por 200 minutos; anexo A). Lo que sigue son **opciones reversibles**; los únicos fijos son los cimientos de la sección 1.4 (aislamiento, controles de seguridad, abstracción de modelos, residencia/RGPD), que la voz cumple igual que los demás canales.
+
+**Lo que ya prevé el repo (🟡 MANUAL):** `channel_accounts.channel` incluye `voice` y su agente por defecto es `reception` (MANUAL §4.2, §5); `usage_records.metric` incluye `voice_minutes`; tablas `calls`, `voice_personas`, `voice_profiles` y `voice_samples` en la capa de voz; pantalla `/app/llamadas`. MANUAL §18 #9 deja abiertos el momento y el proveedor. Este documento propone adelantar el momento.
+
+**Arquitectura de canales (propuesta):**
+
+- **Un agente, una memoria, muchos canales.** El cliente final es un `contact` con varias `contact_identities` (teléfono, WhatsApp, Instagram, email). Una llamada y un WhatsApp del mismo número son **el mismo contacto**: el agente ve el historial y la memoria de ese contacto (ADR 0024) venga por donde venga, y puede seguir por WhatsApp lo que empezó por teléfono (p. ej. enviar la confirmación de la cita). La identidad por número de teléfono se trata como **indicio, no como prueba** (los números se pueden falsear): para acciones sensibles, verificación adicional.
+- **Mismo runtime y mismas reglas.** Una llamada es una `conversation` con `channel = 'voice'` y sus turnos son `messages` (transcripción). Las acciones (reservar, mover una cita) pasan por **las mismas skills y el mismo motor de políticas** (A8): la voz no tiene un camino propio para saltarse aprobaciones. En voz, lo que necesite aprobación se resuelve como en un canal escrito: «te lo confirmo por WhatsApp en unos minutos» o paso a una persona.
+- **Capa de voz detrás de una interfaz propia** (cimiento de abstracción de modelos). Boceto orientativo: `VoiceGateway` en `packages/channels/voice` (entrada SIP/WebRTC, transferencia a humano, grabación opcional) y `RealtimeVoiceProvider` junto al enrutador (sesión de voz con STT, LLM y TTS o un modelo *speech-to-speech*), con la misma política por organización (residencia, proveedor, presupuesto) y el registro de proveedor, región y minutos en `usage_records`. Cambiar de proveedor de voz debería ser configuración más un adaptador.
+- **Tiempo real fuera del worker de colas.** Una llamada es una sesión de audio de baja latencia: necesita un proceso que mantenga la conexión (un servicio de voz o un *agent worker* de la plataforma elegida). DBOS sigue sirviendo para lo durable alrededor de la llamada (resumen, memoria, tareas, confirmaciones), no para cada turno de audio.
+
+**Dos patrones de stack (los dos válidos; se elige con un *spike*):**
+
+| Patrón | Cómo funciona | A favor | En contra |
+|---|---|---|---|
+| **Cascada STT → LLM → TTS** | Transcripción en *streaming*, el LLM del enrutador decide (con herramientas), voz sintetizada en *streaming* | Usa el mismo enrutador y las mismas políticas que el texto; se puede elegir el mejor proveedor de cada pieza en español; más fácil de auditar (hay texto en cada paso) | Más piezas y más saltos de red; hay que cuidar la detección de turno y las interrupciones |
+| ***Speech-to-speech* (modelo de voz en tiempo real)** | Un modelo recibe y genera audio directamente, con herramientas | Latencia y naturalidad muy buenas; menos piezas | Más atado a un proveedor; menos control del texto intermedio; coste por minuto más alto en los modelos grandes |
+
+**Opciones de proveedores (verificadas el 23/10/2026; todas reversibles):**
+
+| Pieza | Opciones | Notas para Moodly |
+|---|---|---|
+| **Orquestación de voz** | **LiveKit Agents** (código abierto, autoalojable, LiveKit Cloud con residencia UE y SIP fijado a la UE); **Pipecat** (código abierto); plataformas gestionadas **Vapi**, **Retell AI**, **ElevenLabs Agents** | LiveKit encaja con la portabilidad del ADR 0028. Vapi tiene región UE solo con su paquete Premier; Retell declara que hoy no opera servicios en la UE; ElevenLabs ofrece residencia UE en Enterprise. Las plataformas gestionadas aceleran el *spike*, pero hay que revisar residencia, DPA y subencargados |
+| ***Speech-to-speech*** | **OpenAI Realtime** (`gpt-realtime-2.1` y `-mini`, con SIP y endpoint SIP de residencia UE); otros modelos *realtime* que vayan saliendo | Cobra por tokens de audio; los procesos con residencia regional llevan un recargo del 10 % en modelos recientes. Encaja como vía detrás de `RealtimeVoiceProvider` |
+| **STT (español)** | **Deepgram** (Flux multilingüe y Nova-3 con español y endpoint UE), Speechmatics, AssemblyAI, ElevenLabs Scribe, Gemini/OpenAI | Medir con audio real de llamadas en español de España (acentos, ruido de salón, nombres de tratamientos) |
+| **TTS (español)** | **ElevenLabs** (voces en español, clonación con consentimiento), Cartesia, OpenAI, otros | La calidad de la voz en español de España es lo que más nota el cliente; probar con el centro piloto |
+| **Telefonía** | **Twilio** (Elastic SIP Trunking), Telnyx u operadores españoles con troncal SIP | Números españoles: Twilio exige un *regulatory bundle* con datos del negocio y, en números geográficos, dirección en la zona del prefijo; para llamadas comerciales salientes, desde el 17/10/2026 se usan números **+34 400**. Lo más fácil para el piloto: **mantener el número del negocio y desviar** (todas, fuera de horario o no atendidas), como hacen los competidores |
+
+**Objetivos de calidad (propuestos, a medir en el *spike*):**
+
+- **Latencia:** del fin de la frase del cliente al inicio de la respuesta, **p50 por debajo de ~800 ms y p95 por debajo de ~1,5 s**; *barge-in* (el cliente interrumpe y el agente calla) inmediato; nunca silencios largos sin un «un momento, lo miro».
+- **Español:** tasa de error de transcripción medida con llamadas reales del vertical; voz natural de España (no neutra latinoamericana salvo que el negocio la prefiera); nombres de servicios, precios, fechas y horas pronunciados bien.
+- **Resolución:** % de llamadas resueltas sin persona, transferencias correctas y citas creadas por llamada; cada fallo real se convierte en caso de eval (incluidas evals de voz con audio grabado de prueba, no de clientes).
+
+**Cumplimiento específico de voz (validar con asesoría legal):**
+
+- **Aviso de IA (Ley de IA, art. 50, desde el 2/08/2026):** el agente se presenta como asistente virtual al empezar la llamada. Debe estar en las evals.
+- **Grabación y transcripción:** son datos personales (y la voz puede llegar a ser biométrica si se usa para identificar). Propuesta: **sin grabación de audio por defecto**; transcripción como registro de la conversación con aviso al inicio («esta llamada la atiende un asistente virtual y queda registrada para gestionar tu solicitud»); grabación de audio solo si la organización la activa, con su base jurídica, aviso explícito y retención corta configurable; nada de identificar por la voz sin un análisis específico. Residencia UE en STT, LLM, TTS, telefonía y almacenamiento, o el subencargado y la transferencia documentados.
+- **Clonación de voz** (`voice_samples`): solo con consentimiento expreso de la persona cuya voz se clona.
+- **Llamadas salientes** (recordatorios, reactivación): las comerciales necesitan consentimiento previo y números +34 400; las de servicio (recordatorio de una cita ya pedida) tienen otra base. Se distinguen en la skill y respetan `contacts.consents`.
+- **Datos de salud por teléfono** (clínicas): mismas reglas que en la sección 3.12 y el ADR propuesto 0043.
+
+**Cuándo entra (sin fechas, con disparadores):** *spike* de voz en paralelo al bloque A en cuanto exista el enrutador y el conocimiento v0 (A18); voz en producción en F1 (B11), y antes si el piloto o un cliente lo pide. Abre los verticales que viven del teléfono (restaurantes, talleres, clínicas tras su revisión legal) y deja de ser una desventaja frente a competidores que empiezan por la voz.
+
 ---
 
 ## 4. Evaluación de las herramientas propuestas
@@ -458,6 +507,12 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | **Claude en Microsoft Foundry** | Claude dentro de Azure | A octubre de 2026 solo ofrece despliegue global o *US Data Zone*; Europa figura como «próximamente» | **No disponible** para clientes con residencia UE (requisito legal/contractual), sí para otros | Que Foundry ofrezca zona de datos UE para Claude |
 | **Azure AI Search** | Búsqueda híbrida (vector + palabras clave con RRF), *semantic ranker*, recuperación agéntica con citas | `packages/knowledge` con pgvector híbrido (ADR 0025) | **Preparar interfaz** (`KnowledgeRetriever`) · **Activar con cliente** | Cliente con sus documentos ya en Azure AI Search, o volumen documental que pgvector no aguante (medido) |
 | **Vercel AI Gateway** (añadida al análisis) | Un endpoint para muchos proveedores, *fallbacks*, BYOK sin recargo, ZDR, **inferencia regional que falla en vez de salir de la región**, límites y trazas | Es la pieza que el ADR 0019 dejó abierta | **Opción preferida hoy** (se confirma con un *spike* y el ADR propuesto 0033; reversible) | — |
+| **LiveKit Agents** (orquestación de voz, código abierto, Cloud con residencia UE) | Sesiones de voz en tiempo real, SIP, detección de turno, *plugins* de STT/LLM/TTS | Nada: la voz es nueva | **Opción preferida hoy** para el *spike* de voz (autoalojable, ADR 0028); reversible | — |
+| **OpenAI Realtime** (`gpt-realtime-2.1`, SIP con endpoint UE) | Voz *speech-to-speech* de baja latencia | Vía de modelo más; convive con el enrutador | **Opción a comparar** en el *spike* de voz | Si gana en latencia y naturalidad en español con coste aceptable |
+| **ElevenLabs** (TTS y ElevenLabs Agents) | Voces en español de alta calidad; agentes de voz gestionados (residencia UE en Enterprise) | Agents solapa con nuestro runtime; el TTS no | **Opción preferida hoy** para TTS (a validar con el centro) · Agents **no prioritaria hoy** | Calidad de voz en español; un cliente que ya lo usa |
+| **Deepgram** (Flux multilingüe, Nova-3; endpoint UE) | STT en *streaming* con español | Nada | **Opción a comparar** para STT | Mejor tasa de error en llamadas reales en español |
+| **Vapi / Retell AI** (plataformas de voz gestionadas) | Agente de voz completo en días | Solapan con el runtime, las políticas y la memoria | **No prioritarias hoy** para producción (Vapi: UE solo en Premier; Retell: sin servicios en la UE) · útiles para un prototipo rápido sin datos reales | Si cambian sus condiciones de residencia o un cliente las trae |
+| **Twilio / Telnyx / operador español** (telefonía SIP) | Números españoles, troncal SIP, desvío desde el número del negocio | Nada | **Preparar interfaz** (`VoiceGateway`) · el proveedor se elige en el *spike* | Requisitos de números (*regulatory bundle*, +34 400 para comerciales) y coste por minuto |
 | **Patrón «enrutador de LLMs»** | Una función única que decide proveedor y modelo por coste, disponibilidad y tarea | Ya decidido en el ADR 0019 | **Cimiento** (abstracción de modelos, 3.1) | — |
 
 ### 4.2 Notas por herramienta
@@ -501,6 +556,7 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | A14 | **`/ops` mínimo** (ADR 0021, PRs 2–4): `requirePlatformStaff()`, organizaciones, auditoría, acceso JIT | — | e2e del equipo interno; cada acceso queda en `audit_logs` | Bajo |
 | A15 | **Langfuse (UE) + OpenTelemetry** en el worker | A6 | Una conversación de staging se sigue de punta a punta con su coste | Bajo |
 | A16 | **Email con Resend (B4)** para invitaciones y avisos, sin token en la query (R-22) | Cuenta de Resend correcta | Invitación recibida en staging | Bajo |
+| A18 | ***Spike* de voz** (en paralelo, con datos de prueba): número de prueba con desvío SIP, agente `reception` que responde con el conocimiento v0 y transfiere a una persona, aviso de IA al inicio; comparar cascada (LiveKit + STT + enrutador + TTS) frente a *speech-to-speech*; medir latencia, calidad en español y coste por minuto; esbozo de `VoiceGateway`/`RealtimeVoiceProvider` y del ADR propuesto 0045 | A6, A9 | Informe con p50/p95 de latencia, tasa de error en español, coste por minuto desglosado y recomendación de stack | Medio: latencia y calidad del español |
 | A17 | **Condiciones de salida a producción:** Supabase Pro en la UE con restauración probada, revisión humana reactivada (lista leída de la rama base), claves rotadas y generadas por una persona, proyecto de producción separado, Vercel Pro con *log drain*, DPAs (piloto y subencargados) | Todo lo anterior | Lista del STATUS marcada con evidencia | Alto: bloquea el piloto si se retrasa |
 
 ### Bloque B · Producto para pymes (F1)
@@ -516,6 +572,8 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | B7 | **Plantilla de gimnasios** y agente `sales` v0 (reactivación, bonos) | A10, B5 | Evals del vertical en verde | Bajo |
 | B8 | **Idioma:** `en` por defecto de plataforma, `organizations.default_locale` y `users.locale` (ADR propuesto 0041) | — | e2e en los dos idiomas; test de paridad de claves | Bajo |
 | B9 | **Asistente en modo lectura** (ADR 0029 fase 2): diagnóstico y enseñar, con los permisos del usuario | A13 | Evals de escalada e inyección en verde | Medio |
+| B11 | **Voz en producción:** llamadas desviadas del número del negocio, contacto unificado con WhatsApp (misma memoria), reservas por teléfono con las skills de B1, confirmación por WhatsApp, transferencia a humano, transcripción, grabación de audio solo si la organización la activa, minutos en `usage_records`, pantalla `/app/llamadas` | A18, B1, A11 | Llamada real → cita creada en el sistema del centro → confirmación por WhatsApp; latencia dentro del objetivo; aviso de IA en las evals | Medio: calidad y coste |
+| B12 | **Plantillas de restaurantes y talleres** (sobre voz), con integración de su sistema de reservas (TheFork, CoverManager…) cuando exista | B11 | Evals del vertical en verde | Medio |
 | B10 | **Vertical regulado (preparación):** revisión legal, EIPD y plantilla de clínicas con bloqueos | §18 #12 | Informe legal favorable antes de cualquier dato de salud | Alto: legal |
 
 ### Bloque C · Cadenas multi-sede (F2)
@@ -527,7 +585,8 @@ Criterio aplicado: el del ADR 0031 §5 (¿nos diferencia?, ¿ve datos de cliente
 | C3 | **Alta de sedes en lote** (CSV) y onboarding asistido | — | 50 sedes importadas con validación | Bajo |
 | C4 | **Analítica multi-sede** (P7) y comparativa | A15 | Métricas por sede cuadran con los runs | Medio |
 | C5 | **Coordinación entre agentes** por eventos (cita → recurso → cobro en borrador, MANUAL §5.8) | A3, B1 | Flujo completo con un cliente real | Medio |
-| C6 | **Instagram DM y email** en `packages/channels` | A11 | Mensaje real por cada canal | Medio: revisión de Meta |
+| C6 | **Instagram DM y email** en `packages/channels`, con el mismo contacto y memoria que WhatsApp y voz | A11 | Mensaje real por cada canal; un contacto que escribe por Instagram y llama ve un único historial | Medio: revisión de Meta |
+| C8 | **Voz saliente** (recordatorios y confirmaciones de servicio; campañas solo con consentimiento y números +34 400) y llamadas simultáneas por sede | B11 | Recordatorio real con resultado registrado; consentimientos respetados en las evals | Medio: legal y reputación del número |
 | C7 | **Coach sobre datos internos** (MANUAL §5.12) con recomendaciones con evidencia | B3, B4 | Recomendaciones aceptadas con impacto medido | Medio |
 
 ### Bloque D · Mid-market (F3)
@@ -577,6 +636,7 @@ Casi todas son **reversibles** (la recomendación es un punto de partida, no un 
 | ☐ | **Momento de Supabase Pro** (§18 #11) | Ahora; antes del primer dato real | Antes del primer dato real, con copia de seguridad restaurada en una prueba | A17 | STATUS |
 | ☐ | **Reactivar la revisión humana** en rutas sensibles | Ahora; antes del primer dato real | Antes del primer dato real; la lista se lee de la rama base | A17 | AGENTS.md + `sensitive-paths.txt` |
 | ☐ | **Plantilla de DPA y lista de subencargados** | Redactar ahora; al primer cliente | Ahora (es corta y la pide el primer centro serio) | A17 | Centro de confianza |
+| ☐ | **Stack de voz** (MANUAL §18 #9) | Cascada (LiveKit/Pipecat + STT + enrutador + TTS) o *speech-to-speech* (OpenAI Realtime u otro); plataforma gestionada para prototipos; telefonía Twilio, Telnyx u operador español | Decidir tras el *spike* A18 con latencia, calidad en español, residencia y coste por minuto medidos; reversible detrás de `RealtimeVoiceProvider` | B11 | ADR propuesto 0045 |
 | ☐ | **Sistema de reservas del piloto** (MANUAL §13) | Booksy, Treatwell, Fresha, Koibox, Google Calendar | El que use el centro piloto; Google Calendar como mínimo garantizado | B1 | ADR propuesto 0036 |
 | ☐ | **Aceptar o cerrar ADRs propuestos** | 0022 (resto), 0024, 0025, 0026, 0028, 0029 | Aceptar 0025 y 0026 con A5/A9; 0024 con B2; 0029 con B9; 0022 completo con D1; 0028 con E1 | Según la fila | MANUAL §19 |
 | ☐ | **Redactar los ADR «por redactar»** que este plan usa | 0004, 0007, 0008, 0009, 0012, 0013 | Redactarlos en el PR que los implanta (0008 con A8, 0009 con A3, 0007 con D5…) en vez de abrir números nuevos | Según la fila | `docs/adr/` |
@@ -611,6 +671,8 @@ Todos son **ADR propuesto**: hay que escribirlos con la plantilla `docs/adr/0000
 
 **ADR propuesto 0044 · Personalización por organización.** Decide qué puede cambiar cada organización sin código: marca (logo, color de acento con tokens, ADR 0018), nombre y tono de cada agente, plantilla del sector, idioma, horarios, reglas y límites, y qué está bloqueado por la central en cadenas (herencia, ADR 0005 por redactar). Todo es configuración en datos validada con Zod y versionada, nunca código por cliente. Consecuencia: «muy fácil de personalizar» sin ramas por cliente.
 
+**ADR propuesto 0045 · Voz como canal principal.** Fija la voz como canal de primer nivel y su arquitectura: un contacto y una memoria para todos los canales, la voz usando las mismas skills y el mismo motor de políticas, la capa `VoiceGateway`/`RealtimeVoiceProvider` detrás de la abstracción de modelos, y el servicio de tiempo real separado del worker de colas. Elige el stack inicial con los datos del *spike* A18 (latencia, español, residencia, coste) dejando las demás opciones como alternativas. Define los objetivos de latencia, el aviso de IA, la política de transcripción y grabación (sin audio por defecto, retención corta, base jurídica revisada por asesoría legal), el consentimiento para clonación de voz y para llamadas comerciales salientes, y cómo se miden y cobran los minutos (enlaza con el ADR propuesto 0039). Actualiza MANUAL §17 y §18 #9.
+
 ---
 
 ## 7. Diagramas
@@ -625,7 +687,7 @@ flowchart LR
     WA["WhatsApp Cloud API 🔵"]
     WEBCHAT["Web chat 🔵"]
     IGM["Instagram y email ⚪"]
-    VOZ["Voz ⚪"]
+    VOZ["Voz por teléfono (SIP) 🔵"]
   end
 
   subgraph Web["apps/web · Next.js en Vercel (UE)"]
@@ -641,6 +703,8 @@ flowchart LR
     LEARN["Bucle de aprendizaje ⚪"]
     INGEST["Ingesta de conocimiento 🔵"]
   end
+
+  VSVC["Servicio de voz en tiempo real (p. ej. LiveKit Agents, UE) 🔵"]
 
   subgraph Core["packages/agent-core"]
     ROUTER["ModelRouter 🔵"]
@@ -675,7 +739,9 @@ flowchart LR
   WA --> WH
   WEBCHAT --> WH
   IGM --> WH
-  VOZ --> WH
+  VOZ --> VSVC
+  VSVC --> ROUTER
+  VSVC --> RLS
   WH --> RLS
   UI --> RLS
   OPS --> RLS
@@ -707,8 +773,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  F0["F0 · Piloto estética Madrid<br/>Bloque A: worker, runs, canales, enrutador, evals, bandeja"]
-  F1["F1 · Pymes multi-vertical<br/>Bloque B: reservas, memoria, Stripe, onboarding, gimnasios"]
+  F0["F0 · Piloto estética Madrid<br/>Bloque A: worker, runs, canales, enrutador, evals, bandeja, spike de voz"]
+  F1["F1 · Pymes multi-vertical<br/>Bloque B: reservas, memoria, Stripe, onboarding, voz en producción, gimnasios, restaurantes y talleres"]
   F2["F2 · Cadenas multi-sede<br/>Bloque C: roles, herencia, analítica por sede, más canales"]
   F3["F3 · Mid-market<br/>Bloque D: WorkOS, SSO y SCIM, BYOK, agentes propios, MCP, pentest"]
   F4["F4 · Enterprise<br/>Bloque E: celdas, modelos en su nube, Agent Builder, asistente de trabajo"]
@@ -882,7 +948,11 @@ Entrega: enlace al PR, lista de casos, coste estimado por ejecución.
 | **Cerrar opciones de precio en el código** | Precios o planes escritos en el código, o una sola unidad medida | Planes y precios como datos; medir todas las unidades candidatas en `usage_records` |
 | **Tratar esta hoja de ruta como un corsé** | Se descarta una idea buena porque «no está en el roadmap» | Proponerla en un PR o ADR; aquí solo son fijos los cimientos de la sección 1.4 |
 | **Seguir nombres de productos ya cambiados** | Documentos que dicen «Vertex AI Search» o modelos Titan de texto | Anexo B; verificar la documentación oficial antes de cada ADR |
-| **Abrir demasiados verticales a la vez** | Plantillas a medio hacer para cinco sectores | Estética primero, gimnasios después; restaurantes y talleres esperan a la voz |
+| **Abrir demasiados verticales a la vez** | Plantillas a medio hacer para cinco sectores | Estética primero, gimnasios después; restaurantes y talleres cuando la voz esté en producción (B11) |
+| **Voz lenta o que suena a robot** | Silencios de más de 1–2 s, interrupciones mal gestionadas, mala pronunciación de nombres y precios | Objetivos de latencia de la sección 3.14 medidos en cada cambio; probar voces con el centro; evals de voz |
+| **Grabar llamadas sin base ni aviso** | Audio guardado por defecto, sin aviso al inicio ni retención definida | Sin audio por defecto; aviso de IA y de registro al inicio; retención corta; revisión legal (3.14) |
+| **Coste por minuto sin control** | Margen negativo en clientes con muchas llamadas | Minutos en `usage_records` desde el *spike*; topes por organización; precio de la voz validado en la sección 2.8 |
+| **Un agente distinto por canal** | El cliente repite lo que ya dijo por WhatsApp cuando llama | Un contacto, una memoria (3.14); la voz usa las mismas skills y el mismo motor de políticas |
 | **Un solo fundador y un solo agente de código como cuello de botella** | PRs grandes que nadie revisa | Un PR pequeño por fila de §5; evidencia en cada PR |
 
 ---
@@ -907,6 +977,12 @@ Todas se abrieron el 23/10/2026. Antes de aceptar un ADR que dependa de ellas, *
 | Apigee | Servidor MCP remoto de API hub (regiones UE: `europe-north1`, `europe-west1`, `europe-west9`; no Fráncfort) | https://docs.cloud.google.com/apigee/docs/reference/apis/apihub/mcp/use-apihub-mcp · https://docs.cloud.google.com/apigee/docs/api-platform/apigee-mcp/apigee-mcp-overview |
 | MCP | Especificación 2026-07-28 (sin estado); gobierno en la Agentic AI Foundation (Linux Foundation) | https://modelcontextprotocol.io/specification/2026-07-28 · https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation |
 | Ley de IA de la UE | Art. 50 desde el 2/08/2026; alto riesgo del anexo III aplazado al 2/12/2027; anexo I al 2/08/2028 | https://ai-act-service-desk.ec.europa.eu/en/ai-act/timeline/timeline-implementation-eu-ai-act |
+| Voz: competidor en Madrid | heydiga: recepcionista IA de teléfono y WhatsApp, planes por minutos (49 €/200 min … 169 €/900 min), aviso de asistente virtual | https://heydiga.com/es · https://heydiga.com/es/precios · https://heydiga.com/es/empresas |
+| Voz: OpenAI Realtime | SIP con endpoint de residencia UE (`sip-eu.api.openai.com`); `gpt-realtime-2.1` por tokens de audio; recargo del 10 % en procesamiento regional para modelos recientes | https://developers.openai.com/api/docs/guides/realtime-sip · https://developers.openai.com/api/docs/pricing |
+| Voz: ElevenLabs Agents | 0,08 $/min adicional, LLM aparte, telefonía del operador aparte; residencia UE en Enterprise | https://elevenlabs.io/pricing/agents · https://elevenlabs.io/blog/introducing-european-data-residency |
+| Voz: LiveKit y Deepgram | Residencia UE, SIP fijado a la UE (`*.eu.sip.livekit.cloud`), restricción de región de inferencia; Deepgram Flux multilingüe y Nova-3 con español y endpoint UE | https://docs.livekit.io/deploy/admin/regions/data-residency/ · https://docs.livekit.io/telephony/features/region-pinning/ · https://docs.livekit.io/agents/models/stt/deepgram/ |
+| Voz: Vapi y Retell | Vapi: región UE solo con el paquete Premier; Retell: infraestructura en EE. UU., sin servicios en la UE | https://vapi.ai/pricing · https://www.retellai.com/glossary/data-residency · https://www.retellai.com/pricing |
+| Voz: números en España | Twilio: *regulatory bundle* para números españoles; +34 400 para llamadas comerciales desde el 17/10/2026 | https://www.twilio.com/en-us/guidelines/es/regulatory · https://www.twilio.com/docs/sip-trunking |
 | Langdock | Agentes, flujos, MCP, BYOK, alojamiento en Azure UE, dedicado, BYOC y local; precio desde 25 €/usuario/mes | https://docs.langdock.com/ · https://docs.langdock.com/administration/mcp · https://www.langdock.com/enterprise · https://www.langdock.com/pricing |
 
 ## Anexo B. Nombres de productos que han cambiado en 2026
