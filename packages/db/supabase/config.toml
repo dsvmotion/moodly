@@ -430,9 +430,9 @@ enabled = true
 # a este project_id, estos valores sustituyen a los de arriba; el resto de la
 # configuración es la misma que en local (registro cerrado, contraseñas de 12
 # con mayúsculas, minúsculas y dígitos, TOTP). El despliegue a staging
-# (.github/workflows/deploy-staging.yml) muestra las diferencias con
-# `supabase config diff`, de solo lectura (auditoría R-17). Ojo: la CLI no avisa
-# de claves mal escritas; compruébalo en ese diff.
+# (.github/workflows/deploy-staging.yml) la aplica con `supabase config push` y
+# falla si después queda alguna diferencia (auditoría R-17). Ojo: la CLI no
+# avisa de claves mal escritas; compruébalo en el diff del despliegue.
 [remotes.staging]
 project_id = "sgeswmdqstonegceusej"
 
@@ -442,5 +442,25 @@ site_url = "https://staging.moodlycrm.com"
 additional_redirect_urls = ["https://staging.moodlycrm.com"]
 
 # En local, 1 s para no esperar en las pruebas; alojado, el valor por defecto.
+# El alojado conserva lo que tiene y es más estricto que local: confirmar el
+# email antes de entrar y códigos de 8 cifras.
 [remotes.staging.auth.email]
 max_frequency = "60s"
+enable_confirmations = true
+otp_length = 8
+
+# Caducidad de sesiones: el plan Free de Supabase no la admite, así que en
+# staging queda como está (0s, sin caducidad). Decisión de producto pendiente:
+# plan Pro antes de datos reales (docs/STATUS.md).
+[remotes.staging.auth.sessions]
+timebox = "0s"
+inactivity_timeout = "0s"
+
+# Tamaños del pooler del alojado: dependen de su instancia; no se tocan.
+[remotes.staging.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+# Vector buckets: plan Pro y sin uso todavía.
+[remotes.staging.storage.vector]
+enabled = false
