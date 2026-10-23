@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Sidebar, SidebarItem, SidebarSection, useSidebar } from "@repo/ui/components/sidebar";
 import { cn } from "@repo/ui/lib/utils";
-import { AGENTS_NAV, isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
+import type { AgentView } from "@/lib/agents";
+import { isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
 import type { Theme } from "@/lib/preferences";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
 import { setSidebarCollapsed } from "@/app/preferences-actions";
@@ -21,12 +22,15 @@ import { AppUserMenu } from "@/components/app-user-menu";
  */
 export function AppSidebar({
   header,
+  agents,
   user,
   signOutAction,
   theme,
   defaultCollapsed,
 }: {
   header: ReactNode;
+  /** Agentes de la organización activa (del catálogo; ninguno sin organización). */
+  agents: readonly AgentView[];
   /** Quién es (nombre, si lo tiene, y email) y su rol en la organización activa. */
   user: { name: string | null; email: string; context: string | null };
   signOutAction: () => Promise<void>;
@@ -62,14 +66,15 @@ export function AppSidebar({
     >
       <SidebarSection data-testid="nav-main">{MAIN_NAV.map(item)}</SidebarSection>
       <SidebarSection title={t("nav.agents")} data-testid="nav-agents">
-        {AGENTS_NAV.map((agent) => (
+        {agents.length === 0 ? <EmptyNote>{t("sidebarEmpty.agents")}</EmptyNote> : null}
+        {agents.map((agent) => (
           <SidebarItem
             key={agent.key}
             icon={<span className={cn("size-2.5 rounded-full", agent.dotClass)} />}
             active={isActive(pathname, agent.href)}
           >
             <Link href={withScope(agent.href, scope)} data-testid={`nav-agent-${agent.key}`}>
-              {t(`nav.agentTypes.${agent.key}`)}
+              {agent.label}
             </Link>
           </SidebarItem>
         ))}

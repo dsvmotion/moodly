@@ -3,7 +3,6 @@
 // ADR 0023: en español e identificadores estables (no se traducen con el
 // idioma de la interfaz). Las etiquetas viven en messages/*.json
 // (nav.<key>); aquí solo claves, rutas e iconos.
-import { AGENT_TYPES, type AgentTypeKey } from "@repo/config";
 import {
   ActivityIcon,
   BarChart3Icon,
@@ -56,29 +55,6 @@ export const RECORDS_NAV: readonly NavItem[] = [
   { key: "knowledge", href: "/app/conocimiento", icon: BookOpenIcon },
   { key: "memory", href: "/app/memoria", icon: BrainIcon },
 ];
-
-// Clases literales del token --agent-* de cada agente: Tailwind solo genera las
-// clases que ve escritas enteras en el código.
-const AGENT_DOT: Record<AgentTypeKey, string> = {
-  reception: "bg-agent-reception",
-  customer: "bg-agent-customer",
-  sales: "bg-agent-sales",
-  admin: "bg-agent-admin",
-};
-
-export interface AgentNavItem {
-  key: AgentTypeKey;
-  href: string;
-  /** Clase de fondo con el color del agente. */
-  dotClass: string;
-}
-
-/** Los 4 agentes de serie (ADR 0023, `AGENT_TYPES`), cada uno con su ventana (P5). */
-export const AGENTS_NAV: readonly AgentNavItem[] = AGENT_TYPES.map((agent) => ({
-  key: agent.key,
-  href: `/app/agentes/${agent.key}`,
-  dotClass: AGENT_DOT[agent.key],
-}));
 
 export const SETTINGS_ROOT = "/app/ajustes";
 /** Entrada «Ajustes» de la barra lateral: /app/ajustes abre General y queda activa en todas las secciones. */
@@ -164,10 +140,6 @@ export function settingsSectionBySlug(slug: string): SettingsSection | null {
   return SETTINGS_SECTIONS.find((section) => section.slug === slug) ?? null;
 }
 
-/** ¿Es una clave de agente de serie? Para validar `/app/agentes/[tipo]`. */
-export function isAgentKey(value: string): value is AgentTypeKey {
-  return AGENT_TYPES.some((agent) => agent.key === value);
-}
 
 /** ¿La ruta actual corresponde a esta entrada? /app solo coincide exacto. */
 export function isActive(pathname: string, href: string): boolean {
