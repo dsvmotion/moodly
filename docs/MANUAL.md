@@ -1179,7 +1179,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | propuesto |
 | 0025 | Búsqueda vectorial con muchas empresas en un solo Postgres | propuesto |
 | 0026 | Un solo Postgres al principio: reparto de cargas, umbrales y celdas | propuesto |
-| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (pendiente de *spike*) |
+| 0027 | Ejecución duradera con DBOS Transact sobre Postgres | propuesto (*spike* superado el 2026-10-23; pendiente de aceptar) |
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
 | 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
 | 0030 | Agentes y skills ampliables | propuesto |
