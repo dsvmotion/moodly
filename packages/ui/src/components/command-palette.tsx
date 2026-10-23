@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -9,6 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from "@repo/ui/components/command";
+import { commandItemValue, orderGroupsBySearch } from "@repo/ui/lib/command-order";
 import { isCommandPaletteShortcut, isSearchShortcut } from "@repo/ui/lib/keyboard";
 
 export interface CommandPaletteItem {
@@ -41,10 +42,18 @@ export function CommandPalette({
   groups: CommandPaletteGroup[];
   labels: { title: string; description: string; placeholder: string; empty: string };
 }) {
+  const [search, setSearch] = useState("");
+  // Cada vez que se abre, empieza sin búsqueda.
+  const changeOpen = (next: boolean) => {
+    if (!next) setSearch("");
+    onOpenChange(next);
+  };
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (isCommandPaletteShortcut(event)) {
         event.preventDefault();
+        if (open) setSearch("");
         onOpenChange(!open);
       } else if (!open && isSearchShortcut(event)) {
         event.preventDefault();
@@ -55,33 +64,37 @@ export function CommandPalette({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onOpenChange]);
 
+  // La mejor coincidencia, primero, aunque esté en otro grupo (command-order.ts).
+  const ordered = useMemo(
+    () => orderGroupsBySearch(groups.filter((group) => group.items.length > 0), search),
+    [groups, search],
+  );
+
   const select = (item: CommandPaletteItem) => {
-    onOpenChange(false);
+    changeOpen(false);
     item.onSelect();
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title={labels.title} description={labels.description} label={labels.title}>
-      <CommandInput placeholder={labels.placeholder} aria-label={labels.placeholder} />
+    <CommandDialog open={open} onOpenChange={changeOpen} title={labels.title} description={labels.description} label={labels.title}>
+      <CommandInput placeholder={labels.placeholder} aria-label={labels.placeholder} value={search} onValueChange={setSearch} />
       <CommandList>
         <CommandEmpty>{labels.empty}</CommandEmpty>
-        {groups
-          .filter((group) => group.items.length > 0)
-          .map((group) => (
-            <CommandGroup key={group.heading} heading={group.heading}>
-              {group.items.map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={`${item.label} ${item.id}`}
-                  keywords={item.keywords ?? []}
-                  onSelect={() => select(item)}
-                >
-                  {item.icon}
-                  {item.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
+        {ordered.map((group) => (
+          <CommandGroup key={group.heading} heading={group.heading}>
+            {group.items.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={commandItemValue(item)}
+                keywords={item.keywords ?? []}
+                onSelect={() => select(item)}
+              >
+                {item.icon}
+                {item.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
       </CommandList>
     </CommandDialog>
   );

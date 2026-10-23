@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useTransition, type ReactNode } from "react";
 import { Sidebar, SidebarItem, SidebarSection, useSidebar } from "@repo/ui/components/sidebar";
 import { cn } from "@repo/ui/lib/utils";
-import { isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
+import { AGENTS_NAV, isActive, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, type NavItem } from "@/lib/navigation";
 import type { Theme } from "@/lib/preferences";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
 import { setLocale, setSidebarCollapsed, setTheme } from "@/app/preferences-actions";
@@ -56,7 +56,17 @@ export function AppSidebar({
     >
       <SidebarSection data-testid="nav-main">{MAIN_NAV.map(item)}</SidebarSection>
       <SidebarSection title={t("nav.agents")} data-testid="nav-agents">
-        <EmptyNote>{t("sidebarEmpty.agents")}</EmptyNote>
+        {AGENTS_NAV.map((agent) => (
+          <SidebarItem
+            key={agent.key}
+            icon={<span className={cn("size-2.5 rounded-full", agent.dotClass)} />}
+            active={isActive(pathname, agent.href)}
+          >
+            <Link href={withScope(agent.href, scope)} data-testid={`nav-agent-${agent.key}`}>
+              {t(`nav.agentTypes.${agent.key}`)}
+            </Link>
+          </SidebarItem>
+        ))}
       </SidebarSection>
       <SidebarSection title={t("nav.records")} data-testid="nav-records">
         {RECORDS_NAV.map(item)}

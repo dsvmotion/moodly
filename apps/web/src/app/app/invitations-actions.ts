@@ -51,8 +51,8 @@ export async function createInvitation(_prev: InviteState, formData: FormData): 
   if (error || !data) return { error: t(error?.code === "42501" ? "errors.forbidden" : "errors.invalid"), link: null };
 
   securityEvent("org.invitation_created", { userId: user.id, organizationId, role });
-  revalidatePath("/app/settings/organization");
-  return { error: null, link: `/app/invitation?token=${encodeURIComponent(data)}` };
+  revalidatePath("/app/ajustes/general");
+  return { error: null, link: `/app/invitacion?token=${encodeURIComponent(data)}` };
 }
 
 export async function revokeInvitation(formData: FormData): Promise<void> {
@@ -68,7 +68,7 @@ export async function revokeInvitation(formData: FormData): Promise<void> {
     .eq("id", id)
     .select("organization_id");
   if (data?.[0]) securityEvent("org.invitation_revoked", { userId: user.id, organizationId: data[0].organization_id, invitation_id: id });
-  revalidatePath("/app/settings/organization");
+  revalidatePath("/app/ajustes/general");
 }
 
 export interface AcceptState {

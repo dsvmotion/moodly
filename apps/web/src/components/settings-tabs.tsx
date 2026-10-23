@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { SETTINGS_SECTIONS, type SettingsSectionKey } from "@/lib/navigation";
 
-const TABS = [
-  { key: "organization", href: "/app/settings/organization" },
-  { key: "security", href: "/app/settings/security" },
-] as const;
-
-// Pestañas de Ajustes (organización y seguridad de la cuenta). Sin diseño (tarea 4).
-export async function SettingsTabs({ current }: { current: (typeof TABS)[number]["key"] }) {
+// Secciones de Ajustes con datos reales hoy (MANUAL §9.4, rutas del ADR 0023).
+// El área completa con navegación secundaria (P6, 13 secciones) es el siguiente
+// paso (auditoría del frontend 2026-10-23, F-3).
+export async function SettingsTabs({ current }: { current: SettingsSectionKey }) {
   const t = await getTranslations("settingsTabs");
   return (
-    <nav aria-label={t("label")} className="flex gap-3 border-b pb-2 text-sm">
-      {TABS.map((tab) => (
+    <nav aria-label={t("label")} data-testid="settings-tabs" className="flex gap-3 border-b pb-2 text-sm">
+      {SETTINGS_SECTIONS.map((tab) => (
         <Link
           key={tab.key}
           href={tab.href}

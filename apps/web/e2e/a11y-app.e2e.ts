@@ -27,11 +27,13 @@ for (const theme of ["light", "dark"] as const) {
 
     test("pantallas de la app", async ({ page }) => {
       for (const path of [
-        "/app/settings/organization",
-        "/app/settings/security",
-        "/app/inbox",
-        "/app/records/locations",
-        "/app/records/people",
+        "/app/ajustes/general",
+        "/app/ajustes/seguridad",
+        "/app/conversaciones",
+        "/app/ajustes/sedes",
+        "/app/ajustes/equipo",
+        "/app/agentes",
+        "/app/agentes/reception",
       ]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -40,7 +42,7 @@ for (const theme of ["light", "dark"] as const) {
     });
 
     test("menús, paneles y paleta abiertos", async ({ page }) => {
-      await page.goto("/app/records/locations");
+      await page.goto("/app/ajustes/sedes");
       await page.getByTestId("locations-table-row").first().click();
       await expect(page.getByTestId("preview-drawer")).toBeVisible();
       await expectNoViolations(page, "vista previa");

@@ -29,6 +29,17 @@
   - **Login:** clave del freno registrada (solo el hash); registro público cerrado a mano por producto.
   - **Verificado:** CI de `main` (`872e1c8`) en verde en los 5 checks; despliegue a staging en verde (run 39871956506); historial de staging igual al del repo; `/login` en staging responde con la CSP con nonce y las cabeceras de seguridad; sin errores de ejecución en Vercel. Avisos de Supabase revisados (solo los esperados).
   - **Falta:** el primer usuario de staging, para probar el login de punta a punta allí — 2026-10-23.
+- El MFA también protege las lecturas (B3, R-16) — #60:
+  - `private.session_is_active()` exige aal2 a quien tiene un factor verificado. Con la contraseña sola ya no se lee nada por la API de Supabase; antes se leían la organización, los locales, las memberships y las invitaciones.
+  - Cubre las 28 políticas y `accept_invitation` sin tocar ninguna.
+  - **Verificado:** pgTAP 455/455 (23 nuevos en `14_mfa_reads`); prueba en negativo con la vuelta atrás (fallan 9 de 23); e2e `mfa-reads` contra Auth y PostgREST reales; CI del PR en verde en los 5 checks; CI de `main` (`0bb0daf`) en verde y migración aplicada en staging por el despliegue del CI (historial 9/9, igual al del repo) — 2026-10-23.
+- Navegación canónica del frontend (auditoría del frontend, incremento 1; F-1, F-5, F-6 y F-12) — este PR:
+  - rutas en español del ADR 0023 (`/app/conversaciones`, `/app/ajustes/general`…);
+  - la sección Agentes con los 4 de serie y su ventana (`/app/agentes/[tipo]`), honesta: «Sin configurar»;
+  - una entrada por destino: fuera los duplicados de Registros; Locales y Personas pasan a Ajustes (Sedes y Miembros);
+  - logotipo en la barra lateral;
+  - ⌘K pone la mejor coincidencia primero aunque esté en otro grupo. Antes, «sede» + Enter abría Administración, por un fallo de cmdk 1.1.1 al ordenar los grupos.
+  - **Verificado en local** sobre la rama al día con `main`: `pnpm check`, y e2e 103/103 contra Supabase local con las 9 migraciones (antes de los arreglos, 101/103, con 2 fallos reales). Falta el CI del PR y la verificación sobre `main`.
 
 ## En curso
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
@@ -42,7 +53,6 @@
 - **Cuentas creadas por producto (2026-10-22):** Vercel Pro, Supabase, Railway, Cloudflare, WorkOS, Sentry, Meta for Developers, Resend, GitHub y dominios en Hostinger. Estado de cada una en la re-auditoría §2.4. Las claves van siempre en el gestor de secretos del proveedor o en un `.env` local, nunca en el chat ni en el repo.
 
 ## Bloqueado
-- **Código en la sesión del agente (R-26):** el plugin Semgrep Guardian no puede conectarse (el proxy del entorno bloquea sus dominios) y, sin sesión iniciada, bloquea las ediciones de código y las instalaciones de paquetes. Producto lo desactivó en claude.ai, pero sigue cargado hasta que la sesión vuelva a arrancar. Bloquea Sentry (B1b) y la configuración de Auth como código (B3). El proyecto `moodly-ai/moodly-web` ya existe en Sentry y su DSN está en Vercel.
 - **Plan de Vercel (R-19):** la API de logs respondió como plan Hobby (retención de 1 h). Producto confirma si el equipo `diegosanjuan` es Pro; si no, se mueve el proyecto al equipo Pro (Hobby no permite uso comercial ni *log drains*).
 - **Primer usuario de staging:** decisión de producto sobre cómo crearlo (propuesta en la auditoría del 2026-10-23, §5).
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
@@ -59,10 +69,10 @@
 
 **Fase B — staging alojado y operación**
 - B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57).
-- B1b · Sentry: `@sentry/nextjs` con *tunnel* propio, sin datos personales y sin *replay*. Bloqueado por R-26.
+- B1b · Sentry: `@sentry/nextjs` con *tunnel* propio, sin datos personales y sin *replay*. El proyecto `moodly-ai/moodly-web` ya existe y su DSN está en Vercel. Ya no lo bloquea R-26: el hook de Semgrep dejó de actuar al reiniciarse la sesión (2026-10-23).
 - B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
 - B3 · Auth y MFA de verdad:
-  - **R-16 primero (alta):** el MFA no protege las lecturas en la capa de datos. Con la contraseña sola (aal1) se lee por REST todo lo de sus organizaciones; comprobado en local. Arreglo: `session_is_active()` exige aal2 a quien tiene un factor verificado.
+  - R-16: hecho (#60).
   - Auth como código, R-17: `[remotes.staging]` y `supabase config diff`/`push` desde el CI, con registro cerrado, contraseñas, `site_url` y TOTP.
   - R-21 (pedir el código para desactivar el MFA) y R-23 (no contar los 5xx de Auth en el freno).
   - Cloudflare Turnstile.
@@ -72,6 +82,13 @@
   - R-19: plan de Vercel;
   - R-20: revocar los privilegios que sobran a `authenticated`;
   - *log drain* y alertas.
+
+**Frontend — diseño real en staging** (`docs/audits/2026-10-23-auditoria-frontend.md`; cada incremento con sus e2e y sin datos inventados)
+1. Navegación canónica (F-1, F-5, F-6 y F-12): en este PR. Luego, el menú de usuario desplegable (F-4).
+2. Ajustes como área P6 con navegación secundaria (F-3): General, Miembros, Sedes y Seguridad con datos; Mi perfil y Preferencias, nuevas; el resto, con un vacío que dice qué habrá.
+3. Inicio P1 (F-2) con lo que existe de verdad: organización, locales en alcance, invitaciones pendientes, MFA y los 4 agentes sin configurar.
+4. Login y MFA con marca y traducidos (F-7).
+5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.
 
 **Fase D — runtime de agentes** (propuesta de la auditoría del 2026-10-23: antes que la C, salvo un cliente enterprise a la vista; decide producto)
 - Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` con herencia y bloqueos (antes tarea 5; ADR 0030).

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AppSearchButton } from "@/components/app-command-center";
+import { AppBrand } from "@/components/app-brand";
 import { AppFrame } from "@/components/app-frame";
 import { AppOrgSwitcher } from "@/components/app-org-switcher";
 import { AppScopeSwitcher } from "@/components/app-scope-switcher";
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           defaultCollapsed={parseSidebarCollapsed(cookieStore.get(SIDEBAR_COOKIE)?.value)}
           header={
             <>
+              <AppBrand />
               <AppOrgSwitcher organizations={organizations} activeId={organization?.id ?? null} action={setActiveOrganization} />
               <AppScopeSwitcher options={options} />
               <AppSearchButton />

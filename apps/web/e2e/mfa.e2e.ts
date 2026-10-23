@@ -24,7 +24,7 @@ test("org_admin: tras la contraseña pide el código; sin él no entra y con él
 
     // Saltarse el paso no sirve: con la sesión de la contraseña sola (aal1), la
     // app vuelve a pedir el código.
-    await page.goto("/app/settings/organization");
+    await page.goto("/app/ajustes/general");
     await expect(page).toHaveURL(/\/login\/mfa$/);
     await expect(page.getByTestId("organization")).toHaveCount(0);
 
@@ -37,7 +37,7 @@ test("org_admin: tras la contraseña pide el código; sin él no entra y con él
   });
 
   // Con aal2 puede administrar: sin aviso y con el formulario de invitación.
-  await page.goto("/app/settings/organization");
+  await page.goto("/app/ajustes/general");
   await expect(page.getByTestId("mfa-required")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Crear invitación" })).toBeVisible();
 });
@@ -45,7 +45,7 @@ test("org_admin: tras la contraseña pide el código; sin él no entra y con él
 test("activar la verificación en dos pasos, entrar con ella y desactivarla", async ({ page }) => {
   const { email, password } = credentialsFor("guest_mfa");
   await signIn(page, "guest_mfa");
-  await page.goto("/app/settings/security");
+  await page.goto("/app/ajustes/seguridad");
   await expect(page.getByTestId("mfa-status")).toHaveText("Desactivada.");
 
   await page.getByRole("button", { name: "Activar la verificación en dos pasos" }).click();
@@ -70,7 +70,7 @@ test("activar la verificación en dos pasos, entrar con ella y desactivarla", as
   await expect(page.getByTestId("current-user")).toHaveText(email);
 
   // Desactivarla (Auth exige aal2 para quitar un factor verificado).
-  await page.goto("/app/settings/security");
+  await page.goto("/app/ajustes/seguridad");
   await page.getByRole("button", { name: "Desactivar la verificación en dos pasos" }).click();
   await expect(page.getByTestId("mfa-status")).toHaveText("Desactivada.");
 });

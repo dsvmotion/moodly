@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./helpers";
 
-// Barra lateral del app shell (MANUAL §9.2).
-const MAIN = ["Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Analítica"];
-const RECORDS = ["Clientes", "Conversaciones", "Recomendaciones", "Objetivos", "Conocimiento", "Memoria", "Locales", "Personas"];
+// Barra lateral del app shell (MANUAL §9.2), con las rutas canónicas del ADR 0023.
+const MAIN = ["Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Informes"];
+const AGENTS = ["Recepción", "Atención al cliente", "Comercial", "Administración"];
+const RECORDS = ["Clientes", "Objetivos", "Conocimiento", "Memoria"];
 
 test.describe("barra lateral", () => {
   test.beforeEach(async ({ page }) => {
@@ -17,11 +18,15 @@ test.describe("barra lateral", () => {
     const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByTestId("org-name")).toHaveText("Demo A");
+    await expect(sidebar.getByRole("img", { name: "Moodly" })).toBeVisible();
 
-    for (const name of [...MAIN, ...RECORDS, "Ajustes"]) {
+    for (const name of [...MAIN, ...AGENTS, ...RECORDS, "Ajustes"]) {
       await expect(sidebar.getByRole("link", { name, exact: true })).toBeVisible();
     }
-    await expect(sidebar.getByText("Los agentes aparecerán aquí cuando se configuren.")).toBeVisible();
+    // Una entrada por destino (auditoría del frontend, F-6): sin duplicados.
+    for (const name of ["Conversaciones", "Recomendaciones", "Locales", "Personas"]) {
+      await expect(sidebar.getByRole("link", { name, exact: true })).toHaveCount(0);
+    }
     // Sin datos: ningún contador de pendientes.
     await expect(sidebar.locator('[data-slot="badge"]')).toHaveCount(0);
   });
@@ -36,22 +41,39 @@ test.describe("barra lateral", () => {
 
     const records = sidebar.getByRole("button", { name: "Registros" });
     await records.click();
-    await expect(sidebar.getByRole("link", { name: "Locales", exact: true })).toBeHidden();
+    await expect(sidebar.getByRole("link", { name: "Clientes", exact: true })).toBeHidden();
   });
 
   test("navega a cada sección con su estado vacío, entrada activa y migas", async ({ page }) => {
     const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
     await sidebar.getByRole("link", { name: "Bandeja", exact: true }).click();
-    await expect(page).toHaveURL(/\/app\/inbox$/);
+    await expect(page).toHaveURL(/\/app\/conversaciones$/);
     await expect(page.getByRole("heading", { level: 1, name: "Bandeja" })).toBeVisible();
     await expect(page.getByTestId("section-empty")).toBeVisible();
     await expect(sidebar.getByRole("link", { name: "Bandeja", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("breadcrumbs")).toHaveText("Bandeja");
 
     await sidebar.getByRole("link", { name: "Clientes", exact: true }).click();
-    await expect(page).toHaveURL(/\/app\/records\/contacts$/);
+    await expect(page).toHaveURL(/\/app\/clientes$/);
     await expect(page.getByTestId("breadcrumbs")).toHaveText("Registros/Clientes");
     await expect(sidebar.getByRole("link", { name: "Bandeja", exact: true })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  test("cada agente de serie tiene su ventana, sin datos inventados", async ({ page }) => {
+    const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
+    await sidebar.getByRole("link", { name: "Recepción", exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/agentes\/reception$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Recepción" })).toBeVisible();
+    await expect(page.getByTestId("agent-status")).toHaveText("Sin configurar");
+    await expect(page.getByTestId("breadcrumbs")).toHaveText("Agentes/Recepción");
+    await expect(sidebar.getByRole("link", { name: "Recepción", exact: true })).toHaveAttribute("aria-current", "page");
+
+    await page.goto("/app/agentes");
+    await expect(page.getByTestId("agent-cards").getByRole("link")).toHaveCount(4);
+
+    // Una clave que no es de los 4 de serie no existe.
+    const response = await page.goto("/app/agentes/marketing");
+    expect(response?.status()).toBe(404);
   });
 
   test("se compacta a iconos, conserva los nombres accesibles y lo recuerda", async ({ page }) => {
@@ -104,6 +126,6 @@ test("en móvil la barra lateral se abre desde el menú", async ({ page }) => {
   await page.getByRole("button", { name: "Abrir menú" }).click();
   await expect(sidebar).toBeVisible();
   await sidebar.getByRole("link", { name: "Aprobaciones", exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/approvals$/);
+  await expect(page).toHaveURL(/\/app\/aprobaciones$/);
   await expect(sidebar).toBeHidden();
 });

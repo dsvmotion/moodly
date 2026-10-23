@@ -23,7 +23,7 @@ test("navegación lateral solo con teclado", async ({ page }) => {
   const inbox = sidebar.getByRole("link", { name: "Bandeja", exact: true });
   await tabTo(page, inbox);
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/app\/inbox/);
+  await expect(page).toHaveURL(/\/app\/conversaciones/);
 
   // Una sección plegable se abre con Enter.
   const favorites = sidebar.getByRole("button", { name: "Favoritos" });
@@ -66,7 +66,7 @@ test("tema e idioma solo con teclado", async ({ page }) => {
 });
 
 test("tabla y vista previa solo con teclado", async ({ page }) => {
-  await page.goto("/app/records/locations");
+  await page.goto("/app/ajustes/sedes");
   await page.locator("body").click({ position: { x: 1, y: 1 } });
   const search = page.getByTestId("locations-table-search");
   await tabTo(page, search);

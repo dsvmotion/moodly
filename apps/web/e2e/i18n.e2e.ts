@@ -23,7 +23,7 @@ test("español por defecto; se cambia a inglés, se recuerda y se vuelve al espa
   await expect(page.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
   await expect(page.getByTestId("section-empty")).toContainText("once you connect a channel");
 
-  await page.goto("/app/records/locations");
+  await page.goto("/app/ajustes/sedes");
   await expect(page.getByRole("columnheader", { name: /Time zone/ })).toBeVisible();
   await expect(page.getByTestId("locations-table-count")).toHaveText("3 of 3");
 

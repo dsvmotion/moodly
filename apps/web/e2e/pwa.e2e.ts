@@ -53,7 +53,7 @@ test("tras usar la app con sesión no queda ninguna página en caché, y sin con
   page,
 }) => {
   await signIn(page, "a_org_admin");
-  await page.goto("/app/settings/organization");
+  await page.goto("/app/ajustes/general");
   await waitForServiceWorker(page);
   // Una navegación ya controlada por el SW: es la que podría acabar en caché.
   await page.reload();
@@ -64,12 +64,12 @@ test("tras usar la app con sesión no queda ninguna página en caché, y sin con
   expect(paths.filter((path) => path.startsWith("/app") || path.startsWith("/login"))).toEqual([]);
 
   await page.context().setOffline(true);
-  await page.goto("/app/settings/organization");
+  await page.goto("/app/ajustes/general");
   await expect(page.getByRole("heading", { name: "Sin conexión" })).toBeVisible();
 
   // Al volver la conexión, "Reintentar" carga la página que se pedía.
   await page.context().setOffline(false);
   await page.getByRole("link", { name: "Reintentar" }).click();
-  await expect(page).toHaveURL(/\/app\/settings\/organization$/);
+  await expect(page).toHaveURL(/\/app\/ajustes\/general$/);
   await expect(page.getByTestId("current-user")).toBeVisible();
 });
