@@ -12,6 +12,9 @@ allowBuilds:
 # Versiones mínimas de dependencias indirectas con avisos de seguridad (pnpm audit):
 # source-map-js < 1.2.2 (denegación de servicio) y vite < 8.3.3 (launch-editor en
 # Windows). Llegan por vitest; quitar cuando vitest las traiga por sí mismo.
+# zod < 4.6.6 (agotamiento de memoria, GHSA-mrhx-c7xc-m3w5): también llega por
+# eslint-plugin-react-hooks; quitar cuando lo traiga por sí mismo.
 overrides:
   source-map-js: ">=1.2.2"
   vite: "8.3.3"
+  zod: "4.6.6"
