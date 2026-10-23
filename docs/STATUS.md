@@ -101,7 +101,7 @@
 
 **Fase B — staging alojado y operación**
 - B1 · Observabilidad (ADR 0032): logs y eventos de seguridad hechos (#57).
-- B1b · Sentry: `@sentry/nextjs` con *tunnel* propio, sin datos personales y sin *replay*. El proyecto `moodly-ai/moodly-web` ya existe y su DSN está en Vercel. Ya no lo bloquea R-26: el hook de Semgrep dejó de actuar al reiniciarse la sesión (2026-10-23).
+- B1b · Sentry: `@sentry/nextjs` 11 en servidor y navegador, solo errores, sin datos personales (`dataCollection` apagado y limpieza propia) y con *tunnel* propio que solo reenvía a nuestro proyecto (ADR 0032). Verificado en local con el DSN real hasta el tunnel. La llegada a Sentry se comprueba en staging tras el merge (el proxy del entorno del agente no deja salir a Sentry). Coste: ~55 KB gzip de JavaScript por página.
 - B2 · Staging: hecho (#58). Falta el primer usuario y el login de punta a punta allí.
 - B3 · Auth y MFA de verdad:
   - R-16: hecho (#60).

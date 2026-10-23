@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { SECURITY_HEADERS } from "./src/lib/security/headers";
@@ -25,4 +26,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Sentry (ADR 0032; opciones de la SDK en src/lib/observability/sentry.ts):
+// - sin subir source maps ni crear releases (no hay token de Sentry en el build)
+//   y sin telemetría del plugin;
+// - sin el tunnel por rewrite de la SDK, que reenvía a cualquier proyecto de
+//   Sentry: el propio está en src/app/monitoring.
+export default withSentryConfig(withNextIntl(nextConfig), {
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: true },
+  release: { create: false, finalize: false },
+  // Sin trazas: no hace falta instrumentar las navegaciones.
+  suppressOnRouterTransitionStartWarning: true,
+});

@@ -51,8 +51,4 @@ export function pseudonym(value: string, key: string | undefined = process.env["
   return createHmac("sha256", key).update(value.trim().toLowerCase()).digest("hex").slice(0, 16);
 }
 
-/** Ruta sin query ni fragmento: un token de invitación nunca llega a los logs. */
-export function pathOnly(path: string): string {
-  const end = path.search(/[?#]/);
-  return end === -1 ? path : path.slice(0, end);
-}
+export { pathOnly } from "./scrub";

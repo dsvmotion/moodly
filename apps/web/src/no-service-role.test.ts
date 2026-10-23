@@ -6,9 +6,15 @@ import { describe, expect, it } from "vitest";
 // solo conoce la URL y la clave publicable; cualquier referencia a la clave
 // secreta o a la service role en su código o en .env.example hace fallar
 // este test, y solo se permiten estas variables NEXT_PUBLIC_* (las que llegan
-// al navegador).
+// al navegador): las públicas de Supabase y el DSN y el entorno de Sentry, que
+// también son públicos por diseño (ADR 0032).
 const FORBIDDEN = [/service[_-]?role/i, /SECRET_KEY/, /sb_secret_/, /auth\.admin/];
-const ALLOWED_PUBLIC_VARS = ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"];
+const ALLOWED_PUBLIC_VARS = [
+  "NEXT_PUBLIC_SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_URL",
+];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -41,7 +47,7 @@ describe("apps/web", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("solo usa las variables NEXT_PUBLIC_* permitidas (URL y clave publicable)", () => {
+  it("solo usa las variables NEXT_PUBLIC_* permitidas (Supabase: URL y clave publicable; Sentry: DSN y entorno)", () => {
     const used = new Set(files.flatMap((file) => readFileSync(file, "utf8").match(/NEXT_PUBLIC_[A-Z0-9_]+/g) ?? []));
     expect([...used].sort()).toEqual(ALLOWED_PUBLIC_VARS);
   });
