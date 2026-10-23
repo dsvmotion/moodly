@@ -87,6 +87,10 @@ jobs:
 
       # Usuarios de prueba con contraseñas generadas en el propio run.
       - run: pnpm db:seed
+
+      # tenantDb contra Supabase de verdad, con la clave secreta y sin RLS
+      # (revisión de seguridad 3.2). Crea y borra sus propias filas.
+      - run: pnpm --filter @repo/db test:integration
       - run: pnpm --filter @repo/web env:local
 
       # Navegadores de Playwright en caché por versión: la descarga llegó a tardar

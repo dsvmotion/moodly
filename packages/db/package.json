@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./service": {
+      "types": "./dist/service.d.ts",
+      "default": "./dist/service.js"
     }
   },
   "scripts": {
@@ -20,9 +24,10 @@
     "db:lint": "supabase db lint --level warning --fail-on warning",
     "test:db": "supabase test db",
     "db:seed": "node src/seed/run.ts",
-    "db:types": "supabase gen types typescript --local --schema public > src/database.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > src/database.types.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
-  "devDependencies": {
+  "dependencies": {
     "@supabase/supabase-js": "2.117.3"
   }
 }
