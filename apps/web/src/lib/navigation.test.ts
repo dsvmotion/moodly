@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_TYPES } from "@repo/config";
-import { AGENTS_NAV, isActive, isAgentKey, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, SETTINGS_SECTIONS } from "./navigation";
+import {
+  AGENTS_NAV,
+  isActive,
+  isAgentKey,
+  MAIN_NAV,
+  RECORDS_NAV,
+  SETTINGS_GROUPS,
+  SETTINGS_NAV,
+  SETTINGS_SECTIONS,
+  settingsSectionBySlug,
+} from "./navigation";
 
 // Rutas canónicas del ADR 0023 y una entrada por destino (auditoría del
 // frontend 2026-10-23, F-1 y F-6).
@@ -37,6 +47,22 @@ describe("navegación", () => {
     for (const section of SETTINGS_SECTIONS) expect(isActive(section.href, SETTINGS_NAV.href)).toBe(true);
     expect(isActive("/app/ajustes", SETTINGS_NAV.href)).toBe(true);
     expect(isActive("/app/ajustesx", SETTINGS_NAV.href)).toBe(false);
+  });
+
+  it("cada sección de Ajustes solo se marca a sí misma", () => {
+    for (const section of SETTINGS_SECTIONS) {
+      const active = SETTINGS_SECTIONS.filter((candidate) => isActive(section.href, candidate.href));
+      expect(active.map((candidate) => candidate.key)).toEqual([section.key]);
+    }
+  });
+
+  it("Ajustes tiene las 13 secciones de MANUAL §9.4 en 5 grupos, sin repetir tramo de URL", () => {
+    expect(SETTINGS_GROUPS.map((group) => group.key)).toEqual(["personal", "people", "business", "ai", "security"]);
+    expect(SETTINGS_SECTIONS.map((section) => section.slug).sort()).toEqual(
+      ["auditoria", "equipo", "facturacion", "general", "integraciones", "modelos", "perfil", "plan", "preferencias", "privacidad", "roles", "sedes", "seguridad"],
+    );
+    expect(settingsSectionBySlug("sedes")?.key).toBe("locations");
+    expect(settingsSectionBySlug("api")).toBeNull();
   });
 
   it("la ventana de un agente no activa la de otro", () => {

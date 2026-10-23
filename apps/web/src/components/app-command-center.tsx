@@ -6,7 +6,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { CommandPalette, type CommandPaletteGroup } from "@repo/ui/components/command-palette";
 import { GlobalSearch } from "@repo/ui/components/global-search";
 import { cn } from "@repo/ui/lib/utils";
-import { AGENTS_NAV, MAIN_NAV, RECORDS_NAV, SETTINGS_NAV, SETTINGS_SECTIONS, type NavItem } from "@/lib/navigation";
+import { AGENTS_NAV, MAIN_NAV, RECORDS_NAV, SETTINGS_SECTIONS, type NavItem } from "@/lib/navigation";
 import { SCOPE_PARAM, withScope } from "@/lib/scope";
 
 const CommandCenterContext = createContext<() => void>(() => {});
@@ -48,8 +48,8 @@ export function CommandCenterProvider({ children }: { children: ReactNode }) {
       heading: t("command.settings"),
       items: SETTINGS_SECTIONS.map((section) => ({
         id: `settings-${section.key}`,
-        label: t(`settingsTabs.${section.key}`),
-        icon: <SETTINGS_NAV.icon aria-hidden="true" />,
+        label: t(`settings.sections.${section.key}`),
+        icon: <section.icon aria-hidden="true" />,
         keywords: [section.key, t("nav.settings")],
         onSelect: () => router.push(withScope(section.href, scope)),
       })),

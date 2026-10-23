@@ -25,13 +25,13 @@ import {
 import { useSidebar } from "@repo/ui/components/sidebar";
 import { cn } from "@repo/ui/lib/utils";
 import { LOCALES } from "@/i18n/config";
-import { SETTINGS_SECTIONS } from "@/lib/navigation";
+import { settingsSection } from "@/lib/navigation";
 import type { Theme } from "@/lib/preferences";
 import { displayName, initials } from "@/lib/user-display";
 import { setLocale, setTheme } from "@/app/preferences-actions";
 
-const SECURITY_HREF = SETTINGS_SECTIONS.find((section) => section.key === "security")?.href ?? "/app/ajustes/seguridad";
-const ORGANIZATION_HREF = SETTINGS_SECTIONS.find((section) => section.key === "organization")?.href ?? "/app/ajustes/general";
+const SECURITY_HREF = settingsSection("security").href;
+const ORGANIZATION_HREF = settingsSection("organization").href;
 
 /**
  * Menú de usuario del pie de la barra lateral (MANUAL §9.2; auditoría del

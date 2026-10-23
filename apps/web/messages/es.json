@@ -220,12 +220,82 @@
       "already": "Ya perteneces a esta organización."
     }
   },
-  "settingsTabs": {
+  "settings": {
     "label": "Ajustes",
+    "groups": {
+      "personal": "Personal",
+      "people": "Equipo y permisos",
+      "business": "Tu negocio",
+      "ai": "IA y conexiones",
+      "security": "Seguridad"
+    },
+    "sections": {
+      "profile": "Mi perfil",
+      "preferences": "Preferencias",
+      "privacy": "Privacidad",
+      "team": "Miembros",
+      "roles": "Roles",
+      "organization": "General",
+      "locations": "Sedes",
+      "plan": "Plan y consumo",
+      "billing": "Facturación",
+      "models": "Modelos de IA",
+      "integrations": "Integraciones",
+      "security": "Seguridad y acceso",
+      "audit": "Registro de auditoría"
+    },
+    "pending": {
+      "notYet": "Aún no disponible",
+      "arrives": "Llega con {what}.",
+      "privacy": {
+        "description": "Qué datos tuyos guarda la plataforma, descargarlos y pedir que se borren.",
+        "what": "la exportación y el borrado de datos (RGPD)"
+      },
+      "roles": {
+        "description": "Qué puede ver y hacer cada rol (administración, responsables de región y de local, personal) y en qué alcance.",
+        "what": "el motor de políticas y los techos de autonomía de los agentes"
+      },
+      "plan": {
+        "description": "Tu plan, lo que lleváis consumido este mes y sus límites.",
+        "what": "la medición del consumo y los planes de pago"
+      },
+      "billing": {
+        "description": "Datos de facturación, método de pago y facturas.",
+        "what": "los planes de pago"
+      },
+      "models": {
+        "description": "Qué modelos de IA usa cada agente y en qué región se procesan los datos.",
+        "what": "el runtime de agentes"
+      },
+      "integrations": {
+        "description": "WhatsApp, email, calendario y el resto de conexiones de tus agentes.",
+        "what": "los canales y las integraciones"
+      },
+      "audit": {
+        "description": "Quién cambió qué y cuándo en tu organización: accesos, permisos y ajustes.",
+        "what": "el registro de auditoría para clientes"
+      }
+    }
+  },
+  "profilePage": {
+    "title": "Mi perfil",
+    "account": "Cuenta",
+    "name": "Nombre",
+    "noName": "(sin nombre)",
+    "nameReadOnly": "Aún no se puede cambiar desde aquí.",
+    "email": "Email",
+    "organizations": "Tus organizaciones",
+    "noOrganizations": "Todavía no perteneces a ninguna organización.",
     "organization": "Organización",
-    "security": "Seguridad",
-    "team": "Miembros",
-    "locations": "Sedes"
+    "role": "Rol",
+    "mfa": "Verificación en dos pasos",
+    "mfaOn": "Activada",
+    "mfaOff": "Desactivada",
+    "manageMfa": "Gestionar en Seguridad y acceso"
+  },
+  "preferencesPage": {
+    "title": "Preferencias",
+    "intro": "Cómo ves la plataforma. Se guarda en este navegador."
   },
   "security": {
     "title": "Seguridad",

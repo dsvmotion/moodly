@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import { revokeInvitation } from "@/app/app/invitations-actions";
 import Link from "next/link";
 import { InviteForm } from "@/components/invitations/invite-form";
-import { SettingsTabs } from "@/components/settings-tabs";
 import { getSessionAal, requireUser } from "@/lib/auth/session";
 import { fetchAll } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
@@ -92,8 +91,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
   );
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 [&_h2]:mt-2 [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
-      <SettingsTabs current="organization" />
+    <div className="flex flex-col gap-4 [&_h2]:mt-2 [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
       <h1 className="text-xl font-semibold">{t("title")}</h1>
       {isAdmin && !canAdminister ? (
         <p role="note" data-testid="mfa-required" className="rounded-md border p-3 text-sm">

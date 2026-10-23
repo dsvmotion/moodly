@@ -25,16 +25,16 @@ test("⌘K / Ctrl+K abre la paleta y Enter navega a la sección", async ({ page 
 test("ofrece todas las secciones agrupadas y filtra al escribir", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+k");
   const options = palette(page).getByRole("option");
-  await expect(options).toHaveCount(19);
+  await expect(options).toHaveCount(28);
   await expect(palette(page).locator("[cmdk-group-heading]")).toHaveText(["Navegación", "Agentes", "Registros", "Ajustes"]);
   // Búsqueda aproximada (cmdk): filtra la lista y pone la mejor coincidencia primero.
   await page.keyboard.type("sede");
   await expect(options.first()).toHaveText("Sedes");
-  expect(await options.count()).toBeLessThan(19);
+  expect(await options.count()).toBeLessThan(28);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/app\/ajustes\/sedes$/);
   await page.keyboard.press("ControlOrMeta+k");
-  // Ninguna entrada lleva una «q» (la búsqueda es aproximada: «zzz» ya coincide con «Organización»).
+  // Ninguna entrada lleva una «q». La búsqueda es aproximada: letras sueltas repetidas («zzz») pueden coincidir con alguna.
   await page.keyboard.type("qqq");
   await expect(options).toHaveCount(0);
   await expect(palette(page).getByText("Sin resultados.")).toBeVisible();

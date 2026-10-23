@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { disableMfa } from "@/app/app/mfa-actions";
 import { MfaEnroll } from "@/components/mfa/mfa-enroll";
-import { SettingsTabs } from "@/components/settings-tabs";
 import { hasVerifiedFactor, requireUser } from "@/lib/auth/session";
 import { getScopeContext } from "@/lib/scope-data";
 
@@ -14,8 +13,7 @@ export default async function SecurityPage() {
   const enabled = hasVerifiedFactor(user);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
-      <SettingsTabs current="security" />
+    <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">{t("title")}</h1>
 
       <section aria-labelledby="mfa" className="flex flex-col gap-3">
