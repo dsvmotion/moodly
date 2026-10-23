@@ -1,0 +1,74 @@
+name: Staging · organización de demo
+
+# Primer usuario de staging (auditoría R-34). Producto crea su cuenta en el panel
+# de Supabase (Authentication → Users → Add user, con su propia contraseña y el
+# email confirmado) y lanza este workflow a mano desde main (Actions →
+# «Staging · organización de demo» → Run workflow) con ese email.
+#
+# Crea, si no existe, la organización de demo (Clínica Demo: región Madrid, sedes
+# Centro y Norte) y hace org_admin a esa cuenta, con packages/db/bootstrap/
+# staging-demo.sql. Idempotente. Sin service role en la app y sin SQL a mano.
+#
+# Secretos del entorno `staging` de GitHub: los mismos que el despliegue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      admin_email:
+        description: Email de la cuenta de Auth de staging que será org_admin (créala antes en el panel de Supabase)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Nunca a la vez que un despliegue a staging.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
+
+jobs:
+  demo:
+    name: staging · organización de demo
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    defaults:
+      run:
+        working-directory: packages/db
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      # Por variable de entorno, nunca interpolado en el script: así no se
+      # puede inyectar nada en el shell.
+      ADMIN_EMAIL: ${{ inputs.admin_email }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.118.0
+
+      # Solo caracteres de email, en una sola línea: sin comillas, barras ni `&`,
+      # así que no puede romper el SQL ni el `sed` del paso siguiente.
+      - name: Email válido
+        run: |
+          if [[ ! "$ADMIN_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+            echo "::error::El email no tiene un formato válido"
+            exit 1
+          fi
+
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Organización de demo y membership de org_admin
+        run: |
+          email=$(printf '%s' "$ADMIN_EMAIL" | tr '[:upper:]' '[:lower:]')
+          sed "s/__ADMIN_EMAIL__/$email/" bootstrap/staging-demo.sql > "$RUNNER_TEMP/staging-demo.sql"
+          supabase db query --linked --file "$RUNNER_TEMP/staging-demo.sql"
+
+      - name: Resumen (sin datos personales)
+        run: supabase db query --linked --file bootstrap/staging-demo-summary.sql
