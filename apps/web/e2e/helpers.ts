@@ -34,9 +34,12 @@ export async function signIn(page: Page, key: string, next?: string): Promise<vo
   const { email, password, totpSecret } = credentialsFor(key);
   const login = async () => {
     await page.goto(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Contraseña").fill(password);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    // Por nombre de campo y no por etiqueta: el login está traducido y algunos
+    // tests entran con la interfaz en inglés (las etiquetas las prueba auth.e2e.ts).
+    const form = page.locator('form:has(input[name="password"])');
+    await form.locator('input[name="email"]').fill(email);
+    await form.locator('input[name="password"]').fill(password);
+    await form.locator('button[type="submit"]').click();
     if (totpSecret) await completeMfa(page, totpSecret);
     await expect(page.getByTestId("current-user")).toHaveText(email);
   };
@@ -146,9 +149,11 @@ export async function withMfaLock<T>(key: string, fn: () => Promise<T>): Promise
 
 /** Paso del segundo factor tras la contraseña (migración admin_mfa). */
 export async function completeMfa(page: Page, secret: string): Promise<void> {
-  await expect(page.getByRole("heading", { name: "Verificación en dos pasos" })).toBeVisible();
-  await page.getByLabel("Código de verificación").fill(totp(secret));
-  await page.getByRole("button", { name: "Verificar" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Verificación en dos pasos|Two-step verification)$/ })).toBeVisible();
+  // La página tiene otro formulario («Salir»): se usa el del código.
+  const form = page.locator('form:has(input[name="code"])');
+  await form.locator('input[name="code"]').fill(totp(secret));
+  await form.locator('button[type="submit"]').click();
 }
 
 export async function texts(page: Page, testId: string): Promise<string[]> {
