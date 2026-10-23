@@ -1,6 +1,6 @@
 # *Spike* del ADR 0027 (DBOS Transact)
 
-Script con el que se comprobaron los criterios de «Verificación» del ADR 0027 (resultados en el propio ADR). No forma parte de ningún workspace ni de `pnpm check`: la dependencia no está en el repo hasta que se acepte el ADR.
+Script con el que se comprobaron los criterios de «Verificación» del ADR 0027 (resultados en el propio ADR). No forma parte de ningún workspace ni de `pnpm check`. El ADR está aceptado (2026-10-23); la dependencia entra en el repo con el worker, no con este script.
 
 Para repetirlo, con Supabase local levantado (`pnpm db:start`):
 
