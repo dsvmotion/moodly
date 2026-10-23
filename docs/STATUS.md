@@ -70,7 +70,7 @@
   - **Verificado en local:** e2e 117/117 con la base limpia (incluido un e2e nuevo: ninguna cookie es legible desde JavaScript) y tests unitarios de `isTransient` y de las opciones de cookie.
 
 ## En curso
-- **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
+- **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22), con la del frontend (`2026-10-23-auditoria-frontend.md`) y la segunda pasada (`2026-10-23-auditoria-segunda-pasada.md`: R-29…R-36 y orden propuesto para la revisión con producto). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
 - **Dominio (decisión de producto, 2026-10-22):** staging en `staging.moodlycrm.com`. Producción irá directamente en `moodly.com` cuando esté lista, así que no hay mudanza: `moodlycrm.com` se queda para staging, y estrenar `moodly.com` solo pide darlo de alta en Vercel y en Resend.
 - **Claves de servidor de staging** (`LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY`, *sensitive* en Vercel): las generó el agente solo para staging. **Se rotan antes de cualquier dato real, y las de producción las genera una persona directamente en Vercel.**
 - **Mergeo sin revisión humana (decisión de producto, 2026-10-22):** mientras no haya datos reales de clientes, el agente mergea sus PRs, también los sensibles, con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md → «Mergeo autónomo»). La lista de zonas sensibles completa se guarda en `scripts/merge-guard/sensitive-paths.suspended.txt`.
@@ -82,7 +82,7 @@
 
 ## Bloqueado
 - **Plan de Vercel (R-19):** la API de logs respondió como plan Hobby (retención de 1 h). Producto confirma si el equipo `diegosanjuan` es Pro; si no, se mueve el proyecto al equipo Pro (Hobby no permite uso comercial ni *log drains*).
-- **Primer usuario de staging:** decisión de producto sobre cómo crearlo (propuesta en la auditoría del 2026-10-23, §5).
+- **Primer usuario de staging (R-34):** decisión de producto sobre cómo crearlo (propuesta en la segunda pasada de la auditoría, §3). Sin él, el diseño de staging solo se ve hasta el login.
 - App móvil · Fase 0: **falta la verificación en un iPhone real** (instalar desde Safari, pantalla completa, login, modo avión → "Sin conexión"). Necesita un despliegue HTTPS (llega con el staging) y un iPhone; la hace producto.
 - Protección de la rama `main`: GitHub devuelve 403 en branch protection y rulesets en un repo privado del plan Free. Hace falta GitHub Pro/Team o hacer el repo público. Hasta entonces, «no mergear sin CI en verde» solo lo sostiene el proceso (AGENTS.md).
 - Datos reales de clientes: Supabase Free no tiene copias de seguridad. **Ningún dato real antes de Supabase Pro en la UE** con una restauración probada, la revisión humana reactivada y los DPAs firmados.
