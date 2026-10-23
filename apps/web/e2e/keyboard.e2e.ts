@@ -13,6 +13,15 @@ async function tabTo(page: Page, target: Locator, max = 60) {
   throw new Error("El foco no llegó al elemento con Tab");
 }
 
+/** Dentro de un menú abierto, pulsa ↓ hasta que el foco llegue a la opción (falla si no llega). */
+async function arrowTo(page: Page, target: Locator, max = 20) {
+  for (let i = 0; i < max; i++) {
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+    await page.keyboard.press("ArrowDown");
+  }
+  throw new Error("El foco no llegó a la opción con ↓");
+}
+
 test.beforeEach(async ({ page }) => {
   await signIn(page, "a_org_admin");
   await page.locator("body").click({ position: { x: 1, y: 1 } });
@@ -53,14 +62,18 @@ test("selector de alcance solo con teclado", async ({ page }) => {
   await expect(trigger).toBeFocused();
 });
 
-test("tema e idioma solo con teclado", async ({ page }) => {
-  const dark = page.getByTestId("theme-switcher").getByRole("radio", { name: "Oscuro" });
-  await tabTo(page, dark);
-  await page.keyboard.press("Space");
+test("tema e idioma solo con teclado, desde el menú de usuario", async ({ page }) => {
+  const trigger = page.getByTestId("user-menu");
+  await tabTo(page, trigger);
+  await page.keyboard.press("Enter");
+  await arrowTo(page, page.getByTestId("theme-switcher").getByRole("menuitemradio", { name: "Oscuro" }));
+  await page.keyboard.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  // Al cerrarse, el foco vuelve al botón del menú.
+  await expect(trigger).toBeFocused();
 
-  const english = page.getByTestId("language-switcher").getByRole("radio", { name: "English" });
-  await tabTo(page, english);
+  await page.keyboard.press("Enter");
+  await arrowTo(page, page.getByTestId("language-switcher").getByRole("menuitemradio", { name: "English" }));
   await page.keyboard.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });

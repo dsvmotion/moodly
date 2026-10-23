@@ -176,6 +176,10 @@
     "es": "Español",
     "en": "English"
   },
+  "userMenu": {
+    "security": "Account security",
+    "organization": "Organization settings"
+  },
   "organizationPage": {
     "title": "My organization",
     "organization": "Organization",

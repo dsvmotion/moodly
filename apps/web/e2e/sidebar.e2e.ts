@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { credentialsFor, openUserMenu, signIn } from "./helpers";
 
 // Barra lateral del app shell (MANUAL §9.2), con las rutas canónicas del ADR 0023.
 const MAIN = ["Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Informes"];
@@ -92,16 +92,36 @@ test.describe("barra lateral", () => {
   test("cambia entre tema claro, oscuro y del sistema, y lo recuerda", async ({ page }) => {
     const html = page.locator("html");
     const themes = page.getByTestId("theme-switcher");
-    await themes.getByRole("radio", { name: "Oscuro" }).click();
+    // El tema está en el menú de usuario (F-4); elegir una opción cierra el menú.
+    await openUserMenu(page);
+    await themes.getByRole("menuitemradio", { name: "Oscuro" }).click();
     await expect(html).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(html).toHaveAttribute("data-theme", "dark");
-    await expect(themes.getByRole("radio", { name: "Oscuro" })).toHaveAttribute("aria-checked", "true");
+    await openUserMenu(page);
+    await expect(themes.getByRole("menuitemradio", { name: "Oscuro" })).toHaveAttribute("aria-checked", "true");
 
-    await themes.getByRole("radio", { name: "Claro" }).click();
+    await themes.getByRole("menuitemradio", { name: "Claro" }).click();
     await expect(html).toHaveAttribute("data-theme", "light");
-    await themes.getByRole("radio", { name: "Sistema" }).click();
+    await openUserMenu(page);
+    await themes.getByRole("menuitemradio", { name: "Sistema" }).click();
     await expect(html).not.toHaveAttribute("data-theme", /.+/);
+  });
+
+  test("el menú de usuario dice quién es y en qué organización, y lleva a su seguridad", async ({ page }) => {
+    const { email } = credentialsFor("a_org_admin");
+    const trigger = page.getByTestId("user-menu");
+    await expect(trigger.getByTestId("user-name")).toHaveText("Admin A");
+    await expect(trigger.getByTestId("current-user")).toHaveText(email);
+
+    await openUserMenu(page);
+    await expect(page.getByTestId("user-context")).toHaveText("Administración · Demo A");
+    await page.getByRole("menuitem", { name: "Seguridad de la cuenta" }).click();
+    await expect(page).toHaveURL(/\/app\/ajustes\/seguridad$/);
+
+    await openUserMenu(page);
+    await page.getByRole("menuitem", { name: "Ajustes de la organización" }).click();
+    await expect(page).toHaveURL(/\/app\/ajustes\/general$/);
   });
 
   test("el primer Tab ofrece saltar al contenido", async ({ page }) => {
