@@ -135,7 +135,10 @@
 5. Pantallas de negocio con sus tablas (fase D), empezando por la ventana de agente (P5) y Aprobaciones.
 
 **Fase D — runtime de agentes**: antes que la C (WorkOS), aprobado por producto (2026-10-23), salvo que aparezca un cliente enterprise que necesite SSO
-- Catálogo `agent_types`, `agents`, `skills`, `agent_skills`, `config_overrides`, `config_snapshots` con herencia y bloqueos (antes tarea 5; ADR 0030).
+- Catálogo de agentes (antes tarea 5; ADR 0030):
+  - **D1, en curso:** `agent_types` (los 4 de serie con ids fijos), `agents` (uno por tipo y organización, creados en `draft` al dar de alta la organización), `skills` y `agent_skills`, con el techo de autonomía de cada clase de efecto (§5.6) y skills restringidas por tipo. La app solo lee (RLS por organización, el catálogo de la plataforma para cualquier sesión viva y el equipo interno con permiso de soporte). pgTAP 509/509 (38 nuevos en `16_agent_catalog`), con prueba en negativo de cada protección y vuelta atrás probada.
+  - D2: `config_overrides` y `config_snapshots` con herencia y bloqueos (§4.3).
+  - D3: la web pinta los agentes desde el catálogo, no desde `AGENT_TYPES` (ADR 0030 §1), con el test estructural de «ninguna lógica sobre claves de agente».
 - *Spike* de DBOS (ADR 0027) y worker en Railway (antes tarea 6).
 - Controles previos a la primera skill: `tenantDb(orgId)` con regla de lint (3.2), aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.

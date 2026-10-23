@@ -5,7 +5,82 @@ export type Database = {
   
   "public": {
           Tables: {
-            "audit_logs": {
+            "agent_skills": {
+                  Row: {
+                    "agent_id": string,"autonomy_level": string,"created_at": string,"enabled": boolean,"organization_id": string,"skill_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "agent_id": string,"autonomy_level": string,"created_at"?: string,"enabled"?: boolean,"organization_id": string,"skill_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "agent_id"?: string,"autonomy_level"?: string,"created_at"?: string,"enabled"?: boolean,"organization_id"?: string,"skill_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agent_skills_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_skills_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_skills_skill_id_fkey"
+      columns: ["skill_id"]
+isOneToOne: false
+      referencedRelation: "skills"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agent_types": {
+                  Row: {
+                    "base_instructions": string,"color": string,"created_at": string,"default_skills": (string)[],"description": string,"id": string,"key": string,"name": string,"organization_id": string | null,"organization_kind": string,"origin": string,"updated_at": string
+                  }
+                  Insert: {
+                    "base_instructions"?: string,"color": string,"created_at"?: string,"default_skills"?: (string)[],"description"?: string,"id"?: string,"key": string,"name": string,"organization_id"?: string | null,"organization_kind"?: string,"origin": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "base_instructions"?: string,"color"?: string,"created_at"?: string,"default_skills"?: (string)[],"description"?: string,"id"?: string,"key"?: string,"name"?: string,"organization_id"?: string | null,"organization_kind"?: string,"origin"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agent_types_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agents": {
+                  Row: {
+                    "agent_type_id": string,"created_at": string,"display_name": string | null,"id": string,"organization_id": string,"status": string,"updated_at": string,"version": number
+                  }
+                  Insert: {
+                    "agent_type_id": string,"created_at"?: string,"display_name"?: string | null,"id"?: string,"organization_id": string,"status"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "agent_type_id"?: string,"created_at"?: string,"display_name"?: string | null,"id"?: string,"organization_id"?: string,"status"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agents_agent_type_id_fkey"
+      columns: ["agent_type_id"]
+isOneToOne: false
+      referencedRelation: "agent_types"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agents_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"audit_logs": {
                   Row: {
                     "action": string,"actor_id": string | null,"actor_type": string,"at": string,"id": string,"metadata": NonNullable<Json>,"organization_id": string | null,"target": NonNullable<Json>
                   }
@@ -150,6 +225,25 @@ isOneToOne: true
                   Relationships: [
                     {
       foreignKeyName: "regions_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"skills": {
+                  Row: {
+                    "created_at": string,"default_autonomy": string,"definition": Json | null,"description": string,"effect_class": string,"id": string,"input_schema": NonNullable<Json>,"integration_id": string | null,"key": string,"kind": string,"max_autonomy": string,"name": string,"organization_id": string | null,"output_schema": NonNullable<Json>,"required_integration": string | null,"restricted_to_agent_types": (string)[],"status": string,"updated_at": string,"version": number
+                  }
+                  Insert: {
+                    "created_at"?: string,"default_autonomy": string,"definition"?: Json | null,"description"?: string,"effect_class": string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key": string,"kind": string,"max_autonomy": string,"name": string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"default_autonomy"?: string,"definition"?: Json | null,"description"?: string,"effect_class"?: string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key"?: string,"kind"?: string,"max_autonomy"?: string,"name"?: string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "skills_organization_id_fkey"
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"

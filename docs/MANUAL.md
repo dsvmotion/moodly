@@ -318,13 +318,13 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `agent_types` | Catálogo: `organization_id` (null = plataforma), `origin` (`builtin`/`template`/`custom`), `key` (única por organización; de serie `reception`/`customer`/`sales`/`admin`, ADR 0023 y 0030), `color`, `description`, `organization_kind` (`business`), `base_instructions`, `default_skills[]` |
+| `agent_types` | Catálogo: `organization_id` (null = plataforma), `origin` (`builtin`/`template`/`custom`), `key` (única por organización; de serie `reception`/`customer`/`sales`/`admin`, ADR 0023 y 0030), `name`, `color`, `description`, `organization_kind` (`business`), `base_instructions`, `default_skills[]`. Los 4 de serie tienen ids fijos (`20261023150000_agent_catalog`) |
 | `agent_templates` | `agent_type`, `vertical`, `version`, `defaults` (jsonb: tono, mensajes, skills, autonomía, reglas, flujos) |
-| `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`), `version`, `template_id`, `template_version`, `display_name`, `status` (`draft`/`testing`/`live`/`paused`) |
+| `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`; uno por tipo y organización), `version`, `template_id` y `template_version` (llegan con `agent_templates`), `display_name`, `status` (`draft`/`testing`/`live`/`paused`). Cada organización nace con sus agentes de serie en `draft` |
 | `config_overrides` | `agent_id`, `level` (`organization`/`region`/`location`), `level_id`, `values` (jsonb), `locked_keys[]`, `version` |
 | `config_snapshots` | `agent_id`, `location_id`, `resolved` (jsonb), `hash`: configuración ya resuelta e inmutable que usa cada ejecución |
-| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
-| `agent_skills` | `agent_id`, `skill_id`, `enabled`, `autonomy_level`, más overrides por local vía `config_overrides` |
+| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `name`, `description`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
+| `agent_skills` | `agent_id`, `skill_id`, `organization_id` (la del agente, para RLS y el worker), `enabled`, `autonomy_level` (nunca por encima del `max_autonomy` de la skill), más overrides por local vía `config_overrides` |
 | `business_rules` | `organization_id`, `scope` (org/region/location), `scope_id`, `key`, `value` (políticas de cancelación, descuentos máximos, etc.) |
 
 **Conocimiento**
