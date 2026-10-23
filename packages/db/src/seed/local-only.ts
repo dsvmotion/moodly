@@ -8,9 +8,10 @@ export function assertLocalSupabaseUrl(apiUrl: string): void {
   try {
     host = new URL(apiUrl).hostname;
   } catch {
-    throw new Error(`API_URL no es una URL válida: ${apiUrl}`);
+    // Sin el valor: puede ser una URL de Postgres con su contraseña.
+    throw new Error("La URL de Supabase no es válida");
   }
   if (!LOCAL_HOSTS.has(host)) {
-    throw new Error(`El seed solo se ejecuta contra Supabase local; API_URL apunta a ${host}`);
+    throw new Error(`El seed solo se ejecuta contra Supabase local; la URL apunta a ${host}`);
   }
 }

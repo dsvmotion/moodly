@@ -45,7 +45,8 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 > Todos los comandos se ejecutan desde la raíz y Turborepo los lanza en cada workspace. Para uno solo: `pnpm --filter @repo/<nombre> <script>`.
 > No inventes comandos que no existan todavía; si los creas, documéntalos aquí en el mismo PR.
 - Instalar: `pnpm install`
-- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`). Worker: PENDIENTE (tarea 6 de la Fase 0)
+- Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`)
+- Worker en local (DBOS, ADR 0027): `pnpm db:seed` (da login al rol `dbos_worker` del esquema `dbos`), `pnpm --filter @repo/worker env:local` (escribe `apps/worker/.env.local`) y `pnpm --filter @repo/worker dev`
 - Reaplicar migraciones desde cero: `pnpm db:reset` (borra también los usuarios de Auth: vuelve a ejecutar `pnpm db:seed`)
 - Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución (y el secreto TOTP de los `org_admin`, que salen con MFA activado) y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
 - Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`
@@ -56,14 +57,15 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
-- Tests de integración de `tenantDb` (con Supabase levantado y el seed aplicado): `pnpm --filter @repo/db test:integration`
+- Tests de integración (con Supabase levantado y el seed aplicado): `tenantDb` con `pnpm --filter @repo/db test:integration`; el worker (reanudación tras SIGKILL) con `pnpm --filter @repo/worker test:integration`
+- Subir de versión DBOS: en el mismo PR, la versión exacta de `@dbos-inc/dbos-sdk` en `apps/worker`, una migración nueva con el SQL de `pnpm --filter @repo/worker exec dbos schema --print-migrations <primera migración nueva>` y la versión del esquema que comprueba `19_dbos_schema.test.sql`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
 - Tests de la comprobación de configuración del despliegue a staging (`config-drift.sh`): `bash scripts/supabase/tests/config-drift.test.sh`
 - Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>`, o el procedimiento con el conector de GitHub (ver "Mergeo autónomo")
 - Evals: PENDIENTE (cuando existan agentes)
 - Build: `pnpm build`
-- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`, la integración de `tenantDb` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/db test:integration` + `pnpm --filter @repo/web e2e`)
+- Todo lo que corre el CI: `pnpm check` (typecheck + lint + test + build) y, con Supabase levantado, `pnpm db:lint` + `pnpm test:db`, la integración de `tenantDb` y del worker, y el e2e (`pnpm db:seed` + `pnpm --filter @repo/db test:integration` + `pnpm --filter @repo/worker test:integration` + `pnpm --filter @repo/web e2e`)
 - Migraciones a staging: las aplica `.github/workflows/deploy-staging.yml` (`supabase db push`) cuando el CI termina en verde sobre `main`; a mano, desde Actions → «Despliegue a staging» → Run workflow. Ese mismo despliegue aplica la configuración de `config.toml` (con su `[remotes.staging]`) al proyecto alojado con `supabase config push`, y falla si después queda alguna diferencia (`supabase config diff`), salvo las que el propio `config push` declara que no puede aplicar, que salen como aviso (`scripts/supabase/config-drift.sh`). La web de staging la despliega Vercel desde `main`.
 - Organización de demo y primer `org_admin` de staging (R-34): la persona crea su cuenta en el panel de Supabase (Authentication → Users → Add user, con su contraseña y el email confirmado) y lanza Actions → «Staging · organización de demo» → Run workflow con ese email (`.github/workflows/staging-demo.yml`, idempotente).
 

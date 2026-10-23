@@ -91,6 +91,11 @@ jobs:
       # tenantDb contra Supabase de verdad, con la clave secreta y sin RLS
       # (revisión de seguridad 3.2). Crea y borra sus propias filas.
       - run: pnpm --filter @repo/db test:integration
+
+      # El worker real con DBOS, el esquema dbos de las migraciones y el rol
+      # sin DDL (al que el seed da login): reanuda un workflow tras matar el
+      # proceso con SIGKILL sin repetir pasos (ADR 0027, tarea 6 de la Fase 0).
+      - run: pnpm --filter @repo/worker test:integration
       - run: pnpm --filter @repo/web env:local
 
       # Navegadores de Playwright en caché por versión: la descarga llegó a tardar
