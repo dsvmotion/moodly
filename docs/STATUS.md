@@ -120,7 +120,7 @@
 **Orden de trabajo (producto, 2026-10-24).** Cada paso empieza cuando el anterior está mergeado, verificado y anotado aquí:
 1. W2 (worker en Railway contra staging) y W3 (outbox). Después, el PR del inglés por defecto.
 2. Controles previos a la primera skill: aprobación ligada al hash de la acción (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque (3.8).
-3. Fundaciones del roadmap §1.8, solo interfaces y modelo de datos, sin activar proveedores: el enrutador de modelos; por organización, proveedor, claves BYOK cifradas y región, con «Solo UE» por defecto; los conectores como skills `mcp`; una interfaz común de conocimiento sobre pgvector.
+3. Fundaciones del roadmap §1.8, solo interfaces y modelo de datos, sin activar proveedores: el enrutador de modelos; por organización, proveedor, claves BYOK cifradas y región (por defecto, cualquier proveedor con DPA; «Solo UE» como opción, ver «Modelos y región»); los conectores como skills `mcp`; una interfaz común de conocimiento sobre pgvector.
 4. Primer equipo de agentes: Recepción (B19: reservar, mover y cancelar citas, recordatorio de 24 h y lista de espera), empezando por WhatsApp y web chat pero diseñada ya contando con la voz; **la voz va justo después de B19** (*spike* A18 y voz en producción); después, Atención al cliente (B20: deriva las dudas médicas a una persona y pide la reseña). El saludo siempre avisa de que es una IA. Contactos, runs, objetivos y memoria (ADR 0024) entran donde los necesiten.
 5. Borrador del ADR 0046 (copiloto y modo coach) con las reglas del roadmap §1.6, sin implementarlo.
 6. B3–B5 de staging y `/ops`, cuando encajen sin bloquear lo anterior.
@@ -164,16 +164,34 @@
 - *Spike* de DBOS (ADR 0027): **hecho en local** (2026-10-23). Pasan los 5 criterios: reanudación tras un `SIGKILL` sin repetir pasos terminados, un solo run por webhook, orden por conversación con una cola partida (3 workers, 0 solapes), aprobación que sobrevive a un reinicio y licencia MIT con la versión 5.2.11 exacta. Deja 8 reglas para el worker (ADR 0027, «Lo que el *spike* obliga a fijar»): `executorID` único por proceso, pasos «al menos una vez», adopción de los runs de un worker muerto devolviéndolos a su cola, esquema `dbos` creado por el CI con el worker sin DDL, entre otras. **ADR 0027 aceptado por producto el 2026-10-23.**
 - Worker con DBOS (antes tarea 6; ADR 0027, aceptado el 2026-10-23), en tres incrementos:
   - **W1, hecho (#82):** el esquema `dbos` lo crea una migración (el SQL de `dbos schema --print-migrations all` de la 5.2.11, sin tocar) y el rol `dbos_worker` no tiene DDL ni acceso a datos de clientes. Nace sin login: en local se lo da el seed; en staging, el despliegue (W2). `apps/worker` arranca DBOS con las reglas del ADR: `runMigrations: false`, `executorID` y `applicationVersion` explícitos, nunca el pooler en modo transacción, y logs por pino sin contraseñas, también los de DBOS. Solo `apps/worker` importa DBOS (regla de lint y test estructural). Test de integración en el job de e2e: el worker real muere con SIGKILL tras el paso 2, vuelve con el mismo `executorID` y solo ejecuta el 3. pgTAP 604/604 (14 nuevos en `19_dbos_schema`), con prueba en negativo de cada protección. Verificado sobre `main` (`cca6bdd`, 2026-10-23): `pnpm check` 52/52, `db:lint`, pgTAP 604/604, integración de `tenantDb` y del worker, y e2e 121/121; CI en verde. En staging, el despliegue aplicó las dos migraciones: el esquema `dbos` está en la versión 123 (13 tablas) y `dbos_worker` sigue sin login, sin privilegios de más y fuera del alcance de `anon` y `authenticated` (consulta de solo lectura).
-  - **W2, en curso:** el worker en Railway contra staging.
-    - **Hecho en el código y probado en local:**
+  - **W2, código mergeado (#90, `617b376`); falta la verificación en staging:** el worker en Railway contra staging.
+    - **En el código y probado en local:**
       - lock del executor antes de arrancar DBOS: un despliegue nuevo espera a que pare el viejo, y si el worker pierde el lock, se para (regla 1, MANUAL §4.4);
       - workflow de comprobación `smoke.durability` con su cola;
       - imagen de Docker;
-      - workflow manual «Staging · worker», que da login al rol con un verificador SCRAM (la contraseña en claro no llega a Postgres) y comprueba conexión, lock, durabilidad y NOTIFY a través del pooler.
+      - workflow manual «Staging · worker», que da login al rol con un verificador SCRAM (la contraseña en claro no llega a Postgres) y comprueba conexión, lock, durabilidad y NOTIFY a través del pooler;
+      - la CA de Supabase en `apps/worker/certs/`, con su huella comprobada.
+    - **Verificado sobre `main`** (`617b376`, 2026-10-24): CI en verde en los 5 checks; en local, `pnpm check` 52/52, `db:lint` limpio, pgTAP 604/604, integración de `tenantDb` 3/3 y del worker 6/6, y e2e 121/121.
     - **Railway:** proyecto `moodly-staging` (entorno `staging`) con el servicio `worker` creado y configurado (Ámsterdam, 1 réplica, Dockerfile, reinicio si falla, 60 s para parar); falta conectarle el repositorio.
-    - **Pendiente de producto:** el secreto `DBOS_WORKER_DB_PASSWORD` (en el entorno `staging` de GitHub y en Railway) y la CA de Supabase en `apps/worker/certs/`.
-    - **Verificación en staging:** cuando estén, comprobar el pooler en modo sesión (regla 8, no probada aún contra el alojado), el lock tras matar un proceso y la reanudación tras reiniciar el contenedor.
-  - W3: un workflow encolado desde la web (outbox), procesado por el worker y reanudado tras matarlo: el criterio de la tarea 6.
+    - **Pendiente de producto:** la acción `role` del 2026-10-24 se paró en su primera comprobación. `DBOS_WORKER_DB_PASSWORD` tiene que ser de 32 a 128 letras o dígitos, sin símbolos, espacios ni saltos de línea (va dentro de la URL de conexión), y la guardada no lo cumple. Hay que regenerarla (por ejemplo, `openssl rand -hex 32`) y poner el mismo valor en el entorno `staging` de GitHub y en Railway.
+    - **Verificación en staging:** después, comprobar el pooler en modo sesión (regla 8, no probada aún contra el alojado), el lock tras matar un proceso y la reanudación tras reiniciar el contenedor.
+  - **W3, hecho en el código (outbox, ADR 0009 propuesto):** `domain_events` con el tenant en la fila y sin escritura desde la app; `invitation.created` en la misma transacción que el alta; un publicador programado de DBOS que encola una entrega por consumidor con ID determinista; cada entrega lee su evento y actúa solo con `forOrganization(la organización de la fila)` (control 3.7).
+    - pgTAP 640/640 (36 nuevos en `20_domain_events`; 7 mutaciones, todas detectadas).
+    - Integración del worker 10/10. Son nuevos:
+      - entrega con la organización de la fila, sin duplicar al volver a publicar;
+      - payload manipulado que no cambia de tenant;
+      - reanudación tras `SIGKILL` en mitad de una entrega;
+      - limpieza horaria de las vueltas del publicador.
+
+      5 mutaciones, todas detectadas.
+    - Desde la web con el worker local y con la imagen de Docker: las invitaciones se entregan en 2–4 s.
+    - **Para desplegarlo en staging,** después de W2:
+      - una clave secreta de Supabase propia del worker en Railway (`SUPABASE_SECRET_KEY`, la crea producto en el panel de Supabase);
+      - `SUPABASE_URL` en Railway;
+      - que Railway redespliegue también con `packages/db/src/**`.
+    - **Antes de producción:**
+      - retención de todo el esquema `dbos`: hoy solo se limpian cada hora las vueltas del publicador, unas 17.000 al día;
+      - al subir `WORKER_APP_VERSION`, vaciar antes la versión vieja (MANUAL §4.4).
 - Controles previos a la primera skill:
   - **3.2, hecho (#78):** `createServiceDb().forOrganization(orgId)` en `@repo/db/service`. Solo admite tablas con `organization_id` obligatorio, añade el filtro a toda lectura, actualización y borrado, pone la organización al insertar y rechaza filas de otra, y no ofrece `upsert`, `rpc` ni recursos embebidos. Una regla de lint y un test estructural impiden importar un cliente de Supabase fuera de `packages/db` y `apps/web`, y `apps/web` no puede importar `@repo/db/service`. Tests unitarios con el cliente real y un `fetch` falso (8 mutaciones, todas detectadas) e integración contra Supabase local en el job de e2e (3 tests, con prueba en negativo de cada filtro). **Verificado sobre `main`** (`878a374`): CI en verde en los 5 checks; en local, `pnpm check` 52/52, pgTAP 590/590, integración 3/3 y e2e 118/118.
   - Aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8).

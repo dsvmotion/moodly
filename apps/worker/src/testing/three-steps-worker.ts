@@ -11,6 +11,7 @@
 import { appendFileSync } from "node:fs";
 import { DBOS } from "@dbos-inc/dbos-sdk";
 import { loadConfig } from "../config.ts";
+import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";
 import { createWorker } from "../worker.ts";
 
@@ -44,6 +45,7 @@ const threeStepsWorkflow = DBOS.registerWorkflow(threeSteps, { name: "testing.th
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const worker = createWorker(config, logger, {
+  eventHandlers: [logHandler],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);

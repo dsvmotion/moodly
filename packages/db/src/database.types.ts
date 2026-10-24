@@ -155,6 +155,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"domain_events": {
+                  Row: {
+                    "chain_depth": number,"created_at": string,"id": string,"location_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"published_at": string | null,"source_run_id": string | null,"type": string
+                  }
+                  Insert: {
+                    "chain_depth"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"organization_id": string,"payload"?: NonNullable<Json>,"published_at"?: string | null,"source_run_id"?: string | null,"type": string
+                  }
+                  Update: {
+                    "chain_depth"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"published_at"?: string | null,"source_run_id"?: string | null,"type"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "domain_events_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "domain_events_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"goal_progress": {
                   Row: {
                     "created_at": string,"goal_id": string,"id": string,"measured_at": string,"organization_id": string,"source": string,"value": number

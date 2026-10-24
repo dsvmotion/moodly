@@ -381,7 +381,7 @@ Convenciones:
 | `agent_runs` | `organization_id`, `location_id?`, `agent_id`, `trigger` (`inbound_message`/`schedule`/`domain_event`/`staff_instruction`), `trigger_ref`, `config_snapshot_id`, `status` (`running`/`awaiting_approval`/`awaiting_knowledge`/`handed_off`/`completed`/`failed`), `model`, `tokens_in`, `tokens_out`, `cost_eur` |
 | `executions` | `run_id`, `organization_id`, `skill_key`, `skill_version`, `input`, `output`, `effect_class`, `autonomy_applied`, `status` (`suggested`/`drafted`/`needs_approval`/`approved`/`rejected`/`executed`/`failed`), `rationale` (explicación legible), `idempotency_key` |
 | `approvals` | `execution_id`, `organization_id`, `location_id?`, `required_role`, `status` (`pending`/`approved`/`rejected`/`expired`), `decided_by`, `decided_at`, `expires_at` |
-| `domain_events` | Outbox: `organization_id`, `location_id?`, `type` (p. ej. `appointment.created`), `payload`, `source_run_id`, `published_at?` |
+| `domain_events` | Outbox (ADR 0009): `organization_id`, `location_id?`, `type` (p. ej. `appointment.created`), `payload` (ids, sin datos personales ni tenant), `source_run_id`, `chain_depth` (0–5), `published_at?` |
 | `event_subscriptions` | `agent_type`, `event_type`, `handler`: qué agente reacciona a qué evento |
 | `audit_logs` | Append-only: `organization_id`, `actor_type` (`agent`/`user`/`platform_staff`/`system`), `actor_id`, `action`, `target`, `metadata`, `at` |
 
@@ -443,6 +443,10 @@ resolved = template.defaults
 - La **service role** solo se usa en el worker y siempre con un `organization_id` explícito en cada consulta. La exige `createServiceDb().forOrganization(orgId)` (`@repo/db/service`): solo admite tablas con `organization_id` obligatorio, añade el filtro a toda lectura, actualización y borrado, pone la organización al insertar y no ofrece `upsert`, `rpc` ni recursos embebidos. Una regla de lint y un test estructural impiden crear otro cliente fuera de `packages/db`.
 - El estado de la ejecución duradera (DBOS, ADR 0027) vive en el esquema `dbos`. Lo crea una migración con el SQL que da `dbos schema --print-migrations` para la versión exacta del worker, y el worker se conecta con el rol `dbos_worker`: lee y escribe solo `dbos`, sin DDL y sin acceso a `public` ni a `private` (los datos de las organizaciones los toca con `createServiceDb().forOrganization(orgId)`). Ni `anon`, ni `authenticated`, ni `service_role` llegan a ese esquema, y no se expone por la API (`19_dbos_schema`). Las entradas y salidas de los pasos quedan guardadas ahí: lo que entre en un paso cuenta como dato de cliente a efectos de retención y borrado.
 - **Despliegue del worker (W2).** Un proceso vivo por `executorID` (regla 1 del ADR 0027): antes de arrancar DBOS, el worker toma un *advisory lock* de sesión con la clave de su `executorID` en una conexión propia y lo mantiene hasta pararse. Si un despliegue arranca el contenedor nuevo con el viejo aún vivo, el nuevo espera a que el viejo termine (al salir, también con `SIGKILL`, su conexión se cierra y Postgres suelta el lock); si el worker pierde esa conexión, se para. La conexión es la del pooler de Supabase en **modo sesión** (puerto 5432, usuario `dbos_worker.<ref>`), con TLS verificado contra la CA de Supabase (`sslmode=verify-full`). `WORKER_APP_VERSION` es explícita y se fija en la configuración del despliegue: no cambia en cada commit, sino solo cuando un workflow cambia de forma incompatible con los runs a medias, y entonces se sigue el procedimiento de versiones de DBOS. Mientras no cambie, el worker de un despliegue nuevo recoge los runs que dejó a medias el anterior. El commit desplegado sale en el log de arranque.
+- **Versión desplegada y outbox (W3, ADR 0009).**
+  - **Al arrancar, el worker se declara la última versión** (`DBOS.setLatestApplicationVersion`). DBOS manda los workflows programados (el publicador del outbox) a la última versión registrada. Sin esto, tras volver a una versión anterior el publicador se pararía.
+  - **Antes de subir `WORKER_APP_VERSION`, se vacía la versión vieja:** que no queden workflows `ENQUEUED` ni `PENDING` de esa versión, o se mueven con el procedimiento de versiones de DBOS. Si quedan, sus entregas y sus runs se pierden.
+  - **Variables:** además de las de DBOS, el worker necesita `SUPABASE_URL` y `SUPABASE_SECRET_KEY`. La clave es una clave secreta propia del worker, que se puede revocar sin tocar nada más. Con ellas lee los datos de las organizaciones (`createServiceDb`) y el outbox.
 - El acceso del equipo interno (`platform_staff`) a datos de un cliente queda registrado en `audit_logs` y, para contenido de conversaciones, requiere un modo de soporte explícito.
 - Tests pgTAP obligatorios: para cada tabla, un usuario de la organización A no puede leer ni escribir datos de la B, y un manager del local 1 no ve el local 2.
 
@@ -567,13 +571,23 @@ Reglas:
 - Las aprobaciones se asignan por rol y local. Caducan (`expires_at`) y el agente informa al cliente final si algo queda pendiente.
 - La misma mecánica sirve para `awaiting_knowledge` (§5.9).
 
-### 5.8 Coordinación entre agentes **[PROPUESTO]**
+### 5.8 Coordinación entre agentes **[DISEÑO: ADR 0009, propuesto; outbox implementado en W3]**
 
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).
-- Un publicador lee el outbox y encola un job por cada suscripción (`event_subscriptions`).
+  - Los escriben triggers de la base de datos; nadie de la app los escribe.
+  - El primero es `invitation.created`.
+- **El tenant de un evento sale de la fila (`organization_id`, `location_id`), nunca del payload** (control 3.7). El payload lleva ids y datos mínimos, sin datos personales en claro, con un esquema Zod por tipo que quita lo que sobre.
+- Un publicador lee el outbox y encola una entrega por cada consumidor suscrito:
+  - es un workflow programado de DBOS (`outbox.publish`, cada 5 s);
+  - la entrega es un workflow `outbox.deliver` con ID `event:<evento>:<consumidor>`: volver a encolar no entrega dos veces;
+  - cada hora, `outbox.prune` borra las vueltas del publicador ya terminadas.
+  - Cada entrega lee su evento y actúa solo con `forOrganization(la organización de la fila)`.
+  - Los consumidores viven en el código del worker. La tabla `event_subscriptions` (qué tipo de agente reacciona a qué evento) llega con el primer agente que reaccione a eventos.
 - Ejemplo: `customer` ejecuta `book_appointment` y se emite `appointment.created`. `reception` lo recibe y prepara el recurso y el recordatorio. `admin` lo recibe y deja preparado el cobro en borrador.
 - Cada evento lleva `source_run_id`, lo que permite reconstruir la cadena completa en el panel de actividad.
-- Hay protección contra bucles: profundidad máxima de cadena por evento y deduplicación.
+- Hay protección contra bucles y deduplicación:
+  - `chain_depth` va de 0 a 5 y lo comprueba la tabla;
+  - las entregas tienen ID determinista.
 
 ### 5.9 "No improvisar": solicitudes de conocimiento **[DECIDIDO el comportamiento]**
 
@@ -1163,7 +1177,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0006 | Worker always-on; la cola pasa a DBOS (ver 0027) | por redactar |
 | 0007 | Integraciones MCP primero, con interfaz interna por tipo | por redactar |
 | 0008 | Motor de políticas, clases de efecto y techos de autonomía | por redactar |
-| 0009 | Coordinación entre agentes por eventos de dominio (outbox) | por redactar |
+| 0009 | Eventos de dominio con outbox en Postgres, publicador programado de DBOS y tenant de la fila | propuesto (implementado en W3) |
 | 0010 | El agente `admin` opera a través del software de facturación del cliente | por redactar |
 | 0011 | Claude Code y Codex como únicos agentes de código; `AGENTS.md`/`CLAUDE.md` + `STATUS.md` | por redactar |
 | 0012 | Tipos de agente como catálogo en datos (`agent_types`), no como enum en código | por redactar |
