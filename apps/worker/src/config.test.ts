@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig, WorkerConfigError } from "./config.ts";
 
+// Se arma en tiempo de ejecución: un literal con forma de clave lo marcaría gitleaks.
+const SECRET_KEY = `sb_secret_${"x".repeat(24)}`;
 const valid = {
   WORKER_SYSTEM_DATABASE_URL: "postgresql://dbos_worker:secreto-largo@db.example.test:5432/postgres",
   WORKER_EXECUTOR_ID: "worker-1",
   WORKER_APP_VERSION: "3f2c1ab",
+  SUPABASE_URL: "https://ref.supabase.co",
+  SUPABASE_SECRET_KEY: SECRET_KEY,
 };
 
 describe("loadConfig", () => {
@@ -15,6 +19,8 @@ describe("loadConfig", () => {
       applicationVersion: "3f2c1ab",
       logLevel: "info",
       gitCommit: null,
+      supabaseUrl: "https://ref.supabase.co",
+      supabaseSecretKey: SECRET_KEY,
     });
   });
 
@@ -27,7 +33,7 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...valid, RAILWAY_GIT_COMMIT_SHA: "main; rm -rf /" })).toThrow(/RAILWAY_GIT_COMMIT_SHA/);
   });
 
-  it.each(["WORKER_SYSTEM_DATABASE_URL", "WORKER_EXECUTOR_ID", "WORKER_APP_VERSION"])("sin %s no arranca", (name) => {
+  it.each(["WORKER_SYSTEM_DATABASE_URL", "WORKER_EXECUTOR_ID", "WORKER_APP_VERSION", "SUPABASE_URL", "SUPABASE_SECRET_KEY"])("sin %s no arranca", (name) => {
     const env: Record<string, string | undefined> = { ...valid, [name]: undefined };
     expect(() => loadConfig(env)).toThrow(WorkerConfigError);
     expect(() => loadConfig(env)).toThrow(name);
@@ -65,5 +71,32 @@ describe("loadConfig", () => {
         expect.objectContaining({ message: expect.not.stringContaining("secreto-largo") }),
       );
     }
+  });
+
+  it("acepta la API local por http y quita la barra final", () => {
+    expect(loadConfig({ ...valid, SUPABASE_URL: "http://127.0.0.1:54321/" }).supabaseUrl).toBe("http://127.0.0.1:54321");
+  });
+
+  it.each([
+    "http://ref.supabase.co",
+    "https://usuario:clave@ref.supabase.co",
+    "https://ref.supabase.co/?apikey=x",
+    "ref.supabase.co",
+  ])("rechaza la URL de Supabase %j (http fuera de local, credenciales o parámetros)", (url) => {
+    expect(() => loadConfig({ ...valid, SUPABASE_URL: url })).toThrow(/SUPABASE_URL/);
+  });
+
+  it.each(["eyJhbGciOiJIUzI1NiJ9.legacy.jwt", "sb_publishable_abcdefghijklmnopqrst", "sb_secret_corta"])(
+    "rechaza una clave que no es secreta: %j",
+    (key) => {
+      expect(() => loadConfig({ ...valid, SUPABASE_SECRET_KEY: key })).toThrow(/SUPABASE_SECRET_KEY/);
+    },
+  );
+
+  it("el error nunca incluye la clave secreta", () => {
+    const key = "sb_secret_con espacios y no valida";
+    expect(() => loadConfig({ ...valid, SUPABASE_SECRET_KEY: key })).toThrow(
+      expect.objectContaining({ message: expect.not.stringContaining("con espacios") }),
+    );
   });
 });

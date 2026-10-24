@@ -1,0 +1,34 @@
+import { z } from "zod";
+
+// Payload de cada tipo de evento de dominio (ADR 0009). Solo ids y datos
+// mínimos, nunca datos personales en claro: quien consume un evento lee lo que
+// necesite, acotado a la organización de la fila. El tenant tampoco va aquí:
+// organization_id y location_id son columnas de domain_events (control 3.7), y
+// Zod quita del payload cualquier clave que no esté en su esquema, así que un
+// organization_id metido en el payload no llega a ningún consumidor.
+
+/** Igual que el check de domain_events.chain_depth (protección contra bucles, MANUAL §5.8). */
+export const MAX_CHAIN_DEPTH = 5;
+
+const memberRole = z.enum(["org_admin", "region_manager", "location_manager", "staff"]);
+
+export const eventPayloads = {
+  // private.emit_invitation_created, en la misma transacción que el alta.
+  "invitation.created": z.object({
+    invitation_id: z.uuid(),
+    role: memberRole,
+    invited_by: z.uuid(),
+  }),
+} satisfies Record<string, z.ZodType<Record<string, unknown>>>;
+
+export type EventType = keyof typeof eventPayloads;
+export type EventPayload<T extends EventType> = z.infer<(typeof eventPayloads)[T]>;
+
+export function isEventType(type: string): type is EventType {
+  return Object.hasOwn(eventPayloads, type);
+}
+
+/** El payload validado con el esquema de su tipo (sin claves de más). Lanza si no lo cumple. */
+export function parsePayload(type: EventType, payload: unknown): Record<string, unknown> {
+  return eventPayloads[type].parse(payload);
+}

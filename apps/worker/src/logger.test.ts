@@ -25,6 +25,12 @@ describe("redactConnectionStrings", () => {
   it("deja igual un texto sin credenciales", () => {
     expect(redactConnectionStrings("postgresql://h:5432/db sin usuario")).toBe("postgresql://h:5432/db sin usuario");
   });
+
+  it("censura una clave secreta de Supabase", () => {
+    // Armada en tiempo de ejecución: un literal con forma de clave lo marcaría gitleaks.
+    const key = ["sb", "secret", "Ab1-".repeat(6)].join("_");
+    expect(redactConnectionStrings(`apikey: ${key}`)).toBe(`apikey: sb_secret_${REDACTED}`);
+  });
 });
 
 describe("createLogger", () => {

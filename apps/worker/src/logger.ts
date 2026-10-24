@@ -2,7 +2,8 @@ import pino, { type DestinationStream, type Logger } from "pino";
 
 // Logs del worker (ADR 0032): una línea JSON por evento en la salida estándar,
 // como la web, con las mismas claves censuradas. Además, ninguna URL de Postgres
-// sale con su contraseña, ni en nuestros mensajes ni en los de DBOS.
+// sale con su contraseña ni ninguna clave secreta de Supabase, ni en nuestros
+// mensajes ni en los de DBOS.
 
 const REDACT_PATHS = [
   "password",
@@ -25,10 +26,12 @@ export const REDACTED = "[redactado]";
 
 // usuario:contraseña@ de cualquier URL postgres:// o postgresql://.
 const PG_URL_CREDENTIALS = /(postgres(?:ql)?:\/\/[^:@\s/]+):[^@\s]+@/gi;
+// La clave secreta de Supabase (createServiceDb), por si apareciera en un error.
+const SUPABASE_SECRET_KEY = /sb_secret_[A-Za-z0-9_-]+/g;
 
-/** Texto sin la contraseña de ninguna URL de Postgres. */
+/** Texto sin la contraseña de ninguna URL de Postgres ni claves secretas de Supabase. */
 export function redactConnectionStrings(text: string): string {
-  return text.replace(PG_URL_CREDENTIALS, `$1:${REDACTED}@`);
+  return text.replace(PG_URL_CREDENTIALS, `$1:${REDACTED}@`).replace(SUPABASE_SECRET_KEY, `sb_secret_${REDACTED}`);
 }
 
 // Lo mismo en todos los campos de un evento, a cualquier profundidad.

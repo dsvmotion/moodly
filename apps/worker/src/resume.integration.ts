@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { localSystemDatabaseUrl } from "./testing/local-system-db.ts";
+import { localSupabaseApi, localSystemDatabaseUrl } from "./testing/local-system-db.ts";
 
 // Tarea 6 de la Fase 0 (ADR 0027): el worker real, con el rol sin DDL y el
 // esquema que migra el CI, retoma un workflow tras matar el proceso con SIGKILL
@@ -83,6 +83,7 @@ function effects(file: string): { step: string; pid: number }[] {
 describe("worker con DBOS: reanudación tras SIGKILL", () => {
   const systemDatabaseUrl = localSystemDatabaseUrl();
   const password = new URL(systemDatabaseUrl).password;
+  const api = localSupabaseApi();
   // Un executorID por ejecución del test (regla 1): no recoge runs de otras.
   const env = {
     ...process.env,
@@ -90,6 +91,8 @@ describe("worker con DBOS: reanudación tras SIGKILL", () => {
     WORKER_EXECUTOR_ID: `test-${randomUUID().slice(0, 8)}`,
     WORKER_APP_VERSION: "test-resume",
     LOG_LEVEL: "info",
+    SUPABASE_URL: api.url,
+    SUPABASE_SECRET_KEY: api.secretKey,
   };
 
   it("muere tras el paso 2, vuelve con el mismo executorID y solo ejecuta el 3", async () => {
@@ -115,6 +118,7 @@ describe("worker con DBOS: reanudación tras SIGKILL", () => {
     // contraseña no sale en ningún log, tampoco en los de DBOS.
     expect(recovered.output).toContain('"msg":"worker arrancado"');
     expect(crashed.output + recovered.output).not.toContain(password);
+    expect(crashed.output + recovered.output).not.toContain(api.secretKey);
   });
 
   it("dos procesos con el mismo executorID no se solapan: el segundo espera a que muera el primero", async () => {

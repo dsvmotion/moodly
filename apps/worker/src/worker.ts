@@ -1,6 +1,9 @@
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
+import { createServiceDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
+import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
+import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
 import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
 import { registerSmokeQueue, registerSmokeWorkflow } from "./smoke.ts";
@@ -27,6 +30,8 @@ export interface WorkerOptions {
   onLeaseLost: (err: Error) => void;
   /** Cancela la espera del lock (SIGTERM antes de arrancar). */
   signal?: AbortSignal;
+  /** Los consumidores de eventos de dominio (ADR 0009). Todos los procesos de una versión, los mismos. */
+  eventHandlers: readonly EventHandler[];
 }
 
 // Los logs de DBOS salen por nuestro logger (ADR 0032), con la misma censura.
@@ -45,6 +50,8 @@ function dbosLogger(logger: Logger): DLogger {
 }
 
 export function createWorker(config: WorkerConfig, logger: Logger, options: WorkerOptions): Worker {
+  const registry = createEventRegistry(options.eventHandlers);
+  const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
   let lease: ExecutorLease | undefined;
   let launched = false;
   return {
@@ -57,6 +64,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
         ...(options.signal ? { signal: options.signal } : {}),
       });
       registerSmokeWorkflow();
+      const outbox = registerOutboxWorkflows({ db, registry, logger });
       DBOS.setConfig({
         name: APPLICATION_NAME,
         systemDatabaseUrl: config.systemDatabaseUrl,
@@ -74,7 +82,14 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       });
       await DBOS.launch();
       launched = true;
+      // La versión desplegada es la vigente, también al volver a una anterior.
+      // DBOS manda los workflows programados (el publicador del outbox) a la
+      // última versión registrada y un worker de otra versión no los recoge: sin
+      // esto, tras una vuelta atrás el outbox se pararía. Antes de las colas: su
+      // configuración solo la actualiza la última versión.
+      await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
+      await startOutbox(outbox);
       logger.info(
         {
           executorId: config.executorId,

@@ -1,6 +1,7 @@
-// URL de la base de datos de sistema de DBOS en Supabase local, con el rol
-// dbos_worker y la contraseña que le da `pnpm db:seed`. Solo para el entorno
-// local: tests de integración y `pnpm --filter @repo/worker env:local`.
+// Conexiones del worker a Supabase local: la base de datos de sistema de DBOS
+// (rol dbos_worker, con la contraseña que le da `pnpm db:seed`) y la API con su
+// clave secreta. Solo para el entorno local: tests de integración y
+// `pnpm --filter @repo/worker env:local`.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -9,10 +10,32 @@ import { fileURLToPath } from "node:url";
 const dbRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../packages/db");
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
-export function localSystemDatabaseUrl(): string {
-  const status = JSON.parse(
+function localStatus(): Record<string, string | undefined> {
+  return JSON.parse(
     execFileSync("supabase", ["status", "-o", "json"], { cwd: dbRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }),
   ) as Record<string, string | undefined>;
+}
+
+/** API de Supabase local y su clave secreta (SUPABASE_URL y SUPABASE_SECRET_KEY del worker). */
+export function localSupabaseApi(): { url: string; secretKey: string } {
+  const status = localStatus();
+  const url = status["API_URL"];
+  const secretKey = status["SECRET_KEY"];
+  if (!url || !secretKey) throw new Error("supabase status no devuelve API_URL y SECRET_KEY: ¿está levantado (pnpm db:start)?");
+  if (!LOCAL_HOSTS.has(new URL(url).hostname)) throw new Error(`Solo contra Supabase local; API_URL apunta a ${new URL(url).hostname}`);
+  return { url, secretKey };
+}
+
+/** Postgres local como postgres, para preparar datos en los tests de integración. */
+export function localAdminDatabaseUrl(): string {
+  const dbUrl = localStatus()["DB_URL"];
+  if (!dbUrl) throw new Error("supabase status no devuelve DB_URL: ¿está levantado (pnpm db:start)?");
+  if (!LOCAL_HOSTS.has(new URL(dbUrl).hostname)) throw new Error(`Solo contra Supabase local; DB_URL apunta a ${new URL(dbUrl).hostname}`);
+  return dbUrl;
+}
+
+export function localSystemDatabaseUrl(): string {
+  const status = localStatus();
   const dbUrl = status["DB_URL"];
   if (!dbUrl) throw new Error("supabase status no devuelve DB_URL: ¿está levantado (pnpm db:start)?");
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
 // spike obliga a fijar»). Los errores nombran la variable, nunca su valor: la
-// URL de la base de datos lleva la contraseña.
+// URL de la base de datos lleva la contraseña y SUPABASE_SECRET_KEY es secreta.
 
 export interface WorkerConfig {
   /** Base de datos de sistema de DBOS (esquema dbos), con el rol dbos_worker. */
@@ -14,6 +14,9 @@ export interface WorkerConfig {
   logLevel: "debug" | "info" | "warn" | "error";
   /** Commit desplegado, solo para los logs (Railway lo da en RAILWAY_GIT_COMMIT_SHA). */
   gitCommit: string | null;
+  /** API de Supabase y su clave secreta: los datos de las organizaciones (createServiceDb, ADR 0009). */
+  supabaseUrl: string;
+  supabaseSecretKey: string;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -35,6 +38,17 @@ const systemDatabaseUrl = z
     "WORKER_SYSTEM_DATABASE_URL apunta al pooler en modo transacción (6543): DBOS necesita una conexión de sesión o directa",
   );
 
+// HTTPS fuera de local: la clave secreta viaja en cada petición.
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const supabaseUrl = z
+  .string({ error: "falta SUPABASE_URL" })
+  .refine((value) => {
+    if (!URL.canParse(value)) return false;
+    const url = new URL(value);
+    if (url.username || url.password || url.search || url.hash) return false;
+    return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
+  }, "SUPABASE_URL: https://… (o http:// solo en local), sin credenciales ni parámetros");
+
 const schema = z.object({
   WORKER_SYSTEM_DATABASE_URL: systemDatabaseUrl,
   WORKER_EXECUTOR_ID: z
@@ -48,6 +62,10 @@ const schema = z.object({
     .string()
     .regex(/^[0-9a-f]{7,40}$/, "RAILWAY_GIT_COMMIT_SHA no es un commit")
     .optional(),
+  SUPABASE_URL: supabaseUrl,
+  SUPABASE_SECRET_KEY: z
+    .string({ error: "falta SUPABASE_SECRET_KEY" })
+    .regex(/^sb_secret_[A-Za-z0-9_-]{16,200}$/, "SUPABASE_SECRET_KEY no es una clave secreta de Supabase (sb_secret_…)"),
 });
 
 export class WorkerConfigError extends Error {
@@ -66,5 +84,7 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     applicationVersion: parsed.data.WORKER_APP_VERSION,
     logLevel: parsed.data.LOG_LEVEL,
     gitCommit: parsed.data.RAILWAY_GIT_COMMIT_SHA ?? null,
+    supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
+    supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
   };
 }
