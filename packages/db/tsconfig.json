@@ -1,11 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
     "rewriteRelativeImportExtensions": true
   },
   "include": [
-    "src"
+    "src",
+    "bootstrap"
   ]
 }

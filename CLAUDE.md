@@ -47,6 +47,8 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Instalar: `pnpm install`
 - Levantar Supabase local: `pnpm db:start` (parar: `pnpm db:stop`)
 - Worker en local (DBOS, ADR 0027): `pnpm db:seed` (da login al rol `dbos_worker` del esquema `dbos`), `pnpm --filter @repo/worker env:local` (escribe `apps/worker/.env.local`) y `pnpm --filter @repo/worker dev`
+- Imagen del worker (la que construye Railway): `docker build -f apps/worker/Dockerfile .` desde la raíz
+- Worker en staging (W2): servicio `worker` del proyecto `moodly-staging` de Railway (región `europe-west4-drams3a`, 1 réplica), que se despliega desde `main` cuando cambian `apps/worker/**` o el lockfile. Rol, conexión, lock y workflow de comprobación: Actions → «Staging · worker» (`.github/workflows/staging-worker.yml`, acciones `role`, `connect`, `lease`, `smoke-enqueue` y `smoke-finish`)
 - Reaplicar migraciones desde cero: `pnpm db:reset` (borra también los usuarios de Auth: vuelve a ejecutar `pnpm db:seed`)
 - Seed de desarrollo (idempotente, solo contra Supabase local): `pnpm db:seed`. Genera contraseñas nuevas en cada ejecución (y el secreto TOTP de los `org_admin`, que salen con MFA activado) y las guarda solo en `packages/db/.seed/credentials.local.json` (ignorado por git). No las copies a código, logs ni al chat.
 - Regenerar los tipos de la base de datos tras una migración: `pnpm db:types`

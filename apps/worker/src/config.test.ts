@@ -14,7 +14,17 @@ describe("loadConfig", () => {
       executorId: "worker-1",
       applicationVersion: "3f2c1ab",
       logLevel: "info",
+      gitCommit: null,
     });
+  });
+
+  it("toma el commit desplegado de Railway, solo para los logs", () => {
+    const sha = "c7201c87d3efc093984c140a74012b8baca7cfb7";
+    expect(loadConfig({ ...valid, RAILWAY_GIT_COMMIT_SHA: sha }).gitCommit).toBe(sha);
+  });
+
+  it("rechaza un commit que no lo es", () => {
+    expect(() => loadConfig({ ...valid, RAILWAY_GIT_COMMIT_SHA: "main; rm -rf /" })).toThrow(/RAILWAY_GIT_COMMIT_SHA/);
   });
 
   it.each(["WORKER_SYSTEM_DATABASE_URL", "WORKER_EXECUTOR_ID", "WORKER_APP_VERSION"])("sin %s no arranca", (name) => {

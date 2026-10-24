@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -30,18 +30,25 @@ interface Run {
   timedOut: boolean;
 }
 
-function runWorker(args: string[], env: NodeJS.ProcessEnv): Promise<Run> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [fixture, ...args], { env, stdio: ["ignore", "pipe", "pipe"] });
-    children.add(child);
-    let output = "";
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGKILL");
-    }, RUN_LIMIT_MS);
-    child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
+interface Started {
+  child: ChildProcess;
+  /** Lo que lleva escrito el proceso hasta ahora. */
+  output(): string;
+  done: Promise<Run>;
+}
+
+function startWorker(args: string[], env: NodeJS.ProcessEnv): Started {
+  const child = spawn(process.execPath, [fixture, ...args], { env, stdio: ["ignore", "pipe", "pipe"] });
+  children.add(child);
+  let output = "";
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill("SIGKILL");
+  }, RUN_LIMIT_MS);
+  child.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  const done = new Promise<Run>((resolve, reject) => {
     child.on("error", reject);
     child.on("close", (code, signal) => {
       clearTimeout(timer);
@@ -49,9 +56,23 @@ function runWorker(args: string[], env: NodeJS.ProcessEnv): Promise<Run> {
       resolve({ code, signal, output, timedOut });
     });
   });
+  return { child, output: () => output, done };
+}
+
+function runWorker(args: string[], env: NodeJS.ProcessEnv): Promise<Run> {
+  return startWorker(args, env).done;
+}
+
+async function waitFor(condition: () => boolean, what: string, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error(`no llegó a pasar: ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 function effects(file: string): { step: string; pid: number }[] {
+  if (!existsSync(file)) return [];
   return readFileSync(file, "utf8")
     .trim()
     .split("\n")
@@ -94,6 +115,39 @@ describe("worker con DBOS: reanudación tras SIGKILL", () => {
     // contraseña no sale en ningún log, tampoco en los de DBOS.
     expect(recovered.output).toContain('"msg":"worker arrancado"');
     expect(crashed.output + recovered.output).not.toContain(password);
+  });
+
+  it("dos procesos con el mismo executorID no se solapan: el segundo espera a que muera el primero", async () => {
+    const workflowId = `testing:overlap:${randomUUID()}`;
+    const file = join(dir, `${randomUUID()}.jsonl`);
+    // Un executorID propio: el de los otros tests no debe recoger este run.
+    const overlapEnv = { ...env, WORKER_EXECUTOR_ID: `test-${randomUUID().slice(0, 8)}` };
+
+    // A, vivo y con el paso 3 en curso.
+    const a = startWorker(["start", workflowId, file], { ...overlapEnv, HANG_IN_STEP3: "1" });
+    await waitFor(() => effects(file).some((e) => e.step === "step3-begin"), "A empieza el paso 3");
+
+    // B arranca con el mismo executorID: sin el lock recuperaría el run y
+    // repetiría el paso 3 a la vez que A (regla 1). Con el lock, espera.
+    const b = startWorker(["recover", workflowId, file], overlapEnv);
+    await waitFor(() => b.output().includes("otro proceso tiene este executorID"), "B avisa de que espera");
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    expect(effects(file).map((e) => e.step)).toEqual(["step1", "step2", "step3-begin"]);
+
+    // Muere A: su conexión se cierra, Postgres suelta el lock y B sigue.
+    a.child.kill("SIGKILL");
+    await a.done;
+    const recovered = await b.done;
+    expect(recovered.timedOut, `B no terminó en ${RUN_LIMIT_MS} ms\n${recovered.output}`).toBe(false);
+    expect(recovered.code, recovered.output).toBe(0);
+    expect(recovered.output).toContain('"msg":"lock del executor tomado"');
+
+    const all = effects(file);
+    expect(all.map((e) => e.step)).toEqual(["step1", "step2", "step3-begin", "step3"]);
+    // El paso en curso de A se repite en B (regla 2: «al menos una vez»), pero
+    // nunca a la vez: B solo lo empezó después de morir A.
+    expect(all[3]?.pid).toBe(b.child.pid);
+    expect(all[2]?.pid).toBe(a.child.pid);
   });
 
   it("sin el rol del worker (contraseña incorrecta) no arranca y no enseña la contraseña", async () => {

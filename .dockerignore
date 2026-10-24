@@ -1,0 +1,15 @@
+# Contexto de las imágenes de Docker (se construyen desde la raíz del monorepo).
+# Nunca entran secretos ni artefactos locales.
+.git
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/.seed
+**/supabase/.temp
+**/supabase/.branches
+**/*.log

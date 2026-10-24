@@ -6,6 +6,8 @@
 //   node three-steps-worker.ts recover <workflowId> <archivo>  arranca y espera
 //
 // Con CRASH_AFTER_STEP2=1 el proceso se mata (SIGKILL) entre el paso 2 y el 3.
+// Con HANG_IN_STEP3=1 se queda colgado dentro del paso 3 (apunta «step3-begin»)
+// hasta que lo matan: un proceso vivo con un paso en curso.
 import { appendFileSync } from "node:fs";
 import { DBOS } from "@dbos-inc/dbos-sdk";
 import { loadConfig } from "../config.ts";
@@ -25,13 +27,28 @@ async function threeSteps(): Promise<string> {
   await DBOS.runStep(async () => effect("step1"), { name: "step1" });
   await DBOS.runStep(async () => effect("step2"), { name: "step2" });
   if (process.env["CRASH_AFTER_STEP2"] === "1") process.kill(process.pid, "SIGKILL");
-  await DBOS.runStep(async () => effect("step3"), { name: "step3" });
+  await DBOS.runStep(
+    async () => {
+      if (process.env["HANG_IN_STEP3"] === "1") {
+        effect("step3-begin");
+        await new Promise(() => {});
+      }
+      effect("step3");
+    },
+    { name: "step3" },
+  );
   return "ok";
 }
 const threeStepsWorkflow = DBOS.registerWorkflow(threeSteps, { name: "testing.threeSteps" });
 
 const config = loadConfig(process.env);
-const worker = createWorker(config, createLogger(config.logLevel));
+const logger = createLogger(config.logLevel);
+const worker = createWorker(config, logger, {
+  onLeaseLost: (err) => {
+    logger.fatal({ err }, "se perdió el lock del executor");
+    process.exit(1);
+  },
+});
 await worker.start();
 if (mode === "start") {
   await (await DBOS.startWorkflow(threeStepsWorkflow, { workflowID: workflowId })()).getResult();
