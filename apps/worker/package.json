@@ -21,7 +21,11 @@
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.2.11",
+    "pg": "8.23.1",
     "pino": "10.4.0",
     "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
   }
 }

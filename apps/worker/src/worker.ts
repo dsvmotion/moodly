@@ -1,7 +1,9 @@
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
+import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
+import { registerSmokeQueue, registerSmokeWorkflow } from "./smoke.ts";
 
 // Arranque de DBOS con las reglas del ADR 0027. Los workflows se registran
 // (DBOS.registerWorkflow) antes de start(): DBOS solo recupera los que conoce.
@@ -10,9 +12,21 @@ import { redactConnectionStrings } from "./logger.ts";
 export const APPLICATION_NAME = "moodly-worker";
 
 export interface Worker {
+  /** Espera el lock de su executorID (regla 1) y arranca DBOS. */
   start(): Promise<void>;
   /** Para de aceptar trabajo y cierra las conexiones. Lo que quede a medias se reanuda al volver. */
   stop(): Promise<void>;
+}
+
+export interface WorkerOptions {
+  /**
+   * Se llama si se pierde el lock del executor con el worker en marcha. Quien
+   * lo recibe debe parar el proceso enseguida: otro proceso con el mismo
+   * executorID puede estar a punto de recuperar sus workflows.
+   */
+  onLeaseLost: (err: Error) => void;
+  /** Cancela la espera del lock (SIGTERM antes de arrancar). */
+  signal?: AbortSignal;
 }
 
 // Los logs de DBOS salen por nuestro logger (ADR 0032), con la misma censura.
@@ -30,9 +44,19 @@ function dbosLogger(logger: Logger): DLogger {
   };
 }
 
-export function createWorker(config: WorkerConfig, logger: Logger): Worker {
+export function createWorker(config: WorkerConfig, logger: Logger, options: WorkerOptions): Worker {
+  let lease: ExecutorLease | undefined;
+  let launched = false;
   return {
     async start() {
+      lease = await acquireExecutorLease({
+        connectionString: config.systemDatabaseUrl,
+        executorId: config.executorId,
+        logger,
+        onLost: options.onLeaseLost,
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
+      registerSmokeWorkflow();
       DBOS.setConfig({
         name: APPLICATION_NAME,
         systemDatabaseUrl: config.systemDatabaseUrl,
@@ -49,13 +73,21 @@ export function createWorker(config: WorkerConfig, logger: Logger): Worker {
         enableOTLP: false,
       });
       await DBOS.launch();
+      launched = true;
+      await registerSmokeQueue();
       logger.info(
-        { executorId: config.executorId, applicationVersion: config.applicationVersion },
+        {
+          executorId: config.executorId,
+          applicationVersion: config.applicationVersion,
+          gitCommit: config.gitCommit,
+        },
         "worker arrancado",
       );
     },
     async stop() {
-      await DBOS.shutdown();
+      // DBOS primero: el lock se suelta cuando ya no queda nada en marcha.
+      if (launched) await DBOS.shutdown();
+      await lease?.release();
       logger.info({ executorId: config.executorId }, "worker parado");
     },
   };

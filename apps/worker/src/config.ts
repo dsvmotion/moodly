@@ -12,6 +12,8 @@ export interface WorkerConfig {
   /** Fija por despliegue (regla 7): la recuperación solo recoge runs de su versión. */
   applicationVersion: string;
   logLevel: "debug" | "info" | "warn" | "error";
+  /** Commit desplegado, solo para los logs (Railway lo da en RAILWAY_GIT_COMMIT_SHA). */
+  gitCommit: string | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -42,6 +44,10 @@ const schema = z.object({
     .string({ error: "falta WORKER_APP_VERSION" })
     .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/, "WORKER_APP_VERSION: letras, dígitos, punto, guion o guion bajo (máx. 64)"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  RAILWAY_GIT_COMMIT_SHA: z
+    .string()
+    .regex(/^[0-9a-f]{7,40}$/, "RAILWAY_GIT_COMMIT_SHA no es un commit")
+    .optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -59,5 +65,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     executorId: parsed.data.WORKER_EXECUTOR_ID,
     applicationVersion: parsed.data.WORKER_APP_VERSION,
     logLevel: parsed.data.LOG_LEVEL,
+    gitCommit: parsed.data.RAILWAY_GIT_COMMIT_SHA ?? null,
   };
 }
