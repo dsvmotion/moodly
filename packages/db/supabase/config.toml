@@ -437,9 +437,21 @@ enabled = true
 project_id = "sgeswmdqstonegceusej"
 
 # Los enlaces de los emails de Auth apuntan a la web de staging, no a localhost.
+# Las cuatro URLs de vercel.app son exactamente las que escribe la integración
+# de Supabase en Vercel tras cada preview: si no están aquí, cada despliegue las
+# borra y la integración las vuelve a poner. La web no usa `redirectTo`, así que
+# hoy no sirven para nada. El comodín de las previews de verdad
+# (`moodly-staging-git-<rama>-…`) espera a que un flujo lo necesite
+# (decisión de producto, 2026-10-24). En producción, solo URLs exactas.
 [remotes.staging.auth]
 site_url = "https://staging.moodlycrm.com"
-additional_redirect_urls = ["https://staging.moodlycrm.com"]
+additional_redirect_urls = [
+  "https://staging.moodlycrm.com",
+  "https://moodly-staging-dsv-2b783aef.vercel.app/",
+  "https://moodly-staging-dsv-2b783aef.vercel.app/**",
+  "https://moodly-*-staging-dsv-2b783aef.vercel.app",
+  "https://moodly-*-staging-dsv-2b783aef.vercel.app/**",
+]
 
 # En local, 1 s para no esperar en las pruebas; alojado, el valor por defecto.
 # El alojado conserva lo que tiene y es más estricto que local: confirmar el
