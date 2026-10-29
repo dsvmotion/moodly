@@ -41,7 +41,7 @@ export const getOrgContext = cache(async (): Promise<{ active: OrgMembership | n
   const { data, error } = await fetchAll((from, to) =>
     supabase
       .from("memberships")
-      .select("organization_id, role, organization:organizations(name)")
+      .select("organization_id, role, organization:organizations(name, default_locale)")
       .eq("user_id", user.id)
       .order("id")
       .range(from, to),
@@ -49,8 +49,10 @@ export const getOrgContext = cache(async (): Promise<{ active: OrgMembership | n
   if (error) throw new Error("No se pudieron cargar tus organizaciones", { cause: error });
   const memberships = data.flatMap((m): OrgMembership[] => {
     const role = ROLES.find((candidate) => candidate === m.role);
-    const name = (m.organization as { name: string } | null)?.name;
-    return role && name ? [{ organizationId: m.organization_id, organizationName: name, role }] : [];
+    const organization = m.organization as { name: string; default_locale: string } | null;
+    return role && organization
+      ? [{ organizationId: m.organization_id, organizationName: organization.name, role, defaultLocale: organization.default_locale }]
+      : [];
   });
   return { active: pickActiveOrg(memberships, cookieStore.get(ACTIVE_ORG_COOKIE)?.value), memberships: sortMemberships(memberships) };
 });

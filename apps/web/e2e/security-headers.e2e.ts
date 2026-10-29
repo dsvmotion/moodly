@@ -46,7 +46,7 @@ test("ninguna pantalla de la app provoca un bloqueo de la CSP", async ({ page })
   const violations = watchCsp(page);
   await page.goto("/login");
   await signIn(page, "a_org_admin");
-  for (const path of ["/app", "/app/ajustes/sedes", "/app/ajustes/equipo", "/app/ajustes/general", "/app/conversaciones", "/app/aprobaciones", "/app/agentes", "/app/agentes/sales", "/app/ajustes/perfil", "/app/ajustes/preferencias", "/app/ajustes/plan"]) {
+  for (const path of ["/app", "/app/settings/locations", "/app/settings/team", "/app/settings/general", "/app/inbox", "/app/approvals", "/app/agents", "/app/agents/sales", "/app/settings/profile", "/app/settings/preferences", "/app/settings/plan"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
   }

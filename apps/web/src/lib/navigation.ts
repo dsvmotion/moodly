@@ -1,7 +1,8 @@
 // Navegación de la app (MANUAL §9.2 y §9.4). Fuente única para la barra
 // lateral, las migas y la paleta de comandos. Las rutas son las canónicas del
-// ADR 0023: en español e identificadores estables (no se traducen con el
-// idioma de la interfaz). Las etiquetas viven en messages/*.json
+// ADR 0041 (cambia el 0023): en inglés e identificadores estables (no se
+// traducen con el idioma de la interfaz; las viejas en español redirigen,
+// legacy-routes.ts). Las etiquetas viven en messages/*.json
 // (nav.<key>); aquí solo claves, rutas e iconos.
 import {
   ActivityIcon,
@@ -41,23 +42,23 @@ export interface NavItem {
 export const MAIN_NAV: readonly NavItem[] = [
   { key: "home", href: "/app", icon: HomeIcon },
   { key: "coach", href: "/app/coach", icon: SparklesIcon },
-  { key: "approvals", href: "/app/aprobaciones", icon: StampIcon },
-  { key: "inbox", href: "/app/conversaciones", icon: InboxIcon },
-  { key: "tasks", href: "/app/tareas", icon: CheckSquareIcon },
-  { key: "activity", href: "/app/actividad", icon: ActivityIcon },
-  { key: "analytics", href: "/app/informes", icon: BarChart3Icon },
+  { key: "approvals", href: "/app/approvals", icon: StampIcon },
+  { key: "inbox", href: "/app/inbox", icon: InboxIcon },
+  { key: "tasks", href: "/app/tasks", icon: CheckSquareIcon },
+  { key: "activity", href: "/app/activity", icon: ActivityIcon },
+  { key: "analytics", href: "/app/analytics", icon: BarChart3Icon },
 ];
 
 /** Objetos de negocio (§9.5). Locales y personas son estructura de la organización: van en Ajustes. */
 export const RECORDS_NAV: readonly NavItem[] = [
-  { key: "contacts", href: "/app/clientes", icon: ContactIcon },
-  { key: "goals", href: "/app/objetivos", icon: TargetIcon },
-  { key: "knowledge", href: "/app/conocimiento", icon: BookOpenIcon },
-  { key: "memory", href: "/app/memoria", icon: BrainIcon },
+  { key: "contacts", href: "/app/contacts", icon: ContactIcon },
+  { key: "goals", href: "/app/goals", icon: TargetIcon },
+  { key: "knowledge", href: "/app/knowledge", icon: BookOpenIcon },
+  { key: "memory", href: "/app/memory", icon: BrainIcon },
 ];
 
-export const SETTINGS_ROOT = "/app/ajustes";
-/** Entrada «Ajustes» de la barra lateral: /app/ajustes abre General y queda activa en todas las secciones. */
+export const SETTINGS_ROOT = "/app/settings";
+/** Entrada «Ajustes» de la barra lateral: /app/settings abre General y queda activa en todas las secciones. */
 export const SETTINGS_NAV: NavItem = { key: "settings", href: SETTINGS_ROOT, icon: SettingsIcon };
 
 // Ajustes (P6, MANUAL §9.4): área propia con navegación secundaria agrupada,
@@ -68,15 +69,15 @@ const SETTINGS_GROUP_DEFS = [
   {
     key: "personal",
     sections: [
-      { key: "profile", slug: "perfil", icon: UserIcon, ready: true },
-      { key: "preferences", slug: "preferencias", icon: SlidersHorizontalIcon, ready: true },
-      { key: "privacy", slug: "privacidad", icon: ShieldIcon, ready: false },
+      { key: "profile", slug: "profile", icon: UserIcon, ready: true },
+      { key: "preferences", slug: "preferences", icon: SlidersHorizontalIcon, ready: true },
+      { key: "privacy", slug: "privacy", icon: ShieldIcon, ready: false },
     ],
   },
   {
     key: "people",
     sections: [
-      { key: "team", slug: "equipo", icon: UsersIcon, ready: true },
+      { key: "team", slug: "team", icon: UsersIcon, ready: true },
       { key: "roles", slug: "roles", icon: KeyRoundIcon, ready: false },
     ],
   },
@@ -84,23 +85,23 @@ const SETTINGS_GROUP_DEFS = [
     key: "business",
     sections: [
       { key: "organization", slug: "general", icon: Building2Icon, ready: true },
-      { key: "locations", slug: "sedes", icon: StoreIcon, ready: true },
+      { key: "locations", slug: "locations", icon: StoreIcon, ready: true },
       { key: "plan", slug: "plan", icon: CreditCardIcon, ready: false },
-      { key: "billing", slug: "facturacion", icon: ReceiptIcon, ready: false },
+      { key: "billing", slug: "billing", icon: ReceiptIcon, ready: false },
     ],
   },
   {
     key: "ai",
     sections: [
-      { key: "models", slug: "modelos", icon: BotIcon, ready: false },
-      { key: "integrations", slug: "integraciones", icon: PlugIcon, ready: false },
+      { key: "models", slug: "models", icon: BotIcon, ready: false },
+      { key: "integrations", slug: "integrations", icon: PlugIcon, ready: false },
     ],
   },
   {
     key: "security",
     sections: [
-      { key: "security", slug: "seguridad", icon: LockIcon, ready: true },
-      { key: "audit", slug: "auditoria", icon: ScrollTextIcon, ready: false },
+      { key: "security", slug: "security", icon: LockIcon, ready: true },
+      { key: "audit", slug: "audit", icon: ScrollTextIcon, ready: false },
     ],
   },
 ] as const;
@@ -135,7 +136,7 @@ export function settingsSection(key: SettingsSectionKey): SettingsSection {
   return section;
 }
 
-/** Sección por su tramo de URL (`/app/ajustes/<slug>`), o null. */
+/** Sección por su tramo de URL (`/app/settings/<slug>`), o null. */
 export function settingsSectionBySlug(slug: string): SettingsSection | null {
   return SETTINGS_SECTIONS.find((section) => section.slug === slug) ?? null;
 }

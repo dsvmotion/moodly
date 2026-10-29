@@ -9,7 +9,7 @@ import {
   settingsSectionBySlug,
 } from "./navigation";
 
-// Rutas canónicas del ADR 0023 y una entrada por destino (auditoría del
+// Rutas canónicas (en inglés, ADR 0041) y una entrada por destino (auditoría del
 // frontend 2026-10-23, F-1 y F-6).
 describe("navegación", () => {
   const all = [...MAIN_NAV, ...RECORDS_NAV, SETTINGS_NAV];
@@ -29,8 +29,8 @@ describe("navegación", () => {
 
   it("Ajustes queda activo en cualquiera de sus secciones", () => {
     for (const section of SETTINGS_SECTIONS) expect(isActive(section.href, SETTINGS_NAV.href)).toBe(true);
-    expect(isActive("/app/ajustes", SETTINGS_NAV.href)).toBe(true);
-    expect(isActive("/app/ajustesx", SETTINGS_NAV.href)).toBe(false);
+    expect(isActive("/app/settings", SETTINGS_NAV.href)).toBe(true);
+    expect(isActive("/app/settingsx", SETTINGS_NAV.href)).toBe(false);
   });
 
   it("cada sección de Ajustes solo se marca a sí misma", () => {
@@ -43,16 +43,16 @@ describe("navegación", () => {
   it("Ajustes tiene las 13 secciones de MANUAL §9.4 en 5 grupos, sin repetir tramo de URL", () => {
     expect(SETTINGS_GROUPS.map((group) => group.key)).toEqual(["personal", "people", "business", "ai", "security"]);
     expect(SETTINGS_SECTIONS.map((section) => section.slug).sort()).toEqual(
-      ["auditoria", "equipo", "facturacion", "general", "integraciones", "modelos", "perfil", "plan", "preferencias", "privacidad", "roles", "sedes", "seguridad"],
+      ["audit", "billing", "general", "integrations", "locations", "models", "plan", "preferences", "privacy", "profile", "roles", "security", "team"],
     );
-    expect(settingsSectionBySlug("sedes")?.key).toBe("locations");
+    expect(settingsSectionBySlug("locations")?.key).toBe("locations");
     expect(settingsSectionBySlug("api")).toBeNull();
   });
 
   it("la ventana de un agente no activa la de otro", () => {
-    const reception = "/app/agentes/reception";
+    const reception = "/app/agents/reception";
     expect(isActive(reception, reception)).toBe(true);
-    expect(isActive(reception, "/app/agentes/customer")).toBe(false);
-    expect(isActive(reception, "/app/agentes")).toBe(true);
+    expect(isActive(reception, "/app/agents/customer")).toBe(false);
+    expect(isActive(reception, "/app/agents")).toBe(true);
   });
 });

@@ -30,7 +30,7 @@ test("sin segundo factor, Inicio lo pide y lleva a Seguridad y acceso", async ({
   // Quien no administra no ve el aviso de que la necesita para hacer cambios.
   await expect(mfa).not.toContainText("Administras una organización");
   await mfa.getByRole("link", { name: "Activarla" }).click();
-  await expect(page).toHaveURL(/\/app\/ajustes\/seguridad$/);
+  await expect(page).toHaveURL(/\/app\/settings\/security$/);
 });
 
 test("el alcance acota lo que cuenta Inicio", async ({ page }) => {

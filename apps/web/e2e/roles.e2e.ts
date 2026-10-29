@@ -43,7 +43,7 @@ for (const [key, expected] of Object.entries(expectations)) {
     await signIn(page, key);
     // Tras entrar se llega a Inicio (P1); «Mi organización» está en Ajustes → General.
     await expect(page).toHaveURL(/\/app$/);
-    await page.goto("/app/ajustes/general");
+    await page.goto("/app/settings/general");
     await expect(page.getByRole("heading", { name: "Mi organización" })).toBeVisible();
 
     expect(await texts(page, "organization")).toEqual(expected.organizations);

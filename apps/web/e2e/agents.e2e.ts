@@ -14,13 +14,13 @@ test("un agente propio sale en la barra lateral, en Agentes, en Inicio y tiene s
   await expect(page.getByTestId("home-agents").getByRole("link")).toHaveCount(5);
 
   await agents.getByRole("link", { name: "Eventos", exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/agentes\/events$/);
+  await expect(page).toHaveURL(/\/app\/agents\/events$/);
   await expect(page.getByRole("heading", { level: 1, name: "Eventos" })).toBeVisible();
   await expect(page.getByTestId("agent-description")).toHaveText("Prepara presupuestos de eventos y reserva salas.");
   await expect(page.getByTestId("agent-status")).toHaveText("Sin configurar");
   await expect(page.getByTestId("breadcrumbs")).toHaveText("Agentes/Eventos");
 
-  await page.goto("/app/agentes");
+  await page.goto("/app/agents");
   await expect(page.getByTestId("agent-cards").getByRole("link")).toHaveCount(5);
   await expect(page.getByTestId("agent-card-events")).toContainText("Eventos");
 });
@@ -28,19 +28,20 @@ test("un agente propio sale en la barra lateral, en Agentes, en Inicio y tiene s
 test("el agente propio de una organización no existe para otra", async ({ page }) => {
   await signIn(page, "b_org_admin");
   await expect(page.getByTestId("nav-agents").getByRole("link")).toHaveCount(4);
-  const response = await page.goto("/app/agentes/events");
+  const response = await page.goto("/app/agents/events");
   expect(response?.status()).toBe(404);
 });
 
 test("sin organización no hay agentes, y lo dice", async ({ page }) => {
+  // Sin organización ni idioma elegido, la interfaz sale en inglés (ADR 0041).
   await signIn(page, "guest_alone");
   const agents = page.getByTestId("nav-agents");
   await expect(agents.getByRole("link")).toHaveCount(0);
-  await expect(agents).toContainText("Sin agentes hasta que entres en una organización.");
+  await expect(agents).toContainText("No agents until you join an organization.");
   await expect(page.getByTestId("home-agents-empty")).toBeVisible();
 
-  await page.goto("/app/agentes");
+  await page.goto("/app/agents");
   await expect(page.getByTestId("agents-empty")).toBeVisible();
-  const response = await page.goto("/app/agentes/reception");
+  const response = await page.goto("/app/agents/reception");
   expect(response?.status()).toBe(404);
 });

@@ -1,6 +1,7 @@
 import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { legacyRedirects } from "./src/lib/legacy-routes";
 import { SECURITY_HEADERS } from "./src/lib/security/headers";
 
 // i18n (MANUAL §9.9): la configuración por petición está en src/i18n/request.ts.
@@ -23,6 +24,10 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  // Rutas en español anteriores al ADR 0041 (marcadores, invitaciones ya compartidas).
+  async redirects() {
+    return legacyRedirects();
   },
 };
 

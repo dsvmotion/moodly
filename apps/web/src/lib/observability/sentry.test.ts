@@ -9,15 +9,15 @@ describe("Sentry sin datos personales (ADR 0032)", () => {
       type: undefined,
       request: {
         method: "GET",
-        url: "https://staging.moodlycrm.com/app/invitacion?token=secreto#x",
+        url: "https://staging.moodlycrm.com/app/invitation?token=secreto#x",
         query_string: "token=secreto",
-        headers: { cookie: "sb-access-token=abc", referer: "https://staging.moodlycrm.com/app/invitacion?token=secreto" },
+        headers: { cookie: "sb-access-token=abc", referer: "https://staging.moodlycrm.com/app/invitation?token=secreto" },
         cookies: { "sb-access-token": "abc" },
         data: { password: "x" },
       },
       user: { id: "u1", email: "ana@example.com", ip_address: "203.0.113.7" },
     } as ErrorEvent);
-    expect(event.request).toEqual({ method: "GET", url: "https://staging.moodlycrm.com/app/invitacion" });
+    expect(event.request).toEqual({ method: "GET", url: "https://staging.moodlycrm.com/app/invitation" });
     expect(event.user).toBeUndefined();
     expect(JSON.stringify(event)).not.toMatch(/secreto|abc|ana@example\.com|203\.0\.113\.7/);
   });
@@ -26,12 +26,12 @@ describe("Sentry sin datos personales (ADR 0032)", () => {
     const event = scrubEvent({
       type: undefined,
       contexts: {
-        nextjs: { request_path: "/app/invitacion?token=secreto", router_path: "/app/invitacion", route_type: "page" },
+        nextjs: { request_path: "/app/invitation?token=secreto", router_path: "/app/invitation", route_type: "page" },
         runtime: { name: "node" },
       },
     } as ErrorEvent);
     expect(event.contexts).toEqual({
-      nextjs: { request_path: "/app/invitacion", router_path: "/app/invitacion", route_type: "page" },
+      nextjs: { request_path: "/app/invitation", router_path: "/app/invitation", route_type: "page" },
       runtime: { name: "node" },
     });
   });
@@ -49,9 +49,9 @@ describe("Sentry sin datos personales (ADR 0032)", () => {
 
   it("quita los breadcrumbs de consola y la query de las URLs", () => {
     expect(scrubBreadcrumb({ category: "console", message: "ana@example.com" })).toBeNull();
-    expect(scrubBreadcrumb({ category: "fetch", data: { url: "/app/invitacion?token=secreto", status_code: 200 } })).toEqual({
+    expect(scrubBreadcrumb({ category: "fetch", data: { url: "/app/invitation?token=secreto", status_code: 200 } })).toEqual({
       category: "fetch",
-      data: { url: "/app/invitacion", status_code: 200 },
+      data: { url: "/app/invitation", status_code: 200 },
     });
     expect(scrubBreadcrumb({ category: "navigation", data: { from: "/login?next=%2Fapp", to: "/app#top" } })?.data).toEqual({
       from: "/login",

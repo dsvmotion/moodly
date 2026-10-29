@@ -6,7 +6,7 @@ test("cerrar sesión devuelve al login y vuelve a proteger /app", async ({ page 
   await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
 
-  await page.goto("/app/ajustes/general");
+  await page.goto("/app/settings/general");
   await expect(page).toHaveURL(/\/login\?next=/);
 });
 
@@ -23,7 +23,7 @@ test("tras cerrar sesión, las cookies de sesión copiadas antes ya no dan acces
   const attacker = await browser.newContext();
   await attacker.addCookies(stolenCookies);
   const attackerPage = await attacker.newPage();
-  await attackerPage.goto("/app/ajustes/general");
+  await attackerPage.goto("/app/settings/general");
   await expect(attackerPage).toHaveURL(/\/login/);
   await expect(attackerPage.getByTestId("organization")).toHaveCount(0);
   await attacker.close();

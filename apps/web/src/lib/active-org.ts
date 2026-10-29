@@ -12,6 +12,8 @@ export interface OrgMembership {
   organizationId: string;
   organizationName: string;
   role: MembershipRole;
+  /** Idioma de la organización (BCP 47, p. ej. es-ES): el de la interfaz si la persona no ha elegido otro (ADR 0041). */
+  defaultLocale: string;
 }
 
 /** Las memberships por nombre de organización (orden estable para el selector). */

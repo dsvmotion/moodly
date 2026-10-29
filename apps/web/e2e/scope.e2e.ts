@@ -40,7 +40,7 @@ for (const [key, expected] of Object.entries(expectedOptions)) {
 
 test("org_admin: filtrar por región y por local cambia la vista y la URL", async ({ page }) => {
   await signIn(page, "a_org_admin");
-  await page.goto("/app/ajustes/general");
+  await page.goto("/app/settings/general");
   await expect(page.getByTestId("location-name")).toHaveCount(3);
 
   await chooseScope(page, "A Norte");
@@ -66,24 +66,24 @@ test("el alcance se conserva al navegar por la barra lateral", async ({ page }) 
 
   const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
   await sidebar.getByRole("link", { name: "Bandeja", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/conversaciones\\?scope=location%3A${LOC_A1}`));
+  await expect(page).toHaveURL(new RegExp(`/app/inbox\\?scope=location%3A${LOC_A1}`));
   await expect(page.getByTestId("scope-switcher")).toContainText("A1 Norte");
 
   await sidebar.getByRole("link", { name: "Ajustes", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/ajustes/general\\?scope=location%3A${LOC_A1}`));
+  await expect(page).toHaveURL(new RegExp(`/app/settings/general\\?scope=location%3A${LOC_A1}`));
   await expect(page.getByTestId("location-name")).toHaveText(["A1 Norte"]);
 
-  // También desde las tarjetas de /app/agentes.
-  await page.goto(`/app/agentes?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
+  // También desde las tarjetas de /app/agents.
+  await page.goto(`/app/agents?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
   await page.getByTestId("agent-card-sales").click();
-  await expect(page).toHaveURL(new RegExp(`/app/agentes/sales\\?scope=location%3A${LOC_A1}`));
+  await expect(page).toHaveURL(new RegExp(`/app/agents/sales\\?scope=location%3A${LOC_A1}`));
   await expect(page.getByTestId("scope-switcher")).toContainText("A1 Norte");
 });
 
 test("una URL con un alcance ajeno no filtra nada ajeno: cae a todo lo que ve", async ({ page }) => {
   await signIn(page, "a_location_manager");
   for (const foreign of [`location:${LOC_A2}`, `location:${LOC_B1}`, `region:${REGION_A_NORTE}`, "basura"]) {
-    await page.goto(`/app/ajustes/general?scope=${encodeURIComponent(foreign)}`);
+    await page.goto(`/app/settings/general?scope=${encodeURIComponent(foreign)}`);
     await expect(page.getByTestId("scope-switcher")).toContainText("Todos mis locales");
     await expect(page.getByTestId("location-name")).toHaveText(["A1 Norte"]);
     await expect(page.getByText(/A2 Norte|A3 sin región|B1/)).toHaveCount(0);

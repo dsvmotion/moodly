@@ -307,7 +307,7 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `organizations` | `name`, `kind` (`business`; `personal` reservado para el futuro), `vertical`, `plan`, `contract_type` (smb/enterprise), `default_locale`, `data_region`, `status` |
+| `organizations` | `name`, `kind` (`business`; `personal` reservado para el futuro), `vertical`, `plan`, `contract_type` (smb/enterprise), `default_locale` (BCP 47, `en` por defecto; ADR 0041), `data_region`, `status` |
 | `regions` | `organization_id`, `name` |
 | `locations` | `organization_id`, `region_id?`, `name`, `address`, `timezone`, `opening_hours` (jsonb), `status` |
 | `users` | Perfil vinculado a `auth.users`: `full_name`, `locale` |
@@ -824,33 +824,33 @@ Toda la aplicación se construye con estos siete patrones. Una pantalla nueva de
 | **P6. Ajustes** | Langdock, Attio | Área propia con navegación secundaria: Organización, Locales y regiones, Usuarios y roles, Agentes (interruptores y Modo avanzado), Integraciones, Conocimiento, Objetivos, Consumo y facturación, Seguridad (SSO, auditoría, retención de datos). Muestra en cada ajuste si viene heredado de la central y si está bloqueado. |
 | **P7. Dashboard** | Apollo, Attio | Rejilla de widgets: métricas por agente y por local, progreso de objetivos, comparativa entre locales, coste y consumo. |
 
-### 9.4 Mapa de rutas **[DECIDIDO: ADR 0023]**
+### 9.4 Mapa de rutas **[DECIDIDO: ADR 0041, que cambia el 0023]**
 
-Los segmentos de ruta están en español y son **identificadores estables**: no se traducen con el idioma de la interfaz. El detalle por pantalla (componentes, entidades que lee y escribe, permisos y tiempo real) está en `docs/design/mapa-pantallas-datos.md`.
+Los segmentos de ruta están en inglés y son **identificadores estables**: no se traducen con el idioma de la interfaz. Las rutas en español anteriores redirigen a estas (`apps/web/src/lib/legacy-routes.ts`). El detalle por pantalla (componentes, entidades que lee y escribe, permisos y tiempo real) está en `docs/design/mapa-pantallas-datos.md`.
 
 | Ruta | Patrón | Contenido |
 |---|---|---|
 | `/app` | P1 | Inicio y bandeja del día |
-| `/app/conversaciones` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo |
-| `/app/aprobaciones` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
-| `/app/agenda` | Calendario | Citas por sede y recurso (agente `reception`) |
-| `/app/clientes` · `/[id]` | P2 · P3 | Clientes finales |
+| `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo |
+| `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
+| `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`) |
+| `/app/contacts` · `/[id]` | P2 · P3 | Clientes finales |
 | `/app/leads` | P2 (kanban) | Leads y oportunidades por etapa |
-| `/app/facturas` | P2 | Borradores de facturas e inventario |
-| `/app/llamadas` | P2 · P3 | Llamadas y transcripciones (fase Voz) |
-| `/app/tareas` | P2 | Tareas para humanos (creadas por agentes, por el coach o por usuarios) |
-| `/app/actividad` | P2 | Runs y ejecuciones de todos los agentes, con explicación y cadena de eventos |
-| `/app/informes` | P7 | Dashboards y exportación |
+| `/app/invoices` | P2 | Borradores de facturas e inventario |
+| `/app/calls` | P2 · P3 | Llamadas y transcripciones (fase Voz) |
+| `/app/tasks` | P2 | Tareas para humanos (creadas por agentes, por el coach o por usuarios) |
+| `/app/activity` | P2 | Runs y ejecuciones de todos los agentes, con explicación y cadena de eventos |
+| `/app/analytics` | P7 | Dashboards y exportación |
 | `/app/coach` | P2 + P3 | Revisiones del coach y recomendaciones con evidencia y fuentes |
-| `/app/objetivos` | P2 · P3 | Objetivos y su progreso |
-| `/app/agentes` · `/[tipo]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
+| `/app/goals` | P2 · P3 | Objetivos y su progreso |
+| `/app/agents` · `/[type]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
 | `/app/skills` · `/[id]` | P2 · P3 | Biblioteca de skills: de la plataforma, propias y de integraciones; a qué agentes está añadida cada una (ADR 0030) |
-| `/app/asistente` | P5 | Asistente de la plataforma (§5.13) |
-| `/app/conocimiento` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
-| `/app/memoria` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
-| `/app/reglas` · `/app/flujos` · `/app/horarios` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
-| `/app/red` | P7 | Red de franquicias (vista del franquiciador) |
-| `/app/ajustes/*` | P6 | Ajustes: general, perfil, preferencias, privacidad, equipo, roles, modelos, integraciones, sedes, plan, facturación, seguridad y auditoría |
+| `/app/assistant` | P5 | Asistente de la plataforma (§5.13) |
+| `/app/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
+| `/app/memory` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
+| `/app/rules` · `/app/flows` · `/app/schedules` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
+| `/app/network` | P7 | Red de franquicias (vista del franquiciador) |
+| `/app/settings/*` | P6 | Ajustes: `general`, `profile`, `preferences`, `privacy`, `team`, `roles`, `models`, `integrations`, `locations`, `plan`, `billing`, `security` y `audit` |
 | `/app/onboarding` | Asistente de alta | §9.6 |
 | `/ops/*` | Mismos patrones | Panel interno (§9.7) |
 
@@ -910,7 +910,7 @@ Los componentes se desarrollan con datos reales de la base local (seeds) desde e
 - Estética sobria y densa en información, como las referencias: fondo neutro, un color de acento, tipografía legible y tablas compactas.
 - Atajos de teclado en las acciones frecuentes (navegar, aprobar, rechazar, abrir la paleta).
 - Accesibilidad WCAG 2.1 AA; navegación completa con teclado.
-- i18n desde el inicio: español por defecto e inglés. Los agentes responden en el idioma del cliente final.
+- i18n desde el inicio (ADR 0041): inglés por defecto y español. La interfaz sale en el idioma que elige cada persona; si no ha elegido, en el de su organización activa (`organizations.default_locale`); sin sesión ni organización, en inglés. Los dos idiomas tienen las mismas claves (test de paridad). Los agentes responden en el idioma del cliente final, no en el de la interfaz.
 - Tiempo real (Supabase Realtime) en bandeja, conversaciones, aprobaciones y ventanas de agente.
 - Responsive: los responsables de local aprueban y responden desde el móvil.
 
@@ -1201,6 +1201,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0030 | Agentes y skills ampliables | aceptado (2026-10-23) |
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
+| 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 
 ---
 

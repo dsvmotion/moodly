@@ -17,7 +17,7 @@ test("⌘K / Ctrl+K abre la paleta y Enter navega a la sección", async ({ page 
 
   await page.keyboard.type("Tareas");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/app\/tareas$/);
+  await expect(page).toHaveURL(/\/app\/tasks$/);
   await expect(palette(page)).toBeHidden();
   await expect(page.getByRole("heading", { level: 1, name: "Tareas" })).toBeVisible();
 });
@@ -32,7 +32,7 @@ test("ofrece todas las secciones agrupadas y filtra al escribir", async ({ page 
   await expect(options.first()).toHaveText("Sedes");
   expect(await options.count()).toBeLessThan(28);
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/app\/ajustes\/sedes$/);
+  await expect(page).toHaveURL(/\/app\/settings\/locations$/);
   await page.keyboard.press("ControlOrMeta+k");
   // Ninguna entrada lleva una «q». La búsqueda es aproximada: letras sueltas repetidas («zzz») pueden coincidir con alguna.
   await page.keyboard.type("qqq");
@@ -55,7 +55,7 @@ test("se navega con flechas y Escape cierra devolviendo el foco", async ({ page 
 });
 
 test('"/" abre la paleta, pero no mientras se escribe en un campo', async ({ page }) => {
-  await page.goto("/app/ajustes/sedes");
+  await page.goto("/app/settings/locations");
   await page.locator("body").press("/");
   await expect(palette(page)).toBeVisible();
   await page.keyboard.press("Escape");
@@ -68,11 +68,11 @@ test('"/" abre la paleta, pero no mientras se escribe en un campo', async ({ pag
 });
 
 test("navegar desde la paleta conserva el alcance", async ({ page }) => {
-  await page.goto(`/app/ajustes/sedes?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
+  await page.goto(`/app/settings/locations?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
   await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type("Bandeja");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`/app/conversaciones\\?scope=location%3A${LOC_A1}`));
+  await expect(page).toHaveURL(new RegExp(`/app/inbox\\?scope=location%3A${LOC_A1}`));
   await expect(page.getByTestId("scope-switcher")).toContainText("A1 Norte");
 });
 

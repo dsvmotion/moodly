@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { pickActiveOrg, sortMemberships, type OrgMembership } from "./active-org";
 
-const d: OrgMembership = { organizationId: "d", organizationName: "Demo D", role: "staff" };
-const e: OrgMembership = { organizationId: "e", organizationName: "Demo E", role: "location_manager" };
+const d: OrgMembership = { organizationId: "d", organizationName: "Demo D", role: "staff", defaultLocale: "es-ES" };
+const e: OrgMembership = { organizationId: "e", organizationName: "Demo E", role: "location_manager", defaultLocale: "en" };
 
 describe("pickActiveOrg", () => {
   it("sin cookie, la primera por nombre", () => {
@@ -22,7 +22,7 @@ describe("pickActiveOrg", () => {
   });
 
   it("orden estable por nombre y, a igual nombre, por id", () => {
-    const twin: OrgMembership = { organizationId: "a", organizationName: "Demo D", role: "staff" };
+    const twin: OrgMembership = { organizationId: "a", organizationName: "Demo D", role: "staff", defaultLocale: "es-ES" };
     expect(sortMemberships([e, d, twin]).map((m) => m.organizationId)).toEqual(["a", "d", "e"]);
   });
 });

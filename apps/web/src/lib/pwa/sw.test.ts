@@ -26,7 +26,7 @@ const req = (method: string, path: string, mode = "cors"): SwRequest => ({
 
 describe("pickStrategy del service worker", () => {
   it.each([
-    ["Server Action (POST en navegación)", req("POST", "/app/aprobaciones", "navigate")],
+    ["Server Action (POST en navegación)", req("POST", "/app/approvals", "navigate")],
     ["POST del login", req("POST", "/login")],
     ["Supabase (otro origen)", req("GET", "https://xyz.supabase.co/rest/v1/organizations")],
     ["navegación al login", req("GET", "/login", "navigate")],
@@ -43,7 +43,7 @@ describe("pickStrategy del service worker", () => {
 
   it.each([
     ["/app", req("GET", "/app", "navigate")],
-    ["/app/ajustes/general", req("GET", "/app/ajustes/general", "navigate")],
+    ["/app/settings/general", req("GET", "/app/settings/general", "navigate")],
     ["/", req("GET", "/", "navigate")],
   ])("navegación a %s → network-first (sin guardar la página)", (_, request) => {
     expect(pickStrategy(request, ORIGIN)).toBe("network-first");

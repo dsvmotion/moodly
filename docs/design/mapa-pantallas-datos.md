@@ -10,6 +10,8 @@ Notación: **R** = lee · **W** = escribe · 🔒 = acción sensible (confirmaci
 
 ## 0. Decisiones de vocabulario (cerrar inconsistencia §4.2)
 
+> **Rutas: lo sustituye el ADR 0041 (2026-10-29).** Las rutas son en inglés (tabla en MANUAL §9.4) y las de esta sección, en español, redirigen a ellas. Las rutas de las tablas siguientes valen como referencia de la pantalla, no de la URL.
+
 - **Rutas del producto en español** (coinciden con el prototipo y el comprador ES): `apps/web` migra de sus nombres actuales a estos.
 
 | Prototipo / objetivo `apps/web` | `apps/web` hoy | Acción |

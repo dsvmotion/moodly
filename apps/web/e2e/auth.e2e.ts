@@ -2,44 +2,48 @@ import { expect, test } from "@playwright/test";
 import { credentialsFor, signIn } from "./helpers";
 
 test("sin sesión, las rutas privadas llevan al login y, tras entrar, al destino pedido", async ({ page }) => {
-  await page.goto("/app/ajustes/general");
-  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fajustes%2Fgeneral$/);
+  await page.goto("/app/settings/general");
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fsettings%2Fgeneral$/);
 
   const { email, password } = credentialsFor("a_staff");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Contraseña").fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/app\/ajustes\/general$/);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/general$/);
 });
 
 test("contraseña incorrecta: error genérico y sin sesión", async ({ page }) => {
   const { email } = credentialsFor("a_org_admin");
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Contraseña").fill("contraseña-incorrecta");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Email o contraseña incorrectos.");
+  await page.getByLabel("Password").fill("contraseña-incorrecta");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Incorrect email or password.");
 
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("la pantalla de acceso lleva la marca y dice que se entra por invitación", async ({ page }) => {
-  await page.goto("/login");
-  await expect(page.getByRole("heading", { level: 1, name: "Entrar en Moodly" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("img", { name: "Moodly" })).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("Se entra por invitación de tu organización.");
-});
-
-test("en inglés, el acceso y sus errores están traducidos (sin revelar si la cuenta existe)", async ({ page, context }) => {
-  await context.addCookies([{ name: "locale", value: "en", url: "http://127.0.0.1:3000" }]);
+// Sin idioma elegido, el acceso sale en inglés (ADR 0041): antes de entrar no se
+// sabe de qué organización es la persona.
+test("la pantalla de acceso lleva la marca, sale en inglés y dice que se entra por invitación", async ({ page }) => {
   await page.goto("/login");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1, name: "Sign in to Moodly" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("img", { name: "Moodly" })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("Access is by invitation from your organization.");
+});
+
+test("en español, el acceso y sus errores están traducidos (sin revelar si la cuenta existe)", async ({ page, context }) => {
+  await context.addCookies([{ name: "locale", value: "es", url: "http://127.0.0.1:3000" }]);
+  await page.goto("/login");
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(page.getByRole("heading", { level: 1, name: "Entrar en Moodly" })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("Se entra por invitación de tu organización.");
   await page.getByLabel("Email").fill(`no-existe-${Date.now()}@demo.test`);
-  await page.getByLabel("Password").fill("not-the-password-123");
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Incorrect email or password.");
+  await page.getByLabel("Contraseña").fill("no-es-la-clave-123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Email o contraseña incorrectos.");
 });
 
 // Destinos maliciosos para el parámetro de vuelta. Los que llevan tabulador o

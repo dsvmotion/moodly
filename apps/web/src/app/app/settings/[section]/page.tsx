@@ -10,9 +10,9 @@ import { settingsSectionBySlug, type SettingsSectionKey } from "@/lib/navigation
 // esta ruta dinámica; aquí solo responden las pendientes.
 type PendingKey = Exclude<SettingsSectionKey, "profile" | "preferences" | "team" | "organization" | "locations" | "security">;
 
-export default async function PendingSettingsPage({ params }: { params: Promise<{ seccion: string }> }) {
+export default async function PendingSettingsPage({ params }: { params: Promise<{ section: string }> }) {
   await requireUser();
-  const section = settingsSectionBySlug((await params).seccion);
+  const section = settingsSectionBySlug((await params).section);
   if (!section || section.ready) notFound();
   const key = section.key as PendingKey;
   const t = await getTranslations("settings");

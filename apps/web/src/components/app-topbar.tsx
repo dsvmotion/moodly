@@ -14,7 +14,7 @@ export function AppTopbar({ agents }: { agents: readonly AgentView[] }) {
   const record = RECORDS_NAV.find((entry) => isActive(pathname, entry.href));
   const main = MAIN_NAV.find((entry) => isActive(pathname, entry.href));
   const agent = agents.find((entry) => isActive(pathname, entry.href));
-  const agentsIndex = pathname === "/app/agentes";
+  const agentsIndex = pathname === "/app/agents";
   const settings = isActive(pathname, SETTINGS_NAV.href);
   const settingsSection = SETTINGS_SECTIONS.find((section) => isActive(pathname, section.href));
 

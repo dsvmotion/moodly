@@ -79,7 +79,7 @@ export function sortAgentRows(rows: readonly AgentRow[]): AgentRow[] {
 export function toAgentView(row: AgentRow, texts: AgentTexts = {}): AgentView {
   return {
     key: row.key,
-    href: `/app/agentes/${row.key}`,
+    href: `/app/agents/${row.key}`,
     label: row.displayName ?? texts.label ?? row.name,
     description: texts.description ?? row.description,
     dotClass: agentDotClass(row.color),

@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from "./navigation";
 
 // Ajustes (P6): lo que promete la navegación existe. Una sección con contenido
-// tiene su carpeta en app/app/ajustes/<slug>; una pendiente no la tiene (la
-// atiende ajustes/[seccion], que dice qué habrá y con qué llega) y tiene sus
+// tiene su carpeta en app/app/settings/<slug>; una pendiente no la tiene (la
+// atiende settings/[section], que dice qué habrá y con qué llega) y tiene sus
 // textos en los dos idiomas.
-const appDir = resolve(import.meta.dirname, "../app/app/ajustes");
+const appDir = resolve(import.meta.dirname, "../app/app/settings");
 const messages = (locale: string) =>
   JSON.parse(readFileSync(resolve(import.meta.dirname, `../../messages/${locale}.json`), "utf8")) as {
     settings: {
@@ -26,7 +26,7 @@ describe("estructura de Ajustes", () => {
   );
 
   it("la ruta dinámica de las pendientes existe", () => {
-    expect(existsSync(resolve(appDir, "[seccion]", "page.tsx"))).toBe(true);
+    expect(existsSync(resolve(appDir, "[section]", "page.tsx"))).toBe(true);
   });
 
   it.each(["es", "en"])("textos completos en %s", (locale) => {

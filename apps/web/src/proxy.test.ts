@@ -8,7 +8,7 @@ describe("matcher del proxy", () => {
     "%s es público: el proxy no lo intercepta",
     (path) => expect(matches(path)).toBe(false),
   );
-  it.each(["/", "/app", "/app/ajustes/general", "/login"])("%s sigue pasando por el proxy", (path) =>
+  it.each(["/", "/app", "/app/settings/general", "/login"])("%s sigue pasando por el proxy", (path) =>
     expect(matches(path)).toBe(true),
   );
 });

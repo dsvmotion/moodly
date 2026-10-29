@@ -28,8 +28,9 @@ begin
     raise exception 'No hay ninguna cuenta de Auth con ese email en staging. Créala antes en el panel de Supabase.';
   end if;
 
-  insert into public.organizations (id, name, vertical)
-  values (org_id, 'Clínica Demo', 'clinic')
+  -- En español (ADR 0041): la interfaz toma el idioma de la organización.
+  insert into public.organizations (id, name, vertical, default_locale)
+  values (org_id, 'Clínica Demo', 'clinic', 'es-ES')
   on conflict (id) do nothing;
 
   insert into public.regions (id, organization_id, name)
