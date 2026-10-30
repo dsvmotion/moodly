@@ -66,7 +66,7 @@ Solo `apps/worker` importa DBOS. `packages/agent-core` define su propia interfaz
 
 Ejecutado en local contra el Postgres de Supabase (`supabase start`, CLI 2.118.0), con Node 22, procesos reales y `SIGKILL` (no simulado). Cada paso apuntaba su efecto en una tabla aparte para contar las ejecuciones reales. El script está en `docs/adr/0027-spike/`.
 
-**Librería:** `@dbos-inc/dbos-sdk` **5.2.11** (publicada el 2026-09-29; la 5.3.0 tiene menos de dos semanas), licencia **MIT**, Node ≥ 20. Dependencias: `pg`, `yaml`, `commander`, `superjson`, `serialize-error` y `ws` (este último solo para el panel gestionado, que no se usa).
+**Librería:** `@dbos-inc/dbos-sdk` **5.2.11** (publicada el 2026-09-29; la 5.3.0 tiene menos de dos semanas). *Actualización 2026-10-30:* sube a la **5.3.0**, que trae las mismas 57 migraciones del esquema del sistema (la última, la 123), así que no hace falta una migración nueva; los tests de integración del worker (reanudación tras `SIGKILL` y outbox) pasan con ella. Sigue siendo una versión exacta, licencia **MIT**, Node ≥ 20. Dependencias: `pg`, `yaml`, `commander`, `superjson`, `serialize-error` y `ws` (este último solo para el panel gestionado, que no se usa).
 
 | # | Criterio | Resultado |
 |---|---|---|

@@ -134,7 +134,7 @@ Tareas de turbo: `build` (dependsOn `^build`, outputs `dist/**`, `.next/**`), `t
 | `apps/site` | `next` 16.4.2, `react` 19.3.0, `lucide-react` 1.53.0 (JS/JSX, sin TS estricto) |
 | `packages/db` | `@supabase/supabase-js` 2.117.3; Supabase CLI **2.118.0** (fijada en CI y en AGENTS.md) |
 | `apps/worker` (en `main`) | ninguna |
-| `apps/worker` (🟡 PR #82) | `@dbos-inc/dbos-sdk` **5.2.11** (exacta), `pino` 10.4.0, `zod` 4.6.5 |
+| `apps/worker` (🟡 PR #82) | `@dbos-inc/dbos-sdk` **5.3.0** (exacta; era 5.2.11, mismas migraciones), `pino` 10.4.0, `zod` 4.6.5 |
 | Resto de `packages/*` | ninguna (vacíos) |
 
 ### 2.5 Base de datos y servicios

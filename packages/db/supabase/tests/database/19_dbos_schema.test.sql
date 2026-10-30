@@ -8,10 +8,11 @@ select plan(14);
 -- ===========================================================================
 select has_schema('dbos', 'existe el esquema de DBOS');
 
--- DBOS 5.2.11 exige la 123: con menos, el worker no arranca. Al subir de
--- versión, la migración nueva y este número cambian en el mismo PR.
+-- DBOS 5.3.0 exige la 123 (la misma que la 5.2.11: no trae migraciones
+-- nuevas): con menos, el worker no arranca. Al subir de versión, la migración
+-- nueva y este número cambian en el mismo PR.
 select is((select max(version) from dbos.dbos_migrations), 123::bigint,
-  'el esquema de DBOS está en la versión 123 (la de @dbos-inc/dbos-sdk 5.2.11)');
+  'el esquema de DBOS está en la versión 123 (la de @dbos-inc/dbos-sdk 5.3.0)');
 
 -- ===========================================================================
 -- 2. Nadie de la app ni de la API llega al esquema
