@@ -1210,11 +1210,11 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0030 | Agentes y skills ampliables | aceptado (2026-10-23) |
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
-| 0033 | Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía | propuesto |
-| 0034 | BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS | propuesto |
-| 0035 | Residencia del procesamiento de modelos por organización | propuesto |
-| 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | propuesto |
-| 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | propuesto |
+| 0033 | Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía | aceptado (producto, 2026-10-30) |
+| 0034 | BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS | aceptado (producto, 2026-10-30) |
+| 0035 | Residencia del procesamiento de modelos por organización | aceptado (producto, 2026-10-30) |
+| 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
+| 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 

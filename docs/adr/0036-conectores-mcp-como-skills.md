@@ -1,7 +1,7 @@
 # 0036 — Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp`
 
-- **Estado:** propuesto (2026-10-31)
-- **Fecha:** 2026-10-31
+- **Estado:** aceptado (producto, 2026-10-30)
+- **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4 (`integrations`, `skills`), §5.5, §7.1
 - **Relación:**
   - concreta el ADR 0030 §2 (skills `mcp`: cada herramienta de un servidor conectado es una skill, y entra sin clasificar como `external_message` en `draft`);

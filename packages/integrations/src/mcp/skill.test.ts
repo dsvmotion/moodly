@@ -16,7 +16,7 @@ const SERVER: ReviewedMcpServer = {
   name: "CRM de prueba",
   url: "https://mcp.example.com/mcp",
   version: "1.2.0",
-  reviewedAt: "2026-10-31",
+  reviewedAt: "2026-10-30",
   tools: ["find_lead", "send_email"],
 };
 const findLead: McpTool = {
