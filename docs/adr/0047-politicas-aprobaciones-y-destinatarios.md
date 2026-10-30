@@ -156,4 +156,13 @@ Se completa con cada PR del orden de implementación:
 
     15 mutaciones de la migración, una por control: todas hacen fallar algún test. Las dos de alcance sobrevivían al principio porque la RLS de lectura ya oculta los otros locales; se añadieron tests directos de `can_decide_approval`.
   - **`verifyApproval`, 17 tests unitarios,** y 4 mutaciones, todas detectadas;
-- **2c:** el set de ataque en verde en el CI, y en rojo si se quita cualquiera de las comprobaciones.
+- **2c (hecho):** `packages/evals`, set de ataque determinista con 25 casos en 7 categorías:
+  - otro tenant o local;
+  - destinatarios colados por la entrada (también con un homoglifo);
+  - skills o argumentos fuera de lo permitido;
+  - lo financiero o destructivo sin aprobación;
+  - aprobar una cosa y ejecutar otra (también con los dos hashes forjados);
+  - aprobaciones que no valen;
+  - consentimiento.
+
+  Cada caso es el mensaje que llevaría al modelo a proponer la llamada y lo que tiene que pasar. Umbral del 100 %, dentro de `pnpm test`. 11 mutaciones de `agent-core`, cada una quita un control: todas ponen el set en rojo.

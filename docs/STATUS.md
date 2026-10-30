@@ -216,7 +216,10 @@
       - Una decisión no se repite ni se deshace, queda en `audit_logs` y emite `approval.decided` en el outbox.
       - `verifyApproval()` (`agent-core`) recalcula el hash antes de ejecutar; el worker la llamará cuando exista el runtime (B19).
       - pgTAP 713/713 (66 nuevos en `22_runs_approvals`, 15 mutaciones detectadas).
-    - **2c:** set de ataque determinista en `packages/evals`, dentro del check obligatorio de tests. Los sets con un modelo real llegan con el enrutador (paso 3).
+    - **2c, en PR:** set de ataque determinista en `packages/evals`, dentro del check obligatorio de tests, con umbral del 100 %.
+      - 25 casos en 7 categorías: otro tenant o local, destinatarios colados, fuera de ámbito, sin aprobación, cambio tras aprobar, aprobaciones que no valen y consentimiento.
+      - 11 mutaciones de `agent-core`: todas lo ponen en rojo.
+      - Los sets con un modelo real llegan con el enrutador (paso 3).
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
 - Primera pieza de la prioridad del producto: memoria con procedencia (ADR 0024) y objetivos.
   - **Objetivos, esquema hecho (#79):** `goals` y `goal_progress` (MANUAL §6.3). Alcance de organización, región o local con integridad entre organizaciones (`validate_goal`), métrica con dirección (llegar al valor o no pasarse), periodo recurrente o de una vez. Los gestionan el `org_admin` (aal2) en todo, el `region_manager` en sus regiones y locales y el `location_manager` en sus locales; los lee quien tiene acceso al alcance. El progreso lo escribe la plataforma; la app solo lo lee. pgTAP 590/590 con D2 (46 nuevos en `18_goals`; 6 mutaciones, todas detectadas) y vuelta atrás probada. Siguiente: la pantalla `/app/objetivos` (P2/P3) con alta y edición, y el cálculo del progreso en el worker.

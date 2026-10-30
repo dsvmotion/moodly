@@ -1009,7 +1009,7 @@ Langfuse **[PROPUESTO]**: prompt resuelto, herramientas, respuestas, latencia, t
 - `packages/evals` contiene **sets de conversaciones de referencia** por `agent_type` × vertical: entrada, contexto del negocio (fixtures) y comportamiento esperado.
 - Comprobaciones deterministas: qué skill se llamó, con qué argumentos, qué no debía ocurrir (no inventar precios, no revelar datos de otro local, no ejecutar lo financiero sin aprobación).
 - Comprobaciones con un LLM como juez para tono, corrección y utilidad, con rúbrica versionada.
-- Sets de ataque: intentos de inyección, peticiones de datos de otros clientes o locales, pedir al agente que actúe fuera de su ámbito, intentos de envenenar la memoria.
+- Sets de ataque: intentos de inyección, peticiones de datos de otros clientes o locales, pedir al agente que actúe fuera de su ámbito, intentos de envenenar la memoria. El primero ya existe: el set determinista del runtime (`packages/evals`, ADR 0047 §4), con un umbral del 100 % dentro de `pnpm test`. Las versiones con un modelo real llegan con el enrutador, y la de memoria con la memoria.
 - Sets de memoria: qué se debe recordar, qué no se debe guardar nunca (§6.2) y cómo se resuelven contradicciones. El set de envenenamiento bloquea el merge si se crea alguna memoria de negocio desde contenido de un cliente (ADR 0024).
 - Eval de recuperación: recall@10 ≥ 0,95 de la búsqueda aproximada frente a la exacta, con un conjunto sintético multi-tenant (ADR 0025).
 - Evals del asistente: escalada de permisos, inyección desde documentos y cambios sin confirmación (ADR 0029).
