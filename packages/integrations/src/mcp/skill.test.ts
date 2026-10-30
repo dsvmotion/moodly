@@ -47,7 +47,14 @@ const unclassified: McpSkillRow = {
   inputSchema: draft.inputSchema,
 };
 const scope: RunScope = { organizationId: ORG, locationId: null, runId: "33333333-3333-4333-8333-333333333333", conversation: null };
-const ctx: SkillContext = { organizationId: ORG, locationId: null, runId: scope.runId, target: { kind: "none" }, idempotencyKey: "k" };
+const ctx: SkillContext = {
+  organizationId: ORG,
+  locationId: null,
+  runId: scope.runId,
+  contactId: null,
+  target: { kind: "none" },
+  idempotencyKey: "k",
+};
 
 function decideWith(row: McpSkillRow, args: Record<string, unknown>, autonomy: "suggest" | "draft" | "execute" | "autonomous") {
   const skill = mcpSkill(row, connection);

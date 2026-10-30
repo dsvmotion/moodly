@@ -203,7 +203,17 @@ importers:
 
   packages/knowledge: {}
 
-  packages/skills: {}
+  packages/skills:
+    dependencies:
+      '@repo/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@repo/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/templates: {}
 
