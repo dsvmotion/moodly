@@ -119,7 +119,7 @@
 
 **Orden de trabajo (producto, 2026-10-24).** Cada paso empieza cuando el anterior está mergeado, verificado y anotado aquí:
 1. ~~W2, W3 y el inglés por defecto~~: **hecho y verificado en staging el 2026-10-30** (W2 y W3, ver «Worker con DBOS»; inglés por defecto, #94).
-2. **En curso (2026-10-30):** controles previos a la primera skill: aprobación ligada al hash de la acción (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque (3.8). Diseño en el ADR 0047 (aceptado por producto el 2026-10-30), en tres PRs: 2a, 2b y 2c (ver «Controles previos a la primera skill»).
+2. ~~Controles previos a la primera skill (3.3, 3.4 y 3.8)~~: **hecho y verificado el 2026-10-30** (ADR 0047, aceptado; #98, #99 y #101; ver «Controles previos a la primera skill»).
 3. Fundaciones del roadmap §1.8, solo interfaces y modelo de datos, sin activar proveedores: el enrutador de modelos; por organización, proveedor, claves BYOK cifradas y región (por defecto, cualquier proveedor con DPA; «Solo UE» como opción, ver «Modelos y región»); los conectores como skills `mcp`; una interfaz común de conocimiento sobre pgvector.
 4. Primer equipo de agentes: Recepción (B19: reservar, mover y cancelar citas, recordatorio de 24 h y lista de espera), empezando por WhatsApp y web chat pero diseñada ya contando con la voz; **la voz va justo después de B19** (*spike* A18 y voz en producción); después, Atención al cliente (B20: deriva las dudas médicas a una persona y pide la reseña). El saludo siempre avisa de que es una IA. Contactos, runs, objetivos y memoria (ADR 0024) entran donde los necesiten.
 5. Borrador del ADR 0046 (copiloto y modo coach) con las reglas del roadmap §1.6, sin implementarlo.
@@ -216,10 +216,19 @@
       - Una decisión no se repite ni se deshace, queda en `audit_logs` y emite `approval.decided` en el outbox.
       - `verifyApproval()` (`agent-core`) recalcula el hash antes de ejecutar; el worker la llamará cuando exista el runtime (B19).
       - pgTAP 713/713 (66 nuevos en `22_runs_approvals`, 15 mutaciones detectadas).
-    - **2c, en PR:** set de ataque determinista en `packages/evals`, dentro del check obligatorio de tests, con umbral del 100 %.
+    - **2c, mergeado (#101, `b856298`):** set de ataque determinista en `packages/evals`, dentro del check obligatorio de tests, con umbral del 100 %.
       - 25 casos en 7 categorías: otro tenant o local, destinatarios colados, fuera de ámbito, sin aprobación, cambio tras aprobar, aprobaciones que no valen y consentimiento.
       - 11 mutaciones de `agent-core`: todas lo ponen en rojo.
       - Los sets con un modelo real llegan con el enrutador (paso 3).
+    - **Verificado sobre `main`** (`b856298`, 2026-10-30): CI en verde en los 5 checks de los tres PRs. En local:
+      - `pnpm check` 52/52;
+      - `db:lint` limpio y pgTAP 713/713;
+      - integración de `tenantDb` 3/3 y del worker 10/10;
+      - e2e 123/123.
+    - **En staging:**
+      - el despliegue aplicó la migración `20261030090000`;
+      - `agent_runs`, `executions` y `approvals` tienen RLS forzada, y la app no inserta en ninguna y solo puede cambiar `approvals.status` (consulta de solo lectura);
+      - el worker de Railway se redesplegó con `b856298` y arrancó tras esperar el lock del contenedor anterior.
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
 - Primera pieza de la prioridad del producto: memoria con procedencia (ADR 0024) y objetivos.
   - **Objetivos, esquema hecho (#79):** `goals` y `goal_progress` (MANUAL §6.3). Alcance de organización, región o local con integridad entre organizaciones (`validate_goal`), métrica con dirección (llegar al valor o no pasarse), periodo recurrente o de una vez. Los gestionan el `org_admin` (aal2) en todo, el `region_manager` en sus regiones y locales y el `location_manager` en sus locales; los lee quien tiene acceso al alcance. El progreso lo escribe la plataforma; la app solo lo lee. pgTAP 590/590 con D2 (46 nuevos en `18_goals`; 6 mutaciones, todas detectadas) y vuelta atrás probada. Siguiente: la pantalla `/app/objetivos` (P2/P3) con alta y edición, y el cálculo del progreso en el worker.
