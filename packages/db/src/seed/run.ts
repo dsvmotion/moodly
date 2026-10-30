@@ -161,7 +161,7 @@ async function main(): Promise<void> {
   const admin = createClient(apiUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const orgs = await admin.from("organizations").upsert(
-    seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical })),
+    seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical, default_locale: o.defaultLocale })),
   );
   check("organizations", orgs.error);
   const regions = await admin.from("regions").upsert(

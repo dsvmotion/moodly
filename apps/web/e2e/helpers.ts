@@ -52,10 +52,10 @@ export async function openUserMenu(page: Page): Promise<void> {
   await expect(page.getByTestId("user-menu-content")).toBeVisible();
 }
 
-/** Cierra la sesión desde el menú de usuario, como en la app. */
+/** Cierra la sesión desde el menú de usuario, como en la app (en el idioma que tenga la interfaz). */
 export async function signOutFromMenu(page: Page): Promise<void> {
   await openUserMenu(page);
-  await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
+  await page.getByRole("menuitem", { name: /^(Cerrar sesión|Sign out)$/ }).click();
 }
 
 /** Token de solo contraseña (sesión aal1) de la API de Supabase Auth, y el factor TOTP verificado si lo hay. */

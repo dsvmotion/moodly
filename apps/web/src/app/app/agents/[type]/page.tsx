@@ -9,10 +9,10 @@ import { getScopeContext } from "@/lib/scope-data";
 // Ventana de agente (P5, MANUAL §9.3) de un agente de la organización activa,
 // del catálogo (ADR 0030). Un agente que la organización no tiene no existe
 // (404). Hasta que trabaje, dice qué hará y su estado. Sin datos inventados.
-export default async function AgentPage({ params }: { params: Promise<{ tipo: string }> }) {
+export default async function AgentPage({ params }: { params: Promise<{ type: string }> }) {
   await requireUser();
-  const [{ tipo }, { organization }, t] = await Promise.all([params, getScopeContext(), getTranslations("agentPage")]);
-  const agent = await getOrgAgent(organization?.id ?? null, tipo);
+  const [{ type }, { organization }, t] = await Promise.all([params, getScopeContext(), getTranslations("agentPage")]);
+  const agent = await getOrgAgent(organization?.id ?? null, type);
   if (!agent) notFound();
 
   return (

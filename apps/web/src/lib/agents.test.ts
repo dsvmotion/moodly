@@ -58,7 +58,7 @@ describe("agentes desde el catálogo", () => {
     const view = toAgentView(row({ key: "events", origin: "custom", name: "Eventos", color: "agent-sales", status: "live" }));
     expect(view).toEqual({
       key: "events",
-      href: "/app/agentes/events",
+      href: "/app/agents/events",
       label: "Eventos",
       description: "Agenda y citas.",
       dotClass: "bg-agent-sales",

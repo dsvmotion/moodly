@@ -45,6 +45,8 @@ Se adopta el catálogo ya en `main` (`@repo/config` `AGENT_TYPES`) y en la web p
 
 ### 3. Rutas del producto en español, como identificadores estables
 
+> **Sustituido por el ADR 0041 (2026-10-29):** las rutas pasan a inglés (`/app/inbox`, `/app/settings/*`…), siguen siendo identificadores estables y las de este apartado redirigen a las nuevas. El resto del ADR sigue vigente.
+
 Se mantiene lo decidido en `mapa-pantallas-datos.md` §0: `/app/conversaciones`, `/app/aprobaciones`, `/app/clientes`, `/app/ajustes/*`… Los segmentos de ruta son **identificadores estables**: no se traducen por idioma de interfaz (la interfaz sí, con next-intl). MANUAL §9.4 pasa a esa tabla. Renombrar las rutas actuales de `apps/web` es una tarea de código aparte, con sus e2e.
 
 **Vocabulario:** en código y BD, `location`; en la interfaz en español, **«sede»** (el MANUAL usaba «local»; son sinónimos).

@@ -88,7 +88,7 @@ for (const theme of ["light", "dark"] as const) {
       // Ajustes → Sedes y Miembros (rutas del ADR 0023).
       await sidebar.getByRole("link", { name: "Ajustes", exact: true }).click();
       await page.getByTestId("settings-nav").getByRole("link", { name: "Sedes", exact: true }).click();
-      await expect(page).toHaveURL(/\/app\/ajustes\/sedes/);
+      await expect(page).toHaveURL(/\/app\/settings\/locations/);
       expect(await firstColumn(page, "locations-table")).toEqual([...want.locations]);
       await shot(page, testInfo, `${key}-${theme}-2-locales`);
 
@@ -98,7 +98,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.keyboard.press("Escape");
 
       await page.getByTestId("settings-nav").getByRole("link", { name: "Miembros", exact: true }).click();
-      await expect(page).toHaveURL(/\/app\/ajustes\/equipo/);
+      await expect(page).toHaveURL(/\/app\/settings\/team/);
       expect(await firstColumn(page, "people-table")).toEqual([...want.people]);
       await shot(page, testInfo, `${key}-${theme}-4-personas`);
     });

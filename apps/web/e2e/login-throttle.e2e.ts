@@ -13,17 +13,17 @@ test("tras 5 fallos con el mismo email hay que esperar; el resto sigue entrando"
   const attempt = async () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Contraseña").fill("NoEsLaClave-123");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("Password").fill("NoEsLaClave-123");
+    await page.getByRole("button", { name: "Sign in" }).click();
     const error = page.locator('form p[role="alert"]');
     await expect(error).toBeVisible();
     return error.innerText();
   };
 
   for (let i = 1; i <= 5; i++) {
-    expect(await attempt()).toBe("Email o contraseña incorrectos.");
+    expect(await attempt()).toBe("Incorrect email or password.");
   }
-  expect(await attempt()).toBe("Demasiados intentos. Espera unos minutos y vuelve a probarlo.");
+  expect(await attempt()).toBe("Too many attempts. Wait a few minutes and try again.");
 
   // Otro usuario, desde la misma IP, entra sin problema.
   const other = await browser.newPage();

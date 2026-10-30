@@ -11,6 +11,8 @@ export interface SeedOrganization {
   id: string;
   name: string;
   vertical: string;
+  /** Idioma de la organización (BCP 47). E en inglés para probar que la interfaz sigue a la organización activa (ADR 0041). */
+  defaultLocale: string;
 }
 
 export interface SeedRegion {
@@ -87,11 +89,11 @@ const LOC_D1 = "5eed0002-0000-4000-8000-0000000000d1";
 const LOC_E1 = "5eed0002-0000-4000-8000-0000000000e1";
 
 export const seedOrganizations: readonly SeedOrganization[] = [
-  { id: ORG_A, name: "Demo A", vertical: "demo" },
-  { id: ORG_B, name: "Demo B", vertical: "demo" },
-  { id: ORG_C, name: "Demo C", vertical: "demo" },
-  { id: ORG_D, name: "Demo D", vertical: "demo" },
-  { id: ORG_E, name: "Demo E", vertical: "demo" },
+  { id: ORG_A, name: "Demo A", vertical: "demo", defaultLocale: "es-ES" },
+  { id: ORG_B, name: "Demo B", vertical: "demo", defaultLocale: "es-ES" },
+  { id: ORG_C, name: "Demo C", vertical: "demo", defaultLocale: "es-ES" },
+  { id: ORG_D, name: "Demo D", vertical: "demo", defaultLocale: "es-ES" },
+  { id: ORG_E, name: "Demo E", vertical: "demo", defaultLocale: "en" },
 ];
 
 export const seedRegions: readonly SeedRegion[] = [

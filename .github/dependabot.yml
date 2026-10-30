@@ -14,6 +14,11 @@ updates:
     cooldown:
       default-days: 14
     open-pull-requests-limit: 5
+    # Los tipos de Node siguen la versión del runtime (.nvmrc, Node 24): con los de
+    # una versión mayor se podrían usar APIs que en producción no existen.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       parches-y-menores:
         update-types: [minor, patch]

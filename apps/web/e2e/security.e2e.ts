@@ -28,7 +28,7 @@ test("el navegador solo habla con la app y no recibe claves secretas", async ({ 
   });
 
   await signIn(page, "a_org_admin");
-  await page.goto("/app/ajustes/general");
+  await page.goto("/app/settings/general");
   await expect(page.getByTestId("location-name")).toHaveCount(3);
   await signOutFromMenu(page);
   await expect(page).toHaveURL(/\/login$/);
@@ -72,7 +72,7 @@ test("las cookies de sesión y de la app no se pueden leer desde JavaScript", as
 // 3. Protección en servidor: sin sesión, cada ruta protegida responde con una
 //    redirección HTTP al login (sin JavaScript: no depende del cliente).
 // ---------------------------------------------------------------------------
-const protectedRoutes = ["/", "/app", "/app/ajustes/general", "/app/ruta-que-no-existe"];
+const protectedRoutes = ["/", "/app", "/app/settings/general", "/app/ruta-que-no-existe"];
 
 for (const route of protectedRoutes) {
   test(`sin sesión, ${route} redirige al login desde el servidor`, async ({ request }) => {
@@ -85,7 +85,7 @@ for (const route of protectedRoutes) {
 }
 
 test("sin sesión, el HTML de una ruta protegida no contiene datos", async ({ request }) => {
-  const response = await request.get("/app/ajustes/general");
+  const response = await request.get("/app/settings/general");
   expect(new URL(response.url()).pathname).toBe("/login");
   expect(await response.text()).not.toMatch(/Demo A|Demo B|A1 Norte|Admin A/);
 });
@@ -132,11 +132,11 @@ test("mismo mensaje para email inexistente y contraseña incorrecta", async ({ p
   for (const email of [credentialsFor("a_org_admin").email, `no-existe-${Date.now()}@demo.test`]) {
     await page.goto("/login");
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Contraseña").fill("contraseña-incorrecta-123");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("Password").fill("contraseña-incorrecta-123");
+    await page.getByRole("button", { name: "Sign in" }).click();
     const alert = page.getByRole("main").getByRole("alert");
     await expect(alert).toBeVisible();
     messages.push(await alert.innerText());
   }
-  expect(messages).toEqual(["Email o contraseña incorrectos.", "Email o contraseña incorrectos."]);
+  expect(messages).toEqual(["Incorrect email or password.", "Incorrect email or password."]);
 });

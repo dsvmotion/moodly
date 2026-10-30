@@ -96,7 +96,7 @@ export default async function OrganizationPage({ searchParams }: { searchParams:
       {isAdmin && !canAdminister ? (
         <p role="note" data-testid="mfa-required" className="rounded-md border p-3 text-sm">
           {t("mfaRequired")}{" "}
-          <Link href="/app/ajustes/seguridad" className="underline">
+          <Link href="/app/settings/security" className="underline">
             {t("mfaLink")}
           </Link>
         </p>

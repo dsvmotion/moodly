@@ -53,8 +53,8 @@ describe("seudónimos y rutas", () => {
   });
 
   it("pathOnly quita query y fragmento (tokens de invitación)", () => {
-    expect(pathOnly("/app/invitacion?token=secreto")).toBe("/app/invitacion");
-    expect(pathOnly("/app/clientes#x")).toBe("/app/clientes");
+    expect(pathOnly("/app/invitation?token=secreto")).toBe("/app/invitation");
+    expect(pathOnly("/app/contacts#x")).toBe("/app/contacts");
     expect(pathOnly("/app")).toBe("/app");
   });
 });

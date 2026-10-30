@@ -26,18 +26,18 @@ async function firstColumn(page: Page, table: string): Promise<string[]> {
 for (const [key, want] of Object.entries(expected)) {
   test(`${key}: tablas de Locales y Personas con lo que ve según RLS`, async ({ page }) => {
     await signIn(page, key);
-    await page.goto("/app/ajustes/sedes");
+    await page.goto("/app/settings/locations");
     expect(await firstColumn(page, "locations-table")).toEqual(want.locations);
     await expect(page.getByTestId("locations-table-count")).toHaveText(`${want.locations.length} de ${want.locations.length}`);
 
-    await page.goto("/app/ajustes/equipo");
+    await page.goto("/app/settings/team");
     expect(await firstColumn(page, "people-table")).toEqual(want.people);
   });
 }
 
 test("vista previa: se abre con clic y con teclado, va en la URL y sobrevive a recargar", async ({ page }) => {
   await signIn(page, "a_org_admin");
-  await page.goto("/app/ajustes/sedes");
+  await page.goto("/app/settings/locations");
 
   await page.getByTestId("locations-table-row").filter({ hasText: "A1 Norte" }).click();
   const drawer = page.getByTestId("preview-drawer");
@@ -66,7 +66,7 @@ test("vista previa: se abre con clic y con teclado, va en la URL y sobrevive a r
 
 test("búsqueda, orden, selección y columnas visibles", async ({ page }) => {
   await signIn(page, "a_org_admin");
-  await page.goto("/app/ajustes/sedes");
+  await page.goto("/app/settings/locations");
 
   await page.getByTestId("locations-table-search").fill("norte");
   expect(await firstColumn(page, "locations-table")).toEqual(["A1 Norte", "A2 Norte"]);
@@ -97,15 +97,15 @@ test("búsqueda, orden, selección y columnas visibles", async ({ page }) => {
 
 test("el alcance filtra también las tablas de Registros", async ({ page }) => {
   await signIn(page, "a_org_admin");
-  await page.goto(`/app/ajustes/equipo?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
+  await page.goto(`/app/settings/team?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
   expect(await firstColumn(page, "people-table")).toEqual(["Admin A", "Encargado A1", "Región A Norte"]);
-  await page.goto(`/app/ajustes/sedes?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
+  await page.goto(`/app/settings/locations?scope=${encodeURIComponent(`location:${LOC_A1}`)}`);
   expect(await firstColumn(page, "locations-table")).toEqual(["A1 Norte"]);
 });
 
 test("?record= de algo que no está en la tabla no abre nada", async ({ page }) => {
   await signIn(page, "a_location_manager");
-  await page.goto(`/app/ajustes/sedes?record=${LOC_A2}`);
+  await page.goto(`/app/settings/locations?record=${LOC_A2}`);
   await expect(page.getByTestId("locations-table-row")).toHaveCount(1);
   await expect(page.getByTestId("preview-drawer")).toBeHidden();
   await expect(page.getByText("A2 Norte")).toHaveCount(0);
@@ -113,7 +113,7 @@ test("?record= de algo que no está en la tabla no abre nada", async ({ page }) 
 
 test("al cerrar la vista previa, el foco vuelve a la fila que la abrió", async ({ page }) => {
   await signIn(page, "a_org_admin");
-  await page.goto("/app/ajustes/equipo");
+  await page.goto("/app/settings/team");
   const row = page.getByTestId("people-table-row").filter({ hasText: "Staff A2" });
   await row.focus();
   await page.keyboard.press("Enter");
