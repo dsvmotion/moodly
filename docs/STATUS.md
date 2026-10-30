@@ -208,7 +208,7 @@
       - `executionHash()` calcula el SHA-256 del JSON canónico de lo que se ejecuta, destino incluido.
 
       77 tests, con mutaciones.
-    - **2b, en PR:** `agent_runs`, `executions` y `approvals` (migración `20261030090000`).
+    - **2b, mergeado (#99, `2d6cd6f`):** `agent_runs`, `executions` y `approvals` (migración `20261030090000`).
       - La entrada, el destino y el hash de una ejecución no cambian nunca, tampoco para la service role.
       - La aprobación copia el hash de su ejecución.
       - Solo la decide una persona con sesión, con un rol igual o superior y alcance al local, y con `aal2` para lo financiero, lo destructivo o un `org_admin`. La plataforma no aprueba.
