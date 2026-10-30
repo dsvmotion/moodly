@@ -42,10 +42,40 @@ async function regionName(id: string): Promise<string | null> {
   return data?.name ?? null;
 }
 
+const createdSources: string[] = [];
+
 afterAll(async () => {
   await admin.from("regions").delete().in("id", created);
   await admin.from("regions").delete().like("name", `${marker}%`);
+  // Los fragmentos caen con su fuente (on delete cascade).
+  await admin.from("knowledge_sources").delete().in("id", createdSources);
 });
+
+/** Una fuente lista con un fragmento, como la dejaría la ingesta del worker. */
+async function knowledgeOf(organizationId: string, content: string): Promise<string> {
+  const source = await admin
+    .from("knowledge_sources")
+    .insert({ organization_id: organizationId, type: "faq", title: `${marker}-faq`, status: "ready" })
+    .select("id")
+    .single();
+  if (source.error) throw new Error(source.error.message);
+  createdSources.push(source.data.id);
+  const chunk = await admin
+    .from("knowledge_chunks")
+    .insert({
+      organization_id: organizationId,
+      source_id: source.data.id,
+      ordinal: 0,
+      content,
+      embedding: "[1,0,0]",
+      embedding_model: `${marker}-embed`,
+      embedding_dim: 3,
+    })
+    .select("id")
+    .single();
+  if (chunk.error) throw new Error(chunk.error.message);
+  return chunk.data.id;
+}
 
 describe("tenantDb con la clave secreta (sin RLS)", () => {
   it("lee solo los datos de su organización", async () => {
@@ -79,5 +109,22 @@ describe("tenantDb con la clave secreta (sin RLS)", () => {
     expect(() => tenantA.from("regions").insert({ name: `${marker}-x`, organization_id: ORG_B })).toThrow(TenantScopeError);
     const { count } = await admin.from("regions").select("id", { count: "exact", head: true }).eq("name", `${marker}-x`);
     expect(count).toBe(0);
+  });
+});
+
+describe("tenantDb.searchKnowledge contra search_knowledge (ADR 0037)", () => {
+  it("solo devuelve el conocimiento de su organización, aunque el de otra encaje mejor", async () => {
+    const mine = await knowledgeOf(ORG_A, "Opening hours of A: 9 to 20");
+    await knowledgeOf(ORG_B, "Opening hours opening hours of B");
+
+    const rows = await tenantA.searchKnowledge({
+      locationId: null,
+      embeddingModel: `${marker}-embed`,
+      queryEmbedding: [1, 0, 0],
+      query: "opening hours",
+      k: 10,
+    });
+    expect(rows.map((row) => row.chunk_id)).toEqual([mine]);
+    expect(rows[0]).toMatchObject({ source_type: "faq", source_title: `${marker}-faq` });
   });
 });

@@ -16,7 +16,8 @@
 // - Sin recursos embebidos en select ("tabla(...)"): se resuelven por clave
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
-//   filtro.
+//   filtro. La excepción es searchKnowledge: una función con nombre a la que
+//   tenantDb le pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 
@@ -94,8 +95,43 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     };
   }
 
-  return { organizationId, from };
+  /**
+   * La búsqueda de conocimiento (ADR 0025 §1, ADR 0037): search_knowledge con
+   * la organización de este acceso, que no se puede cambiar desde fuera. Es la
+   * única función que admite tenantDb, con nombre y revisada.
+   */
+  async function searchKnowledge(params: KnowledgeSearchParams): Promise<KnowledgeSearchRow[]> {
+    if (params.locationId !== null && !UUID.test(params.locationId)) {
+      throw new TenantScopeError("tenantDb: location_id no es un UUID");
+    }
+    if (!params.queryEmbedding.every(Number.isFinite)) {
+      throw new TenantScopeError("tenantDb: el embedding de la consulta tiene valores no finitos");
+    }
+    const { data, error } = await untyped.rpc("search_knowledge", {
+      p_organization_id: organizationId,
+      p_location_id: params.locationId,
+      p_embedding_model: params.embeddingModel,
+      p_query_embedding: `[${params.queryEmbedding.join(",")}]`,
+      p_query: params.query,
+      p_k: params.k,
+    });
+    if (error) throw new Error(`search_knowledge: ${error.message}`);
+    return (data ?? []) as KnowledgeSearchRow[];
+  }
+
+  return { organizationId, from, searchKnowledge };
 }
+
+export interface KnowledgeSearchParams {
+  /** null = un run de organización: solo lo de toda la organización. */
+  locationId: string | null;
+  embeddingModel: string;
+  queryEmbedding: readonly number[];
+  query: string;
+  k: number;
+}
+
+export type KnowledgeSearchRow = Database["public"]["Functions"]["search_knowledge"]["Returns"][number];
 
 type TenantMutation<T extends TenantTable, Method extends "insert" | "update" | "delete"> = ReturnType<QueryBuilder<T>[Method]>;
 

@@ -331,8 +331,8 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `knowledge_sources` | `organization_id`, `scope` (`organization`/`location`), `scope_id`, `type` (`faq`/`pricing`/`policy`/`catalog`/`document`/`website`/`human_answer`), `status`, `storage_path?` |
-| `knowledge_chunks` | `source_id`, `organization_id`, `scope`, `scope_id`, `content`, `embedding vector`, `embedding_model`, `embedding_dim`, `tsv tsvector`, `valid_until?` (ADR 0025) |
+| `knowledge_sources` | `organization_id`, `location_id?` (null = toda la organización; inmutable), `type` (`faq`/`pricing`/`policy`/`catalog`/`document`/`website`/`human_answer`), `title`, `status` (`pending`/`processing`/`ready`/`error`; solo se busca en `ready`), `storage_path?`, `created_by`. La gestiona el `org_admin` con aal2 (ADR 0037) |
+| `knowledge_chunks` | `source_id` (de la misma organización), `organization_id`, `location_id` (copiado de la fuente por la base de datos), `ordinal`, `content`, `embedding vector` (sin dimensión fija), `embedding_model`, `embedding_dim`, `tsv tsvector` (`simple`), `valid_until?`. Los escribe la ingesta; se buscan solo con `search_knowledge` (ADR 0025, 0037) |
 | `knowledge_requests` | `organization_id`, `location_id?`, `agent_id`, `run_id`, `question`, `context`, `assigned_role`, `status` (`open`/`answered`/`dismissed`), `answer`, `answered_by`, `resulting_source_id` |
 
 **Memoria y objetivos**
@@ -678,7 +678,7 @@ Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la platafor
 - **Fuentes:** FAQs, precios, políticas, catálogo, documentos (PDF, DOCX), web del cliente y respuestas humanas (§5.9).
 - **Alcance:** cada fuente es de `organization` o de `location`. La recuperación de un run combina las dos para el local resuelto; si hay conflicto, gana la del local.
 - **Ingesta [PROPUESTO]:** subida a Storage, extracción de texto, troceado por secciones (no por tamaño fijo a ciegas), embeddings y guardado en `knowledge_chunks`. Todo es asíncrono en el worker.
-- **Recuperación [PROPUESTO: ADR 0025]:** una sola función de recuperación; búsqueda híbrida (vectorial + full-text, combinadas con Reciprocal Rank Fusion), filtrada **siempre** por `organization_id` y alcance antes de ordenar, con escaneo iterativo de pgvector y re-ranking opcional. Escalones según el tamaño del tenant: búsqueda exacta para los pequeños, HNSW global para los medianos, y partición o celda propia para los grandes. Recall@10 ≥ 0,95 medido en CI.
+- **Recuperación [PROPUESTO: ADR 0025; el escalón de búsqueda exacta, en `main` con el ADR 0037]:** una sola función de recuperación (`search_knowledge`, detrás de `KnowledgeRetriever` en `packages/knowledge`, con cada fragmento como dato no confiable y con su cita); búsqueda híbrida (vectorial + full-text, combinadas con Reciprocal Rank Fusion), filtrada **siempre** por `organization_id` y alcance antes de ordenar, con escaneo iterativo de pgvector y re-ranking opcional. Escalones según el tamaño del tenant: búsqueda exacta para los pequeños, HNSW global para los medianos, y partición o celda propia para los grandes. Recall@10 ≥ 0,95 medido en CI.
 - **Datos estructurados:** precios, horarios y servicios que cambian a menudo se guardan como datos estructurados (reglas y configuración) o se consultan en vivo a la integración, no solo como texto embebido. El precio que da el agente debe ser el vigente.
 - **Frescura:** `valid_until` y re-indexado cuando cambia la fuente.
 - **Proveedor de embeddings: [ABIERTO]** (se fija en el piloto, a través del enrutador del ADR 0019). Cada fila guarda `embedding_model` y `embedding_dim`; cambiar de modelo es una reindexación en segundo plano por tenant, sin mezclar vectores de modelos distintos.
@@ -1214,6 +1214,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0034 | BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS | propuesto |
 | 0035 | Residencia del procesamiento de modelos por organización | propuesto |
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | propuesto |
+| 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | propuesto |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 

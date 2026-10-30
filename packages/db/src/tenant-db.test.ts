@@ -100,9 +100,45 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc", () => {
+  it("no expone upsert ni rpc: la única función es searchKnowledge, con nombre y acotada", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["from", "organizationId"]);
+    expect(Object.keys(db).sort()).toEqual(["from", "organizationId", "searchKnowledge"]);
+  });
+});
+
+describe("tenantDb.searchKnowledge (ADR 0037)", () => {
+  const LOCATION = "5eed0000-0000-4000-8000-0000000000c1";
+  const params = { locationId: LOCATION, embeddingModel: "fake-hash-3", queryEmbedding: [0.5, -0.25, 1e-7], query: "horarios", k: 5 };
+
+  it("llama a search_knowledge con la organización de este acceso", async () => {
+    await db.searchKnowledge(params);
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/search_knowledge");
+    expect(body).toEqual({
+      p_organization_id: ORG,
+      p_location_id: LOCATION,
+      p_embedding_model: "fake-hash-3",
+      p_query_embedding: "[0.5,-0.25,1e-7]",
+      p_query: "horarios",
+      p_k: 5,
+    });
+  });
+
+  it("la organización no se cambia desde fuera, ni con un cast", async () => {
+    await db.searchKnowledge({ ...params, p_organization_id: OTHER, organizationId: OTHER } as unknown as typeof params);
+    expect((only().body as Record<string, unknown>).p_organization_id).toBe(ORG);
+  });
+
+  it("un run de organización busca sin local", async () => {
+    await db.searchKnowledge({ ...params, locationId: null });
+    expect((only().body as Record<string, unknown>).p_location_id).toBeNull();
+  });
+
+  it("rechaza un local que no es un UUID y un embedding con valores no finitos, sin llamar", async () => {
+    await expect(db.searchKnowledge({ ...params, locationId: `${LOCATION},x` })).rejects.toThrow(TenantScopeError);
+    await expect(db.searchKnowledge({ ...params, queryEmbedding: [1, Number.POSITIVE_INFINITY] })).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
   });
 });

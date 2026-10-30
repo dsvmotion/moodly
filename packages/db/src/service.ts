@@ -8,7 +8,15 @@ import { outbox, type Outbox } from "./outbox.ts";
 import { tenantDb, type TenantDb } from "./tenant-db.ts";
 
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
-export { TenantScopeError, type TenantDb, type TenantInsert, type TenantTable, type TenantUpdate } from "./tenant-db.ts";
+export {
+  TenantScopeError,
+  type KnowledgeSearchParams,
+  type KnowledgeSearchRow,
+  type TenantDb,
+  type TenantInsert,
+  type TenantTable,
+  type TenantUpdate,
+} from "./tenant-db.ts";
 
 export interface ServiceDb {
   /** Datos de una organización. organizationId sale siempre del runtime, nunca de lo que genera el LLM. */
