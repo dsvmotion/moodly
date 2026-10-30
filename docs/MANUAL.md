@@ -608,7 +608,9 @@ Reglas:
 - La conversación pasa a `mode = human`, se notifica al rol y local correspondiente y el agente deja de responder hasta que el humano la devuelva o la cierre.
 - El agente puede seguir sugiriendo borradores al humano (`suggest`).
 
-### 5.11 Modelos, coste y fiabilidad **[PROPUESTO]**
+### 5.11 Modelos, coste y fiabilidad **[PROPUESTO; enrutador: ADR 0033, `packages/agent-core/src/models`]**
+
+El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`) al `ModelRouter`. La tarea se resuelve a una clave lógica (`fast`, `smart` o `embedding`, en `@repo/config`). Antes de llamar, el enrutador aplica la política de la organización: residencia, proveedores permitidos, modo de conexión sin caer de BYOK a Moodly, y topes de gasto por run y por día. Ningún código fuera de `models/transports` importa un SDK de proveedor (test estructural).
 
 - Los modelos se definen en `packages/config` por tarea (clasificación, conversación, razonamiento complejo, extracción). Nunca hay IDs de modelo escritos en el código de negocio.
 - Enrutado por coste: modelo ligero para clasificar y extraer, modelo potente para conversaciones complejas y decisiones con efecto.
@@ -1207,6 +1209,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0030 | Agentes y skills ampliables | aceptado (2026-10-23) |
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
+| 0033 | Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía | propuesto |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 

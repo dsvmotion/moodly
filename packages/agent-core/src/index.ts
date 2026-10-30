@@ -19,3 +19,27 @@ export type {
   RunScope,
   SkillSettings,
 } from "./policy.js";
+export {
+  AllTransportsFailedError,
+  BudgetExceededError,
+  NoEligibleTransportError,
+  PLATFORM_MODEL_POLICY,
+  createModelRouter,
+  eligibleTransports,
+} from "./models/router.js";
+export type {
+  ConnectionMode,
+  ModelCall,
+  ModelMessage,
+  ModelPolicy,
+  ModelRouter,
+  ModelTransport,
+  Residency,
+  RoutedResult,
+  Spend,
+  TransportRequest,
+  TransportResponse,
+  Via,
+} from "./models/router.js";
+export { createFakeTransport } from "./models/transports/fake.js";
+export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
