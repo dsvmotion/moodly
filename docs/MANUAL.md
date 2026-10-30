@@ -323,7 +323,7 @@ Convenciones:
 | `agents` | `organization_id`, `agent_type_id` (FK a `agent_types.id`; uno por tipo y organización), `version`, `template_id` y `template_version` (llegan con `agent_templates`), `display_name`, `status` (`draft`/`testing`/`live`/`paused`). Cada organización nace con sus agentes de serie en `draft` |
 | `config_overrides` | `agent_id`, `level` (`organization`/`region`/`location`), `level_id`, `values` (jsonb), `locked_keys[]`, `version` |
 | `config_snapshots` | `agent_id`, `location_id`, `resolved` (jsonb), `hash`: configuración ya resuelta e inmutable que usa cada ejecución |
-| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `name`, `description`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
+| `skills` | Catálogo: `organization_id` (null = plataforma), `key`, `version`, `name`, `description`, `kind` (`code`/`composed`/`mcp`), `definition` (jsonb, para `composed`), `integration_id?` (para `mcp`, de una integración MCP de la misma organización), `mcp_tool_name?` y `mcp_tool_hash?` (la herramienta fijada, ADR 0036), `effect_class`, `max_autonomy`, `default_autonomy`, `required_integration`, `restricted_to_agent_types[]`, `input_schema`, `output_schema`, `status` (ADR 0030) |
 | `agent_skills` | `agent_id`, `skill_id`, `organization_id` (la del agente, para RLS y el worker), `enabled`, `autonomy_level` (nunca por encima del `max_autonomy` de la skill), más overrides por local vía `config_overrides` |
 | `business_rules` | `organization_id`, `scope` (org/region/location), `scope_id`, `key`, `value` (políticas de cancelación, descuentos máximos, etc.) |
 
@@ -399,7 +399,7 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `integrations` | `organization_id`, `location_id?`, `provider`, `kind` (`mcp`/`native`), `status`, `scopes[]`, `connected_by`, `last_health_check` |
+| `integrations` | `organization_id`, `location_id?`, `provider`, `kind` (`mcp`/`native`), `server_version?` (la revisada, solo MCP), `status`, `scopes[]`, `secret_id?` (`integration_secrets` de la misma organización), `connected_by`, `last_health_check`. La ve el `org_admin`; la escribe la plataforma (ADR 0036) |
 | `integration_secrets` | Tokens y claves cifrados con cifrado de sobre (§10.4, ADR 0034): `kind`, `name`, `key_ref`, `encrypted_data_key`, `ciphertext`. Nunca se leen desde la app del cliente ni por el equipo interno. |
 | `usage_records` | `organization_id`, `location_id?`, `metric` (`llm_tokens`/`messages`/`voice_minutes`/`executions`), `quantity`, `period`, `run_id?` |
 | `usage_limits` | `organization_id`, `metric`, `soft_limit`, `hard_limit`, `period` |
@@ -556,7 +556,7 @@ Reglas:
 - Cada skill vive en `packages/skills/<key>/` con su definición, sus tests y un fixture de sandbox.
 - `SkillContext` trae el tenant, el local, el contacto, el cliente de integración ya autenticado y el logger. La skill nunca obtiene credenciales por su cuenta.
 - Un `execute` sin `preview` no se acepta en code review.
-- Este contrato es el de las skills `code`. Las skills `composed` (creadas por el cliente) y `mcp` (herramientas de integraciones conectadas) se exponen con la misma forma: entrada y salida tipadas, clase de efecto y paso por el motor de políticas. Una `composed` hereda la clase más alta de sus piezas; una `mcp` sin clasificar entra como `external_message` en `draft` (ADR 0030).
+- Este contrato es el de las skills `code`. Las skills `composed` (creadas por el cliente) y `mcp` (herramientas de integraciones conectadas) se exponen con la misma forma: entrada y salida tipadas, clase de efecto y paso por el motor de políticas. Una `composed` hereda la clase más alta de sus piezas; una `mcp` sin clasificar entra como `external_message` en `draft` (ADR 0030), fijada a la huella de la herramienta revisada, y vuelve a ese estado si la herramienta cambia (ADR 0036).
 
 ### 5.6 Clases de efecto y techo de autonomía **[PROPUESTO]**
 
@@ -722,6 +722,7 @@ Para que el contexto esté realmente cruzado, la plataforma mantiene un **mapa d
 ### 7.1 Principios **[PROPUESTO]**
 
 - **MCP primero:** si existe un servidor MCP fiable y mantenido para una herramienta, se usa a través del cliente MCP de `packages/integrations`. Si no existe o no es fiable, se escribe un conector nativo con la misma interfaz.
+- **Servidores MCP gobernados [DECIDIDO EN DISEÑO, ADR 0036]:** solo servidores revisados en su versión exacta y con sus herramientas revisadas; URL pública por `https` que nunca resuelve a la red interna; cada herramienta fijada a su huella (si cambia, no se llama y vuelve a `draft`); nunca campos reservados del runtime; tiempo y tamaño máximos; y la respuesta, un dato no confiable con su procedencia. La única forma de llamar es `governMcpClient`, con las credenciales de una sola organización.
 - Todas las integraciones exponen una interfaz interna común por tipo (`calendar`, `crm`, `invoicing`, `booking`, `email`, `inventory`…), de modo que las skills no dependen del proveedor concreto.
 - La conexión se hace por OAuth siempre que el proveedor lo permita. Las API keys solo se usan cuando no hay alternativa.
 - Tokens cifrados (§10.4), refresco automático y comprobación de salud periódica. Si una integración se rompe, se genera una alerta al cliente y al panel interno, y las skills dependientes pasan a `suggest`.
@@ -1212,6 +1213,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0033 | Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía | propuesto |
 | 0034 | BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS | propuesto |
 | 0035 | Residencia del procesamiento de modelos por organización | propuesto |
+| 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | propuesto |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 
