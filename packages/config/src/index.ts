@@ -20,3 +20,25 @@ export const AGENT_TYPES = [
 ] as const;
 
 export type AgentTypeKey = (typeof AGENT_TYPES)[number]["key"];
+
+/**
+ * Modelos por tarea (MANUAL §5.11, ADR 0033). El código de negocio pide una
+ * tarea; la tarea se resuelve a una clave lógica de modelo; y la clave, al ID
+ * real de cada proveedor en la configuración de cada transporte. Ningún ID de
+ * modelo vive en el código de negocio (AGENTS.md).
+ */
+export const MODEL_TASKS = ["classify", "extract", "converse", "reason", "embed"] as const;
+export type ModelTask = (typeof MODEL_TASKS)[number];
+
+/** Claves lógicas: qué tipo de modelo, no cuál. Se eligen por eval al activar cada proveedor. */
+export const MODEL_KEYS = ["fast", "smart", "embedding"] as const;
+export type ModelKey = (typeof MODEL_KEYS)[number];
+
+/** Por defecto de plataforma: lo rápido para clasificar, extraer y conversar; lo potente para razonar. */
+export const DEFAULT_MODEL_BY_TASK: Readonly<Record<ModelTask, ModelKey>> = {
+  classify: "fast",
+  extract: "fast",
+  converse: "fast",
+  reason: "smart",
+  embed: "embedding",
+};

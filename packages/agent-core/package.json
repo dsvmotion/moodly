@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@repo/config": "workspace:*",
     "zod": "4.6.6"
   }
 }
