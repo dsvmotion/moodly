@@ -1,7 +1,7 @@
 # 0037 — Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor
 
-- **Estado:** propuesto (2026-10-31)
-- **Fecha:** 2026-10-31
+- **Estado:** aceptado (producto, 2026-10-30)
+- **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4.2 (`knowledge_sources`, `knowledge_chunks`), §6.1
 - **Relación:**
   - concreta el ADR 0025 (búsqueda vectorial con muchas empresas): una sola función de recuperación, filtro antes de ordenar, búsqueda híbrida y modelo de embeddings en cada fila;

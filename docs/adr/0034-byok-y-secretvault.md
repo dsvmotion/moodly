@@ -1,6 +1,6 @@
 # 0034 — BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS
 
-- **Estado:** propuesto (2026-10-30)
+- **Estado:** aceptado (producto, 2026-10-30)
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4 (`org_model_settings`, `integration_secrets`), §10.4, §18 #6
 - **Relación:**

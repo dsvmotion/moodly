@@ -1,6 +1,6 @@
 # 0033 — Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía
 
-- **Estado:** propuesto (2026-10-30)
+- **Estado:** aceptado (producto, 2026-10-30)
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §3.2, §5.11, §13, §18 #5
 - **Relación:**

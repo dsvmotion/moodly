@@ -1,6 +1,6 @@
 # 0035 — Residencia del procesamiento de modelos por organización
 
-- **Estado:** propuesto (2026-10-30)
+- **Estado:** aceptado (producto, 2026-10-30)
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4 (`org_model_settings`), §11, §18 #5
 - **Relación:**
