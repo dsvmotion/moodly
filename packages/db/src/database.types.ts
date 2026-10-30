@@ -347,6 +347,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"integration_secrets": {
+                  Row: {
+                    "ciphertext": string,"created_at": string,"encrypted_data_key": string,"id": string,"key_ref": string,"kind": string,"name": string,"organization_id": string,"rotated_at": string | null
+                  }
+                  Insert: {
+                    "ciphertext": string,"created_at"?: string,"encrypted_data_key": string,"id"?: string,"key_ref": string,"kind": string,"name": string,"organization_id": string,"rotated_at"?: string | null
+                  }
+                  Update: {
+                    "ciphertext"?: string,"created_at"?: string,"encrypted_data_key"?: string,"id"?: string,"key_ref"?: string,"kind"?: string,"name"?: string,"organization_id"?: string,"rotated_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "integration_secrets_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"invitations": {
                   Row: {
                     "accepted_at": string | null,"accepted_by": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string,"organization_id": string,"revoked_at": string | null,"role": string,"scope_location_ids": (string)[],"scope_region_ids": (string)[],"token_hash": string
@@ -423,6 +442,31 @@ isOneToOne: false
     },{
       foreignKeyName: "memberships_user_id_fkey"
       columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"org_model_settings": {
+                  Row: {
+                    "allowed_providers": (string)[],"budget_per_day_eur": number,"budget_per_run_eur": number,"connection": string,"model_by_task": NonNullable<Json>,"organization_id": string,"residency": string,"updated_at": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id": string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id"?: string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "org_model_settings_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: true
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "org_model_settings_updated_by_fkey"
+      columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "users"
       referencedColumns: ["id"]
