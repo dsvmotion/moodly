@@ -367,11 +367,11 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `channel_accounts` | `organization_id`, `channel` (`whatsapp`/`instagram`/`email`/`webchat`/`voice`), `external_id` (id de número, cuenta o buzón), `location_id?` (null si la cuenta es compartida por toda la cadena), `default_agent_type` (`customer` en canales escritos, `reception` en voz), `status` |
+| `channel_accounts` | `organization_id`, `channel` (`whatsapp`/`instagram`/`email`/`webchat`/`voice`), `external_id` (id de número, cuenta o buzón; **único por canal**: de aquí sale el tenant de lo que entra), `location_id?` (null si la cuenta es compartida por toda la cadena), `default_agent_type` (`customer` en canales escritos, `reception` en voz), `status` (`pending`/`active`/`disabled`). La ve el `org_admin` |
 | `contacts` | `organization_id`, `display_name`, `consents` (jsonb), `preferred_location_id?`, `locale` |
-| `contact_identities` | `contact_id`, `channel`, `external_id` (teléfono, handle, email) |
-| `conversations` | `organization_id`, `location_id?`, `contact_id`, `channel_account_id`, `agent_id`, `mode` (`agent`/`human`/`closed`), `assigned_user_id?`, `last_message_at` |
-| `messages` | `conversation_id`, `organization_id`, `direction` (`in`/`out`), `author` (`contact`/`agent`/`user`), `content`, `attachments`, `external_message_id`, `status` |
+| `contact_identities` | `contact_id`, `organization_id`, `kind` (`phone`/`email`/`instagram`/`webchat`; el teléfono es uno solo para WhatsApp y voz), `external_id` normalizado (E.164, email en minúsculas), único por organización |
+| `conversations` | `organization_id`, `location_id?` (el de la cuenta si es de un local; en una cuenta compartida se resuelve una vez), `contact_id`, `channel_account_id`, `agent_id`, `mode` (`agent`/`human`/`closed`), `assigned_user_id?`, `last_message_at`. La ve quien tiene su local en el alcance; sin local, el `org_admin` |
+| `messages` | `conversation_id`, `organization_id`, `direction` (`in`/`out`), `author` (`contact`/`agent`/`user`/`system`), `author_user_id?`, `content`, `attachments`, `external_message_id`, `status`. Particionada por mes (`created_at`); las particiones viven en el esquema `partitions`, fuera de la API, con una por defecto y `private.ensure_monthly_partitions` |
 | `inbound_events` | `channel`, `external_event_id` (clave de idempotencia), `raw` (jsonb), `received_at`, `processed_at`, `error?` |
 
 **Ejecución, aprobaciones y auditoría**

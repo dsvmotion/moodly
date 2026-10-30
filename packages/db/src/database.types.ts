@@ -185,6 +185,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"channel_accounts": {
+                  Row: {
+                    "channel": string,"created_at": string,"default_agent_type": string,"external_id": string,"id": string,"location_id": string | null,"organization_id": string,"status": string,"updated_at": string
+                  }
+                  Insert: {
+                    "channel": string,"created_at"?: string,"default_agent_type": string,"external_id": string,"id"?: string,"location_id"?: string | null,"organization_id": string,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "channel"?: string,"created_at"?: string,"default_agent_type"?: string,"external_id"?: string,"id"?: string,"location_id"?: string | null,"organization_id"?: string,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "channel_accounts_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "channel_accounts_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"config_overrides": {
                   Row: {
                     "agent_id": string,"created_at": string,"id": string,"level": string,"level_id": string,"locked_keys": (string)[],"organization_id": string,"updated_at": string,"values": NonNullable<Json>,"version": number
@@ -235,6 +260,99 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "config_snapshots_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"contact_identities": {
+                  Row: {
+                    "contact_id": string,"created_at": string,"external_id": string,"id": string,"kind": string,"organization_id": string
+                  }
+                  Insert: {
+                    "contact_id": string,"created_at"?: string,"external_id": string,"id"?: string,"kind": string,"organization_id": string
+                  }
+                  Update: {
+                    "contact_id"?: string,"created_at"?: string,"external_id"?: string,"id"?: string,"kind"?: string,"organization_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contact_identities_contact_same_org"
+      columns: ["contact_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"contacts": {
+                  Row: {
+                    "consents": NonNullable<Json>,"created_at": string,"display_name": string | null,"id": string,"locale": string | null,"organization_id": string,"preferred_location_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "consents"?: NonNullable<Json>,"created_at"?: string,"display_name"?: string | null,"id"?: string,"locale"?: string | null,"organization_id": string,"preferred_location_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "consents"?: NonNullable<Json>,"created_at"?: string,"display_name"?: string | null,"id"?: string,"locale"?: string | null,"organization_id"?: string,"preferred_location_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contacts_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "contacts_preferred_location_same_org"
+      columns: ["preferred_location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"conversations": {
+                  Row: {
+                    "agent_id": string,"assigned_user_id": string | null,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "agent_id": string,"assigned_user_id"?: string | null,"channel_account_id": string,"contact_id": string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "agent_id"?: string,"assigned_user_id"?: string | null,"channel_account_id"?: string,"contact_id"?: string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversations_agent_same_org"
+      columns: ["agent_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversations_assigned_user_id_fkey"
+      columns: ["assigned_user_id"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversations_channel_account_same_org"
+      columns: ["channel_account_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "channel_accounts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversations_contact_same_org"
+      columns: ["contact_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversations_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversations_organization_id_fkey"
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
@@ -538,6 +656,31 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "users"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"messages": {
+                  Row: {
+                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"organization_id": string,"status": string
+                  }
+                  Insert: {
+                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"organization_id": string,"status"?: string
+                  }
+                  Update: {
+                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"organization_id"?: string,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "messages_author_user_id_fkey"
+      columns: ["author_user_id"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "messages_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
     }
                   ]
                 },"org_model_settings": {
