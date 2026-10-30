@@ -28,7 +28,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.117.3"
+    "@supabase/supabase-js": "2.118.0"
   },
   "devDependencies": {
     "pg": "8.23.1",
