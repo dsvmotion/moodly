@@ -11,6 +11,7 @@
 // Lee WORKER_SYSTEM_DATABASE_URL. Nunca la imprime: lleva la contraseña.
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { TLSSocket } from "node:tls";
 import { DBOSClient } from "@dbos-inc/dbos-sdk";
 import pg from "pg";
 import { leaseKey } from "../src/lease.ts";
@@ -24,8 +25,7 @@ function report(data: unknown): void {
   process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 }
 
-function fail(message: string, data?: unknown): never {
-  if (data !== undefined) report(data);
+function fail(message: string): never {
   process.stderr.write(`::error::${message}\n`);
   process.exit(1);
 }
@@ -42,20 +42,35 @@ async function withClient<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> 
 
 const TRY_LOCK = "select pg_try_advisory_lock(hashtextextended($1, 0)) as locked";
 
+/**
+ * TLS de nuestra conexión, mirado desde el cliente: el socket tiene que ser TLS
+ * y con el certificado verificado (sslmode=verify-full contra la CA de Supabase).
+ * pg_stat_ssl no sirve para esto a través del pooler: describe la conexión del
+ * pooler a Postgres, dentro de Supabase, no la del worker al pooler.
+ */
+function clientTls(client: pg.Client): { encrypted: boolean; authorized: boolean; protocol: string | null } {
+  const stream = (client as unknown as { connection: { stream: unknown } }).connection.stream;
+  if (!(stream instanceof TLSSocket)) return { encrypted: false, authorized: false, protocol: null };
+  return { encrypted: true, authorized: stream.authorized, protocol: stream.getProtocol() };
+}
+
 async function connect(): Promise<void> {
   const row = await withClient(async (client) => {
     const { rows } = await client.query<Record<string, unknown>>(
       `select current_user as role,
-              (select ssl from pg_stat_ssl where pid = pg_backend_pid()) as ssl,
+              (select ssl from pg_stat_ssl where pid = pg_backend_pid()) as pooler_to_postgres_ssl,
               (select max(version) from dbos.dbos_migrations) as dbos_schema_version,
               has_schema_privilege('dbos', 'CREATE') as can_create_in_dbos`,
     );
-    return rows[0];
+    return { server: rows[0] ?? {}, tls: clientTls(client) };
   });
-  report(row);
-  if (row?.["role"] !== "dbos_worker") fail("no entra como dbos_worker", row);
-  if (row?.["ssl"] !== true) fail("la conexión no va cifrada", row);
-  if (row?.["can_create_in_dbos"] !== false) fail("dbos_worker puede crear en dbos", row);
+  const result = { ...row.server, client_tls: row.tls };
+  report(result);
+  if (row.server["role"] !== "dbos_worker") fail("no entra como dbos_worker");
+  if (!row.tls.encrypted || !row.tls.authorized) {
+    fail("la conexión al pooler no va cifrada con el certificado verificado");
+  }
+  if (row.server["can_create_in_dbos"] !== false) fail("dbos_worker puede crear en dbos");
 }
 
 async function leaseHold(executorId: string): Promise<void> {
@@ -135,13 +150,13 @@ async function smokeFinish(workflowID: string): Promise<void> {
     const steps = ((await client.listWorkflowSteps(workflowID)) ?? []).map((step) => step.name);
     report({ workflowID, result, steps });
 
-    if (result.timedOut) fail("el workflow no recibió el mensaje", result);
+    if (result.timedOut) fail("el workflow no recibió el mensaje");
     // Con un sondeo de 5 minutos, despertar en menos de 10 s solo es posible
     // si llegó el NOTIFY a través del pooler (regla 8).
-    if (result.wakeLatencyMs === null || result.wakeLatencyMs > 10_000) fail("no despertó por NOTIFY", result);
-    if (steps.filter((name) => name === "first").length !== 1) fail("el primer paso se repitió", steps);
+    if (result.wakeLatencyMs === null || result.wakeLatencyMs > 10_000) fail("no despertó por NOTIFY");
+    if (steps.filter((name) => name === "first").length !== 1) fail("el primer paso se repitió");
     if (expectRestart && result.first.boot === result.second.boot) {
-      fail("se esperaba un reinicio entre los dos pasos y los ejecutó el mismo proceso", result);
+      fail("se esperaba un reinicio entre los dos pasos y los ejecutó el mismo proceso");
     }
   });
 }
