@@ -1,2 +1,20 @@
-// Paquete vacío: se implementa en su tarea correspondiente (docs/STATUS.md).
-export {};
+// Capa de integraciones (MANUAL §7, ADR 0036). Por ahora, los conectores MCP:
+// el catálogo de servidores revisados, la importación de herramientas como
+// skills sin clasificar, la conexión gobernada y la skill que la usa. Las
+// interfaces por tipo (calendario, reservas...) llegan con su primer conector.
+export { REVIEWED_MCP_SERVERS, UnreviewedMcpServerError, reviewedServer } from "./mcp/catalog.js";
+export type { ReviewedMcpServer } from "./mcp/catalog.js";
+export { UnsafeServerUrlError, assertSafeServerUrl, isPublicAddress } from "./mcp/server-url.js";
+export type { ResolvedAddress, Resolver } from "./mcp/server-url.js";
+export { toolHash } from "./mcp/pin.js";
+export { closeObjects, toolInputSchema } from "./mcp/schema.js";
+export type { ToolInput } from "./mcp/schema.js";
+export { MCP_UNCLASSIFIED, importMcpTools, mcpSkillKey } from "./mcp/import.js";
+export type { McpImport, McpSkillDraft } from "./mcp/import.js";
+export { McpCallFailedError, McpToolDriftError, McpToolNotAllowedError, governMcpClient } from "./mcp/governed.js";
+export type { GovernOptions, GovernedMcpConnection } from "./mcp/governed.js";
+export { McpSkillError, mcpSkill } from "./mcp/skill.js";
+export type { McpSkillRow } from "./mcp/skill.js";
+export { createFakeMcpClient } from "./mcp/fake.js";
+export type { FakeMcpClient } from "./mcp/fake.js";
+export type { JsonSchema, McpCallResult, McpClient, McpContent, McpTool, UntrustedContent } from "./mcp/types.js";

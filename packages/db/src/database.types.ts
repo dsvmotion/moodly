@@ -366,6 +366,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"integrations": {
+                  Row: {
+                    "connected_by": string | null,"created_at": string,"id": string,"kind": string,"last_health_check": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
+                  }
+                  Insert: {
+                    "connected_by"?: string | null,"created_at"?: string,"id"?: string,"kind": string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "connected_by"?: string | null,"created_at"?: string,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "integrations_connected_by_fkey"
+      columns: ["connected_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "integrations_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "integrations_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "integrations_secret_same_org"
+      columns: ["secret_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "integration_secrets"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"invitations": {
                   Row: {
                     "accepted_at": string | null,"accepted_by": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string,"organization_id": string,"revoked_at": string | null,"role": string,"scope_location_ids": (string)[],"scope_region_ids": (string)[],"token_hash": string
@@ -525,16 +562,22 @@ isOneToOne: false
                   ]
                 },"skills": {
                   Row: {
-                    "created_at": string,"default_autonomy": string,"definition": Json | null,"description": string,"effect_class": string,"id": string,"input_schema": NonNullable<Json>,"integration_id": string | null,"key": string,"kind": string,"max_autonomy": string,"name": string,"organization_id": string | null,"output_schema": NonNullable<Json>,"required_integration": string | null,"restricted_to_agent_types": (string)[],"status": string,"updated_at": string,"version": number
+                    "created_at": string,"default_autonomy": string,"definition": Json | null,"description": string,"effect_class": string,"id": string,"input_schema": NonNullable<Json>,"integration_id": string | null,"key": string,"kind": string,"max_autonomy": string,"mcp_tool_hash": string | null,"mcp_tool_name": string | null,"name": string,"organization_id": string | null,"output_schema": NonNullable<Json>,"required_integration": string | null,"restricted_to_agent_types": (string)[],"status": string,"updated_at": string,"version": number
                   }
                   Insert: {
-                    "created_at"?: string,"default_autonomy": string,"definition"?: Json | null,"description"?: string,"effect_class": string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key": string,"kind": string,"max_autonomy": string,"name": string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
+                    "created_at"?: string,"default_autonomy": string,"definition"?: Json | null,"description"?: string,"effect_class": string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key": string,"kind": string,"max_autonomy": string,"mcp_tool_hash"?: string | null,"mcp_tool_name"?: string | null,"name": string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
                   }
                   Update: {
-                    "created_at"?: string,"default_autonomy"?: string,"definition"?: Json | null,"description"?: string,"effect_class"?: string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key"?: string,"kind"?: string,"max_autonomy"?: string,"name"?: string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
+                    "created_at"?: string,"default_autonomy"?: string,"definition"?: Json | null,"description"?: string,"effect_class"?: string,"id"?: string,"input_schema"?: NonNullable<Json>,"integration_id"?: string | null,"key"?: string,"kind"?: string,"max_autonomy"?: string,"mcp_tool_hash"?: string | null,"mcp_tool_name"?: string | null,"name"?: string,"organization_id"?: string | null,"output_schema"?: NonNullable<Json>,"required_integration"?: string | null,"restricted_to_agent_types"?: (string)[],"status"?: string,"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {
+      foreignKeyName: "skills_integration_same_org"
+      columns: ["integration_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "integrations"
+      referencedColumns: ["id","organization_id"]
+    },{
       foreignKeyName: "skills_organization_id_fkey"
       columns: ["organization_id"]
 isOneToOne: false
