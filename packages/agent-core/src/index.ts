@@ -6,6 +6,8 @@ export { CanonicalJsonError, canonicalHash, canonicalJson } from "./canonical.js
 export { SkillDefinitionError, defineSkill, inputSchemaProblems, isReservedKey, reservedPaths } from "./skill.js";
 export type { AudienceContext, SkillContext, SkillDefinition, SkillPreview, Target } from "./skill.js";
 export { EXECUTION_HASH_VERSION, decide, denyAllConsent, executionHash, resolveTarget } from "./policy.js";
+export { verifyApproval } from "./approval.js";
+export type { ApprovalCheck, ApprovalRecord, ExecutionRecord } from "./approval.js";
 export type {
   ConsentChecker,
   DecideInput,

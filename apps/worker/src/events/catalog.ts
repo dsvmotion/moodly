@@ -19,6 +19,14 @@ export const eventPayloads = {
     role: memberRole,
     invited_by: z.uuid(),
   }),
+  // private.emit_approval_decided, en la misma transacción que la decisión
+  // (ADR 0047). Despertará al run que espera la aprobación (MANUAL §5.7).
+  "approval.decided": z.object({
+    approval_id: z.uuid(),
+    execution_id: z.uuid(),
+    run_id: z.uuid(),
+    decision: z.enum(["approved", "rejected"]),
+  }),
 } satisfies Record<string, z.ZodType<Record<string, unknown>>>;
 
 export type EventType = keyof typeof eventPayloads;
