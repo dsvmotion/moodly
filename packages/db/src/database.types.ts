@@ -434,6 +434,62 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"knowledge_chunks": {
+                  Row: {
+                    "content": string,"created_at": string,"embedding": string,"embedding_dim": number,"embedding_model": string,"id": string,"location_id": string | null,"ordinal": number,"organization_id": string,"source_id": string,"tsv": unknown,"valid_until": string | null
+                  }
+                  Insert: {
+                    "content": string,"created_at"?: string,"embedding": string,"embedding_dim": number,"embedding_model": string,"id"?: string,"location_id"?: string | null,"ordinal": number,"organization_id": string,"source_id": string,"tsv"?: never,"valid_until"?: string | null
+                  }
+                  Update: {
+                    "content"?: string,"created_at"?: string,"embedding"?: string,"embedding_dim"?: number,"embedding_model"?: string,"id"?: string,"location_id"?: string | null,"ordinal"?: number,"organization_id"?: string,"source_id"?: string,"tsv"?: never,"valid_until"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "knowledge_chunks_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_chunks_source_same_org"
+      columns: ["source_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "knowledge_sources"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"knowledge_sources": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"id": string,"location_id": string | null,"organization_id": string,"status": string,"storage_path": string | null,"title": string,"type": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id": string,"status"?: string,"storage_path"?: string | null,"title": string,"type": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id"?: string,"status"?: string,"storage_path"?: string | null,"title"?: string,"type"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "knowledge_sources_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_sources_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_sources_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"locations": {
                   Row: {
                     "address": string | null,"created_at": string,"id": string,"name": string,"opening_hours": NonNullable<Json>,"organization_id": string,"region_id": string | null,"status": string,"timezone": string,"updated_at": string
@@ -646,6 +702,11 @@ isOneToOne: false
                            },
 "register_server_key":
 { Args: { "p_key_hash": string,"p_name": string }; Returns: undefined
+                           },
+"search_knowledge":
+{ Args: { "p_embedding_model": string,"p_k": number,"p_location_id": string,"p_organization_id": string,"p_query": string,"p_query_embedding": string }; Returns: {
+              "chunk_id": string,"content": string,"score": number,"source_id": string,"source_title": string,"source_type": string
+            }[]
                            }
           }
           Enums: {
