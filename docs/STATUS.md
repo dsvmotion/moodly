@@ -202,13 +202,19 @@
 - Controles previos a la primera skill:
   - **3.2, hecho (#78):** `createServiceDb().forOrganization(orgId)` en `@repo/db/service`. Solo admite tablas con `organization_id` obligatorio, añade el filtro a toda lectura, actualización y borrado, pone la organización al insertar y rechaza filas de otra, y no ofrece `upsert`, `rpc` ni recursos embebidos. Una regla de lint y un test estructural impiden importar un cliente de Supabase fuera de `packages/db` y `apps/web`, y `apps/web` no puede importar `@repo/db/service`. Tests unitarios con el cliente real y un `fetch` falso (8 mutaciones, todas detectadas) e integración contra Supabase local en el job de e2e (3 tests, con prueba en negativo de cada filtro). **Verificado sobre `main`** (`878a374`): CI en verde en los 5 checks; en local, `pnpm check` 52/52, pgTAP 590/590, integración 3/3 y e2e 118/118.
   - Aprobaciones atadas al hash (3.3), destinatarios fijados por el runtime (3.4) y evals de ataque antes de activar ningún agente (3.8). **ADR 0047 (propuesto)**, en tres PRs:
-    - **2a, en PR (`packages/agent-core`):**
+    - **2a, mergeado (#98, `7cca64d`; `packages/agent-core`):**
       - `defineSkill()` rechaza las entradas con el tenant, el local, el contacto o un destinatario, y las de claves abiertas;
       - `decide()` aplica el MANUAL §5.4: skill activa, campos reservados en los argumentos del LLM, esquema, destino resuelto por el runtime, autonomía efectiva con el techo de la clase y reglas de negocio;
       - `executionHash()` calcula el SHA-256 del JSON canónico de lo que se ejecuta, destino incluido.
 
       77 tests, con mutaciones.
-    - **2b:** `agent_runs`, `executions` y `approvals` con RLS, guardas y pgTAP en negativo; la aprobación se ata al hash, solo se decide con sesión, rol y alcance (`aal2` para lo financiero y lo destructivo), y emite `approval.decided` en el outbox. El worker comprueba el hash antes de ejecutar lo aprobado.
+    - **2b, en PR:** `agent_runs`, `executions` y `approvals` (migración `20261030090000`).
+      - La entrada, el destino y el hash de una ejecución no cambian nunca, tampoco para la service role.
+      - La aprobación copia el hash de su ejecución.
+      - Solo la decide una persona con sesión, con un rol igual o superior y alcance al local, y con `aal2` para lo financiero, lo destructivo o un `org_admin`. La plataforma no aprueba.
+      - Una decisión no se repite ni se deshace, y emite `approval.decided` en el outbox.
+      - `verifyApproval()` (`agent-core`) recalcula el hash antes de ejecutar; el worker la llamará cuando exista el runtime (B19).
+      - pgTAP 704/704 (57 nuevos en `22_runs_approvals`, 12 mutaciones detectadas).
     - **2c:** set de ataque determinista en `packages/evals`, dentro del check obligatorio de tests. Los sets con un modelo real llegan con el enrutador (paso 3).
 - `/ops` mínimo, PRs 2–4 (ADR 0021): `requirePlatformStaff()` y `withPlatformStaffAudit()`, `/ops/organizations` y `/ops/audit`, con la concesión JIT de #16.
 - Primera pieza de la prioridad del producto: memoria con procedencia (ADR 0024) y objetivos.

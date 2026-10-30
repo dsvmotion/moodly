@@ -5,7 +5,44 @@ export type Database = {
   
   "public": {
           Tables: {
-            "agent_skills": {
+            "agent_runs": {
+                  Row: {
+                    "agent_id": string,"config_snapshot_id": string | null,"cost_eur": number,"created_at": string,"id": string,"location_id": string | null,"model": string | null,"organization_id": string,"status": string,"tokens_in": number,"tokens_out": number,"trigger": string,"trigger_ref": string | null,"updated_at": string,"workflow_id": string | null
+                  }
+                  Insert: {
+                    "agent_id": string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id": string,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger": string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
+                  }
+                  Update: {
+                    "agent_id"?: string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id"?: string,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger"?: string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agent_runs_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_runs_config_snapshot_id_fkey"
+      columns: ["config_snapshot_id"]
+isOneToOne: false
+      referencedRelation: "config_snapshots"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_runs_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_runs_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agent_skills": {
                   Row: {
                     "agent_id": string,"autonomy_level": string,"created_at": string,"enabled": boolean,"organization_id": string,"skill_id": string,"updated_at": string
                   }
@@ -74,6 +111,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "agents_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"approvals": {
+                  Row: {
+                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"required_role": string,"status": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id"?: string,"input_hash": string,"location_id"?: string | null,"organization_id": string,"reason"?: string | null,"required_role": string,"status"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class"?: string,"execution_id"?: string,"expires_at"?: string,"id"?: string,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"reason"?: string | null,"required_role"?: string,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "approvals_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "approvals_execution_id_fkey"
+      columns: ["execution_id"]
+isOneToOne: true
+      referencedRelation: "executions"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "approvals_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "approvals_organization_id_fkey"
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
@@ -177,6 +251,37 @@ isOneToOne: false
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"executions": {
+                  Row: {
+                    "autonomy_applied": string,"created_at": string,"effect_class": string,"id": string,"idempotency_key": string,"input": NonNullable<Json>,"input_hash": string,"location_id": string | null,"organization_id": string,"output": Json | null,"preview": Json | null,"rationale": string | null,"run_id": string,"skill_key": string,"skill_version": number,"status": string,"target": NonNullable<Json>,"updated_at": string
+                  }
+                  Insert: {
+                    "autonomy_applied": string,"created_at"?: string,"effect_class": string,"id"?: string,"idempotency_key": string,"input": NonNullable<Json>,"input_hash": string,"location_id"?: string | null,"organization_id": string,"output"?: Json | null,"preview"?: Json | null,"rationale"?: string | null,"run_id": string,"skill_key": string,"skill_version": number,"status": string,"target": NonNullable<Json>,"updated_at"?: string
+                  }
+                  Update: {
+                    "autonomy_applied"?: string,"created_at"?: string,"effect_class"?: string,"id"?: string,"idempotency_key"?: string,"input"?: NonNullable<Json>,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"output"?: Json | null,"preview"?: Json | null,"rationale"?: string | null,"run_id"?: string,"skill_key"?: string,"skill_version"?: number,"status"?: string,"target"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "executions_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "executions_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "executions_run_id_fkey"
+      columns: ["run_id"]
+isOneToOne: false
+      referencedRelation: "agent_runs"
       referencedColumns: ["id"]
     }
                   ]

@@ -56,7 +56,7 @@ Lo que ya hay:
 
   Lo calcula `agent-core` y se guarda en `executions` al crearla.
 - **Inmutabilidad:** `executions.input` e `input_hash` no cambian nunca (guarda en base de datos). `approvals.input_hash` se copia al crear la aprobación y una guarda comprueba que coincide con el de su ejecución.
-- **Al ejecutar lo aprobado,** el worker relee la ejecución y la aprobación con `forOrganization(org)` y recalcula el hash de la entrada guardada. Exige además que:
+- **Al ejecutar lo aprobado,** el worker relee la ejecución y la aprobación con `forOrganization(org)` y llama a `verifyApproval()` de `agent-core`, que recalcula el hash de la entrada guardada. Exige además que:
   - ese hash coincida con los dos guardados;
   - la aprobación esté `approved` y no haya caducado.
 
@@ -95,10 +95,10 @@ Lo que ya hay:
    - el motor de políticas.
 
    Sin base de datos.
-2. **2b · Base de datos y worker:**
+2. **2b · Base de datos y comprobación al ejecutar:**
    - `agent_runs`, `executions` y `approvals` con RLS, las guardas y pgTAP (también en negativo: decidir sin rol, fuera de alcance, sin `aal2`, caducada, cambiar la entrada o el hash, decidir dos veces);
-   - el evento `approval.decided`;
-   - en el worker, la comprobación del hash antes de ejecutar lo aprobado, con su test de integración.
+   - el evento `approval.decided`, en el catálogo del worker;
+   - `verifyApproval()` en `agent-core`, una función pura. El worker la llamará justo antes de ejecutar cuando exista el runtime que ejecuta skills (con B19). Cablear ahora el worker con `agent-core` obligaría a cambiar la imagen, el CI y Railway para un código que nadie llama todavía.
 3. **2c · Evals de ataque deterministas** en `packages/evals` contra 2a y 2b, en el CI.
 
 ## Alternativas consideradas
@@ -128,5 +128,19 @@ Se completa con cada PR del orden de implementación:
   - que las clases de efecto y los techos coinciden con la migración del catálogo.
 
   13 mutaciones, cada una quita un control: sin la comprobación de campos reservados, sin el techo, sin el filtro de consentimiento, el hash sin el destino… Todas hacen fallar algún test, salvo una que no modela un fallo real: la entrada de esa skill no tiene ningún campo de contacto del que leer;
-- **2b:** pgTAP en positivo y en negativo, e integración del worker (un cambio en la entrada o en el hash impide ejecutar);
+- **2b (hecho):**
+  - **pgTAP `22_runs_approvals`, 57 tests:**
+    - coherencia al crear: otra organización, otro local, otro hash, otra clase, nacer aprobada o caducada, aprobaciones de toda la organización;
+    - inmutabilidad también para la service role: entrada, destino, hash, skill, caducidad y rol;
+    - la plataforma (service role y dueño de las tablas) no aprueba;
+    - quién ve qué;
+    - la app no crea, no borra ni cambia ejecuciones;
+    - decidir según rol, alcance y `aal2`;
+    - solo cambia el estado (no `decided_by` ni otras columnas);
+    - una decisión no se repite ni se deshace;
+    - caducidad;
+    - el evento, sin datos personales.
+
+    12 mutaciones de la migración, una por control: todas hacen fallar algún test. Las dos de alcance sobrevivían al principio porque la RLS de lectura ya oculta los otros locales; se añadieron tests directos de `can_decide_approval`.
+  - **`verifyApproval`, 17 tests unitarios,** y 4 mutaciones, todas detectadas;
 - **2c:** el set de ataque en verde en el CI, y en rojo si se quita cualquiera de las comprobaciones.
