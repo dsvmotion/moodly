@@ -177,7 +177,14 @@ importers:
 
   packages/domain: {}
 
-  packages/evals: {}
+  packages/evals:
+    dependencies:
+      '@repo/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/integrations: {}
 
