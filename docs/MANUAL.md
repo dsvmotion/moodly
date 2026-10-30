@@ -510,7 +510,7 @@ En orden, de mayor a menor autoridad:
 
 Las herramientas que ve el LLM son **solo** las skills activas del agente en ese local, filtradas además por las integraciones conectadas.
 
-### 5.4 Motor de políticas **[DECIDIDO el principio]**
+### 5.4 Motor de políticas **[DECIDIDO el principio; implementación: ADR 0047, `packages/agent-core`]**
 
 Cada llamada a una skill que propone el LLM pasa por el motor de políticas **antes** de ejecutarse:
 
@@ -523,7 +523,13 @@ Cada llamada a una skill que propone el LLM pasa por el motor de políticas **an
 
 El resultado es uno de: ejecutar, dejar en borrador, pedir aprobación, pedir un dato a un humano (`knowledge_request`) o rechazar con motivo.
 
-### 5.5 Contrato de una skill **[PROPUESTO]**
+### 5.5 Contrato de una skill **[PROPUESTO; código: `packages/agent-core` (`defineSkill`), ADR 0047]**
+
+El contrato vigente es el de `packages/agent-core/src/skill.ts`. Sobre el esquema de abajo, el ADR 0047 añade:
+- `SkillContext.target`: el destino lo resuelve el runtime;
+- `audience()`: obligatoria en `external_outreach`;
+- `requiresApproval()`: las reglas de negocio de la skill;
+- `defineSkill()` rechaza las entradas que declaran el tenant, el local, el contacto o un destinatario, y las que tienen claves abiertas.
 
 ```ts
 export interface SkillDefinition<I, O> {
@@ -1202,6 +1208,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
+| 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | propuesto |
 
 ---
 
