@@ -372,6 +372,10 @@ Convenciones:
 | `contact_identities` | `contact_id`, `organization_id`, `kind` (`phone`/`email`/`instagram`/`webchat`; el teléfono es uno solo para WhatsApp y voz), `external_id` normalizado (E.164, email en minúsculas), único por organización |
 | `conversations` | `organization_id`, `location_id?` (el de la cuenta si es de un local; en una cuenta compartida se resuelve una vez), `contact_id`, `channel_account_id`, `agent_id`, `mode` (`agent`/`human`/`closed`), `assigned_user_id?`, `last_message_at`. La ve quien tiene su local en el alcance; sin local, el `org_admin` |
 | `messages` | `conversation_id`, `organization_id`, `direction` (`in`/`out`), `author` (`contact`/`agent`/`user`/`system`), `author_user_id?`, `content`, `attachments`, `external_message_id`, `status`. Particionada por mes (`created_at`); las particiones viven en el esquema `partitions`, fuera de la API, con una por defecto y `private.ensure_monthly_partitions` |
+| `services` | `organization_id`, `location_id?` (null = en todos los locales), `name`, `duration_minutes`, `active`, `external_ref?` (paso 4b) |
+| `booking_resources` | `organization_id`, `location_id`, `name`, `kind` (`staff`/`room`/`equipment`), `active`, `external_ref?` |
+| `resource_services` | `resource_id`, `service_id`, `organization_id`: qué servicios hace cada recurso (solo los que se ofrecen en su local) |
+| `appointments` | `organization_id`, `location_id`, `service_id`, `resource_id`, `contact_id`, `starts_at`, `ends_at` (la pone la base de datos con la duración), `status` (`booked`/`cancelled`/`completed`/`no_show`; cancelar es definitivo), `idempotency_key` (única por organización: reintentar no duplica), `booked_by`, `external_ref?`, `synced_at?`. Sin solapes por recurso (restricción de exclusión). Los huecos, solo con `find_booking_slots` (horario y zona horaria del local) |
 | `inbound_events` | `channel`, `external_event_id` (clave de idempotencia), `raw` (jsonb), `received_at`, `processed_at`, `error?` |
 
 **Ejecución, aprobaciones y auditoría**
@@ -412,7 +416,7 @@ Convenciones:
 | `roles`, `role_permissions`, `invitations` | ADR 0022 | 0–1 | Permisos atómicos más alcance; altas solo por invitación. |
 | `networks`, `network_members` | ADR 0022 | 3 | Redes de franquicia: solo comparten plantillas, políticas bloqueadas y métricas agregadas. |
 | `model_providers`, `provider_connections`, `org_model_settings` | ADR 0019 | 1 | Proveedores, vías y regiones de modelos; residencia, respaldo y topes por organización. |
-| `appointments`, `deals`, `invoices_mirror` | ADR 0023 | 1–2 | Copias sincronizadas de los sistemas del cliente (`external_ref`, `synced_at`). Si no hay herramienta conectada, Moodly es la fuente. |
+| `appointments`, `deals`, `invoices_mirror` | ADR 0023 | 1–2 | Copias sincronizadas de los sistemas del cliente (`external_ref`, `synced_at`). Si no hay herramienta conectada, Moodly es la fuente. `appointments` ya existe (paso 4b, arriba): hoy es el calendario propio de Moodly. |
 | `workflows` | Diseño (`mapa-pantallas-datos.md`) | 2 | Flujos automáticos programados, con techo de gasto. |
 | `agent_versions`, `proposals`, `learning_signals` | `arquitectura-agentes-enterprise.md` §5 | 2 | Ciclo de mejora del agente: propuesta → eval → publicación gradual → vuelta atrás. |
 | `calls`, `voice_personas`, `voice_profiles`, `voice_samples` | Diseño (capa de voz) | Voz | Llamadas, transcripciones y voces; muestras de voz con consentimiento. |
@@ -723,7 +727,7 @@ Para que el contexto esté realmente cruzado, la plataforma mantiene un **mapa d
 
 - **MCP primero:** si existe un servidor MCP fiable y mantenido para una herramienta, se usa a través del cliente MCP de `packages/integrations`. Si no existe o no es fiable, se escribe un conector nativo con la misma interfaz.
 - **Servidores MCP gobernados [DECIDIDO EN DISEÑO, ADR 0036]:** solo servidores revisados en su versión exacta y con sus herramientas revisadas; URL pública por `https` que nunca resuelve a la red interna; cada herramienta fijada a su huella (si cambia, no se llama y vuelve a `draft`); nunca campos reservados del runtime; tiempo y tamaño máximos; y la respuesta, un dato no confiable con su procedencia. La única forma de llamar es `governMcpClient`, con las credenciales de una sola organización.
-- Todas las integraciones exponen una interfaz interna común por tipo (`calendar`, `crm`, `invoicing`, `booking`, `email`, `inventory`…), de modo que las skills no dependen del proveedor concreto.
+- Todas las integraciones exponen una interfaz interna común por tipo (`calendar`, `crm`, `invoicing`, `booking`, `email`, `inventory`…), de modo que las skills no dependen del proveedor concreto. La primera es `BookingProvider` (`packages/integrations/src/booking`, paso 4b): una instancia por organización, el contacto siempre del runtime, idempotente al reservar y al cancelar. Hoy la implementa el calendario propio de Moodly en el worker (`apps/worker/src/booking`), y hay uno falso con las mismas reglas para tests y evals.
 - La conexión se hace por OAuth siempre que el proveedor lo permita. Las API keys solo se usan cuando no hay alternativa.
 - Tokens cifrados (§10.4), refresco automático y comprobación de salud periódica. Si una integración se rompe, se genera una alerta al cliente y al panel interno, y las skills dependientes pasan a `suggest`.
 - Toda integración tiene un **modo sandbox** o fixtures para tests y evals.
