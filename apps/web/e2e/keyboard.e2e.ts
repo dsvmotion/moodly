@@ -13,11 +13,23 @@ async function tabTo(page: Page, target: Locator, max = 60) {
   throw new Error("El foco no llegó al elemento con Tab");
 }
 
-/** Dentro de un menú abierto, pulsa ↓ hasta que el foco llegue a la opción (falla si no llega). */
+/**
+ * Dentro de un menú abierto, pulsa ↓ hasta que el foco llegue a la opción (falla si no llega).
+ * Radix pone el foco en el menú y lo mueve con cada flecha en el siguiente ciclo: se espera a
+ * cada paso, como en el selector de alcance. Si no, en una máquina lenta dos pulsaciones llegan
+ * antes de que se mueva el foco, se pasa de largo la opción y el menú no da la vuelta.
+ */
 async function arrowTo(page: Page, target: Locator, max = 20) {
+  await page.waitForFunction(() => document.activeElement?.closest('[role="menu"]') != null);
   for (let i = 0; i < max; i++) {
     if (await target.evaluate((el) => el === document.activeElement)) return;
+    const before = await page.evaluateHandle(() => document.activeElement);
     await page.keyboard.press("ArrowDown");
+    // En la última opción el foco ya no se mueve: se deja de esperar y el bucle termina en error.
+    await page
+      .waitForFunction((previous) => document.activeElement !== previous, before, { timeout: 2_000 })
+      .catch(() => undefined);
+    await before.dispose();
   }
   throw new Error("El foco no llegó a la opción con ↓");
 }
