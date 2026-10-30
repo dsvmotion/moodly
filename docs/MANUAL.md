@@ -378,9 +378,9 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `agent_runs` | `organization_id`, `location_id?`, `agent_id`, `trigger` (`inbound_message`/`schedule`/`domain_event`/`staff_instruction`), `trigger_ref`, `config_snapshot_id`, `status` (`running`/`awaiting_approval`/`awaiting_knowledge`/`handed_off`/`completed`/`failed`), `model`, `tokens_in`, `tokens_out`, `cost_eur` |
+| `agent_runs` | `organization_id`, `location_id?`, `agent_id`, `trigger` (`inbound_message`/`schedule`/`domain_event`/`staff_instruction`), `trigger_ref`, `requested_by?` (quien dio la orden, solo en `staff_instruction`), `config_snapshot_id`, `status` (`running`/`awaiting_approval`/`awaiting_knowledge`/`handed_off`/`completed`/`failed`), `model`, `tokens_in`, `tokens_out`, `cost_eur` |
 | `executions` | `run_id`, `organization_id`, `location_id?`, `skill_key`, `skill_version`, `input`, `target` (destino resuelto por el runtime), `input_hash` (ADR 0047), `preview`, `output`, `effect_class`, `autonomy_applied`, `status` (`suggested`/`drafted`/`needs_approval`/`approved`/`rejected`/`executed`/`failed`), `rationale` (explicación legible), `idempotency_key`. La entrada, el destino y el hash no cambian nunca |
-| `approvals` | `execution_id`, `organization_id`, `location_id?`, `effect_class`, `input_hash` (el de su ejecución), `required_role`, `reason`, `status` (`pending`/`approved`/`rejected`/`expired`), `decided_by`, `decided_at`, `expires_at`. Solo la decide una persona con sesión, rol y alcance (`aal2` para lo financiero, lo destructivo o un `org_admin`); emite `approval.decided` (ADR 0047) |
+| `approvals` | `execution_id`, `organization_id`, `location_id?`, `effect_class`, `input_hash` (el de su ejecución), `required_role`, `reason`, `requested_by?`, `status` (`pending`/`approved`/`rejected`/`expired`), `decided_by`, `decided_at`, `expires_at`. Solo la decide una persona con sesión, rol y alcance (`aal2` para lo financiero, lo destructivo o un `org_admin`). Lo financiero y lo destructivo no lo aprueba quien lo pidió. Emite `approval.decided` y queda en `audit_logs` (ADR 0047) |
 | `domain_events` | Outbox (ADR 0009): `organization_id`, `location_id?`, `type` (p. ej. `appointment.created`), `payload` (ids, sin datos personales ni tenant), `source_run_id`, `chain_depth` (0–5), `published_at?` |
 | `event_subscriptions` | `agent_type`, `event_type`, `handler`: qué agente reacciona a qué evento |
 | `audit_logs` | Append-only: `organization_id`, `actor_type` (`agent`/`user`/`platform_staff`/`system`), `actor_id`, `action`, `target`, `metadata`, `at` |
@@ -1208,7 +1208,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
-| 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | propuesto |
+| 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 
 ---
 

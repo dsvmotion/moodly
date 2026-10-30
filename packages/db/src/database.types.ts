@@ -7,13 +7,13 @@ export type Database = {
           Tables: {
             "agent_runs": {
                   Row: {
-                    "agent_id": string,"config_snapshot_id": string | null,"cost_eur": number,"created_at": string,"id": string,"location_id": string | null,"model": string | null,"organization_id": string,"status": string,"tokens_in": number,"tokens_out": number,"trigger": string,"trigger_ref": string | null,"updated_at": string,"workflow_id": string | null
+                    "agent_id": string,"config_snapshot_id": string | null,"cost_eur": number,"created_at": string,"id": string,"location_id": string | null,"model": string | null,"organization_id": string,"requested_by": string | null,"status": string,"tokens_in": number,"tokens_out": number,"trigger": string,"trigger_ref": string | null,"updated_at": string,"workflow_id": string | null
                   }
                   Insert: {
-                    "agent_id": string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id": string,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger": string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
+                    "agent_id": string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id": string,"requested_by"?: string | null,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger": string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
                   }
                   Update: {
-                    "agent_id"?: string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id"?: string,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger"?: string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
+                    "agent_id"?: string,"config_snapshot_id"?: string | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"model"?: string | null,"organization_id"?: string,"requested_by"?: string | null,"status"?: string,"tokens_in"?: number,"tokens_out"?: number,"trigger"?: string,"trigger_ref"?: string | null,"updated_at"?: string,"workflow_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -39,6 +39,12 @@ isOneToOne: false
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agent_runs_requested_by_fkey"
+      columns: ["requested_by"]
+isOneToOne: false
+      referencedRelation: "users"
       referencedColumns: ["id"]
     }
                   ]
@@ -119,13 +125,13 @@ isOneToOne: false
                   ]
                 },"approvals": {
                   Row: {
-                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"required_role": string,"status": string
+                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"requested_by": string | null,"required_role": string,"status": string
                   }
                   Insert: {
-                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id"?: string,"input_hash": string,"location_id"?: string | null,"organization_id": string,"reason"?: string | null,"required_role": string,"status"?: string
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id"?: string,"input_hash": string,"location_id"?: string | null,"organization_id": string,"reason"?: string | null,"requested_by"?: string | null,"required_role": string,"status"?: string
                   }
                   Update: {
-                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class"?: string,"execution_id"?: string,"expires_at"?: string,"id"?: string,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"reason"?: string | null,"required_role"?: string,"status"?: string
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class"?: string,"execution_id"?: string,"expires_at"?: string,"id"?: string,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"reason"?: string | null,"requested_by"?: string | null,"required_role"?: string,"status"?: string
                   }
                   Relationships: [
                     {
@@ -151,6 +157,12 @@ isOneToOne: false
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "approvals_requested_by_fkey"
+      columns: ["requested_by"]
+isOneToOne: false
+      referencedRelation: "users"
       referencedColumns: ["id"]
     }
                   ]

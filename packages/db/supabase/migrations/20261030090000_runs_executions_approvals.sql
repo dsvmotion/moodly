@@ -15,7 +15,9 @@
 -- lo hace una persona con su sesión (rol authenticated), con el rol y el
 -- alcance que pide la aprobación y con aal2 para lo financiero, lo destructivo
 -- o si es org_admin. Ni la service role ni una función security definer pueden
--- aprobar.
+-- aprobar. Lo financiero y lo destructivo que pidió una persona (un run
+-- staff_instruction) lo aprueba otra: separación de funciones. Cada decisión
+-- queda también en audit_logs.
 --
 -- Vuelta atrás: drop de las tres tablas (approvals, executions, agent_runs, en
 -- ese orden) y de las funciones private.member_role_rank,
@@ -53,6 +55,9 @@ create table public.agent_runs (
   agent_id uuid not null references public.agents (id) on delete cascade,
   trigger text not null check (trigger in ('inbound_message', 'schedule', 'domain_event', 'staff_instruction')),
   trigger_ref text check (trigger_ref is null or length(trigger_ref) between 1 and 200),
+  -- La persona que dio la orden (solo en staff_instruction): no aprueba lo
+  -- financiero ni lo destructivo que salga de ella (separación de funciones).
+  requested_by uuid references public.users (id) on delete set null,
   config_snapshot_id uuid references public.config_snapshots (id) on delete set null,
   -- El workflow de DBOS que lo ejecuta (ADR 0027).
   workflow_id text check (workflow_id is null or length(workflow_id) between 1 and 200),
@@ -63,12 +68,14 @@ create table public.agent_runs (
   tokens_out bigint not null default 0 check (tokens_out >= 0),
   cost_eur numeric(12, 6) not null default 0 check (cost_eur >= 0),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint agent_runs_requested_by_only_staff check (requested_by is null or trigger = 'staff_instruction')
 );
 create index agent_runs_organization_id_idx on public.agent_runs (organization_id, created_at desc);
 create index agent_runs_location_id_idx on public.agent_runs (location_id);
 create index agent_runs_agent_id_idx on public.agent_runs (agent_id);
 create index agent_runs_config_snapshot_id_idx on public.agent_runs (config_snapshot_id);
+create index agent_runs_requested_by_idx on public.agent_runs (requested_by);
 
 create table public.executions (
   id uuid primary key default gen_random_uuid(),
@@ -111,6 +118,8 @@ create table public.approvals (
   input_hash text not null check (input_hash ~ '^[0-9a-f]{64}$'),
   required_role text not null check (required_role in ('org_admin', 'region_manager', 'location_manager', 'staff')),
   reason text check (reason is null or length(reason) between 1 and 500),
+  -- Copiado del run (validate_approval): quien pidió lo financiero o destructivo no lo aprueba.
+  requested_by uuid references public.users (id) on delete set null,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'expired')),
   decided_by uuid references public.users (id) on delete set null,
   decided_at timestamptz,
@@ -124,6 +133,7 @@ create table public.approvals (
 create index approvals_pending_idx on public.approvals (organization_id, status, expires_at);
 create index approvals_location_id_idx on public.approvals (location_id);
 create index approvals_decided_by_idx on public.approvals (decided_by);
+create index approvals_requested_by_idx on public.approvals (requested_by);
 
 -- ---------------------------------------------------------------------------
 -- 3. Coherencia entre tablas (para todos los roles)
@@ -149,8 +159,13 @@ begin
   ) then
     raise exception 'el snapshot del run no es de su organización' using errcode = '23514';
   end if;
-  if tg_op = 'UPDATE' and (new.organization_id, new.location_id, new.agent_id, new.trigger, new.trigger_ref, new.created_at)
-     is distinct from (old.organization_id, old.location_id, old.agent_id, old.trigger, old.trigger_ref, old.created_at) then
+  if new.requested_by is not null and not exists (
+    select 1 from public.memberships m where m.user_id = new.requested_by and m.organization_id = new.organization_id
+  ) then
+    raise exception 'quien pide el run no es de su organización' using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE' and (new.organization_id, new.location_id, new.agent_id, new.trigger, new.trigger_ref, new.requested_by, new.created_at)
+     is distinct from (old.organization_id, old.location_id, old.agent_id, old.trigger, old.trigger_ref, old.requested_by, old.created_at) then
     raise exception 'la organización, el local, el agente y el origen de un run no cambian' using errcode = '42501';
   end if;
   return new;
@@ -232,6 +247,11 @@ begin
   ) then
     raise exception 'la aprobación no coincide con su ejecución (organización, local, clase o hash)' using errcode = '23514';
   end if;
+  if new.requested_by is distinct from (
+    select r.requested_by from public.executions e join public.agent_runs r on r.id = e.run_id where e.id = new.execution_id
+  ) then
+    raise exception 'la aprobación no lleva a quien pidió el run' using errcode = '23514';
+  end if;
   if new.status <> 'pending' or new.decided_by is not null or new.decided_at is not null then
     raise exception 'una aprobación nace pendiente y sin decidir' using errcode = '23514';
   end if;
@@ -259,10 +279,10 @@ set search_path = ''
 as $$
 begin
   if (new.execution_id, new.organization_id, new.location_id, new.effect_class, new.input_hash,
-      new.required_role, new.reason, new.expires_at, new.created_at)
+      new.required_role, new.reason, new.requested_by, new.expires_at, new.created_at)
      is distinct from
      (old.execution_id, old.organization_id, old.location_id, old.effect_class, old.input_hash,
-      old.required_role, old.reason, old.expires_at, old.created_at) then
+      old.required_role, old.reason, old.requested_by, old.expires_at, old.created_at) then
     raise exception 'lo que se aprueba no cambia' using errcode = '42501';
   end if;
   if new.status is not distinct from old.status then
@@ -300,10 +320,12 @@ create trigger guard_approval before update on public.approvals
 -- ---------------------------------------------------------------------------
 -- 4. La decisión despierta al run (ADR 0009, MANUAL §5.7)
 -- ---------------------------------------------------------------------------
--- Security definer: la persona que decide no puede escribir en domain_events.
--- Escribe solo esa fila, con la organización y el local de la aprobación que
--- acaba de pasar RLS y su guarda, y sin datos personales. No la puede llamar
--- nadie: es un trigger y no tiene EXECUTE para ningún rol de la app.
+-- Security definer: la persona que decide no puede escribir en domain_events
+-- ni en audit_logs. Escribe solo dos filas: el evento, con la organización y el
+-- local de la aprobación que acaba de pasar RLS y su guarda y sin datos
+-- personales; y la entrada de auditoría (append-only), con quien decidió. No
+-- la puede llamar nadie: es un trigger y no tiene EXECUTE para ningún rol de
+-- la app.
 create function private.emit_approval_decided()
 returns trigger
 language plpgsql
@@ -317,6 +339,12 @@ begin
                             'run_id', e.run_id, 'decision', new.status)
   from public.executions e
   where e.id = new.execution_id;
+
+  insert into public.audit_logs (organization_id, actor_type, actor_id, action, target, metadata)
+  values (new.organization_id, 'user', new.decided_by, 'approval.' || new.status,
+          jsonb_build_object('approval_id', new.id, 'execution_id', new.execution_id),
+          jsonb_build_object('effect_class', new.effect_class, 'required_role', new.required_role,
+                             'input_hash', new.input_hash));
   return null;
 end;
 $$;
@@ -403,7 +431,8 @@ create policy approvals_select_platform_staff on public.approvals
 
 -- Decidir: una aprobación pendiente y sin caducar, con el rol y el alcance que
 -- pide, y con aal2 si es financiera o destructiva o si decide un org_admin
--- (como en todo lo que administra, 13_admin_mfa). El equipo interno no decide.
+-- (como en todo lo que administra, 13_admin_mfa). Lo financiero y lo
+-- destructivo no lo aprueba quien lo pidió. El equipo interno no decide.
 create policy approvals_decide on public.approvals
   for update to authenticated
   using ((select private.session_is_active())
@@ -412,14 +441,16 @@ create policy approvals_decide on public.approvals
          and private.can_decide_approval(organization_id, location_id, required_role)
          and ((select private.session_is_aal2())
               or (effect_class not in ('financial', 'destructive')
-                  and not private.has_org_role(organization_id, array['org_admin']))))
+                  and not private.has_org_role(organization_id, array['org_admin'])))
+         and (effect_class not in ('financial', 'destructive') or requested_by is distinct from (select auth.uid())))
   with check ((select private.session_is_active())
               and status in ('approved', 'rejected')
               and expires_at > now()
               and private.can_decide_approval(organization_id, location_id, required_role)
               and ((select private.session_is_aal2())
                    or (effect_class not in ('financial', 'destructive')
-                       and not private.has_org_role(organization_id, array['org_admin']))));
+                       and not private.has_org_role(organization_id, array['org_admin'])))
+              and (effect_class not in ('financial', 'destructive') or requested_by is distinct from (select auth.uid())));
 
 -- ---------------------------------------------------------------------------
 -- 7. Privilegios: la app lee y solo puede cambiar el estado de una aprobación

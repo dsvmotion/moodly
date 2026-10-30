@@ -1,6 +1,6 @@
 # 0047 — Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime
 
-- **Estado:** propuesto (2026-10-30)
+- **Estado:** aceptado por producto el 2026-10-30, con la condición de que sea lo más seguro para clientes enterprise. Por eso se añadieron la separación de funciones y la auditoría de cada decisión (§3).
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4 (`agent_runs`, `executions`, `approvals`), §5.4, §5.5, §5.6, §5.7, §12.4
 - **Relación:** controles 3.3, 3.4 y 3.8 de `docs/audits/2026-10-20-revision-seguridad-plataforma.md`; ADR 0009 (outbox), ADR 0027 (DBOS), ADR 0030 (skills y techos de autonomía); paso 2 del orden de trabajo de producto del 2026-10-24
@@ -69,6 +69,8 @@ Lo que ya hay:
   - `status`, de `pending` a `approved` o `rejected`, antes de `expires_at`;
   - `decided_by`, que tiene que ser `auth.uid()`;
   - `decided_at`.
+- **Separación de funciones:** lo financiero y lo destructivo que pidió una persona (un run `staff_instruction`, con `requested_by`) no lo puede aprobar esa misma persona, aunque tenga el rol, el alcance y `aal2`. La aprobación copia `requested_by` del run al crearla, y no cambia.
+- **Auditoría:** cada decisión queda en `audit_logs` (append-only) con quien decidió, la acción (`approval.approved` o `approval.rejected`) y el hash de lo aprobado.
 - **La decisión emite `approval.decided` en el outbox,** en la misma transacción. Lo escribe un trigger `SECURITY DEFINER` que solo inserta esa fila, como `invitation.created`. El worker despierta al workflow del run (MANUAL §5.7).
 
 ### 4. Evals de ataque deterministas desde ya; con modelo real cuando exista el enrutador
@@ -115,6 +117,15 @@ Lo que ya hay:
 - **Lo aprobado puede encontrarse otro estado al ejecutar.** Por ejemplo, el hueco de la cita ya está ocupado. El hash garantiza que se ejecuta exactamente lo aprobado, no que siga siendo posible: cada `execute` vuelve a comprobar sus condiciones y, si ya no se cumplen, falla con motivo en vez de improvisar.
 - Hay un nuevo trigger `SECURITY DEFINER` que escribe en `domain_events`. Se explica en su PR y lleva tests en negativo (AGENTS.md, «Base de datos: guardas»).
 - `contacts`, `conversations` y los consentimientos no existen aún: el runtime define sus interfaces y los tests usan dobles. Se conectan con B19.
+- **Lo que este ADR no cubre todavía, y cuándo llega:**
+  - que cada ID que proponga el LLM sea del tenant, del local y del contacto (control 3.1): con la primera skill;
+  - el filtro de salida antes de responder al cliente (3.5): con Recepción (B19);
+  - el «actúa con los permisos de quien lo pide» de la consola y el asistente (3.6): con ellos (ADR 0029);
+  - las evals con un modelo real: con el enrutador (paso 3).
+
+  Para clientes enterprise que lo pidan quedan como opción futura, por organización:
+  - una doble aprobación (dos personas distintas) para importes altos;
+  - umbrales de importe por rol.
 
 ## Verificación
 
@@ -129,7 +140,7 @@ Se completa con cada PR del orden de implementación:
 
   13 mutaciones, cada una quita un control: sin la comprobación de campos reservados, sin el techo, sin el filtro de consentimiento, el hash sin el destino… Todas hacen fallar algún test, salvo una que no modela un fallo real: la entrada de esa skill no tiene ningún campo de contacto del que leer;
 - **2b (hecho):**
-  - **pgTAP `22_runs_approvals`, 57 tests:**
+  - **pgTAP `22_runs_approvals`, 66 tests:**
     - coherencia al crear: otra organización, otro local, otro hash, otra clase, nacer aprobada o caducada, aprobaciones de toda la organización;
     - inmutabilidad también para la service role: entrada, destino, hash, skill, caducidad y rol;
     - la plataforma (service role y dueño de las tablas) no aprueba;
@@ -139,8 +150,10 @@ Se completa con cada PR del orden de implementación:
     - solo cambia el estado (no `decided_by` ni otras columnas);
     - una decisión no se repite ni se deshace;
     - caducidad;
-    - el evento, sin datos personales.
+    - el evento, sin datos personales;
+    - separación de funciones;
+    - la auditoría de cada decisión.
 
-    12 mutaciones de la migración, una por control: todas hacen fallar algún test. Las dos de alcance sobrevivían al principio porque la RLS de lectura ya oculta los otros locales; se añadieron tests directos de `can_decide_approval`.
+    15 mutaciones de la migración, una por control: todas hacen fallar algún test. Las dos de alcance sobrevivían al principio porque la RLS de lectura ya oculta los otros locales; se añadieron tests directos de `can_decide_approval`.
   - **`verifyApproval`, 17 tests unitarios,** y 4 mutaciones, todas detectadas;
 - **2c:** el set de ataque en verde en el CI, y en rojo si se quita cualquiera de las comprobaciones.

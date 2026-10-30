@@ -4,7 +4,7 @@
 -- org_admin); y la decisión deja un approval.decided en el outbox.
 begin;
 \ir _fixtures/tenants.psql
-select plan(57);
+select plan(66);
 
 -- ===========================================================================
 -- Datos: un run en A1 con varias ejecuciones y sus aprobaciones (como la plataforma)
@@ -16,12 +16,16 @@ select id as agent_b from public.agents where organization_id = :org_b order by 
 \set hash_3 '''3333333333333333333333333333333333333333333333333333333333333333'''
 \set hash_4 '''4444444444444444444444444444444444444444444444444444444444444444'''
 \set hash_5 '''5555555555555555555555555555555555555555555555555555555555555555'''
+\set hash_6 '''6666666666666666666666666666666666666666666666666666666666666666'''
 
 insert into public.agent_runs (id, organization_id, location_id, agent_id, trigger)
 values ('d0000000-0000-4000-8000-000000000001', :org_a, :loc_a1, :'agent_a', 'inbound_message'),
        ('d0000000-0000-4000-8000-000000000002', :org_a, null, :'agent_a', 'schedule'),
        ('d0000000-0000-4000-8000-000000000003', :org_a, :loc_a3, :'agent_a', 'inbound_message'),
        ('d0000000-0000-4000-8000-000000000004', :org_b, :loc_b1, :'agent_b', 'inbound_message');
+-- Un run que pidió una persona: el location_manager de A1.
+insert into public.agent_runs (id, organization_id, location_id, agent_id, trigger, requested_by)
+values ('d0000000-0000-4000-8000-000000000005', :org_a, :loc_a1, :'agent_a', 'staff_instruction', :a_loc1_mgr);
 
 insert into public.executions (id, run_id, organization_id, location_id, skill_key, skill_version, effect_class,
                                autonomy_applied, input, target, input_hash, status, idempotency_key)
@@ -40,7 +44,10 @@ values
    'internal_write', 'draft', '{"title":"y"}', '{"kind":"none"}', :hash_4, 'drafted', 'k4'),
   -- 5: de la organización B
   ('d1000000-0000-4000-8000-000000000005', 'd0000000-0000-4000-8000-000000000004', :org_b, :loc_b1, 'create_task', 1,
-   'internal_write', 'draft', '{"title":"z"}', '{"kind":"none"}', :hash_5, 'drafted', 'k5');
+   'internal_write', 'draft', '{"title":"z"}', '{"kind":"none"}', :hash_5, 'drafted', 'k5'),
+  -- 6: un reembolso en A1 que pidió el location_manager de A1
+  ('d1000000-0000-4000-8000-000000000006', 'd0000000-0000-4000-8000-000000000005', :org_a, :loc_a1, 'refund', 1,
+   'financial', 'draft', '{"amount":50}', '{"kind":"none"}', :hash_6, 'drafted', 'k6');
 
 insert into public.approvals (id, execution_id, organization_id, location_id, effect_class, input_hash, required_role, expires_at)
 values
@@ -49,6 +56,8 @@ values
   ('d2000000-0000-4000-8000-000000000003', 'd1000000-0000-4000-8000-000000000003', :org_a, null, 'internal_write', :hash_3, 'org_admin', now() + interval '1 day'),
   ('d2000000-0000-4000-8000-000000000004', 'd1000000-0000-4000-8000-000000000004', :org_a, :loc_a3, 'internal_write', :hash_4, 'staff', now() + interval '1 day'),
   ('d2000000-0000-4000-8000-000000000005', 'd1000000-0000-4000-8000-000000000005', :org_b, :loc_b1, 'internal_write', :hash_5, 'staff', now() + interval '1 day');
+insert into public.approvals (id, execution_id, organization_id, location_id, effect_class, input_hash, required_role, requested_by, expires_at)
+values ('d2000000-0000-4000-8000-000000000006', 'd1000000-0000-4000-8000-000000000006', :org_a, :loc_a1, 'financial', :hash_6, 'location_manager', :a_loc1_mgr, now() + interval '1 day');
 
 -- ===========================================================================
 -- 1. Coherencia al crear (para todos los roles)
@@ -56,6 +65,17 @@ values
 select throws_ok(
   format($$insert into public.agent_runs (organization_id, agent_id, trigger) values (%L, %L, 'schedule')$$, :org_a, :'agent_b'),
   '23514', null, 'un run con el agente de otra organización no nace');
+select throws_ok(
+  format($$insert into public.agent_runs (organization_id, agent_id, trigger, requested_by) values (%L, %L, 'schedule', %L)$$, :org_a, :'agent_a', :a_admin),
+  '23514', null, 'solo un run staff_instruction lleva quien lo pidió');
+select throws_ok(
+  format($$insert into public.agent_runs (organization_id, agent_id, trigger, requested_by) values (%L, %L, 'staff_instruction', %L)$$, :org_a, :'agent_a', :b_admin),
+  '23514', null, 'quien pide un run es de su organización');
+select throws_ok(
+  format($$insert into public.approvals (execution_id, organization_id, location_id, effect_class, input_hash, required_role, expires_at)
+           values ('d1000000-0000-4000-8000-000000000006', %L, %L, 'financial', %L, 'location_manager', now() + interval '1 hour')$$,
+         :org_a, :loc_a1, :hash_6),
+  '23514', null, 'la aprobación lleva a quien pidió el run (no se puede omitir)');
 select throws_ok(
   format($$insert into public.executions (run_id, organization_id, location_id, skill_key, skill_version, effect_class, autonomy_applied, input, target, input_hash, status, idempotency_key)
            values ('d0000000-0000-4000-8000-000000000001', %L, %L, 'x_skill', 1, 'read', 'execute', '{}', '{"kind":"none"}', %L, 'executed', 'k-local')$$,
@@ -113,6 +133,10 @@ select throws_ok($$update public.approvals set expires_at = now() + interval '1 
   '42501', null, 'la caducidad de una aprobación no cambia');
 select throws_ok($$update public.approvals set required_role = 'staff' where id = 'd2000000-0000-4000-8000-000000000001'$$,
   '42501', null, 'el rol que pide una aprobación no cambia');
+select throws_ok($$update public.approvals set requested_by = null where id = 'd2000000-0000-4000-8000-000000000006'$$,
+  '42501', null, 'quien pidió una aprobación no cambia');
+select throws_ok($$update public.agent_runs set requested_by = null where id = 'd0000000-0000-4000-8000-000000000005'$$,
+  '42501', null, 'ni quien pidió el run');
 
 -- La plataforma no aprueba: ni la service role ni el dueño de las tablas.
 set local role service_role;
@@ -128,13 +152,13 @@ select throws_ok($$update public.approvals set status = 'rejected' where id = 'd
 reset role;
 select pg_temp.login(:a_staff1) as s \gset
 select is((select array_agg(id::text order by id) from public.approvals),
-  array['d2000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000002'],
+  array['d2000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000002', 'd2000000-0000-4000-8000-000000000006'],
   'el staff de A1 ve las aprobaciones de A1, no las de A3, la de toda la organización ni las de B');
-select is((select count(*)::int from public.executions), 2, 'y solo las ejecuciones de A1');
-select is((select count(*)::int from public.agent_runs), 1, 'y solo el run de A1');
+select is((select count(*)::int from public.executions), 3, 'y solo las ejecuciones de A1');
+select is((select count(*)::int from public.agent_runs), 2, 'y solo los runs de A1');
 reset role;
 select pg_temp.login(:a_admin) as s \gset
-select is((select count(*)::int from public.approvals), 4, 'el org_admin de A ve las 4 de su organización');
+select is((select count(*)::int from public.approvals), 5, 'el org_admin de A ve las 5 de su organización');
 reset role;
 select pg_temp.login(:b_admin) as s \gset
 select is((select array_agg(id::text) from public.approvals), array['d2000000-0000-4000-8000-000000000005'],
@@ -196,7 +220,7 @@ with u as (update public.approvals set status = 'approved' where id = 'd2000000-
 select is(count(*)::int, 0, 'el org_admin de otra organización no decide, ni con aal2') from u;
 
 select pg_temp.staff_login(:p_admin) as s \gset
-select is((select count(*)::int from public.approvals where organization_id = :org_a), 4, 'el equipo interno con permiso las ve');
+select is((select count(*)::int from public.approvals where organization_id = :org_a), 5, 'el equipo interno con permiso las ve');
 with u as (update public.approvals set status = 'approved' where id = 'd2000000-0000-4000-8000-000000000001' returning 1)
 select is(count(*)::int, 0, 'pero no decide') from u;
 
@@ -233,6 +257,16 @@ reset role;
 select pg_temp.login_mfa(:a_admin) as s \gset
 with u as (update public.approvals set status = 'approved' where id = 'd2000000-0000-4000-8000-000000000003' returning 1)
 select is(count(*)::int, 1, 'el org_admin con aal2 decide lo de toda la organización') from u;
+
+-- Separación de funciones: el reembolso lo pidió el location_manager de A1.
+reset role;
+select pg_temp.login_mfa(:a_loc1_mgr) as s \gset
+with u as (update public.approvals set status = 'approved' where id = 'd2000000-0000-4000-8000-000000000006' returning 1)
+select is(count(*)::int, 0, 'quien pidió lo financiero no lo aprueba, ni con rol, alcance y aal2') from u;
+reset role;
+select pg_temp.login_mfa(:a_admin) as s \gset
+with u as (update public.approvals set status = 'approved' where id = 'd2000000-0000-4000-8000-000000000006' returning 1)
+select is(count(*)::int, 1, 'lo aprueba otra persona con rol, alcance y aal2') from u;
 
 reset role;
 select throws_ok($$update public.approvals set status = 'pending', decided_at = null, decided_by = null where id = 'd2000000-0000-4000-8000-000000000001'$$,
@@ -276,12 +310,26 @@ select is(
   (select payload ->> 'decision' from public.domain_events where type = 'approval.decided' and payload ->> 'approval_id' = 'd2000000-0000-4000-8000-000000000002'),
   'rejected', 'rechazar también lo emite');
 select is(
-  (select count(*)::int from public.domain_events where type = 'approval.decided'), 3,
-  'una vez por decisión (dos aprobadas y una rechazada); caducar no emite');
+  (select count(*)::int from public.domain_events where type = 'approval.decided'), 4,
+  'una vez por decisión (tres aprobadas y una rechazada); caducar no emite');
 select is(
   (select array_agg(distinct k order by k) from public.domain_events, jsonb_object_keys(payload) k where type = 'approval.decided'),
   array['approval_id', 'decision', 'execution_id', 'run_id'],
   'el payload solo lleva identificadores y la decisión');
+
+-- ===========================================================================
+-- 7. Cada decisión queda en la auditoría (append-only), con quién decidió
+-- ===========================================================================
+select results_eq(
+  $$select action, actor_type, actor_id from public.audit_logs
+    where action like 'approval.%' order by target ->> 'approval_id'$$,
+  format($$values ('approval.approved', 'user', %L::uuid), ('approval.rejected', 'user', %L::uuid),
+                  ('approval.approved', 'user', %L::uuid), ('approval.approved', 'user', %L::uuid)$$,
+         :a_loc1_mgr, :a_loc1_mgr, :a_admin, :a_admin),
+  'aprobar y rechazar quedan en audit_logs con la persona que decidió; caducar no');
+select is(
+  (select metadata ->> 'input_hash' from public.audit_logs where target ->> 'approval_id' = 'd2000000-0000-4000-8000-000000000001'),
+  repeat('1', 64), 'la auditoría guarda el hash de lo que se aprobó');
 
 select * from finish();
 rollback;
