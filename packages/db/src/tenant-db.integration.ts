@@ -43,8 +43,13 @@ async function regionName(id: string): Promise<string | null> {
 }
 
 const createdSources: string[] = [];
+const createdContacts: string[] = [];
+const createdAccounts: string[] = [];
 
 afterAll(async () => {
+  // Las conversaciones y los mensajes caen con su contacto (on delete cascade).
+  await admin.from("contacts").delete().in("id", createdContacts);
+  await admin.from("channel_accounts").delete().in("id", createdAccounts);
   await admin.from("regions").delete().in("id", created);
   await admin.from("regions").delete().like("name", `${marker}%`);
   // Los fragmentos caen con su fuente (on delete cascade).
@@ -126,5 +131,45 @@ describe("tenantDb.searchKnowledge contra search_knowledge (ADR 0037)", () => {
     });
     expect(rows.map((row) => row.chunk_id)).toEqual([mine]);
     expect(rows[0]).toMatchObject({ source_type: "faq", source_title: `${marker}-faq` });
+  });
+});
+
+describe("tenantDb con conversaciones y mensajes (paso 4a)", () => {
+  it("el worker escribe un mensaje en la tabla particionada y solo lo ve su organización", async () => {
+    const agent = await tenantA.from("agents").select("id, agent_type_id").limit(1).single();
+    expect(agent.error).toBeNull();
+    // El tipo de agente sale de los datos, nunca escrito en el código (ADR 0030 §1).
+    const type = await admin.from("agent_types").select("key").eq("id", agent.data?.agent_type_id ?? "").single();
+    expect(type.error).toBeNull();
+    const account = await tenantA
+      .from("channel_accounts")
+      .insert({ channel: "webchat", external_id: `${marker}-web`, default_agent_type: type.data?.key ?? "", status: "active" })
+      .select("id")
+      .single();
+    expect(account.error).toBeNull();
+    if (account.data) createdAccounts.push(account.data.id);
+    const contact = await tenantA.from("contacts").insert({ display_name: `${marker}-ana` }).select("id").single();
+    expect(contact.error).toBeNull();
+    if (contact.data) createdContacts.push(contact.data.id);
+
+    const conversation = await tenantA
+      .from("conversations")
+      .insert({ contact_id: contact.data?.id ?? "", channel_account_id: account.data?.id ?? "", agent_id: agent.data?.id ?? "" })
+      .select("id")
+      .single();
+    expect(conversation.error).toBeNull();
+    const message = await tenantA
+      .from("messages")
+      .insert({ conversation_id: conversation.data?.id ?? "", direction: "in", author: "contact", content: "Hola" })
+      .select("id, organization_id")
+      .single();
+    expect(message.error).toBeNull();
+    expect(message.data?.organization_id).toBe(ORG_A);
+
+    const fromB = await service.forOrganization(ORG_B).from("messages").select("id").eq("id", message.data?.id ?? "");
+    expect(fromB.error).toBeNull();
+    expect(fromB.data).toEqual([]);
+    const touched = await tenantA.from("conversations").select("last_message_at").eq("id", conversation.data?.id ?? "").single();
+    expect(touched.data?.last_message_at).not.toBeNull();
   });
 });
