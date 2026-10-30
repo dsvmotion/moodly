@@ -400,7 +400,7 @@ Convenciones:
 | Tabla | Campos clave |
 |---|---|
 | `integrations` | `organization_id`, `location_id?`, `provider`, `kind` (`mcp`/`native`), `status`, `scopes[]`, `connected_by`, `last_health_check` |
-| `integration_secrets` | Tokens cifrados (§10.4). Nunca se leen desde la app del cliente. |
+| `integration_secrets` | Tokens y claves cifrados con cifrado de sobre (§10.4, ADR 0034): `kind`, `name`, `key_ref`, `encrypted_data_key`, `ciphertext`. Nunca se leen desde la app del cliente ni por el equipo interno. |
 | `usage_records` | `organization_id`, `location_id?`, `metric` (`llm_tokens`/`messages`/`voice_minutes`/`executions`), `quantity`, `period`, `run_id?` |
 | `usage_limits` | `organization_id`, `metric`, `soft_limit`, `hard_limit`, `period` |
 
@@ -1210,6 +1210,8 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
 | 0033 | Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía | propuesto |
+| 0034 | BYOK y secretos: `SecretVault` con cifrado de sobre y AWS KMS | propuesto |
+| 0035 | Residencia del procesamiento de modelos por organización | propuesto |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 

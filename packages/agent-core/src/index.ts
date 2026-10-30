@@ -43,3 +43,5 @@ export type {
 } from "./models/router.js";
 export { createFakeTransport } from "./models/transports/fake.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
+export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
+export type { ModelSettingsRow } from "./models/settings.js";
