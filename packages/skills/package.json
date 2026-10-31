@@ -14,5 +14,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@repo/agent-core": "workspace:*",
+    "@repo/integrations": "workspace:*",
+    "zod": "4.6.7"
   }
 }

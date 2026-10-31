@@ -18,6 +18,8 @@ export interface SkillContext {
   organizationId: string;
   locationId: string | null;
   runId: string;
+  /** El contacto de la conversación del run (RunScope.conversation), o null. Lo pone el runtime: es para quien se reserva o se cancela. */
+  contactId: string | null;
   target: Target;
   /** Para que execute sea idempotente (§5.5): el mismo para la misma ejecución. */
   idempotencyKey: string;

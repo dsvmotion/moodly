@@ -531,6 +531,7 @@ El resultado es uno de: ejecutar, dejar en borrador, pedir aprobación, pedir un
 
 El contrato vigente es el de `packages/agent-core/src/skill.ts`. Sobre el esquema de abajo, el ADR 0047 añade:
 - `SkillContext.target`: el destino lo resuelve el runtime;
+- `SkillContext.contactId`: el contacto de la conversación del run, también del runtime (paso 4c): para quién se reserva o se cancela;
 - `audience()`: obligatoria en `external_outreach`;
 - `requiresApproval()`: las reglas de negocio de la skill;
 - `defineSkill()` rechaza las entradas que declaran el tenant, el local, el contacto o un destinatario, y las que tienen claves abiertas.
@@ -557,7 +558,7 @@ export interface SkillDefinition<I, O> {
 
 Reglas:
 
-- Cada skill vive en `packages/skills/<key>/` con su definición, sus tests y un fixture de sandbox.
+- Las skills viven en `packages/skills` por familias, cada una con su definición, sus tests y un proveedor falso de sandbox. La primera es Recepción (`src/reception`, paso 4c): `find_slots` y `list_my_appointments` (lectura, autónomas) y `book_appointment`, `reschedule_appointment` y `cancel_appointment` (`internal_write`, nacen en `draft`), sobre `BookingProvider`.
 - `SkillContext` trae el tenant, el local, el contacto, el cliente de integración ya autenticado y el logger. La skill nunca obtiene credenciales por su cuenta.
 - Un `execute` sin `preview` no se acepta en code review.
 - Este contrato es el de las skills `code`. Las skills `composed` (creadas por el cliente) y `mcp` (herramientas de integraciones conectadas) se exponen con la misma forma: entrada y salida tipadas, clase de efecto y paso por el motor de políticas. Una `composed` hereda la clase más alta de sus piezas; una `mcp` sin clasificar entra como `external_message` en `draft` (ADR 0030), fijada a la huella de la herramienta revisada, y vuelve a ese estado si la herramienta cambia (ADR 0036).
