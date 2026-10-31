@@ -21,8 +21,10 @@
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.3.0",
+    "@repo/agent-core": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/integrations": "workspace:*",
+    "@repo/skills": "workspace:*",
     "pg": "8.23.1",
     "pino": "10.4.0",
     "zod": "4.6.7"

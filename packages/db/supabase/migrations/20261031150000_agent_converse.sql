@@ -21,15 +21,26 @@
 --    salen de la conversación (de las filas, nunca del contenido) y el payload
 --    solo lleva ids. El worker lo consume (agent.converse) y ejecuta el turno.
 --
+-- 6. agent_turn_context: lo que el worker necesita para el turno de un agente
+--    (el agente, su tipo, sus skills con su autonomía y el nombre de la
+--    organización), de una sola organización. Solo la ejecuta service_role, y
+--    tenantDb.agentTurnContext le pasa la organización de su acceso: nunca la
+--    elige quien llama (como find_booking_slots). Solo lee.
+--
 -- Funciones security definer:
 -- - emit_message_received escribe en domain_events, como emit_invitation_created:
 --   un evento por mensaje de cliente, con el tenant de la conversación. Es un
 --   trigger y nadie la puede llamar directamente.
--- - attach_default_skills y attach_default_skills_to no lo son: corren como
---   quien crea el agente, que solo puede ser la plataforma (authenticated no
---   tiene INSERT en agents).
+-- - attach_default_skills (el trigger) y attach_default_skills_to escriben en
+--   agent_skills: solo las skills publicadas de la plataforma que trae de serie
+--   el tipo del agente, con la organización del propio agente y su autonomía
+--   por defecto. Corren como su dueño porque la tabla de serie es privada y
+--   quien crea un agente es la plataforma (service_role, sin acceso a ella).
+--   validate_agent_skill sigue actuando (es un trigger), y nadie puede
+--   llamarlas directamente: tests en negativo en 28_agent_converse.
 --
 -- Vuelta atrás:
+--   drop function public.agent_turn_context(uuid, uuid);
 --   alter table public.messages drop column idempotency_key;
 --   drop trigger emit_message_received on public.messages;
 --   drop function private.emit_message_received();
@@ -94,6 +105,7 @@ insert into private.default_agent_skills (agent_type_key, skill_key) values
 create function private.attach_default_skills_to(p_agent_id uuid)
 returns int
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
@@ -118,6 +130,7 @@ revoke all on function private.attach_default_skills_to(uuid) from public, anon,
 create function private.attach_default_skills()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -172,3 +185,44 @@ revoke all on function private.emit_message_received() from public, anon, authen
 create trigger emit_message_received
   after insert on public.messages
   for each row execute function private.emit_message_received();
+
+-- ---------------------------------------------------------------------------
+-- 6. agent_turn_context.
+-- ---------------------------------------------------------------------------
+create function public.agent_turn_context(p_organization_id uuid, p_agent_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'agent', jsonb_build_object(
+      'id', a.id,
+      'status', a.status,
+      'display_name', a.display_name,
+      'type_key', t.key,
+      'type_name', t.name
+    ),
+    'organization', jsonb_build_object('name', o.name, 'default_locale', o.default_locale),
+    'skills', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'key', s.key,
+        'version', s.version,
+        'kind', s.kind,
+        'effect_class', s.effect_class,
+        'enabled', g.enabled,
+        'autonomy_level', g.autonomy_level
+      ) order by s.key)
+      from public.agent_skills g
+      join public.skills s on s.id = g.skill_id
+      where g.agent_id = a.id and g.organization_id = p_organization_id
+    ), '[]'::jsonb)
+  )
+  from public.agents a
+  join public.agent_types t on t.id = a.agent_type_id
+  join public.organizations o on o.id = a.organization_id
+  where a.id = p_agent_id and a.organization_id = p_organization_id;
+$$;
+
+revoke all on function public.agent_turn_context(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.agent_turn_context(uuid, uuid) to service_role;

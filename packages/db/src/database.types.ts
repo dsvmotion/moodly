@@ -949,6 +949,9 @@ isOneToOne: false
             "accept_invitation":
 { Args: { "p_token": string }; Returns: string
                            },
+"agent_turn_context":
+{ Args: { "p_agent_id": string,"p_organization_id": string }; Returns: Json
+                           },
 "create_invitation":
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
                            },

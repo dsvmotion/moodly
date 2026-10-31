@@ -100,10 +100,10 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots)", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext)", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["findBookingSlots", "from", "organizationId", "searchKnowledge"]);
+    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "findBookingSlots", "from", "organizationId", "searchKnowledge"]);
   });
 });
 
@@ -177,6 +177,23 @@ describe("tenantDb.findBookingSlots (paso 4b)", () => {
   it("rechaza un local o un servicio que no son UUID, sin llamar", async () => {
     await expect(db.findBookingSlots({ ...params, locationId: "centro" })).rejects.toThrow(TenantScopeError);
     await expect(db.findBookingSlots({ ...params, serviceId: `${SERVICE},x` })).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb.agentTurnContext (paso 4d-2)", () => {
+  const AGENT = "5eed0000-0000-4000-8000-0000000000e1";
+
+  it("llama a agent_turn_context con la organización de este acceso", async () => {
+    await db.agentTurnContext(AGENT);
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/agent_turn_context");
+    expect(body).toEqual({ p_organization_id: ORG, p_agent_id: AGENT });
+  });
+
+  it("rechaza un agente que no es un UUID, sin llamar", async () => {
+    await expect(db.agentTurnContext(`${AGENT},x`)).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });

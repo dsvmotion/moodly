@@ -4,7 +4,7 @@
 -- mensaje de un cliente con el tenant de las filas y solo ids.
 begin;
 \ir _fixtures/tenants.psql
-select plan(31);
+select plan(40);
 
 select a.id as reception_a from public.agents a join public.agent_types t on t.id = a.agent_type_id
 where a.organization_id = :org_a and t.key = 'reception' \gset
@@ -63,6 +63,14 @@ select is(
    join public.agent_types t on t.id = a.agent_type_id
    where a.organization_id = 'f0000000-0000-4000-8000-000000000000' and t.key = 'reception'),
   6, 'una organización nueva nace con su Recepción equipada');
+
+-- Como en el seed y el worker: la plataforma crea la organización por la API.
+set local role service_role;
+insert into public.organizations (id, name) values ('f1000000-0000-4000-8000-000000000000', 'Por la API');
+reset role;
+select is(
+  (select count(*)::int from public.agent_skills where organization_id = 'f1000000-0000-4000-8000-000000000000'),
+  7, 'también cuando la crea la plataforma (service_role): Recepción seis y Atención al cliente una');
 
 delete from public.agent_skills where agent_id = :'reception_a';
 select is(private.attach_default_skills_to(:'reception_a'), 6, 'poner al día un agente que ya existía le da sus skills');
@@ -155,7 +163,29 @@ select throws_ok(
   '23514', null, 'lo que escribe un cliente no lleva clave de ejecución');
 
 -- ===========================================================================
--- 4. Nadie llama a las funciones ni lee la tabla de serie
+-- 4. agent_turn_context
+-- ===========================================================================
+select is(
+  (select public.agent_turn_context(:org_a, :'reception_a') -> 'agent' ->> 'type_key'), 'reception',
+  'da el agente de su organización, con su tipo');
+select is(
+  (select jsonb_array_length(public.agent_turn_context(:org_a, :'reception_a') -> 'skills')), 6,
+  'y sus skills');
+update public.agent_skills g set autonomy_level = 'execute', enabled = false
+from public.skills s where s.id = g.skill_id and g.agent_id = :'reception_a' and s.key = 'book_appointment';
+select is(
+  (select public.agent_turn_context(:org_a, :'reception_a') -> 'skills' -> 0),
+  '{"key": "book_appointment", "kind": "code", "enabled": false, "version": 1, "effect_class": "internal_write", "autonomy_level": "execute"}'::jsonb,
+  'cada una con su versión, su clase y lo que este agente tiene configurado (activa o no, y su autonomía)');
+select is(public.agent_turn_context(:org_b, :'reception_a'), null::jsonb,
+  'el agente de otra organización no existe para esta');
+select ok(not has_function_privilege('authenticated', 'public.agent_turn_context(uuid, uuid)', 'execute'),
+  'la app no la ejecuta');
+select ok(has_function_privilege('service_role', 'public.agent_turn_context(uuid, uuid)', 'execute'),
+  'la plataforma sí');
+
+-- ===========================================================================
+-- 5. Nadie llama a las funciones ni lee la tabla de serie
 -- ===========================================================================
 select ok(not has_function_privilege('authenticated', 'private.emit_message_received()', 'execute'),
   'la app no puede emitir eventos por su cuenta');
@@ -163,6 +193,10 @@ select ok(not has_function_privilege('service_role', 'private.emit_message_recei
   'ni la plataforma fuera del trigger');
 select ok(not has_function_privilege('authenticated', 'private.attach_default_skills_to(uuid)', 'execute'),
   'la app no puede equipar agentes');
+select ok(not has_function_privilege('service_role', 'private.attach_default_skills_to(uuid)', 'execute'),
+  'ni la plataforma fuera del trigger');
+select ok(not has_function_privilege('service_role', 'private.attach_default_skills()', 'execute'),
+  'ni llamar al trigger como función');
 select ok(not has_table_privilege('authenticated', 'private.default_agent_skills', 'select'),
   'ni leer qué trae cada tipo');
 select ok(not has_table_privilege('service_role', 'private.default_agent_skills', 'insert'),
