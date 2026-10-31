@@ -16,8 +16,8 @@
 // - Sin recursos embebidos en select ("tabla(...)"): se resuelven por clave
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
-//   filtro. La excepción es searchKnowledge: una función con nombre a la que
-//   tenantDb le pasa la organización.
+//   filtro. Las excepciones son searchKnowledge y findBookingSlots: funciones
+//   con nombre a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 
@@ -119,8 +119,39 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return (data ?? []) as KnowledgeSearchRow[];
   }
 
-  return { organizationId, from, searchKnowledge };
+  /**
+   * Los huecos libres de un servicio en un local (find_booking_slots, paso
+   * 4b), con la organización de este acceso. Como searchKnowledge: una
+   * función con nombre y revisada, nunca rpc genérico.
+   */
+  async function findBookingSlots(params: BookingSlotsParams): Promise<BookingSlotRow[]> {
+    if (!UUID.test(params.locationId) || !UUID.test(params.serviceId)) {
+      throw new TenantScopeError("tenantDb: location_id y service_id tienen que ser UUID");
+    }
+    const { data, error } = await untyped.rpc("find_booking_slots", {
+      p_organization_id: organizationId,
+      p_location_id: params.locationId,
+      p_service_id: params.serviceId,
+      p_from: params.from.toISOString(),
+      p_to: params.to.toISOString(),
+      p_limit: params.limit,
+    });
+    if (error) throw new Error(`find_booking_slots: ${error.message}`);
+    return (data ?? []) as BookingSlotRow[];
+  }
+
+  return { organizationId, from, searchKnowledge, findBookingSlots };
 }
+
+export interface BookingSlotsParams {
+  locationId: string;
+  serviceId: string;
+  from: Date;
+  to: Date;
+  limit: number;
+}
+
+export type BookingSlotRow = Database["public"]["Functions"]["find_booking_slots"]["Returns"][number];
 
 export interface KnowledgeSearchParams {
   /** null = un run de organización: solo lo de toda la organización. */

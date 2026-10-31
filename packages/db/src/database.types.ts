@@ -123,6 +123,49 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"appointments": {
+                  Row: {
+                    "booked_by": string,"cancelled_at": string | null,"contact_id": string,"created_at": string,"ends_at": string,"external_ref": string | null,"id": string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status": string,"synced_at": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "booked_by": string,"cancelled_at"?: string | null,"contact_id": string,"created_at"?: string,"ends_at": string,"external_ref"?: string | null,"id"?: string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "booked_by"?: string,"cancelled_at"?: string | null,"contact_id"?: string,"created_at"?: string,"ends_at"?: string,"external_ref"?: string | null,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"organization_id"?: string,"resource_id"?: string,"service_id"?: string,"starts_at"?: string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "appointments_contact_same_org"
+      columns: ["contact_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "appointments_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "appointments_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "appointments_resource_same_org"
+      columns: ["resource_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "booking_resources"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "appointments_service_same_org"
+      columns: ["service_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"approvals": {
                   Row: {
                     "created_at": string,"decided_at": string | null,"decided_by": string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"requested_by": string | null,"required_role": string,"status": string
@@ -179,6 +222,31 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "audit_logs_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"booking_resources": {
+                  Row: {
+                    "active": boolean,"created_at": string,"external_ref": string | null,"id": string,"kind": string,"location_id": string,"name": string,"organization_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"external_ref"?: string | null,"id"?: string,"kind": string,"location_id": string,"name": string,"organization_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"external_ref"?: string | null,"id"?: string,"kind"?: string,"location_id"?: string,"name"?: string,"organization_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "booking_resources_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "booking_resources_organization_id_fkey"
       columns: ["organization_id"]
 isOneToOne: false
       referencedRelation: "organizations"
@@ -759,6 +827,56 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"resource_services": {
+                  Row: {
+                    "organization_id": string,"resource_id": string,"service_id": string
+                  }
+                  Insert: {
+                    "organization_id": string,"resource_id": string,"service_id": string
+                  }
+                  Update: {
+                    "organization_id"?: string,"resource_id"?: string,"service_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "resource_services_resource_same_org"
+      columns: ["resource_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "booking_resources"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "resource_services_service_same_org"
+      columns: ["service_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"services": {
+                  Row: {
+                    "active": boolean,"created_at": string,"duration_minutes": number,"external_ref": string | null,"id": string,"location_id": string | null,"name": string,"organization_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"duration_minutes": number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name": string,"organization_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"duration_minutes"?: number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name"?: string,"organization_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "services_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "services_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"skills": {
                   Row: {
                     "created_at": string,"default_autonomy": string,"definition": Json | null,"description": string,"effect_class": string,"id": string,"input_schema": NonNullable<Json>,"integration_id": string | null,"key": string,"kind": string,"max_autonomy": string,"mcp_tool_hash": string | null,"mcp_tool_name": string | null,"name": string,"organization_id": string | null,"output_schema": NonNullable<Json>,"required_integration": string | null,"restricted_to_agent_types": (string)[],"status": string,"updated_at": string,"version": number
@@ -833,6 +951,11 @@ isOneToOne: false
                            },
 "create_invitation":
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
+                           },
+"find_booking_slots":
+{ Args: { "p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
+              "ends_at": string,"resource_id": string,"starts_at": string
+            }[]
                            },
 "login_record_failure":
 { Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: undefined

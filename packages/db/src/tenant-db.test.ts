@@ -100,10 +100,10 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: la única función es searchKnowledge, con nombre y acotada", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots)", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["from", "organizationId", "searchKnowledge"]);
+    expect(Object.keys(db).sort()).toEqual(["findBookingSlots", "from", "organizationId", "searchKnowledge"]);
   });
 });
 
@@ -139,6 +139,44 @@ describe("tenantDb.searchKnowledge (ADR 0037)", () => {
   it("rechaza un local que no es un UUID y un embedding con valores no finitos, sin llamar", async () => {
     await expect(db.searchKnowledge({ ...params, locationId: `${LOCATION},x` })).rejects.toThrow(TenantScopeError);
     await expect(db.searchKnowledge({ ...params, queryEmbedding: [1, Number.POSITIVE_INFINITY] })).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb.findBookingSlots (paso 4b)", () => {
+  const LOCATION = "5eed0000-0000-4000-8000-0000000000c1";
+  const SERVICE = "5eed0000-0000-4000-8000-0000000000d1";
+  const params = {
+    locationId: LOCATION,
+    serviceId: SERVICE,
+    from: new Date("2030-06-03T07:00:00Z"),
+    to: new Date("2030-06-04T07:00:00Z"),
+    limit: 10,
+  };
+
+  it("llama a find_booking_slots con la organización de este acceso", async () => {
+    await db.findBookingSlots(params);
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/find_booking_slots");
+    expect(body).toEqual({
+      p_organization_id: ORG,
+      p_location_id: LOCATION,
+      p_service_id: SERVICE,
+      p_from: "2030-06-03T07:00:00.000Z",
+      p_to: "2030-06-04T07:00:00.000Z",
+      p_limit: 10,
+    });
+  });
+
+  it("la organización no se cambia desde fuera, ni con un cast", async () => {
+    await db.findBookingSlots({ ...params, p_organization_id: OTHER } as unknown as typeof params);
+    expect((only().body as Record<string, unknown>).p_organization_id).toBe(ORG);
+  });
+
+  it("rechaza un local o un servicio que no son UUID, sin llamar", async () => {
+    await expect(db.findBookingSlots({ ...params, locationId: "centro" })).rejects.toThrow(TenantScopeError);
+    await expect(db.findBookingSlots({ ...params, serviceId: `${SERVICE},x` })).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });
