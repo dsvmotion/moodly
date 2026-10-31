@@ -96,8 +96,9 @@ jobs:
       # sin DDL (al que el seed da login): reanuda un workflow tras matar el
       # proceso con SIGKILL sin repetir pasos (ADR 0027, tarea 6 de la Fase 0),
       # y entrega los eventos del outbox con el tenant de la fila (ADR 0009).
-      # Usa @repo/db compilado: se construye antes.
-      - run: pnpm turbo run build --filter=@repo/db
+      # Usa compilados los paquetes del monorepo de los que depende (@repo/db,
+      # @repo/integrations...): se construyen antes («^...»: sin el worker).
+      - run: pnpm turbo run build --filter=@repo/worker^...
       - run: pnpm --filter @repo/worker test:integration
       - run: pnpm --filter @repo/web env:local
 
