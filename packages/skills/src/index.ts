@@ -3,3 +3,7 @@
 // familia, Recepción (paso 4c).
 export { ReceptionScopeError, createReceptionSkills } from "./reception/skills.js";
 export type { ReceptionCatalog, ReceptionSkills } from "./reception/skills.js";
+export { MAX_REPLY_LENGTH, ReplyTargetError, createReplySkill } from "./conversation/reply.js";
+export type { ConversationSender, ReplySkill } from "./conversation/reply.js";
+export { createFakeConversationSender } from "./conversation/fake.js";
+export type { FakeConversationSender, SentMessage } from "./conversation/fake.js";
