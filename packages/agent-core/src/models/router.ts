@@ -31,10 +31,26 @@ export const PLATFORM_MODEL_POLICY: ModelPolicy = {
   budget: { perRunEur: 0.5, perDayEur: 20 },
 };
 
-export interface ModelMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+/** Una llamada a una herramienta que propone el modelo. Los args son lo que dice el LLM: pasan por decide() antes de nada. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: unknown;
 }
+
+/** Una herramienta que ve el modelo: una skill activa del agente (MANUAL §5.3). */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  /** JSON Schema de la entrada (z.toJSONSchema del esquema de la skill). */
+  inputSchema: Record<string, unknown>;
+}
+
+export type ModelMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string; toolCalls?: readonly ToolCall[] }
+  /** El resultado de una herramienta, para la llamada toolCallId. */
+  | { role: "tool"; toolCallId: string; content: string };
 
 /** Lo que pide el runtime. La organización y el run los pone él, nunca el LLM. */
 export interface ModelCall {
@@ -44,6 +60,8 @@ export interface ModelCall {
   messages: readonly ModelMessage[];
   /** Tope de tokens de salida: con él se estima el coste antes de llamar. */
   maxOutputTokens: number;
+  /** Las herramientas que puede pedir (las skills activas del agente). */
+  tools?: readonly ToolSpec[];
 }
 
 /** Lo que gastó ya la organización: lo lleva el runtime (agent_runs y usage_records). */
@@ -56,10 +74,13 @@ export interface TransportRequest {
   modelKey: ModelKey;
   messages: readonly ModelMessage[];
   maxOutputTokens: number;
+  tools?: readonly ToolSpec[];
 }
 
 export interface TransportResponse {
   text: string;
+  /** Las herramientas que pide el modelo; si no pide ninguna, text es su respuesta. */
+  toolCalls?: readonly ToolCall[];
   model: string;
   tokensIn: number;
   tokensOut: number;
@@ -142,7 +163,12 @@ export function createModelRouter(transports: readonly ModelTransport[], now: ()
           `ningún transporte sirve «${modelKey}» con residencia ${policy.residency}, conexión ${policy.connection} y los proveedores permitidos`,
         );
       }
-      const request: TransportRequest = { modelKey, messages: call.messages, maxOutputTokens: call.maxOutputTokens };
+      const request: TransportRequest = {
+        modelKey,
+        messages: call.messages,
+        maxOutputTokens: call.maxOutputTokens,
+        ...(call.tools ? { tools: call.tools } : {}),
+      };
       const causes: unknown[] = [];
       for (const [index, transport] of candidates.entries()) {
         const estimate = transport.estimateEur(request);

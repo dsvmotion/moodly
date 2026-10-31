@@ -42,7 +42,8 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
 4. **Frontera estructural:** un test falla si cualquier código fuera de `packages/agent-core/src/models/transports/` importa un SDK de proveedor:
    - `@ai-sdk/*` (salvo el núcleo `ai`, cuando llegue, también solo ahí);
    - `@anthropic-ai/sdk`, `openai`, `@google/genai`, `@google-cloud/vertexai`, `@aws-sdk/client-bedrock-runtime`, `@mistralai/mistralai`, `cohere-ai` o `groq-sdk`.
-5. **Política por organización en la base de datos:** `org_model_settings` llega con el ADR 0034 (BYOK) y el 0035 (residencia). Hasta entonces, el enrutador usa la política de plataforma por defecto.
+5. **Herramientas (paso 4d, 2026-10-31).** La llamada lleva las herramientas que puede pedir el modelo (`tools`: nombre, descripción y JSON Schema de la entrada de cada skill activa) y la respuesta, las que pide (`toolCalls`). Los mensajes admiten el resultado de una herramienta (`role: "tool"`). El enrutador solo los pasa al transporte: lo que pide el modelo no se ejecuta sin pasar por `decide()` (ADR 0047), en el bucle del turno (`runtime/turn.ts`, MANUAL §5.1).
+6. **Política por organización en la base de datos:** `org_model_settings` llega con el ADR 0034 (BYOK) y el 0035 (residencia). Hasta entonces, el enrutador usa la política de plataforma por defecto.
 
 ## Alternativas consideradas
 
@@ -67,7 +68,8 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
   - BYOK sin caer a credenciales de Moodly;
   - topes de gasto por run y por día antes de llamar;
   - respaldo solo tras un fallo;
-  - lo que devuelve cada llamada.
+  - lo que devuelve cada llamada;
+  - las herramientas llegan al transporte y las que pide el modelo vuelven sin tocar.
 
   Con mutaciones.
 - **Test estructural de la frontera de SDKs,** con prueba en negativo (un archivo que importa un SDK de proveedor fuera de `transports/` lo pone en rojo).
