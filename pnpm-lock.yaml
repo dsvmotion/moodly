@@ -135,12 +135,18 @@ importers:
       '@dbos-inc/dbos-sdk':
         specifier: 5.3.0
         version: 5.3.0
+      '@repo/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@repo/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      '@repo/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       pg:
         specifier: 8.23.1
         version: 8.23.1

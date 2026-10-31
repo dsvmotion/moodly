@@ -27,6 +27,12 @@ export const eventPayloads = {
     run_id: z.uuid(),
     decision: z.enum(["approved", "rejected"]),
   }),
+  // private.emit_message_received, en la misma transacción que el mensaje de un
+  // cliente (paso 4d-2). Lo consume agent.converse: el turno del agente.
+  "message.received": z.object({
+    conversation_id: z.uuid(),
+    message_id: z.uuid(),
+  }),
 } satisfies Record<string, z.ZodType<Record<string, unknown>>>;
 
 export type EventType = keyof typeof eventPayloads;

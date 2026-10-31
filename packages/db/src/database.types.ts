@@ -728,13 +728,13 @@ isOneToOne: false
                   ]
                 },"messages": {
                   Row: {
-                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"organization_id": string,"status": string
+                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string
                   }
                   Insert: {
-                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"organization_id": string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string
                   }
                   Update: {
-                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"organization_id"?: string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string
                   }
                   Relationships: [
                     {
@@ -948,6 +948,9 @@ isOneToOne: false
           Functions: {
             "accept_invitation":
 { Args: { "p_token": string }; Returns: string
+                           },
+"agent_turn_context":
+{ Args: { "p_agent_id": string,"p_organization_id": string }; Returns: Json
                            },
 "create_invitation":
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string

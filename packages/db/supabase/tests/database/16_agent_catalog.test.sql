@@ -73,29 +73,33 @@ select a.id, :skill_b, :org_b, 'draft' from public.agents a where a.agent_type_i
 -- 2. Aislamiento: cada organización ve el catálogo de la plataforma y lo suyo
 --    [tipos plataforma, tipos de B, agentes A, agentes B, skills plataforma,
 --     skills de B, skills de agentes de A, skills de agentes de B]
+--    Desde 20261031150000 (paso 4d-2) la plataforma trae 6 skills de código y
+--    cada organización nace con 7 en sus agentes (Recepción 6, Atención al
+--    cliente 1). Skills de la plataforma: 6 + las 2 de prueba; de los agentes
+--    de A: 7 + 1; de los de B: 7 + 2.
 -- ===========================================================================
 select pg_temp.login(:a_staff1);
-select is(pg_temp.catalog_counts(), array[4, 0, 4, 0, 2, 0, 1, 0], 'staff de A: ve la plataforma y lo de A, nada de B');
+select is(pg_temp.catalog_counts(), array[4, 0, 4, 0, 8, 0, 8, 0], 'staff de A: ve la plataforma y lo de A, nada de B');
 
 reset role;
 select pg_temp.login_mfa(:b_admin);
-select is(pg_temp.catalog_counts(), array[4, 1, 0, 5, 2, 1, 0, 2], 'org_admin de B: ve la plataforma y lo de B (con su agente propio), nada de A');
+select is(pg_temp.catalog_counts(), array[4, 1, 0, 5, 8, 1, 0, 9], 'org_admin de B: ve la plataforma y lo de B (con su agente propio), nada de A');
 
 reset role;
 select pg_temp.login(:outsider);
-select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 2, 0, 0, 0], 'sin organización: solo el catálogo de la plataforma');
+select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 8, 0, 0, 0], 'sin organización: solo el catálogo de la plataforma');
 
 -- Equipo interno con permiso de soporte vigente (staff_login lo concede para
 -- todas las organizaciones): lo ve todo, para dar soporte.
 reset role;
 select pg_temp.staff_login(:p_operator);
-select is(pg_temp.catalog_counts(), array[4, 1, 4, 5, 2, 1, 1, 2], 'equipo interno con permiso de soporte: ve el catálogo de A y de B');
+select is(pg_temp.catalog_counts(), array[4, 1, 4, 5, 8, 1, 8, 9], 'equipo interno con permiso de soporte: ve el catálogo de A y de B');
 
 -- Una organización suspendida no ve sus agentes (has_org_role exige que esté activa).
 reset role;
 update public.organizations set status = 'suspended' where id = :org_a;
 select pg_temp.login(:a_staff1);
-select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 2, 0, 0, 0], 'organización suspendida: sus miembros no ven sus agentes');
+select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 8, 0, 0, 0], 'organización suspendida: sus miembros no ven sus agentes');
 reset role;
 update public.organizations set status = 'active' where id = :org_a;
 

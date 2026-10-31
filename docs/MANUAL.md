@@ -371,7 +371,7 @@ Convenciones:
 | `contacts` | `organization_id`, `display_name`, `consents` (jsonb), `preferred_location_id?`, `locale` |
 | `contact_identities` | `contact_id`, `organization_id`, `kind` (`phone`/`email`/`instagram`/`webchat`; el teléfono es uno solo para WhatsApp y voz), `external_id` normalizado (E.164, email en minúsculas), único por organización |
 | `conversations` | `organization_id`, `location_id?` (el de la cuenta si es de un local; en una cuenta compartida se resuelve una vez), `contact_id`, `channel_account_id`, `agent_id`, `mode` (`agent`/`human`/`closed`), `assigned_user_id?`, `last_message_at`. La ve quien tiene su local en el alcance; sin local, el `org_admin` |
-| `messages` | `conversation_id`, `organization_id`, `direction` (`in`/`out`), `author` (`contact`/`agent`/`user`/`system`), `author_user_id?`, `content`, `attachments`, `external_message_id`, `status`. Particionada por mes (`created_at`); las particiones viven en el esquema `partitions`, fuera de la API, con una por defecto y `private.ensure_monthly_partitions` |
+| `messages` | `conversation_id`, `organization_id`, `direction` (`in`/`out`), `author` (`contact`/`agent`/`user`/`system`), `author_user_id?`, `content`, `attachments`, `external_message_id`, `status`, `idempotency_key?` (la ejecución que escribió el mensaje del agente, solo en lo que sale). Particionada por mes (`created_at`); las particiones viven en el esquema `partitions`, fuera de la API, con una por defecto y `private.ensure_monthly_partitions` |
 | `services` | `organization_id`, `location_id?` (null = en todos los locales), `name`, `duration_minutes`, `active`, `external_ref?` (paso 4b) |
 | `booking_resources` | `organization_id`, `location_id`, `name`, `kind` (`staff`/`room`/`equipment`), `active`, `external_ref?` |
 | `resource_services` | `resource_id`, `service_id`, `organization_id`: qué servicios hace cada recurso (solo los que se ofrecen en su local) |
@@ -501,6 +501,15 @@ sequenceDiagram
 - Durabilidad (ADR 0027): cada llamada al modelo, cada decisión, cada vista previa y cada ejecución es un paso con nombre determinista. El worker los ejecuta como pasos de DBOS, así que al reanudar un run nada se repite. La clave de idempotencia de cada ejecución es `run:paso:índice:skill`.
 - Pasa a una persona (§5.10) si se acaba el presupuesto, falla el modelo, la respuesta sale vacía o no se puede enviar, o se llega al máximo de pasos (6 por defecto).
 
+**El turno en el worker (paso 4d-2: consumidor `agent.converse`, `apps/worker/src/agents/converse.ts`).**
+- Cada mensaje de un cliente emite `message.received` en la misma transacción (`private.emit_message_received`), con la organización del mensaje y el local de su conversación, y solo ids en el payload. El outbox lo entrega a `agent.converse` (§5.8).
+- **No contesta** si la conversación la lleva una persona (`mode = 'human'`), si ya hay un mensaje del cliente más nuevo (lo contesta su propio turno, así dos mensajes seguidos tienen una sola respuesta) o si el agente no está en `live` ni en `testing`.
+- Lee en un paso todo lo que necesita: la conversación, el agente con sus skills (`tenantDb.agentTurnContext`, de su organización), los últimos 20 mensajes, el local, la política de modelos y el gasto del día. El prompt de sistema va por capas (`composeSystemPrompt`, §5.3).
+- **El run** tiene un id que sale del evento (`runIdFor`): si la entrega se reanuda, es el mismo run con las mismas claves de idempotencia. Cada ejecución decidida se guarda en `executions` en cuanto se decide; las que rechaza el motor van al log, sin sus argumentos.
+- **Cómo acaba:** `completed` si contestó y no queda nada pendiente; `awaiting_approval` si la respuesta o una acción (una cita en borrador) esperan a una persona; `handed_off` si pasó a una persona, y entonces la conversación pasa a `mode = 'human'` y el agente deja de contestar hasta que se la devuelvan.
+- **La respuesta en el chat web** se guarda en la conversación (`messages`, `author = 'agent'`) con la clave de su ejecución (`messages.idempotency_key`): un reintento no escribe dos mensajes.
+- **Qué trae cada agente de serie:** al crearse, recibe las skills de código de la plataforma que tocan a su tipo (`private.default_agent_skills`), con su autonomía por defecto: Recepción, buscar huecos y ver citas (solas) y reservar, mover, cancelar y responder (en borrador); Atención al cliente, responder.
+
 ### 5.2 Enrutado **[PROPUESTO]**
 
 1. `channel_accounts.external_id` identifica la organización y, si la cuenta está asociada a un local, también el local.
@@ -593,7 +602,7 @@ Reglas:
 
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).
   - Los escriben triggers de la base de datos; nadie de la app los escribe.
-  - El primero es `invitation.created`.
+  - El primero es `invitation.created`; los mensajes de los clientes emiten `message.received` (paso 4d-2).
 - **El tenant de un evento sale de la fila (`organization_id`, `location_id`), nunca del payload** (control 3.7). El payload lleva ids y datos mínimos, sin datos personales en claro, con un esquema Zod por tipo que quita lo que sobre.
 - Un publicador lee el outbox y encola una entrega por cada consumidor suscrito:
   - es un workflow programado de DBOS (`outbox.publish`, cada 5 s);

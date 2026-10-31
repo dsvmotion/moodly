@@ -10,6 +10,7 @@ import { tenantDb, type TenantDb } from "./tenant-db.ts";
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
 export {
   TenantScopeError,
+  type AgentTurnContext,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,

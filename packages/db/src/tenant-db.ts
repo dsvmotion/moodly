@@ -16,8 +16,9 @@
 // - Sin recursos embebidos en select ("tabla(...)"): se resuelven por clave
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
-//   filtro. Las excepciones son searchKnowledge y findBookingSlots: funciones
-//   con nombre a las que tenantDb les pasa la organización.
+//   filtro. Las excepciones son searchKnowledge, findBookingSlots y
+//   agentTurnContext: funciones con nombre a las que tenantDb les pasa la
+//   organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 
@@ -140,7 +141,29 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return (data ?? []) as BookingSlotRow[];
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots };
+  /**
+   * Lo que necesita el turno de un agente (agent_turn_context, paso 4d-2): el
+   * agente, su tipo, sus skills con lo que tiene configurado y el nombre de la
+   * organización. Con la organización de este acceso: un agente de otra no
+   * existe (null). Como findBookingSlots: con nombre y revisada.
+   */
+  async function agentTurnContext(agentId: string): Promise<AgentTurnContext | null> {
+    if (!UUID.test(agentId)) {
+      throw new TenantScopeError("tenantDb: agent_id no es un UUID");
+    }
+    const { data, error } = await untyped.rpc("agent_turn_context", { p_organization_id: organizationId, p_agent_id: agentId });
+    if (error) throw new Error(`agent_turn_context: ${error.message}`);
+    return (data ?? null) as AgentTurnContext | null;
+  }
+
+  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext };
+}
+
+/** Tal como lo devuelve agent_turn_context; quien lo usa lo valida antes de fiarse. */
+export interface AgentTurnContext {
+  agent: { id: string; status: string; display_name: string | null; type_key: string; type_name: string };
+  organization: { name: string; default_locale: string };
+  skills: { key: string; version: number; kind: string; effect_class: string; enabled: boolean; autonomy_level: string }[];
 }
 
 export interface BookingSlotsParams {
