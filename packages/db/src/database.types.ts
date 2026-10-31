@@ -728,13 +728,13 @@ isOneToOne: false
                   ]
                 },"messages": {
                   Row: {
-                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"organization_id": string,"status": string
+                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string
                   }
                   Insert: {
-                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"organization_id": string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string
                   }
                   Update: {
-                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"organization_id"?: string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string
                   }
                   Relationships: [
                     {
