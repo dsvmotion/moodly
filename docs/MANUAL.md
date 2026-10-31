@@ -494,6 +494,13 @@ sequenceDiagram
   RT->>CH: Respuesta al cliente
 ```
 
+**El turno del agente (paso 4d: `runAgentTurn`, `packages/agent-core/src/runtime/turn.ts`).**
+- El modelo ve como herramientas solo las skills activas del agente. Lo que escribe el cliente entra marcado como dato, no como instrucción (§5.3).
+- Cada herramienta que pide pasa por `decide()` (§5.4, ADR 0047): se ejecuta, queda en borrador, en sugerencia o pendiente de aprobación, o se rechaza con su motivo. El modelo recibe el resultado (o «lo revisará una persona») y sigue.
+- La respuesta al cliente también es una skill (`reply`, `external_message`). Con autonomía de borrador la escribe el agente y la envía una persona. El modelo no puede pedirla como herramienta: su respuesta es el texto final.
+- Durabilidad (ADR 0027): cada llamada al modelo, cada decisión, cada vista previa y cada ejecución es un paso con nombre determinista. El worker los ejecuta como pasos de DBOS, así que al reanudar un run nada se repite. La clave de idempotencia de cada ejecución es `run:paso:índice:skill`.
+- Pasa a una persona (§5.10) si se acaba el presupuesto, falla el modelo, la respuesta sale vacía o no se puede enviar, o se llega al máximo de pasos (6 por defecto).
+
 ### 5.2 Enrutado **[PROPUESTO]**
 
 1. `channel_accounts.external_id` identifica la organización y, si la cuenta está asociada a un local, también el local.
@@ -622,7 +629,7 @@ El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`
 - Cada run registra tokens y coste en `agent_runs` y `usage_records`.
 - Webhooks e integraciones con reintentos y backoff. Idempotencia en `inbound_events` y en `executions.idempotency_key`.
 - Timeouts por llamada LLM y por skill. Si falla el proveedor principal, se usa un proveedor alternativo configurado. Si todo falla, se hace el paso a humano con un mensaje de disculpa.
-- Número máximo de pasos del bucle de herramientas por run (configurable) para evitar bucles.
+- Número máximo de pasos del bucle de herramientas por run (configurable; 6 por defecto, `maxSteps` de `runAgentTurn`) para evitar bucles.
 
 ### 5.12 Modo coach: capa de inteligencia del negocio **[DECIDIDO el concepto; diseño PROPUESTO]**
 

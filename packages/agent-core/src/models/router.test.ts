@@ -175,3 +175,23 @@ describe("lo que devuelve cada llamada (ADR 0019)", () => {
     });
   });
 });
+
+describe("herramientas (paso 4d)", () => {
+  it("pasa las herramientas al transporte y devuelve las que pide el modelo", async () => {
+    const toolCalls = [{ id: "c1", name: "find_slots", args: { service_id: "laser" } }];
+    const transport = createFakeTransport({
+      provider: "a",
+      respond: () => ({ text: "", toolCalls, model: "a/fast", tokensIn: 10, tokensOut: 5, costEur: 0.0005 }),
+    });
+    const tools = [{ name: "find_slots", description: "Busca huecos.", inputSchema: { type: "object" } }];
+    const result = await createModelRouter([transport]).generate({ ...call, tools }, policy(), noSpend);
+    expect(transport.calls[0]?.tools).toEqual(tools);
+    expect(result.toolCalls).toEqual(toolCalls);
+  });
+
+  it("sin herramientas, el transporte no recibe el campo", async () => {
+    const transport = createFakeTransport({ provider: "a" });
+    await createModelRouter([transport]).generate(call, policy(), noSpend);
+    expect(transport.calls[0]).not.toHaveProperty("tools");
+  });
+});
