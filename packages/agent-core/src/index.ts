@@ -47,5 +47,5 @@ export { createFakeTransport } from "./models/transports/fake.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
 export type { ModelSettingsRow } from "./models/settings.js";
-export { REPLY_SKILL_KEY, runAgentTurn } from "./runtime/turn.js";
+export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, runAgentTurn } from "./runtime/turn.js";
 export type { ExecutionStatus, HandOffReason, HistoryMessage, Step, TurnExecution, TurnParams, TurnResult, TurnStatus } from "./runtime/turn.js";
