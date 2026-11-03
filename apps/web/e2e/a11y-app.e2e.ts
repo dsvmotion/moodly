@@ -18,6 +18,24 @@ async function expectNoViolations(page: Page, where: string) {
   expect(violations).toEqual([]);
 }
 
+const SCREENS = [
+  "/app",
+  "/app/settings/general",
+  "/app/settings/security",
+  "/app/inbox",
+  "/app/settings/locations",
+  "/app/settings/team",
+  "/app/agents",
+  "/app/agents/reception",
+  "/app/settings/profile",
+  "/app/settings/preferences",
+  "/app/settings/roles",
+];
+// De cuatro en cuatro: con las 11 en un solo test se rozaba su límite de 30 s
+// (24–26 s en local) y fallaba por tiempo, no por accesibilidad. Cada grupo es
+// un test con su propio inicio de sesión: las mismas pantallas, las mismas reglas.
+const SCREEN_GROUPS = Array.from({ length: Math.ceil(SCREENS.length / 4) }, (_, i) => SCREENS.slice(i * 4, i * 4 + 4));
+
 for (const theme of ["light", "dark"] as const) {
   test.describe(`tema ${theme}`, () => {
     test.beforeEach(async ({ page, context }) => {
@@ -25,25 +43,15 @@ for (const theme of ["light", "dark"] as const) {
       await signIn(page, "a_org_admin");
     });
 
-    test("pantallas de la app", async ({ page }) => {
-      for (const path of [
-        "/app",
-        "/app/settings/general",
-        "/app/settings/security",
-        "/app/inbox",
-        "/app/settings/locations",
-        "/app/settings/team",
-        "/app/agents",
-        "/app/agents/reception",
-        "/app/settings/profile",
-        "/app/settings/preferences",
-        "/app/settings/roles",
-      ]) {
-        await page.goto(path);
-        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-        await expectNoViolations(page, path);
-      }
-    });
+    for (const group of SCREEN_GROUPS) {
+      test(`pantallas de la app: ${group.join(", ")}`, async ({ page }) => {
+        for (const path of group) {
+          await page.goto(path);
+          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+          await expectNoViolations(page, path);
+        }
+      });
+    }
 
     test("menús, paneles y paleta abiertos", async ({ page }) => {
       await page.goto("/app/settings/locations");
