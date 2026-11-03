@@ -291,7 +291,7 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
       });
       await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
       ctx.logger.info(
-        { runId, status: result.status, reason: result.reason, executions: result.executions.length, costEur: result.usage.costEur },
+        { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
         "turno del agente terminado",
       );
     },

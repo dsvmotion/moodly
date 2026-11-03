@@ -17,6 +17,12 @@ export interface WorkerConfig {
   /** API de Supabase y su clave secreta: los datos de las organizaciones (createServiceDb, ADR 0009). */
   supabaseUrl: string;
   supabaseSecretKey: string;
+  /**
+   * La clave de Vercel AI Gateway (ADR 0033 §7). Opcional: sin ella no hay
+   * modelo, y cada conversación pasa a una persona en vez de quedarse sin
+   * respuesta (MANUAL §15.1). Nunca va a los logs.
+   */
+  aiGatewayApiKey: string | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -66,6 +72,13 @@ const schema = z.object({
   SUPABASE_SECRET_KEY: z
     .string({ error: "falta SUPABASE_SECRET_KEY" })
     .regex(/^sb_secret_[A-Za-z0-9_-]{16,200}$/, "SUPABASE_SECRET_KEY no es una clave secreta de Supabase (sb_secret_…)"),
+  // Sin formato propio documentado: una sola palabra de caracteres visibles.
+  // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
+  AI_GATEWAY_API_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
+    .optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -86,5 +99,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     gitCommit: parsed.data.RAILWAY_GIT_COMMIT_SHA ?? null,
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
+    aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
   };
 }

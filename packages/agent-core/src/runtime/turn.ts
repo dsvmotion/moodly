@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BudgetExceededError } from "../models/router.js";
+import { AllTransportsFailedError, BudgetExceededError } from "../models/router.js";
 import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolCall, ToolSpec } from "../models/router.js";
 import { decide } from "../policy.js";
 import type { ConsentChecker, RejectReason, RunScope, SkillSettings } from "../policy.js";
@@ -56,11 +56,25 @@ export type HandOffReason = "max_steps" | "budget" | "model_failed" | "empty_rep
 export interface TurnResult {
   status: TurnStatus;
   reason?: HandOffReason;
+  /**
+   * Si pasó a una persona porque falló el modelo: el nombre del error y de sus
+   * causas (p. ej. «AllTransportsFailedError(GatewayAuthenticationError)»),
+   * para los logs. Nunca sus mensajes: pueden llevar datos.
+   */
+  error?: string;
   executions: TurnExecution[];
   usage: { tokensIn: number; tokensOut: number; costEur: number; model: string | null };
 }
 
 export type Step = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
+
+const nameOf = (error: unknown) => (error instanceof Error ? error.name : "Error");
+
+/** El nombre del error y, si fallaron todas las vías, el de cada causa. */
+function errorNames(error: unknown): string {
+  if (error instanceof AllTransportsFailedError && error.causes.length > 0) return `${error.name}(${error.causes.map(nameOf).join(", ")})`;
+  return nameOf(error);
+}
 
 export interface TurnParams {
   scope: RunScope;
@@ -223,7 +237,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
         ),
       );
     } catch (error) {
-      return { status: "handed_off", reason: error instanceof BudgetExceededError ? "budget" : "model_failed", executions, usage };
+      if (error instanceof BudgetExceededError) return { status: "handed_off", reason: "budget", executions, usage };
+      return { status: "handed_off", reason: "model_failed", error: errorNames(error), executions, usage };
     }
     usage.tokensIn += result.tokensIn;
     usage.tokensOut += result.tokensOut;

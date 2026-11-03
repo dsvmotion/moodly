@@ -1,0 +1,99 @@
+name: Staging · agente
+
+# Prueba de punta a punta del agente en staging (paso 4d-3): un mensaje del
+# contacto de prueba a Recepción de la organización de demo, el worker de
+# Railway lo contesta con el modelo de verdad (Vercel AI Gateway) y aquí se ve
+# qué hizo: estado del run, modelo, tokens, coste y las ejecuciones (la
+# respuesta nace en borrador).
+#
+# Se lanza a mano desde main (Actions → «Staging · agente» → Run workflow),
+# después de «Staging · organización de demo». Con packages/db/bootstrap/
+# staging-agent*.sql: prepara la conversación de prueba (idempotente), escribe
+# el mensaje elegido y espera al run. El mensaje sale de una lista fija: nunca
+# texto libre en el SQL. Sin service role en la app y sin SQL a mano.
+#
+# Cada ejecución llama al modelo de verdad: cuesta unos céntimos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Qué escribe el contacto de prueba
+        required: true
+        type: choice
+        default: saludo
+        options: [saludo, huecos, reservar]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-agent
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
+
+jobs:
+  agent:
+    name: staging · agente
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    defaults:
+      run:
+        working-directory: packages/db
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      # Por variable de entorno, nunca interpolado en el script.
+      MESSAGE: ${{ inputs.message }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.118.0
+
+      # La clave elige uno de estos textos; cualquier otra cosa falla. Sin
+      # comillas ni barras: no pueden romper el SQL ni el `sed`.
+      - name: Mensaje
+        id: message
+        run: |
+          case "$MESSAGE" in
+            saludo) text="Hola, ¿qué podéis hacer por mí?" ;;
+            huecos) text="¿Tenéis hueco el próximo lunes por la mañana para una primera visita?" ;;
+            reservar) text="Quiero reservar una primera visita el próximo lunes a primera hora." ;;
+            *) echo "::error::Mensaje desconocido"; exit 1 ;;
+          esac
+          echo "text=$text" >> "$GITHUB_OUTPUT"
+
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Conversación de prueba con Recepción
+        run: supabase db query --linked --file bootstrap/staging-agent.sql > /dev/null
+
+      - name: Mensaje del contacto
+        env:
+          TEXT: ${{ steps.message.outputs.text }}
+        run: |
+          sed "s/__MESSAGE__/$TEXT/" bootstrap/staging-agent-message.sql > "$RUNNER_TEMP/staging-agent-message.sql"
+          supabase db query --linked --file "$RUNNER_TEMP/staging-agent-message.sql" > /dev/null
+          echo "El contacto escribe: $TEXT"
+
+      # El worker crea el run al recoger el evento y lo cierra al acabar el turno.
+      - name: Qué hizo el agente
+        run: |
+          for i in $(seq 1 36); do
+            supabase db query --linked --output-format json --file bootstrap/staging-agent-summary.sql > "$RUNNER_TEMP/summary.json"
+            state=$(jq -r '(.rows // .)[0].estado // "sin run"' "$RUNNER_TEMP/summary.json")
+            if [ "$state" != "sin run" ] && [ "$state" != "running" ]; then break; fi
+            sleep 5
+          done
+          jq '(.rows // .)[0]' "$RUNNER_TEMP/summary.json"
+          case "$state" in
+            completed | awaiting_approval) echo "El agente contestó (estado: $state)." ;;
+            handed_off) echo "::warning::El agente pasó la conversación a una persona: mira los logs del worker en Railway (¿falta AI_GATEWAY_API_KEY?)." ; exit 1 ;;
+            *) echo "::error::Sin run terminado en 3 minutos (estado: $state): mira los logs del worker en Railway." ; exit 1 ;;
+          esac

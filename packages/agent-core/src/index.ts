@@ -44,6 +44,8 @@ export type {
   Via,
 } from "./models/router.js";
 export { createFakeTransport } from "./models/transports/fake.js";
+export { ModelOutputTruncatedError, ModelRefusalError, ModelResponseError, createGatewayTransport } from "./models/transports/gateway.js";
+export type { GatewayTransportOptions } from "./models/transports/gateway.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
 export type { ModelSettingsRow } from "./models/settings.js";

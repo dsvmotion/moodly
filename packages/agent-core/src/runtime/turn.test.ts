@@ -355,6 +355,24 @@ describe("límites del turno", () => {
     expect(await runAgentTurn(params(transport))).toMatchObject({ status: "handed_off", reason: "model_failed" });
   });
 
+  it("dice qué falló con los nombres de los errores, nunca con sus mensajes", async () => {
+    class GatewayAuthenticationError extends Error {
+      override name = "GatewayAuthenticationError";
+    }
+    const transport = scripted([
+      () => {
+        throw new GatewayAuthenticationError("clave sk-secreta-123 no válida");
+      },
+    ]);
+    const result = await runAgentTurn(params(transport));
+    expect(result).toMatchObject({ status: "handed_off", reason: "model_failed", error: "AllTransportsFailedError(GatewayAuthenticationError)" });
+    expect(JSON.stringify(result)).not.toContain("sk-secreta-123");
+
+    // Sin ninguna vía (sin clave): otro error, sin causas.
+    const none = await runAgentTurn({ ...params(transport), router: createModelRouter([]) });
+    expect(none).toMatchObject({ status: "handed_off", reason: "model_failed", error: "NoEligibleTransportError" });
+  });
+
   it("si enviar la respuesta falla, pasa a una persona", async () => {
     const { skills } = setup();
     const failingReply = { ...skills.get(REPLY_SKILL_KEY), execute: () => Promise.reject(new Error("canal caído")) } as SkillDefinition<unknown>;
