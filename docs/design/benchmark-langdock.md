@@ -127,8 +127,10 @@ que se recalculan, complementos con precio propio y una comparativa. Es transpar
 autoservicio.
 
 **Aplicado en `/precios`:**
-- Configurador: agentes, conversaciones al mes, voz, sedes. Recalcula dentro del modelo
-  decidido: implantación de 1.000 a 5.000 € más una cuota de 50 a 100 € al mes.
+- Configurador: agentes, conversaciones al mes, voz, sedes. Recalculaba dentro del modelo
+  de entonces: implantación de 1.000 a 5.000 € más una cuota de 50 a 100 € al mes.
+  **Superado (producto, 2026-11-03):** créditos de IA en autoservicio e implantación solo
+  en enterprise y a medida (MANUAL §15.1, §15.2). La página hay que alinearla.
 - Planes Pymes (precio calculado) y Enterprise (a medida, recomendado desde 3 sedes).
 - Complementos:
   - voz;

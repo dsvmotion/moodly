@@ -136,9 +136,12 @@ La referencia principal es **GuruSup** (gurusup.com). Según su web, a 28/09/202
 
 ### 1.10 Modelo de negocio: lo que afecta al sistema
 
-- **[DECIDIDO]** Setup por agente o por paquete (de 1.000 a 5.000 € en pymes; contratos a medida para cadenas) más una **cuota mensual** que cubre el uso de IA.
+- **[DECIDIDO: producto, 2026-11-03; sustituye al setup de 1.000 a 5.000 € más cuota para todos]** Dos vías, como Langdock:
+  - **Autoservicio:** sin implantación ni setup. Se paga la IA que se usa, con créditos (§15.1).
+  - **Enterprise e implantaciones a medida** (cadenas, empresas grandes, integraciones propias): implantación con presupuesto cerrado por proyecto, como pago único, y contrato (§15.2).
 - **[ABIERTO]** Importes finales, precio por local o por volumen para cadenas, y si la voz se factura aparte (la recomendación es que sí, porque su coste es de otro orden).
 - **Consecuencia técnica:** hay que medir el consumo por organización y por local (tokens, mensajes, minutos) y poder aplicar límites (§15).
+- **[DECIDIDO: producto, 2026-11-03] Alta autoservicio con método de pago y créditos de IA (§15.1):** cualquiera se registra y navega, pero la IA solo funciona con un método de pago válido; al añadirlo recibe 5 € de crédito de prueba; al acabarse, la IA se pausa con aviso y la organización elige cómo seguir (consumo bajo demanda, paquete de créditos o plan mensual con créditos incluidos).
 
 ---
 
@@ -1074,8 +1077,63 @@ Los tests nunca llaman a proveedores LLM reales en la suite unitaria (se usan mo
 
 - Cada run escribe `usage_records` (tokens, mensajes, ejecuciones y, en su momento, minutos de voz), agregados por organización y local.
 - `usage_limits` con límite suave (aviso) y límite duro (degradación controlada: pasar a `suggest` o escalar a humano, nunca un silencio con el cliente final).
-- Stripe **[PROPUESTO]**: setup como pago único, suscripción mensual y consumo medido. Los importes son **[ABIERTO]** (§1.10).
+- Stripe **[PROPUESTO]**: créditos (consumo bajo demanda, paquetes y plan mensual, §15.1) y, en enterprise, la implantación como pago único (§15.2). Los importes son **[ABIERTO]** (§1.10).
 - Panel de consumo para el cliente y para `/ops`.
+
+### 15.1 Alta autoservicio, método de pago y créditos de IA **[DECIDIDO: producto, 2026-11-03]**
+
+Como en Langdock. Todo tiene que estar clarísimo para quien se da de alta: qué tiene, qué le cuesta y qué pasa cuando se acaba.
+
+1. **Registrarse y navegar es libre.** Quien se registra entra en la plataforma con su organización:
+   - sus 4 agentes de serie y el asistente de la plataforma (§5.13);
+   - puede crear sus propios agentes (ADR 0030), configurar y conectar integraciones.
+2. **Sin método de pago válido, ningún servicio de IA funciona:** ni los agentes, ni el asistente, ni los embeddings. La app lo dice donde haga falta («añade un método de pago para activar la IA»), nunca falla en silencio.
+3. **Al añadir un método de pago válido, la IA se activa con 5 € de crédito de prueba.** Hasta que se gasta, no se cobra nada.
+4. **Cuando se acaba el crédito:**
+   - **se avisa con claridad:** en la app y por email a los `org_admin`, antes de acabarse (al 80 %) y al acabarse;
+   - **la IA se pausa:** ningún agente vuelve a llamar a un modelo;
+   - **con el cliente final nunca hay silencio:** la conversación pasa a una persona (§5.10) y el agente no promete nada;
+   - **para seguir, la organización elige de forma explícita, sabiendo lo que cuesta:**
+     - **consumo bajo demanda:** paga lo que usa, con un tope que fija ella;
+     - **paquete de créditos:** un importe fijo que se va gastando;
+     - **plan mensual:** con «x» créditos incluidos cada mes.
+5. **Todo es visible:**
+   - el saldo y el gasto por agente y por local;
+   - la modalidad que tiene y qué pasa al llegar a cero.
+
+   Nada se renueva ni se cobra sin que la organización lo haya elegido.
+
+**Consecuencia técnica:**
+- **La pausa es una comprobación más del enrutador** (ADR 0033), que ya mira el tope de gasto de la organización antes de cada llamada. Sin método de pago o sin saldo no hay llamada, y el turno pasa a una persona.
+- **El saldo es un libro de créditos, no un número que se pisa:**
+  - lo concedido: crédito de prueba, paquetes y planes;
+  - frente a lo gastado: `usage_records`, el coste de cada llamada.
+- **Planes y precios son datos,** no código. Stripe es una implementación que lee esas medidas (B5 y B6 del roadmap).
+- **Importes [ABIERTO],** salvo los 5 € de prueba.
+- **El registro público se abre con este flujo, no antes.** Hasta entonces, el alta es por invitación (`[auth] enable_signup = false`) y staging trabaja con datos de prueba.
+
+### 15.2 Enterprise e implantaciones a medida **[DECIDIDO: producto, 2026-11-03]**
+
+Para quien necesita trabajo extra para quedar bien integrado: cadenas multi-local, empresas grandes y quien tiene un sistema propio sin conector en el catálogo (§7.2).
+
+- **La implantación se paga aparte:** presupuesto cerrado por proyecto, como pago único. Cubre lo que el autoservicio no hace solo:
+  - integraciones a medida;
+  - carga del conocimiento y configuración de agentes, locales y permisos;
+  - formación del equipo.
+
+  Referencia: de 1.000 a 5.000 € para una implantación asistida en una pyme; a medida en cadenas.
+- **Contrato en vez de alta con tarjeta:** créditos comprometidos o plan mensual, con factura. El contrato firmado cuenta como el método de pago de §15.1 **[PROPUESTO]**. La IA sigue sin funcionar sin crédito y con su tope de gasto.
+- **Lo que suma enterprise** **[PROPUESTO; se fija con las páginas de Langdock, abajo]**:
+  - SSO (y SCIM más adelante);
+  - DPA y residencia UE;
+  - auditoría consultable;
+  - soporte con canal dedicado;
+  - nube dedicada desde cierto tamaño (ADR 0026; `docs/design/benchmark-langdock.md` §5).
+- **En la web:** una página de precios y otra de enterprise con la estructura de las de Langdock (langdock.com/pricing y langdock.com/enterprise). Se copia la estructura, nunca la identidad visual (§9):
+  - autoservicio con precios visibles;
+  - enterprise con «hablar con ventas».
+
+**Consecuencia técnica:** una organización enterprise es el mismo tenant (§4.4). Solo cambian su plan, su forma de pago y lo que tiene activado. Nada de código aparte por cliente: las integraciones a medida son skills (ADR 0030), no ramas del producto.
 
 ---
 
@@ -1153,7 +1211,7 @@ Cualquier persona o agente que se incorpore empieza leyendo, en este orden: `doc
 | **1. Primer agente real** | Agente `customer` para el vertical piloto **[ABIERTO]** | Web chat + un canal real (WhatsApp por Cloud API directa, ADR 0020), conocimiento central y por local, solicitudes de conocimiento, motor de políticas, aprobaciones, auditoría, una integración real (calendario o reservas), métricas básicas y evals del vertical | Conversaciones reales en producción con un piloto de 1-2 locales durante varias semanas, con la tasa de resolución autónoma medida |
 | **2. Los 4 agentes + coach interno** | `reception`, `sales`, `admin` + coordinación + inteligencia sobre datos internos | Eventos de dominio, CRM, facturación ES, Instagram, email, panel de analítica multi-local, memoria aprendida cruzada, mapa del negocio, objetivos y coach sobre datos internos (gestión, finanzas, clientes), asistente en modo lectura y diagnóstico (ADR 0029) | Un flujo completo entre agentes (cita → recurso y recordatorio → cobro en borrador) con un cliente real; recomendaciones del coach aceptadas y con impacto medido |
 | **2b. Coach con señales externas** | El coach mira fuera del negocio | Captación compartida de señales (calendario y festivos, eventos locales, noticias y cambios normativos del sector, tendencias, competencia pública), cruce por organización, alertas | Propuestas de marketing y calendario basadas en eventos, y avisos normativos con fuente, aceptadas por clientes reales |
-| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening, asistente con cambios confirmados (ADR 0029), agentes propios y skills de integraciones MCP (ADR 0030), celda dedicada y prueba de humo autoalojada (ADR 0026, 0028) | Un negocio completa el onboarding solo; un contrato de cadena firmado |
+| **3. Producto vendible a escala** | Autoservicio y enterprise | Onboarding sin ayuda, alta autoservicio con método de pago y créditos de IA (§15.1), plantillas por vertical, Stripe, SSO, alta de locales en lote, pentest, hardening, asistente con cambios confirmados (ADR 0029), agentes propios y skills de integraciones MCP (ADR 0030), celda dedicada y prueba de humo autoalojada (ADR 0026, 0028) | Un negocio completa el onboarding solo; un contrato de cadena firmado |
 | **4. Agent Builder** | Skills y flujos personalizados por cliente | Editor de reglas y flujos, skills `composed` creadas por el cliente sin programar (ADR 0030) | Definido al llegar |
 | **5. Marketplace** | Agentes y skills de terceros | Publicación, revisión y reparto de ingresos | Definido al llegar |
 | **Voz** | Canal de voz | Telefonía + STT/TTS | Fase **[ABIERTA]** |
