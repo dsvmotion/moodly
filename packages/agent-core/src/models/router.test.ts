@@ -27,21 +27,27 @@ describe("modelo por tarea", () => {
     const transport = createFakeTransport({ provider: "a" });
     const router = createModelRouter([transport]);
     await router.generate({ ...call, task: "reason" }, policy(), noSpend);
-    await router.generate(call, policy(), noSpend);
+    await router.generate({ ...call, task: "classify" }, policy(), noSpend);
     expect(transport.calls.map((request) => request.modelKey)).toEqual(["smart", "fast"]);
+  });
+
+  it("conversar usa el modelo capaz, no el rápido (producto, 2026-11-03)", async () => {
+    const transport = createFakeTransport({ provider: "a" });
+    await createModelRouter([transport]).generate(call, policy(), noSpend);
+    expect(transport.calls[0]?.modelKey).toBe("smart");
   });
 
   it("usa el modelo que la política de la organización asigna a la tarea", async () => {
     const transport = createFakeTransport({ provider: "a" });
     const router = createModelRouter([transport]);
-    await router.generate(call, policy({ modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse: "smart" } }), noSpend);
-    expect(transport.calls[0]?.modelKey).toBe("smart");
+    await router.generate(call, policy({ modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse: "fast" } }), noSpend);
+    expect(transport.calls[0]?.modelKey).toBe("fast");
   });
 
   it("salta los transportes que no sirven esa clave", async () => {
     const onlyEmbeddings = createFakeTransport({ provider: "e", serves: ["embedding"] });
     const chat = createFakeTransport({ provider: "c", serves: ["fast"] });
-    const result = await createModelRouter([onlyEmbeddings, chat]).generate(call, policy(), noSpend);
+    const result = await createModelRouter([onlyEmbeddings, chat]).generate({ ...call, task: "classify" }, policy(), noSpend);
     expect(result.provider).toBe("c");
   });
 });
@@ -158,7 +164,7 @@ describe("lo que devuelve cada llamada (ADR 0019)", () => {
     let clock = 1_000;
     const transport = createFakeTransport({ provider: "a", region: "eu", via: "gateway" });
     const router = createModelRouter([transport], () => (clock += 250));
-    const result = await router.generate(call, policy(), noSpend);
+    const result = await router.generate({ ...call, task: "classify" }, policy(), noSpend);
     expect(result).toEqual({
       text: "respuesta de a",
       model: "a/fast",

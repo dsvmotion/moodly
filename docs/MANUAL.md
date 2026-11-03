@@ -637,7 +637,7 @@ Reglas:
 El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`) al `ModelRouter`. La tarea se resuelve a una clave lógica (`fast`, `smart` o `embedding`, en `@repo/config`). Antes de llamar, el enrutador aplica la política de la organización: residencia, proveedores permitidos, modo de conexión sin caer de BYOK a Moodly, y topes de gasto por run y por día. Ningún código fuera de `models/transports` importa un SDK de proveedor (test estructural).
 
 - Los modelos se definen en `packages/config` por tarea (clasificación, conversación, razonamiento complejo, extracción). Nunca hay IDs de modelo escritos en el código de negocio.
-- Enrutado por coste: modelo ligero para clasificar y extraer, modelo potente para conversaciones complejas y decisiones con efecto.
+- **Modelos capaces [DECIDIDO: producto, 2026-11-03]:** los que pueden hacer el trabajo y ejecutar lo que se les pide, no los más baratos. Conversar con el cliente y razonar usan el modelo potente (`smart`); el ligero (`fast`) queda para clasificar y extraer. La tabla con IDs y precios está en `@repo/config` (`GATEWAY_MODELS`, ADR 0033 §7).
 - Cada run registra tokens y coste en `agent_runs` y `usage_records`.
 - Webhooks e integraciones con reintentos y backoff. Idempotencia en `inbound_events` y en `executions.idempotency_key`.
 - Timeouts por llamada LLM y por skill. Si falla el proveedor principal, se usa un proveedor alternativo configurado. Si todo falla, se hace el paso a humano con un mensaje de disculpa.

@@ -34,11 +34,39 @@ export type ModelTask = (typeof MODEL_TASKS)[number];
 export const MODEL_KEYS = ["fast", "smart", "embedding"] as const;
 export type ModelKey = (typeof MODEL_KEYS)[number];
 
-/** Por defecto de plataforma: lo rápido para clasificar, extraer y conversar; lo potente para razonar. */
+/**
+ * Por defecto de plataforma (producto, 2026-11-03: «los modelos que pueden hacer
+ * el trabajo»): lo potente para conversar con el cliente y razonar, porque
+ * conversar es usar herramientas; lo rápido, solo para clasificar y extraer.
+ */
 export const DEFAULT_MODEL_BY_TASK: Readonly<Record<ModelTask, ModelKey>> = {
   classify: "fast",
   extract: "fast",
-  converse: "fast",
+  converse: "smart",
   reason: "smart",
   embed: "embedding",
 };
+
+export interface GatewayModel {
+  /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
+  id: string;
+  /** Precio en USD por millón de tokens, para estimar antes de llamar (el coste real lo da el gateway). */
+  inputUsdPerMTok: number;
+  outputUsdPerMTok: number;
+}
+
+/**
+ * Qué modelo sirve cada clave por Vercel AI Gateway (ADR 0033). Cambiar de
+ * modelo es cambiar esta tabla, nunca el código de negocio.
+ */
+export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> = {
+  fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5 },
+  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20 },
+};
+
+/**
+ * USD → EUR para los topes y los costes, que van en euros. Uno a uno a propósito:
+ * un dólar vale menos que un euro, así que el coste anotado nunca se queda corto.
+ * El cambio real llega con la facturación (B5).
+ */
+export const USD_TO_EUR = 1;

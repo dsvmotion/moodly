@@ -10,9 +10,9 @@ const TRANSPORTS = "packages/agent-core/src/models/transports/";
 // Este archivo lleva ejemplos de imports prohibidos como texto (los casos de abajo).
 const SELF = "packages/agent-core/src/models/sdk-boundary.test.ts";
 
-/** SDKs de proveedor (y los paquetes @ai-sdk/*), con import estático, dinámico o require. */
+/** SDKs de proveedor (el núcleo `ai` del Vercel AI SDK y los paquetes @ai-sdk/*), con import estático, dinámico o require. */
 const PROVIDER_SDK_IMPORT =
-  /(from\s+|import\s*\(\s*|require\s*\(\s*)["'](@ai-sdk\/[^"']+|@anthropic-ai\/sdk|openai|@google\/genai|@google-cloud\/vertexai|@aws-sdk\/client-bedrock-runtime|@mistralai\/mistralai|cohere-ai|groq-sdk)["']/;
+  /(from\s+|import\s*\(\s*|require\s*\(\s*)["'](ai(?:\/[^"']+)?|@ai-sdk\/[^"']+|@anthropic-ai\/sdk|openai|@google\/genai|@google-cloud\/vertexai|@aws-sdk\/client-bedrock-runtime|@mistralai\/mistralai|cohere-ai|groq-sdk)["']/;
 
 function sourceFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -47,6 +47,8 @@ describe("frontera de SDKs de proveedor (ADR 0033)", () => {
 
   it.each([
     `import { anthropic } from "@ai-sdk/anthropic";`,
+    `import { generateText } from "ai";`,
+    `import { MockLanguageModelV4 } from "ai/test";`,
     `import OpenAI from "openai";`,
     `const sdk = await import("@aws-sdk/client-bedrock-runtime");`,
     `const { GoogleGenAI } = require("@google/genai");`,
@@ -54,7 +56,13 @@ describe("frontera de SDKs de proveedor (ADR 0033)", () => {
     expect(PROVIDER_SDK_IMPORT.test(line)).toBe(true);
   });
 
-  it.each([`import { z } from "zod";`, `import { openaiLike } from "./openai-like.js";`, `// usar openai más adelante`])(
+  it.each([
+    `import { z } from "zod";`,
+    `import { openaiLike } from "./openai-like.js";`,
+    `// usar openai más adelante`,
+    `import { aiHelper } from "./ai.js";`,
+    `import { brain } from "ai-brain";`,
+  ])(
     "no confunde %s con un SDK de proveedor",
     (line) => {
       expect(PROVIDER_SDK_IMPORT.test(line)).toBe(false);
