@@ -1,5 +1,6 @@
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
 import { createServiceDb } from "@repo/db/service";
+import type pg from "pg";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
 import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
@@ -7,6 +8,7 @@ import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
 import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
 import { registerSmokeQueue, registerSmokeWorkflow } from "./smoke.ts";
+import { createSystemDatabasePool } from "./system-db-pool.ts";
 
 // Arranque de DBOS con las reglas del ADR 0027. Los workflows se registran
 // (DBOS.registerWorkflow) antes de start(): DBOS solo recupera los que conoce.
@@ -53,6 +55,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   const registry = createEventRegistry(options.eventHandlers);
   const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
   let lease: ExecutorLease | undefined;
+  let pool: pg.Pool | undefined;
   let launched = false;
   return {
     async start() {
@@ -65,9 +68,18 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       });
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
+      // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
+      // (system-db-pool.ts). La URL se le sigue pasando: DBOS la usa (sin
+      // contraseña) en su log de arranque y en sus mensajes de error.
+      pool = createSystemDatabasePool({
+        connectionString: config.systemDatabaseUrl,
+        applicationName: `dbos_transact_${config.executorId}_${config.applicationVersion}`,
+        logger,
+      });
       DBOS.setConfig({
         name: APPLICATION_NAME,
         systemDatabaseUrl: config.systemDatabaseUrl,
+        systemDatabasePool: pool,
         systemDatabaseSchemaName: "dbos",
         // Regla 6: el esquema lo migra el CI. Si falta o está atrasado, DBOS no
         // arranca (DBOSInitializationError) en vez de intentar crearlo.
@@ -100,8 +112,10 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       );
     },
     async stop() {
-      // DBOS primero: el lock se suelta cuando ya no queda nada en marcha.
+      // DBOS primero: el lock se suelta cuando ya no queda nada en marcha. Su
+      // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
       if (launched) await DBOS.shutdown();
+      await pool?.end();
       await lease?.release();
       logger.info({ executorId: config.executorId }, "worker parado");
     },
