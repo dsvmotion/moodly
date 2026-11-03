@@ -222,6 +222,9 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
   it("contesta en la conversación con los huecos de su local, por el motor de políticas", async () => {
     const messageId = await customerSays("¿Tenéis hueco el lunes para láser?");
     await waitFor(async () => (await agentMessages()).length === 1, "el agente contesta");
+    // La respuesta sale en un paso y el run se cierra en el siguiente
+    // (run:finish), unos 20 ms después: hasta entonces sigue en «running».
+    await waitFor(async () => (await runFor(messageId))[0]?.status !== "running", "el run se cierra");
 
     const [reply] = await agentMessages();
     expect(reply?.content).toBe("Tengo hueco el lunes a las 9:00.");
@@ -253,6 +256,7 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
   it("reservar queda en borrador para una persona, y el agente no lo da por hecho", async () => {
     const messageId = await customerSays("Resérvame el lunes a las 9");
     await waitFor(async () => (await agentMessages()).length === 2, "el agente contesta");
+    await waitFor(async () => (await runFor(messageId))[0]?.status !== "running", "el run se cierra");
 
     expect((await agentMessages())[1]?.content).toBe("Una persona del equipo te lo confirma enseguida.");
     const [run] = await runFor(messageId);

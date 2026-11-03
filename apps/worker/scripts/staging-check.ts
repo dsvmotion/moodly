@@ -15,7 +15,9 @@ import { TLSSocket } from "node:tls";
 import { DBOSClient } from "@dbos-inc/dbos-sdk";
 import pg from "pg";
 import { leaseKey } from "../src/lease.ts";
+import { createLogger } from "../src/logger.ts";
 import { SMOKE_QUEUE, SMOKE_TOPIC, SMOKE_WORKFLOW, type SmokeMessage, type SmokeResult } from "../src/smoke.ts";
+import { createSystemDatabasePool } from "../src/system-db-pool.ts";
 
 const url = process.env["WORKER_SYSTEM_DATABASE_URL"];
 if (!url) throw new Error("falta WORKER_SYSTEM_DATABASE_URL");
@@ -112,12 +114,27 @@ async function lease(): Promise<void> {
   });
 }
 
+// El pool del worker (system-db-pool.ts), no el de DBOSClient: el suyo tiene el
+// mismo fallo con pg 9 que el de DBOS en el worker.
 async function withDbos<T>(fn: (client: DBOSClient) => Promise<T>): Promise<T> {
-  const client = await DBOSClient.create({ systemDatabaseUrl: url as string, systemDatabaseSchemaName: "dbos" });
+  const pool = createSystemDatabasePool({
+    connectionString: url as string,
+    applicationName: "dbos_client_staging-check",
+    logger: createLogger("warn"),
+  });
   try {
-    return await fn(client);
+    const client = await DBOSClient.create({
+      systemDatabaseUrl: url as string,
+      systemDatabasePool: pool,
+      systemDatabaseSchemaName: "dbos",
+    });
+    try {
+      return await fn(client);
+    } finally {
+      await client.destroy();
+    }
   } finally {
-    await client.destroy();
+    await pool.end();
   }
 }
 
