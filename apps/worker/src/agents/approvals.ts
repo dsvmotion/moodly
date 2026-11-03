@@ -17,7 +17,7 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 
 export const APPROVAL_HANDLER_KEY = "agent.approval";
 
-/** Cuánto espera una aprobación: un día, lo que dura la ventana de atención de WhatsApp [PROPUESTO]. */
+/** Cuánto espera una aprobación: un día, lo que dura la ventana de atención de WhatsApp (producto, 2026-11-03). */
 export const APPROVAL_TTL_MS = 24 * 3_600_000;
 
 /** Las que esperan a una persona: nacen con su aprobación. */
@@ -26,7 +26,7 @@ export const AWAITING_PERSON = new Set(["drafted", "suggested", "needs_approval"
 export type ApproverRole = "org_admin" | "region_manager" | "location_manager" | "staff";
 
 /**
- * Quién puede decidir [PROPUESTO]: el equipo del local para lo de cada día
+ * Quién puede decidir (producto, 2026-11-03): el equipo del local para lo de cada día
  * (responder, reservar, mover, cancelar), y quien dirige el local para enviar
  * a muchos, cobrar o borrar. Sin local, solo un org_admin (lo exige la tabla).
  */

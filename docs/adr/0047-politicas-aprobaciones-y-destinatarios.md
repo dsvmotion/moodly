@@ -92,7 +92,7 @@ Lo que ya hay:
 - **La decisión no despierta al workflow del run: la ejecuta el consumidor `agent.approval`** de `approval.decided`. El run ya terminó en `awaiting_approval`, y así no quedan workflows esperando días.
   - Es igual de duradero, porque cada entrega es un workflow de DBOS.
   - Lo que se ejecuta sale de la fila, nunca del evento.
-- **El worker crea la aprobación al guardar la ejecución:** el mismo hash, la vista previa como motivo, `required_role` según la clase de efecto y el local, y caducidad a las 24 h. Las dos últimas son **[PROPUESTO]**; ver MANUAL §5.7.
+- **El worker crea la aprobación al guardar la ejecución:** el mismo hash, la vista previa como motivo, `required_role` según la clase de efecto y el local, y caducidad a las 24 h. Las aprobó producto el 2026-11-03, con la ejecución en un consumidor aparte; ver MANUAL §5.7.
 - **Decidir sigue siendo solo de una persona con sesión,** con RLS, `guard_approval` y `aal2`. La bandeja de la app llega en el paso siguiente.
 
 ## Orden de implementación (un PR cada uno, con sus tests)

@@ -609,12 +609,12 @@ Reglas:
 
 **Cómo está hecho (paso 4d-3d):**
 - **Lo que el agente deja en borrador, como sugerencia o pendiente de aprobación nace con su aprobación** (`approvals`): con el hash de la ejecución y la vista previa como motivo, que es lo que lee quien decide.
-- **Quién decide [PROPUESTO]:**
+- **Quién decide [DECIDIDO: producto, 2026-11-03]:**
   - el equipo del local (`staff` o más) para lo de cada día: responder, reservar, mover y cancelar;
   - quien dirige el local (`location_manager` o más) para enviar a muchos, cobrar o borrar;
   - sin local, un `org_admin`.
-- **Caduca a las 24 h [PROPUESTO]**, lo que dura la ventana de atención de WhatsApp.
-- **El run no se queda esperando:** el turno termina en `awaiting_approval` y la decisión la ejecuta otro consumidor, `agent.approval`, de `approval.decided`.
+- **Caduca a las 24 h [DECIDIDO: producto, 2026-11-03]**, lo que dura la ventana de atención de WhatsApp.
+- **El run no se queda esperando [DECIDIDO: producto, 2026-11-03]:** el turno termina en `awaiting_approval` y la decisión la ejecuta otro consumidor, `agent.approval`, de `approval.decided`.
   - Es igual de duradero: cada entrega es un workflow de DBOS con sus pasos.
   - No deja workflows abiertos durante días.
 - **Al aprobar:**
