@@ -7,7 +7,7 @@ el coste medido en 2 o 3 pilotos.
 Fuente única de las cifras en la web: `apps/site/src/components/pricing.js`.
 
 > **Actualización (producto, 2026-11-03):** manda lo decidido en MANUAL §15.1 y §15.2, y deja atrás parte de esta propuesta:
-> - **La prueba es otra:** sin método de pago no hay IA; al añadirlo, 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
+> - **La prueba es otra:** sin método de pago no hay IA; al añadirlo, 7 días con 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
 > - **La implantación solo es para enterprise y a medida,** con presupuesto cerrado.
 >
 > Las cifras de abajo siguen siendo **PROPUESTO**.
@@ -28,7 +28,7 @@ adaptamos con el **agente** como unidad.
 
 | Concepto | Precio |
 |---|---|
-| Prueba | 0 € · 14 días · 1 agente · 100 conversaciones · sin tarjeta |
+| Prueba | 7 días con 5 € de crédito de IA, con método de pago y sin cobro hasta que la organización elija cómo seguir (MANUAL §15.1, producto 2026-11-03) |
 | Fijo por agente | **49 €/mes**, con 250 conversaciones incluidas, usuarios ilimitados, app e integraciones estándar |
 | Sede adicional | 29 €/mes |
 | Conversación extra | **0,10 €** |
