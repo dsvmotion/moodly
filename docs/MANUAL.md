@@ -141,7 +141,7 @@ La referencia principal es **GuruSup** (gurusup.com). Según su web, a 28/09/202
   - **Enterprise e implantaciones a medida** (cadenas, empresas grandes, integraciones propias): implantación con presupuesto cerrado por proyecto, como pago único, y contrato (§15.2).
 - **[ABIERTO]** Importes finales, precio por local o por volumen para cadenas, y si la voz se factura aparte (la recomendación es que sí, porque su coste es de otro orden).
 - **Consecuencia técnica:** hay que medir el consumo por organización y por local (tokens, mensajes, minutos) y poder aplicar límites (§15).
-- **[DECIDIDO: producto, 2026-11-03] Alta autoservicio con método de pago y créditos de IA (§15.1):** cualquiera se registra y navega, pero la IA solo funciona con un método de pago válido; al añadirlo recibe 5 € de crédito de prueba; al acabarse, la IA se pausa con aviso y la organización elige cómo seguir (consumo bajo demanda, paquete de créditos o plan mensual con créditos incluidos).
+- **[DECIDIDO: producto, 2026-11-03] Alta autoservicio con método de pago y créditos de IA (§15.1):** cualquiera se registra y navega, pero la IA solo funciona con un método de pago válido; al añadirlo empieza una prueba de 7 días con 5 € de crédito; al acabarse, la IA se pausa con aviso y la organización elige cómo seguir (consumo bajo demanda, paquete de créditos o plan mensual con créditos incluidos).
 
 ---
 
@@ -1111,8 +1111,9 @@ Como en Langdock. Todo tiene que estar clarísimo para quien se da de alta: qué
    - sus 4 agentes de serie y el asistente de la plataforma (§5.13);
    - puede crear sus propios agentes (ADR 0030), configurar y conectar integraciones.
 2. **Sin método de pago válido, ningún servicio de IA funciona:** ni los agentes, ni el asistente, ni los embeddings. La app lo dice donde haga falta («añade un método de pago para activar la IA»), nunca falla en silencio.
-3. **Al añadir un método de pago válido, la IA se activa con 5 € de crédito de prueba.** Hasta que se gasta, no se cobra nada.
-4. **Cuando se acaba el crédito:**
+3. **Al añadir un método de pago válido, la IA se activa con una prueba de 7 días y 5 € de crédito** (producto, 2026-11-03: 7 días, no 14). Durante la prueba no se cobra nada.
+   - La prueba acaba a los 7 días o al gastar los 5 €, lo que llegue antes **[PROPUESTO]**.
+4. **Cuando se acaba la prueba o el crédito:**
    - **se avisa con claridad:** en la app y por email a los `org_admin`, antes de acabarse (al 80 %) y al acabarse;
    - **la IA se pausa:** ningún agente vuelve a llamar a un modelo;
    - **con el cliente final nunca hay silencio:** la conversación pasa a una persona (§5.10) y el agente no promete nada;
@@ -1132,7 +1133,7 @@ Como en Langdock. Todo tiene que estar clarísimo para quien se da de alta: qué
   - lo concedido: crédito de prueba, paquetes y planes;
   - frente a lo gastado: `usage_records`, el coste de cada llamada.
 - **Planes y precios son datos,** no código. Stripe es una implementación que lee esas medidas (B5 y B6 del roadmap).
-- **Importes [ABIERTO],** salvo los 5 € de prueba.
+- **Importes [ABIERTO],** salvo la prueba: 7 días y 5 €.
 - **El registro público se abre con este flujo, no antes.** Hasta entonces, el alta es por invitación (`[auth] enable_signup = false`) y staging trabaja con datos de prueba.
 
 ### 15.2 Enterprise e implantaciones a medida **[DECIDIDO: producto, 2026-11-03]**
