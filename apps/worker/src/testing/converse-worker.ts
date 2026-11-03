@@ -5,7 +5,8 @@
 //   CONVERSE_PLAN='{"serviceId":…,"resourceId":…,"startsAt":…}' node converse-worker.ts <archivo>
 //
 // El guion: si el cliente pide reservar, propone book_appointment; si pregunta
-// por huecos, find_slots; con el resultado de una herramienta, contesta según
+// por huecos, find_slots, con el service_id que lee del prompt (como un modelo
+// real: si los servicios no llegan al prompt, no hay hueco que buscar); con el resultado de una herramienta, contesta según
 // se hizo o queda para una persona; ante una duda médica, no dice nada (el
 // turno pasa a una persona); si no, saluda.
 import { appendFileSync } from "node:fs";
@@ -33,8 +34,14 @@ const call = (name: string, args: Record<string, unknown>): TransportResponse =>
   ...usage,
 });
 
+/** El service_id de un servicio por su nombre, de la capa «What can be booked» del prompt. */
+function serviceIdFromPrompt(system: string | null, name: string): string {
+  return new RegExp(`^- ${name} \\(\\d+ min\\): service_id (\\S+)$`, "m").exec(system ?? "")?.[1] ?? "no-esta-en-el-prompt";
+}
+
 function respond(request: TransportRequest): TransportResponse {
   const last = request.messages.at(-1);
+  const system = request.messages[0]?.role === "system" ? request.messages[0].content : null;
   const customer = [...request.messages].reverse().find((message) => message.role === "user")?.content ?? "";
   effect({
     step: "model",
@@ -50,7 +57,7 @@ function respond(request: TransportRequest): TransportResponse {
   if (/res[eé]rv/i.test(customer)) {
     return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
   }
-  if (/hueco/i.test(customer)) return call("find_slots", { service_id: plan.serviceId, from: "2030-06-03T00:00:00+02:00" });
+  if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");
   return say("Hola, soy el asistente de IA del centro.");

@@ -533,6 +533,12 @@ En orden, de mayor a menor autoridad:
 
 Las herramientas que ve el LLM son **solo** las skills activas del agente en ese local, filtradas además por las integraciones conectadas.
 
+**Lo que se puede reservar (paso 4d-3c):** si el agente tiene `find_slots`, el prompt lleva los servicios activos de su local y los de toda la organización, por nombre, con duración y `service_id` (`composeSystemPrompt`, capa «What can be booked», después de quién es el agente y antes de las instrucciones del negocio).
+- Un modelo real no puede adivinar el `service_id` que piden las herramientas.
+- Cada nombre va en una sola línea, para que no pueda abrir otra capa.
+- Van como mucho 50; si hay más, el prompt avisa de que la lista no está completa.
+- Sin local, o sin servicios, dice que no hay nada que reservar y que contestará una persona.
+
 ### 5.4 Motor de políticas **[DECIDIDO el principio; implementación: ADR 0047, `packages/agent-core`]**
 
 Cada llamada a una skill que propone el LLM pasa por el motor de políticas **antes** de ejecutarse:

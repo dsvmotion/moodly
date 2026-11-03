@@ -1,7 +1,7 @@
 import type { TurnResult } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { createEventRegistry } from "../events/handlers.ts";
-import { CONVERSE_HANDLER_KEY, createConverseHandler, runIdFor, runStatusFor } from "./converse.ts";
+import { CONVERSE_HANDLER_KEY, MAX_PROMPT_SERVICES, bookableServices, createConverseHandler, runIdFor, runStatusFor } from "./converse.ts";
 
 const usage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null };
 
@@ -30,5 +30,32 @@ describe("el turno del agente en el worker", () => {
     const registry = createEventRegistry([handler]);
     expect(registry.handlersFor("message.received").map((h) => h.key)).toEqual([CONVERSE_HANDLER_KEY]);
     expect(registry.handlersFor("invitation.created")).toEqual([]);
+  });
+});
+
+describe("lo que se puede reservar en el prompt", () => {
+  const CENTRO = "a2000000-0000-4000-8000-000000000001";
+  const NORTE = "a2000000-0000-4000-8000-000000000002";
+  const row = (id: string, name: string, location_id: string | null) => ({ id, name, duration_minutes: 30, location_id });
+
+  it("los de toda la organización y los de su local, por nombre; nunca los de otro local", () => {
+    const { services, truncated } = bookableServices(
+      [row("s3", "Uñas", CENTRO), row("s1", "Láser", null), row("s2", "Masaje", NORTE), row("s4", "Depilación", null)],
+      CENTRO,
+    );
+    expect(services.map((service) => service.name)).toEqual(["Depilación", "Láser", "Uñas"]);
+    expect(services[0]).toEqual({ id: "s4", name: "Depilación", durationMinutes: 30 });
+    expect(truncated).toBe(false);
+  });
+
+  it("sin local no hay nada que reservar (find_slots lo exige)", () => {
+    expect(bookableServices([row("s1", "Láser", null)], null)).toEqual({ services: [], truncated: false });
+  });
+
+  it("como mucho los que caben, y avisa si hay más", () => {
+    const many = Array.from({ length: MAX_PROMPT_SERVICES + 1 }, (_, i) => row(`s${String(i).padStart(3, "0")}`, `Servicio ${String(i).padStart(3, "0")}`, null));
+    const { services, truncated } = bookableServices(many, CENTRO);
+    expect(services).toHaveLength(MAX_PROMPT_SERVICES);
+    expect(truncated).toBe(true);
   });
 });

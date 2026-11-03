@@ -30,6 +30,9 @@ export class ReceptionScopeError extends Error {
   override name = "ReceptionScopeError";
 }
 
+/** Buscar huecos: si el agente la tiene, su prompt lleva los servicios que se pueden reservar (4d-3c). */
+export const FIND_SLOTS_SKILL_KEY = "find_slots";
+
 const MAX_WINDOW_MS = 14 * 86_400_000;
 const SLOT_LIMIT = 10;
 
@@ -89,7 +92,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   };
 
   const findSlots = defineSkill({
-    key: "find_slots",
+    key: FIND_SLOTS_SKILL_KEY,
     version: 1,
     description: "Busca huecos libres de un servicio en este local, desde una fecha (como mucho 14 días).",
     effectClass: "read",
