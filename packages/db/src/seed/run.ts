@@ -15,6 +15,8 @@ import pg from "pg";
 import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
+  SEED_APPROVALS_ORG,
+  seedApprovals,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
@@ -300,6 +302,67 @@ async function main(): Promise<void> {
     check("platform_staff", row.error);
 
     credentials.push({ key: staff.key, email: staff.email, password, role: staff.role, organizationId: null });
+  }
+
+  // Aprobaciones pendientes de Demo A (paso 4d-3d). Se borran y se vuelven a
+  // crear: una decidida no vuelve a pendiente. El agente es el que reserva
+  // (tiene book_appointment), sin escribir aquí la clave de ningún agente.
+  const bookSkill = await admin.from("skills").select("id").eq("key", "book_appointment").is("organization_id", null).single();
+  check("skills", bookSkill.error);
+  const bookingAgent = await admin
+    .from("agent_skills")
+    .select("agent_id")
+    .eq("organization_id", SEED_APPROVALS_ORG)
+    .eq("skill_id", bookSkill.data?.id ?? "")
+    .limit(1)
+    .single();
+  check("agent_skills", bookingAgent.error);
+  const removed = await admin
+    .from("agent_runs")
+    .delete()
+    .in("id", seedApprovals.map((approval) => approval.runId));
+  check("agent_runs", removed.error);
+  const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
+  for (const approval of seedApprovals) {
+    const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
+    const run = await admin.from("agent_runs").insert({
+      id: approval.runId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      agent_id: bookingAgent.data?.agent_id ?? "",
+      trigger: "inbound_message",
+      status: "awaiting_approval",
+    });
+    check("agent_runs", run.error);
+    const execution = await admin.from("executions").insert({
+      id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      run_id: approval.runId,
+      skill_key: approval.skillKey,
+      skill_version: 1,
+      effect_class: approval.effectClass,
+      autonomy_applied: "draft",
+      input: approval.input,
+      target: { kind: "none" },
+      input_hash: inputHash,
+      preview: { summary: approval.summary },
+      status: "drafted",
+      idempotency_key: `seed:${approval.key}`,
+    });
+    check("executions", execution.error);
+    const pending = await admin.from("approvals").insert({
+      id: approval.approvalId,
+      execution_id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      effect_class: approval.effectClass,
+      input_hash: inputHash,
+      required_role: "staff",
+      reason: approval.summary,
+      expires_at: expiresAt,
+    });
+    check("approvals", pending.error);
   }
 
   mkdirSync(dirname(credentialsFile), { recursive: true });

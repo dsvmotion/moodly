@@ -250,3 +250,62 @@ export const seedPlatformStaff: readonly SeedPlatformStaff[] = [
     revokedAt: "2026-10-01T00:00:00.000Z",
   },
 ];
+
+/**
+ * Lo que el agente dejó esperando a una persona (paso 4d-3d): aprobaciones fijas
+ * para la bandeja de la app y sus e2e. El seed las borra y las vuelve a crear en
+ * cada ejecución, porque una aprobación decidida no vuelve a pendiente
+ * (guard_approval). Su hash no sale de una entrada real: el worker no las
+ * ejecutaría (verifyApproval), y en local no hay worker durante los e2e.
+ */
+export interface SeedApproval {
+  key: string;
+  runId: string;
+  executionId: string;
+  approvalId: string;
+  locationId: string;
+  skillKey: string;
+  effectClass: "external_message" | "internal_write";
+  input: Record<string, string>;
+  summary: string;
+}
+
+export const seedApprovals: readonly SeedApproval[] = [
+  {
+    key: "a2_reply",
+    runId: "5eed0007-0000-4000-8000-0000000000a1",
+    executionId: "5eed0008-0000-4000-8000-0000000000a1",
+    approvalId: "5eed0009-0000-4000-8000-0000000000a1",
+    locationId: LOC_A2,
+    skillKey: "reply",
+    effectClass: "external_message",
+    input: { text: "Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?" },
+    summary: "Responder: «Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?»",
+  },
+  {
+    key: "a2_booking",
+    runId: "5eed0007-0000-4000-8000-0000000000a2",
+    executionId: "5eed0008-0000-4000-8000-0000000000a2",
+    approvalId: "5eed0009-0000-4000-8000-0000000000a2",
+    locationId: LOC_A2,
+    skillKey: "book_appointment",
+    effectClass: "internal_write",
+    input: { service_id: "5eed000a-0000-4000-8000-000000000001", starts_at: "2030-06-03T09:00:00+02:00" },
+    summary: "Reservar Primera visita el lunes, 3 de junio de 2030, 9:00",
+  },
+  {
+    key: "a1_reply",
+    runId: "5eed0007-0000-4000-8000-0000000000a3",
+    executionId: "5eed0008-0000-4000-8000-0000000000a3",
+    approvalId: "5eed0009-0000-4000-8000-0000000000a3",
+    locationId: LOC_A1,
+    skillKey: "reply",
+    effectClass: "external_message",
+    input: { text: "Buenas tardes, le confirmamos la cita del martes." },
+    summary: "Responder: «Buenas tardes, le confirmamos la cita del martes.»",
+  },
+];
+
+/** La organización de las aprobaciones del seed. */
+export const SEED_APPROVALS_ORG = ORG_A;
+

@@ -386,5 +386,27 @@
     },
     "noAgentsTitle": "You have no agents yet",
     "noAgentsDescription": "Your agents appear once you belong to an organization: accept the invitation you were sent."
+  },
+  "approvalsPage": {
+    "title": "Approvals",
+    "description": "What the agent proposes and is waiting for a person. Approving sends the reply or makes the booking; rejecting does nothing.",
+    "emptyTitle": "Nothing pending",
+    "empty": "When the agent leaves a reply or an appointment as a draft, it will show up here.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "wholeOrganization": "Whole organization",
+    "expires": "Expires {time}",
+    "skills": {
+      "reply": "Reply",
+      "find_slots": "Find slots",
+      "list_my_appointments": "View appointments",
+      "book_appointment": "Booking",
+      "reschedule_appointment": "Reschedule",
+      "cancel_appointment": "Cancellation"
+    },
+    "errors": {
+      "invalid": "The decision could not be read. Please try again.",
+      "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
+    }
   }
 }

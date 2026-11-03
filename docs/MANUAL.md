@@ -623,6 +623,10 @@ Reglas:
   - si algo no cuadra, no se ejecuta: la ejecución queda en `failed` y se registra un evento de seguridad.
 - **Al rechazar,** no se ejecuta nada.
 - **Cuando no queda nada pendiente,** el run se cierra.
+- **La bandeja (`/app/approvals`):**
+  - cada persona ve lo pendiente de los locales de su alcance (RLS), con la vista previa, el tipo, el local y la caducidad;
+  - aprobar o rechazar es un `UPDATE` con su sesión: RLS (`approvals_decide`) y `guard_approval` deciden si puede, ponen quién decidió y cuándo, y emiten `approval.decided`;
+  - cada decisión deja su evento de seguridad (`agent.approval_approved` o `agent.approval_rejected`).
 
 ### 5.8 Coordinación entre agentes **[DISEÑO: ADR 0009, propuesto; outbox implementado en W3]**
 

@@ -1,5 +1,53 @@
-import { SectionEmpty } from "@/components/section-empty";
+import { getFormatter, getTranslations } from "next-intl/server";
+import { Badge } from "@repo/ui/components/badge";
+import { EmptyState } from "@repo/ui/components/empty-state";
+import { ApprovalActions } from "@/components/approvals/approval-actions";
+import { loadPendingApprovals } from "@/lib/approvals-data";
+import { requireUser } from "@/lib/auth/session";
+import { resolveScope } from "@/lib/scope-data";
 
-export default function Page() {
-  return <SectionEmpty section="approvals" />;
+// Aprobaciones (paso 4d-3d, MANUAL §5.7 y §9): lo que el agente dejó esperando a
+// una persona, del alcance elegido. Aprobar envía la respuesta o hace la
+// reserva (lo ejecuta el worker); rechazar no ejecuta nada.
+const SKILLS = ["reply", "find_slots", "list_my_appointments", "book_appointment", "reschedule_appointment", "cancel_appointment"] as const;
+type KnownSkill = (typeof SKILLS)[number];
+const isKnownSkill = (key: string): key is KnownSkill => (SKILLS as readonly string[]).includes(key);
+
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
+  await requireUser();
+  const t = await getTranslations("approvalsPage");
+  const format = await getFormatter();
+  const { scope, context } = await resolveScope((await searchParams).scope);
+  const rows = await loadPendingApprovals(scope, context);
+
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold">{t("title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("description")}</p>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState data-testid="approvals-empty" title={t("emptyTitle")} description={t("empty")} />
+      ) : (
+        <ul className="flex flex-col divide-y rounded-lg border" data-testid="approvals-list">
+          {rows.map((row) => (
+            <li key={row.id} data-testid="approval" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="text-sm font-medium break-words" data-testid="approval-summary">
+                  {row.summary}
+                </p>
+                <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                  <Badge>{isKnownSkill(row.skillKey) ? t(`skills.${row.skillKey}`) : row.skillKey}</Badge>
+                  <span data-testid="approval-location">{row.location ?? t("wholeOrganization")}</span>
+                  <span>·</span>
+                  <span>{t("expires", { time: format.relativeTime(new Date(row.expiresAt)) })}</span>
+                </div>
+              </div>
+              <ApprovalActions id={row.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
