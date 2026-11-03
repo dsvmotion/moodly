@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, policyFromSettings, runAgentTurn } from "@repo/agent-core";
-import type { HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
+import type { BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
-import { createReceptionSkills, createReplySkill } from "@repo/skills";
+import { FIND_SLOTS_SKILL_KEY, createReceptionSkills, createReplySkill } from "@repo/skills";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
@@ -29,6 +29,8 @@ import { createReceptionCatalog } from "./reception-catalog.ts";
 export const CONVERSE_HANDLER_KEY = "agent.converse";
 const HISTORY_LIMIT = 20;
 const ANSWERING = new Set(["live", "testing"]);
+/** Los servicios que van en el prompt, como mucho (4d-3c). Si hay más, el prompt lo dice. */
+export const MAX_PROMPT_SERVICES = 50;
 
 export interface ConverseOptions {
   router: ModelRouter;
@@ -40,6 +42,33 @@ export function runIdFor(eventId: string): string {
   // Versión 8 (RFC 9562: derivado a medida) y variante RFC.
   const variant = ((parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+interface ServiceRow {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  location_id: string | null;
+}
+
+/**
+ * Lo que se puede reservar en el local de la conversación: los servicios de
+ * toda la organización y los de ese local, por nombre y como mucho `max`. Sin
+ * local no se puede buscar hueco (find_slots lo exige), así que no hay nada.
+ */
+export function bookableServices(
+  rows: readonly ServiceRow[],
+  locationId: string | null,
+  max = MAX_PROMPT_SERVICES,
+): { services: BookableService[]; truncated: boolean } {
+  if (!locationId) return { services: [], truncated: false };
+  const here = rows
+    .filter((row) => row.location_id === null || row.location_id === locationId)
+    .sort((a, b) => a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id));
+  return {
+    services: here.slice(0, max).map((row) => ({ id: row.id, name: row.name, durationMinutes: row.duration_minutes })),
+    truncated: here.length > max,
+  };
 }
 
 const PENDING = new Set(["drafted", "suggested", "needs_approval"]);
@@ -88,6 +117,9 @@ type Prepared =
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       dayEur: number;
+      /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
+      services: BookableService[] | null;
+      servicesTruncated: boolean;
       /** La hora del turno, fijada dentro del paso: al reanudar es la misma. */
       now: string;
     };
@@ -142,6 +174,22 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       .maybeSingle(),
     "la política de modelos",
   );
+  // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
+  const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
+  const serviceRows =
+    books && conversation.location_id
+      ? check(
+          await db
+            .from("services")
+            .select("id, name, duration_minutes, location_id")
+            .eq("active", true)
+            .or(`location_id.is.null,location_id.eq.${conversation.location_id}`)
+            .order("name")
+            .limit(MAX_PROMPT_SERVICES + 1),
+          "los servicios",
+        )
+      : [];
+  const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
   const now = new Date();
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
   const today = check(await db.from("agent_runs").select("cost_eur").gte("created_at", startOfDay).limit(10_000), "el gasto del día");
@@ -154,6 +202,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     location,
     modelSettings,
     dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
+    services: bookable?.services ?? null,
+    servicesTruncated: bookable?.truncated ?? false,
     now: now.toISOString(),
   };
 }
@@ -272,6 +322,7 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
           locationName: prepared.location?.name ?? null,
           timezone: prepared.location?.timezone ?? "UTC",
           now: new Date(prepared.now),
+          ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         }),
         history: prepared.history,
         skills,
