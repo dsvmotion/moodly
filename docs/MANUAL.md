@@ -136,11 +136,12 @@ La referencia principal es **GuruSup** (gurusup.com). Según su web, a 28/09/202
 
 ### 1.10 Modelo de negocio: lo que afecta al sistema
 
-- **[DECIDIDO]** Setup por agente o por paquete (de 1.000 a 5.000 € en pymes; contratos a medida para cadenas) más una **cuota mensual** que cubre el uso de IA.
+- **[DECIDIDO: producto, 2026-11-03; sustituye al setup de 1.000 a 5.000 € más cuota para todos]** Dos vías, como Langdock:
+  - **Autoservicio:** sin implantación ni setup. Se paga la IA que se usa, con créditos (§15.1).
+  - **Enterprise e implantaciones a medida** (cadenas, empresas grandes, integraciones propias): implantación con presupuesto cerrado por proyecto, como pago único, y contrato (§15.2).
 - **[ABIERTO]** Importes finales, precio por local o por volumen para cadenas, y si la voz se factura aparte (la recomendación es que sí, porque su coste es de otro orden).
 - **Consecuencia técnica:** hay que medir el consumo por organización y por local (tokens, mensajes, minutos) y poder aplicar límites (§15).
 - **[DECIDIDO: producto, 2026-11-03] Alta autoservicio con método de pago y créditos de IA (§15.1):** cualquiera se registra y navega, pero la IA solo funciona con un método de pago válido; al añadirlo recibe 5 € de crédito de prueba; al acabarse, la IA se pausa con aviso y la organización elige cómo seguir (consumo bajo demanda, paquete de créditos o plan mensual con créditos incluidos).
-- **[ABIERTO]** Si el setup y la cuota de arriba se mantienen para las implantaciones asistidas y las cadenas, junto al alta autoservicio.
 
 ---
 
@@ -1076,7 +1077,7 @@ Los tests nunca llaman a proveedores LLM reales en la suite unitaria (se usan mo
 
 - Cada run escribe `usage_records` (tokens, mensajes, ejecuciones y, en su momento, minutos de voz), agregados por organización y local.
 - `usage_limits` con límite suave (aviso) y límite duro (degradación controlada: pasar a `suggest` o escalar a humano, nunca un silencio con el cliente final).
-- Stripe **[PROPUESTO]**: setup como pago único, suscripción mensual y consumo medido. Los importes son **[ABIERTO]** (§1.10).
+- Stripe **[PROPUESTO]**: créditos (consumo bajo demanda, paquetes y plan mensual, §15.1) y, en enterprise, la implantación como pago único (§15.2). Los importes son **[ABIERTO]** (§1.10).
 - Panel de consumo para el cliente y para `/ops`.
 
 ### 15.1 Alta autoservicio, método de pago y créditos de IA **[DECIDIDO: producto, 2026-11-03]**
@@ -1110,6 +1111,29 @@ Como en Langdock. Todo tiene que estar clarísimo para quien se da de alta: qué
 - **Planes y precios son datos,** no código. Stripe es una implementación que lee esas medidas (B5 y B6 del roadmap).
 - **Importes [ABIERTO],** salvo los 5 € de prueba.
 - **El registro público se abre con este flujo, no antes.** Hasta entonces, el alta es por invitación (`[auth] enable_signup = false`) y staging trabaja con datos de prueba.
+
+### 15.2 Enterprise e implantaciones a medida **[DECIDIDO: producto, 2026-11-03]**
+
+Para quien necesita trabajo extra para quedar bien integrado: cadenas multi-local, empresas grandes y quien tiene un sistema propio sin conector en el catálogo (§7.2).
+
+- **La implantación se paga aparte:** presupuesto cerrado por proyecto, como pago único. Cubre lo que el autoservicio no hace solo:
+  - integraciones a medida;
+  - carga del conocimiento y configuración de agentes, locales y permisos;
+  - formación del equipo.
+
+  Referencia: de 1.000 a 5.000 € para una implantación asistida en una pyme; a medida en cadenas.
+- **Contrato en vez de alta con tarjeta:** créditos comprometidos o plan mensual, con factura. El contrato firmado cuenta como el método de pago de §15.1 **[PROPUESTO]**. La IA sigue sin funcionar sin crédito y con su tope de gasto.
+- **Lo que suma enterprise** **[PROPUESTO; se fija con las páginas de Langdock, abajo]**:
+  - SSO (y SCIM más adelante);
+  - DPA y residencia UE;
+  - auditoría consultable;
+  - soporte con canal dedicado;
+  - nube dedicada desde cierto tamaño (ADR 0026; `docs/design/benchmark-langdock.md` §5).
+- **En la web:** una página de precios y otra de enterprise con la estructura de las de Langdock (langdock.com/pricing y langdock.com/enterprise). Se copia la estructura, nunca la identidad visual (§9):
+  - autoservicio con precios visibles;
+  - enterprise con «hablar con ventas».
+
+**Consecuencia técnica:** una organización enterprise es el mismo tenant (§4.4). Solo cambian su plan, su forma de pago y lo que tiene activado. Nada de código aparte por cliente: las integraciones a medida son skills (ADR 0030), no ramas del producto.
 
 ---
 

@@ -137,6 +137,9 @@
      - al acabarse, la IA se pausa con aviso claro y la organización elige consumo bajo demanda, paquete de créditos o plan mensual.
 
      Hasta entonces, el alta es por invitación y staging usa datos de prueba. El modelo de IA del agente: los capaces de hacer el trabajo, no los más baratos (producto, 2026-11-03).
+   - **Decisión de producto (2026-11-03): enterprise e implantaciones a medida** (MANUAL §15.2). El autoservicio no lleva implantación. Las cadenas, las empresas grandes y las integraciones propias sí: presupuesto cerrado por proyecto y contrato. La web tendrá páginas de precios y de enterprise con la estructura de las de Langdock.
+     - **Pendiente:** leer enteras langdock.com/pricing y langdock.com/enterprise. Esta sesión no llega a langdock.com; hay que permitir el dominio en la red del entorno.
+     - **Pendiente:** alinear `/precios`, `/enterprise` y el prototipo `apps/site/plataforma` con §15.1 y §15.2. Todavía dicen «14 días de prueba; al acabar se cobra el plan salvo que canceles», que contradice lo decidido.
 6. B3–B5 de staging y `/ops`, cuando encajen sin bloquear lo anterior.
 
 **Plan de la auditoría del 2026-10-23** (lo que no ha cambiado de orden sigue valiendo):
