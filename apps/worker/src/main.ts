@@ -1,5 +1,6 @@
 // Proceso del worker: `pnpm --filter @repo/worker start` (o `dev` en local).
-import { createConverseHandler } from "./agents/converse.ts";
+import { createApprovalHandler } from "./agents/approvals.ts";
+import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
 import { logHandler } from "./events/log-handler.ts";
@@ -19,7 +20,8 @@ const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
   // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3).
-  eventHandlers: [logHandler, createConverseHandler({ router: models.router })],
+  // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).
+  eventHandlers: [logHandler, createConverseHandler({ router: models.router }), createApprovalHandler({ skills: codeSkills })],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
   // workflows: se sale sin esperar a un apagado limpio (regla 1).
   onLeaseLost: (err) => {

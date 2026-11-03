@@ -8,6 +8,7 @@ import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
 
@@ -71,7 +72,6 @@ export function bookableServices(
   };
 }
 
-const PENDING = new Set(["drafted", "suggested", "needs_approval"]);
 
 /**
  * Cómo queda el run según cómo acabó el turno: si algo espera a una persona
@@ -80,7 +80,7 @@ const PENDING = new Set(["drafted", "suggested", "needs_approval"]);
  */
 export function runStatusFor(result: TurnResult): "completed" | "awaiting_approval" | "handed_off" {
   if (result.status === "handed_off") return "handed_off";
-  if (result.status !== "replied" || result.executions.some((execution) => PENDING.has(execution.status))) return "awaiting_approval";
+  if (result.status !== "replied" || result.executions.some((execution) => AWAITING_PERSON.has(execution.status))) return "awaiting_approval";
   return "completed";
 }
 
@@ -209,7 +209,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
 }
 
 /** Las skills de código que el worker sabe ejecutar, sobre los datos de esta organización. */
-function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> {
+export function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> {
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
   const all = [...Object.values(reception), reply] as unknown as SkillDefinition<unknown>[];
@@ -251,9 +251,10 @@ async function recordExecution(
   locationId: string | null,
   skill: SkillDefinition<unknown>,
   execution: TurnExecution,
+  now: Date,
 ): Promise<void> {
   if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return;
-  const { error } = await db.from("executions").insert({
+  const { data, error } = await db.from("executions").insert({
     run_id: runId,
     location_id: locationId,
     skill_key: execution.skillKey,
@@ -267,9 +268,25 @@ async function recordExecution(
     output: (execution.output ?? null) as Json,
     status: execution.status,
     idempotency_key: execution.idempotencyKey,
-  });
+  }).select("id").single();
   // 23505: ya guardada (la entrega se reanudó después de guardarla).
   if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
+  if (!AWAITING_PERSON.has(execution.status)) return;
+  // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
+  let executionId = data?.id;
+  if (!executionId) {
+    const existing = await db.from("executions").select("id").eq("idempotency_key", execution.idempotencyKey).maybeSingle();
+    if (existing.error || !existing.data) throw new Error(`no se encontró la ejecución guardada (${existing.error?.code ?? "sin fila"})`);
+    executionId = existing.data.id;
+  }
+  await requestApproval(db, {
+    executionId,
+    locationId,
+    effectClass: skill.effectClass,
+    inputHash: execution.inputHash,
+    summary: execution.preview?.summary ?? null,
+    now,
+  });
 }
 
 async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult): Promise<void> {
@@ -337,7 +354,7 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
             return;
           }
           const skill = skills.get(execution.skillKey);
-          if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution));
+          if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
         },
       });
       await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
