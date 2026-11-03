@@ -21,7 +21,27 @@ describe("loadConfig", () => {
       gitCommit: null,
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
+      aiGatewayApiKey: null,
     });
+  });
+
+  it("la clave del gateway es opcional; vacía cuenta como ausente", () => {
+    const key = `gw_${"k".repeat(30)}`;
+    expect(loadConfig({ ...valid, AI_GATEWAY_API_KEY: key }).aiGatewayApiKey).toBe(key);
+    expect(loadConfig({ ...valid, AI_GATEWAY_API_KEY: ` ${key}\n` }).aiGatewayApiKey).toBe(key);
+    expect(loadConfig({ ...valid, AI_GATEWAY_API_KEY: "" }).aiGatewayApiKey).toBeNull();
+    expect(loadConfig({ ...valid, AI_GATEWAY_API_KEY: "   " }).aiGatewayApiKey).toBeNull();
+  });
+
+  it.each(["corta", "con espacio en medio de la clave", "ñ".repeat(20)])("rechaza una clave del gateway que no lo parece sin decir cuál era", (key) => {
+    let message = "";
+    try {
+      loadConfig({ ...valid, AI_GATEWAY_API_KEY: key });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/AI_GATEWAY_API_KEY/);
+    expect(message).not.toContain(key);
   });
 
   it("toma el commit desplegado de Railway, solo para los logs", () => {
