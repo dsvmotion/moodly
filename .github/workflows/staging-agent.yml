@@ -83,15 +83,18 @@ jobs:
           echo "El contacto escribe: $TEXT"
 
       # El worker crea el run al recoger el evento y lo cierra al acabar el turno.
+      # Con --linked, la CLI devuelve las filas como un array; en local, dentro
+      # de {"rows": [...]}. El filtro acepta las dos formas.
       - name: Qué hizo el agente
         run: |
+          first='(if type == "array" then . else .rows end)[0]'
           for i in $(seq 1 36); do
             supabase db query --linked --output-format json --file bootstrap/staging-agent-summary.sql > "$RUNNER_TEMP/summary.json"
-            state=$(jq -r '(.rows // .)[0].estado // "sin run"' "$RUNNER_TEMP/summary.json")
+            state=$(jq -r "$first.estado // \"sin run\"" "$RUNNER_TEMP/summary.json")
             if [ "$state" != "sin run" ] && [ "$state" != "running" ]; then break; fi
             sleep 5
           done
-          jq '(.rows // .)[0]' "$RUNNER_TEMP/summary.json"
+          jq "$first" "$RUNNER_TEMP/summary.json"
           case "$state" in
             completed | awaiting_approval) echo "El agente contestó (estado: $state)." ;;
             handed_off) echo "::warning::El agente pasó la conversación a una persona: mira los logs del worker en Railway (¿falta AI_GATEWAY_API_KEY?)." ; exit 1 ;;
