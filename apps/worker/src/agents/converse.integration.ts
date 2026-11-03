@@ -7,6 +7,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { APPROVAL_HANDLER_KEY } from "./approvals.ts";
 import { CONVERSE_HANDLER_KEY } from "./converse.ts";
 
 // El turno del agente de punta a punta (paso 4d-2): un mensaje de un cliente
@@ -204,6 +205,11 @@ afterAll(async () => {
     }
   }
   if (ids.conversation) {
+    await admin.query(
+      `delete from public.domain_events where type = 'approval.decided'
+       and payload->>'run_id' in (select id::text from public.agent_runs where agent_id = $1 and location_id = $2)`,
+      [ids.agent, ids.location],
+    );
     await admin.query("delete from public.agent_runs where agent_id = $1 and location_id = $2", [ids.agent, ids.location]);
     await admin.query("delete from public.domain_events where payload->>'conversation_id' = $1", [ids.conversation]);
     await admin.query("delete from public.conversations where id = $1", [ids.conversation]);
@@ -321,5 +327,171 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     expect(await runFor(messageId)).toEqual([]);
     expect(await agentMessages()).toHaveLength(before);
     await admin.query("update public.agents set status = 'live' where id = $1", [ids.agent]);
+  });
+});
+
+describe("las aprobaciones del agente (paso 4d-3d)", () => {
+  interface PendingApproval {
+    id: string;
+    execution_id: string;
+    skill_key: string;
+    required_role: string;
+    location_id: string | null;
+    input_hash: string;
+    execution_hash: string;
+    reason: string | null;
+    summary: string | null;
+    ttl_hours: number;
+    idempotency_key: string;
+    run_id: string;
+  }
+
+  async function pendingApprovals(): Promise<PendingApproval[]> {
+    const { rows } = await admin.query<PendingApproval>(
+      `select a.id, a.execution_id, e.skill_key, a.required_role, a.location_id, a.input_hash, e.input_hash as execution_hash,
+              a.reason, e.preview->>'summary' as summary, extract(epoch from (a.expires_at - a.created_at)) / 3600 as ttl_hours,
+              e.idempotency_key, e.run_id
+       from public.approvals a join public.executions e on e.id = a.execution_id
+       where e.location_id = $1 and a.status = 'pending' order by a.created_at, e.idempotency_key`,
+      [ids.location],
+    );
+    return rows.map((row) => ({ ...row, ttl_hours: Number(row.ttl_hours) }));
+  }
+
+  async function executionStatus(id: string): Promise<string | undefined> {
+    const { rows } = await admin.query<{ status: string }>("select status from public.executions where id = $1", [id]);
+    return rows[0]?.status;
+  }
+
+  /**
+   * Lo que deja la base de datos cuando una persona decide: la fila decidida y
+   * su evento, como emit_approval_decided. Decidir de verdad exige una sesión
+   * (RLS y guard_approval, probados en pgTAP); aquí se prueba lo que hace el
+   * worker con la decisión.
+   */
+  async function decide(approvalId: string, decision: "approved" | "rejected"): Promise<string> {
+    await admin.query("begin");
+    try {
+      await admin.query("set local session_replication_role = replica");
+      await admin.query("update public.approvals set status = $2, decided_at = now() where id = $1", [approvalId, decision]);
+      await admin.query("set local session_replication_role = origin");
+      const eventId = await one(
+        `insert into public.domain_events (organization_id, location_id, type, payload)
+         select a.organization_id, a.location_id, 'approval.decided',
+                jsonb_build_object('approval_id', a.id, 'execution_id', a.execution_id, 'run_id', e.run_id, 'decision', a.status)
+         from public.approvals a join public.executions e on e.id = a.execution_id where a.id = $1
+         returning id`,
+        [approvalId],
+      );
+      await admin.query("commit");
+      return eventId;
+    } catch (error) {
+      await admin.query("rollback");
+      throw error;
+    }
+  }
+
+  async function approvalDelivered(eventId: string): Promise<boolean> {
+    const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = $1", [
+      deliveryWorkflowId(eventId, APPROVAL_HANDLER_KEY),
+    ]);
+    return rows[0]?.status === "SUCCESS";
+  }
+
+  it("lo que queda en borrador nace con su aprobación pendiente, para el equipo del local, atada a su hash", async () => {
+    const pending = await pendingApprovals();
+    expect(pending.map((approval) => approval.skill_key)).toEqual(["book_appointment", "reply"]);
+    for (const approval of pending) {
+      expect(approval).toMatchObject({ required_role: "staff", location_id: ids.location });
+      expect(approval.input_hash).toBe(approval.execution_hash);
+      expect(approval.reason).toBe(approval.summary);
+      expect(approval.ttl_hours).toBeCloseTo(24, 1);
+    }
+  });
+
+  it("al aprobar la reserva se hace la cita para quien escribió, una sola vez, y el run se cierra", async () => {
+    const booking = (await pendingApprovals()).find((approval) => approval.skill_key === "book_appointment");
+    if (!booking) throw new Error("no hay reserva pendiente");
+    const eventId = await decide(booking.id, "approved");
+    await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+
+    expect(await executionStatus(booking.execution_id)).toBe("executed");
+    const { rows } = await admin.query<{ contact_id: string; starts_at: Date }>(
+      "select contact_id, starts_at from public.appointments where location_id = $1",
+      [ids.location],
+    );
+    expect(rows.map((row) => [row.contact_id, row.starts_at.toISOString()])).toEqual([[ids.contact, "2030-06-03T07:00:00.000Z"]]);
+    const { rows: runs } = await admin.query<{ status: string }>("select status from public.agent_runs where id = $1", [booking.run_id]);
+    expect(runs[0]?.status).toBe("completed");
+  });
+
+  it("una entrega repetida de la misma decisión no repite la cita", async () => {
+    const { rows } = await admin.query<{ approval_id: string; event_count: string }>(
+      `select a.id as approval_id from public.approvals a join public.executions e on e.id = a.execution_id
+       where e.location_id = $1 and e.skill_key = 'book_appointment' and a.status = 'approved'`,
+      [ids.location],
+    );
+    const approvalId = rows[0]?.approval_id;
+    if (!approvalId) throw new Error("no hay reserva aprobada");
+    // Otra vez el mismo evento (como si el outbox lo entregara dos veces).
+    const eventId = await one(
+      `insert into public.domain_events (organization_id, location_id, type, payload)
+       select a.organization_id, a.location_id, 'approval.decided',
+              jsonb_build_object('approval_id', a.id, 'execution_id', a.execution_id, 'run_id', e.run_id, 'decision', a.status)
+       from public.approvals a join public.executions e on e.id = a.execution_id where a.id = $1
+       returning id`,
+      [approvalId],
+    );
+    await waitFor(() => approvalDelivered(eventId), "la entrega repetida termina");
+    const { rows: appointments } = await admin.query("select id from public.appointments where location_id = $1", [ids.location]);
+    expect(appointments).toHaveLength(1);
+  });
+
+  it("rechazar la respuesta en borrador no envía nada", async () => {
+    const reply = (await pendingApprovals()).find((approval) => approval.skill_key === "reply");
+    if (!reply) throw new Error("no hay respuesta pendiente");
+    const before = (await agentMessages()).length;
+    const eventId = await decide(reply.id, "rejected");
+    await waitFor(() => approvalDelivered(eventId), "el rechazo se entrega");
+    expect(await executionStatus(reply.execution_id)).toBe("rejected");
+    expect(await agentMessages()).toHaveLength(before);
+  });
+
+  it("al aprobar una respuesta en borrador, se envía tal cual, una sola vez", async () => {
+    await setAutonomy("reply", "draft");
+    const messageId = await customerSays("Hola de nuevo");
+    await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+    const reply = (await pendingApprovals()).find((approval) => approval.skill_key === "reply");
+    if (!reply) throw new Error("no hay respuesta pendiente");
+    const before = (await agentMessages()).length;
+
+    const eventId = await decide(reply.id, "approved");
+    await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+    const messages = await agentMessages();
+    expect(messages).toHaveLength(before + 1);
+    expect(messages.at(-1)).toMatchObject({ content: "Hola, soy el asistente de IA del centro.", idempotency_key: reply.idempotency_key });
+    expect(await executionStatus(reply.execution_id)).toBe("executed");
+    await setAutonomy("reply", "autonomous");
+  });
+
+  it("si lo guardado ya no es lo que se aprobó, no se ejecuta", async () => {
+    await setAutonomy("reply", "draft");
+    const messageId = await customerSays("¿Me contestáis?");
+    await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+    const reply = (await pendingApprovals()).find((approval) => approval.skill_key === "reply");
+    if (!reply) throw new Error("no hay respuesta pendiente");
+    const before = (await agentMessages()).length;
+
+    // guard_execution no deja cambiarlo a nadie; aquí se salta a propósito.
+    await admin.query("begin");
+    await admin.query("set local session_replication_role = replica");
+    await admin.query(`update public.executions set input = '{"text": "Te cobro 500 € ahora"}' where id = $1`, [reply.execution_id]);
+    await admin.query("commit");
+
+    const eventId = await decide(reply.id, "approved");
+    await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+    expect(await executionStatus(reply.execution_id)).toBe("failed");
+    expect(await agentMessages()).toHaveLength(before);
+    await setAutonomy("reply", "autonomous");
   });
 });

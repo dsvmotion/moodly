@@ -607,6 +607,23 @@ Reglas:
 - Las aprobaciones se asignan por rol y local. Caducan (`expires_at`) y el agente informa al cliente final si algo queda pendiente.
 - La misma mecánica sirve para `awaiting_knowledge` (§5.9).
 
+**Cómo está hecho (paso 4d-3d):**
+- **Lo que el agente deja en borrador, como sugerencia o pendiente de aprobación nace con su aprobación** (`approvals`): con el hash de la ejecución y la vista previa como motivo, que es lo que lee quien decide.
+- **Quién decide [PROPUESTO]:**
+  - el equipo del local (`staff` o más) para lo de cada día: responder, reservar, mover y cancelar;
+  - quien dirige el local (`location_manager` o más) para enviar a muchos, cobrar o borrar;
+  - sin local, un `org_admin`.
+- **Caduca a las 24 h [PROPUESTO]**, lo que dura la ventana de atención de WhatsApp.
+- **El run no se queda esperando:** el turno termina en `awaiting_approval` y la decisión la ejecuta otro consumidor, `agent.approval`, de `approval.decided`.
+  - Es igual de duradero: cada entrega es un workflow de DBOS con sus pasos.
+  - No deja workflows abiertos durante días.
+- **Al aprobar:**
+  - relee la ejecución y la aprobación;
+  - comprueba el hash (`verifyApproval`) y ejecuta exactamente lo aprobado, con su clave de idempotencia;
+  - si algo no cuadra, no se ejecuta: la ejecución queda en `failed` y se registra un evento de seguridad.
+- **Al rechazar,** no se ejecuta nada.
+- **Cuando no queda nada pendiente,** el run se cierra.
+
 ### 5.8 Coordinación entre agentes **[DISEÑO: ADR 0009, propuesto; outbox implementado en W3]**
 
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).

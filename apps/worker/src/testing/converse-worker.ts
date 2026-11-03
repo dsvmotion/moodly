@@ -12,7 +12,8 @@
 import { appendFileSync } from "node:fs";
 import { createFakeTransport, createModelRouter } from "@repo/agent-core";
 import type { TransportRequest, TransportResponse } from "@repo/agent-core";
-import { createConverseHandler } from "../agents/converse.ts";
+import { createApprovalHandler } from "../agents/approvals.ts";
+import { codeSkills, createConverseHandler } from "../agents/converse.ts";
 import { loadConfig } from "../config.ts";
 import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";
@@ -67,7 +68,7 @@ const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const router = createModelRouter([createFakeTransport({ provider: "fake", respond })]);
 const worker = createWorker(config, logger, {
-  eventHandlers: [logHandler, createConverseHandler({ router })],
+  eventHandlers: [logHandler, createConverseHandler({ router }), createApprovalHandler({ skills: codeSkills })],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);
