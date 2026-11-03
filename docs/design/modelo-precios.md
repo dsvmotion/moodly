@@ -6,6 +6,12 @@ el coste medido en 2 o 3 pilotos.
 
 Fuente única de las cifras en la web: `apps/site/src/components/pricing.js`.
 
+> **Actualización (producto, 2026-11-03):** manda lo decidido en MANUAL §15.1 y §15.2, y deja atrás parte de esta propuesta:
+> - **La prueba es otra:** sin método de pago no hay IA; al añadirlo, 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
+> - **La implantación solo es para enterprise y a medida,** con presupuesto cerrado.
+>
+> Las cifras de abajo siguen siendo **PROPUESTO**.
+
 Tipo de cambio usado: **1 € = 1,1177 $** (referencia del BCE, 7 oct 2026), es decir,
 1 $ ≈ 0,895 €.
 
