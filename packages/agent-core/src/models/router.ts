@@ -48,9 +48,20 @@ export interface ToolSpec {
 
 export type ModelMessage =
   | { role: "system" | "user"; content: string }
-  | { role: "assistant"; content: string; toolCalls?: readonly ToolCall[] }
+  | {
+      role: "assistant";
+      content: string;
+      toolCalls?: readonly ToolCall[];
+      /**
+       * Lo que devolvió el transporte, tal cual (TransportResponse.providerMessages).
+       * Si está, el transporte lo reenvía sin tocarlo: el razonamiento de los
+       * modelos actuales va ligado a la conversación y reconstruirlo haría que
+       * el proveedor rechazara el paso siguiente.
+       */
+      providerMessages?: readonly unknown[];
+    }
   /** El resultado de una herramienta, para la llamada toolCallId. */
-  | { role: "tool"; toolCallId: string; content: string };
+  | { role: "tool"; toolCallId: string; toolName: string; content: string };
 
 /** Lo que pide el runtime. La organización y el run los pone él, nunca el LLM. */
 export interface ModelCall {
@@ -81,6 +92,8 @@ export interface TransportResponse {
   text: string;
   /** Las herramientas que pide el modelo; si no pide ninguna, text es su respuesta. */
   toolCalls?: readonly ToolCall[];
+  /** Los mensajes del modelo tal como los devolvió el proveedor (JSON), para reenviarlos en el paso siguiente. */
+  providerMessages?: readonly unknown[];
   model: string;
   tokensIn: number;
   tokensOut: number;

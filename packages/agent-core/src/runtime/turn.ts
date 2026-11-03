@@ -81,6 +81,8 @@ export interface TurnParams {
 }
 
 const DEFAULT_MAX_STEPS = 6;
+/** Los modelos actuales piensan antes de contestar y el pensamiento cuenta como salida: con menos, la respuesta se corta. */
+const DEFAULT_MAX_OUTPUT_TOKENS = 4000;
 const identityStep: Step = (_name, fn) => fn();
 
 /** Lo serializable de una decisión: lo que guarda un paso de DBOS. */
@@ -214,7 +216,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             task: "converse",
             messages,
             tools,
-            maxOutputTokens: params.maxOutputTokens ?? 800,
+            maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           },
           policy,
           { runEur: params.spend.runEur + usage.costEur, dayEur: params.spend.dayEur + usage.costEur },
@@ -248,10 +250,15 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       }
     }
 
-    messages.push({ role: "assistant", content: result.text, toolCalls: calls });
+    messages.push({
+      role: "assistant",
+      content: result.text,
+      toolCalls: calls,
+      ...(result.providerMessages ? { providerMessages: result.providerMessages } : {}),
+    });
     for (const [index, call] of calls.entries()) {
       const execution = await settle(call, stepIndex, index);
-      messages.push({ role: "tool", toolCallId: call.id, content: toolResult(execution) });
+      messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, content: toolResult(execution) });
     }
   }
   return { status: "handed_off", reason: "max_steps", executions, usage };
