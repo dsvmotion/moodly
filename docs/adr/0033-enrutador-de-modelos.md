@@ -27,7 +27,7 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
    - El resultado dice qué respondió y cómo: proveedor, modelo, región resuelta, vía, modo de conexión, tokens, coste y latencia. Es lo que se registrará por llamada (ADR 0019).
 2. **Las vías son transportes intercambiables (`ModelTransport`).**
    - Cada transporte declara su proveedor, su región de procesamiento, su vía (`gateway` o `direct`) y su modo de conexión (`managed`, `byok` o `customer_cloud`).
-   - **La primera vía de producción será Vercel AI Gateway** (Vercel AI SDK), con el proveedor y el modelo fijados por petición. Llega cuando se active el primer agente, no en este paso.
+   - **La primera vía de producción es Vercel AI Gateway** (Vercel AI SDK), con el proveedor y el modelo fijados por petición. Llegó con el primer agente (paso 4d-3, punto 7).
    - Para los tests hay un transporte falso (MANUAL §13: los tests unitarios nunca llaman a un proveedor real).
 3. **La política de cada organización (`ModelPolicy`) decide antes de llamar.** El enrutador:
    - **Elige el modelo por tarea con claves lógicas** de `@repo/config` (`fast`, `smart` o `embedding`). El ID real de cada proveedor vive en la configuración del transporte, no en el código de negocio.
@@ -40,10 +40,27 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
    - **Corta antes de llamar si el gasto supera su tope:** coste estimado más gasto del run o del día, frente al tope por run y por día. Un corte no es un error del proveedor: el runtime pasa a `suggest` o escala a una persona (MANUAL §15), nunca deja al cliente sin respuesta.
    - **Usa el respaldo solo si falla el principal,** con las mismas reglas.
 4. **Frontera estructural:** un test falla si cualquier código fuera de `packages/agent-core/src/models/transports/` importa un SDK de proveedor:
-   - `@ai-sdk/*` (salvo el núcleo `ai`, cuando llegue, también solo ahí);
+   - el núcleo `ai` del Vercel AI SDK (también `ai/test`) y `@ai-sdk/*`;
    - `@anthropic-ai/sdk`, `openai`, `@google/genai`, `@google-cloud/vertexai`, `@aws-sdk/client-bedrock-runtime`, `@mistralai/mistralai`, `cohere-ai` o `groq-sdk`.
 5. **Herramientas (paso 4d, 2026-10-31).** La llamada lleva las herramientas que puede pedir el modelo (`tools`: nombre, descripción y JSON Schema de la entrada de cada skill activa) y la respuesta, las que pide (`toolCalls`). Los mensajes admiten el resultado de una herramienta (`role: "tool"`). El enrutador solo los pasa al transporte: lo que pide el modelo no se ejecuta sin pasar por `decide()` (ADR 0047), en el bucle del turno (`runtime/turn.ts`, MANUAL §5.1).
 6. **Política por organización en la base de datos:** `org_model_settings` llega con el ADR 0034 (BYOK) y el 0035 (residencia). Hasta entonces, el enrutador usa la política de plataforma por defecto.
+7. **Transporte de Vercel AI Gateway (paso 4d-3, 2026-11-03):** `models/transports/gateway.ts`, con el Vercel AI SDK (`ai`, versión exacta).
+   - **Modelos:** `GATEWAY_MODELS` de `@repo/config` da, por clave lógica, el ID del gateway y el precio por millón de tokens. Producto (2026-11-03): los modelos capaces de hacer el trabajo, no los más baratos. Conversar (`converse`) usa `smart`, como razonar; `fast` queda para clasificar y extraer.
+   - **Ficha:**
+     - vía `gateway` y conexión gestionada (la clave de Moodly, `AI_GATEWAY_API_KEY` en el worker, nunca en logs);
+     - región `other`: no garantiza que se procese en la UE, así que con «Solo UE» el enrutador no lo usa;
+     - DPA y retención: pendientes del *spike* (Consecuencias).
+   - **Un paso cada vez:** las herramientas van sin `execute`. El modelo propone y el turno decide con `decide()`. Una herramienta que no existe o con argumentos rotos también llega al turno, que la rechaza y se lo dice al modelo.
+   - **Razonamiento:** los modelos actuales razonan antes de responder, y el proveedor exige recibir ese razonamiento tal cual en el paso siguiente de la misma conversación.
+     - El transporte devuelve los mensajes del modelo (`providerMessages`) y el turno los reenvía sin tocarlos. Entre turnos solo va el texto.
+     - No reenvía el resultado de error que el SDK añade a una llamada no válida: cada llamada tendría dos resultados y el proveedor rechazaría la petición.
+   - **Fallos:**
+     - una negativa, una respuesta cortada por el tope o un error del modelo lanzan una excepción, y el turno no manda media respuesta;
+     - un solo reintento por red y 90 s por llamada; el respaldo es cosa del enrutador.
+   - **Coste:**
+     - el real, el que devuelve el gateway; si no viene, el de la tabla;
+     - la estimación antes de llamar va por lo alto: la entrada por caracteres (3 por token) y la salida máxima entera.
+   - **Tope de salida del turno:** 4.000 tokens por defecto (antes 800), porque el razonamiento cuenta como salida.
 
 ## Alternativas consideradas
 
@@ -60,6 +77,8 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
   - el registro por llamada en `usage_records` (MANUAL §15).
 
 ## Verificación
+
+- **Transporte del gateway:** tests sin red con el modelo de prueba del AI SDK (`MockLanguageModelV4`). Cubren qué llega al modelo, qué vuelve al enrutador, el coste, las negativas, los cortes y las llamadas no válidas; los mutantes del transporte se detectan.
 
 - **Tests unitarios del enrutador, uno por regla:**
   - tarea y modelo lógico;
