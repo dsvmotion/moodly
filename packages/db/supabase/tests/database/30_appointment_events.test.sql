@@ -4,13 +4,13 @@
 -- no emite nada. Nadie de la app puede escribir eventos ni llamar a la función.
 begin;
 \ir _fixtures/tenants.psql
-select plan(14);
+select plan(15);
 
 insert into public.services (organization_id, name, duration_minutes) values (:org_a, 'Láser', 30) returning id as svc \gset
 insert into public.services (organization_id, name, duration_minutes) values (:org_b, 'Corte', 30) returning id as svc_b \gset
 insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_a, :loc_a1, 'Cabina 1', 'room') returning id as cab1 \gset
 insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_a, :loc_a1, 'Cabina 2', 'room') returning id as cab2 \gset
-insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_b, :loc_b1, 'Sillón', 'chair') returning id as chair \gset
+insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_b, :loc_b1, 'Sillón', 'room') returning id as chair \gset
 insert into public.resource_services (organization_id, resource_id, service_id) values
   (:org_a, :'cab1', :'svc'), (:org_a, :'cab2', :'svc'), (:org_b, :'chair', :'svc_b');
 insert into public.contacts (organization_id, display_name) values (:org_a, 'Ana') returning id as ana \gset
@@ -85,6 +85,9 @@ select is(
   'cancelar emite appointment.cancelled con la hora que queda libre');
 select is((select count(*)::int from fixture_events where payload ->> 'appointment_id' = :'appt'), 4,
   'un evento por cambio: reservar, mover dos veces y cancelar');
+update public.appointments set synced_at = now() where id = :'appt';
+select is((select count(*)::int from fixture_events where payload ->> 'appointment_id' = :'appt'), 4,
+  'sincronizar una cita ya cancelada no la vuelve a cancelar');
 
 -- ===========================================================================
 -- 5. Lo demás no emite nada
