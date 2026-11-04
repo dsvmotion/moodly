@@ -635,6 +635,7 @@ Reglas:
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).
   - Los escriben triggers de la base de datos; nadie de la app los escribe.
   - El primero es `invitation.created`; los mensajes de los clientes emiten `message.received` (paso 4d-2).
+  - Las citas (paso 4e-0, `private.emit_appointment_event`): `appointment.created` al reservar, `appointment.rescheduled` al cambiar una cita viva de hora o de recurso y `appointment.cancelled` al cancelarla. Llevan el id de la cita y sus horas, nunca el contacto. Completar una cita o marcarla como perdida no emite nada todavía. Los consumirán el recordatorio de 24 h (4e) y la lista de espera (4f).
 - **El tenant de un evento sale de la fila (`organization_id`, `location_id`), nunca del payload** (control 3.7). El payload lleva ids y datos mínimos, sin datos personales en claro, con un esquema Zod por tipo que quita lo que sobre.
 - Un publicador lee el outbox y encola una entrega por cada consumidor suscrito:
   - es un workflow programado de DBOS (`outbox.publish`, cada 5 s);
