@@ -386,5 +386,27 @@
     },
     "noAgentsTitle": "Aún no tienes agentes",
     "noAgentsDescription": "Tus agentes aparecen cuando perteneces a una organización: acepta la invitación que te hayan enviado."
+  },
+  "approvalsPage": {
+    "title": "Aprobaciones",
+    "description": "Lo que el agente propone y espera a una persona. Aprobar envía la respuesta o hace la reserva; rechazar no hace nada.",
+    "emptyTitle": "Nada pendiente",
+    "empty": "Cuando el agente deje una respuesta o una cita en borrador, aparecerá aquí.",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "wholeOrganization": "Toda la organización",
+    "expires": "Caduca {time}",
+    "skills": {
+      "reply": "Respuesta",
+      "find_slots": "Buscar huecos",
+      "list_my_appointments": "Ver citas",
+      "book_appointment": "Reserva",
+      "reschedule_appointment": "Cambio de cita",
+      "cancel_appointment": "Cancelación"
+    },
+    "errors": {
+      "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
+      "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
+    }
   }
 }

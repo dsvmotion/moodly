@@ -19,7 +19,9 @@ export type SecurityEvent =
   | "org.active_changed"
   | "org.invitation_created"
   | "org.invitation_revoked"
-  | "org.invitation_accepted";
+  | "org.invitation_accepted"
+  | "agent.approval_approved"
+  | "agent.approval_rejected";
 
 export interface SecurityEventFields {
   userId?: string | undefined;
