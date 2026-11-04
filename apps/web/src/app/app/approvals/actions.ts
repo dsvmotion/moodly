@@ -43,5 +43,7 @@ export async function decideApproval(_prev: DecideState, formData: FormData): Pr
     effectClass: decided.effect_class,
   });
   revalidatePath("/app/approvals");
+  // También el chat de pruebas del agente, que muestra sus aprobaciones (paso 4d-3e).
+  revalidatePath("/app/agents/[type]", "page");
   return { error: null };
 }
