@@ -1,7 +1,7 @@
 import type { TurnResult } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { createEventRegistry } from "../events/handlers.ts";
-import { CONVERSE_HANDLER_KEY, MAX_PROMPT_SERVICES, bookableServices, createConverseHandler, runIdFor, runStatusFor } from "./converse.ts";
+import { CONVERSE_HANDLER_KEY, MAX_PROMPT_SERVICES, agentAnswers, bookableServices, createConverseHandler, runIdFor, runStatusFor } from "./converse.ts";
 
 const usage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null };
 
@@ -30,6 +30,24 @@ describe("el turno del agente en el worker", () => {
     const registry = createEventRegistry([handler]);
     expect(registry.handlersFor("message.received").map((h) => h.key)).toEqual([CONVERSE_HANDLER_KEY]);
     expect(registry.handlersFor("invitation.created")).toEqual([]);
+  });
+});
+
+describe("cuándo contesta el agente", () => {
+  it("en live y en testing, en cualquier canal", () => {
+    for (const channel of ["webchat", "whatsapp", "test", null]) {
+      expect(agentAnswers("live", channel)).toBe(true);
+      expect(agentAnswers("testing", channel)).toBe(true);
+    }
+  });
+
+  it("en draft, solo en el chat de pruebas de la app: se prueba antes de publicarlo", () => {
+    expect(agentAnswers("draft", "test")).toBe(true);
+    for (const channel of ["webchat", "whatsapp", "voice", null]) expect(agentAnswers("draft", channel)).toBe(false);
+  });
+
+  it("en pausa, nunca, ni en el chat de pruebas", () => {
+    for (const channel of ["webchat", "test", null]) expect(agentAnswers("paused", channel)).toBe(false);
   });
 });
 

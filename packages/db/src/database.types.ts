@@ -952,6 +952,9 @@ isOneToOne: false
 "agent_turn_context":
 { Args: { "p_agent_id": string,"p_organization_id": string }; Returns: Json
                            },
+"close_test_conversation":
+{ Args: { "p_conversation_id": string }; Returns: undefined
+                           },
 "create_invitation":
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
                            },
@@ -976,6 +979,9 @@ isOneToOne: false
 { Args: { "p_embedding_model": string,"p_k": number,"p_location_id": string,"p_organization_id": string,"p_query": string,"p_query_embedding": string }; Returns: {
               "chunk_id": string,"content": string,"score": number,"source_id": string,"source_title": string,"source_type": string
             }[]
+                           },
+"send_test_message":
+{ Args: { "p_agent_id": string,"p_content": string,"p_location_id": string }; Returns: string
                            }
           }
           Enums: {
