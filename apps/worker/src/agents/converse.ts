@@ -20,7 +20,9 @@ import { createReceptionCatalog } from "./reception-catalog.ts";
 //   filas, nunca del mensaje ni de lo que diga el modelo.
 // - No contesta si la conversación la lleva una persona (mode = 'human'), si
 //   ya hay un mensaje del cliente más nuevo (lo contestará su propio turno) o
-//   si el agente no está en live ni en testing.
+//   si el agente no está en live ni en testing. En el chat de pruebas de la
+//   app (canal 'test', paso 4d-3e), también en draft: se prueba antes de
+//   publicarlo. En pausa, nunca.
 // - El run tiene un id que sale del evento: si la entrega se reanuda, es el
 //   mismo run y las mismas claves de idempotencia.
 // - Cada ejecución decidida se guarda en executions en cuanto se decide; las
@@ -30,6 +32,14 @@ import { createReceptionCatalog } from "./reception-catalog.ts";
 export const CONVERSE_HANDLER_KEY = "agent.converse";
 const HISTORY_LIMIT = 20;
 const ANSWERING = new Set(["live", "testing"]);
+/** El canal del chat de pruebas de la app (paso 4d-3e). */
+export const TEST_CHANNEL = "test";
+
+/** Si el agente contesta en una conversación: en live y testing; en el chat de pruebas, también en draft. */
+export function agentAnswers(agentStatus: string, channel: string | null): boolean {
+  if (ANSWERING.has(agentStatus)) return true;
+  return agentStatus === "draft" && channel === TEST_CHANNEL;
+}
 /** Los servicios que van en el prompt, como mucho (4d-3c). Si hay más, el prompt lo dice. */
 export const MAX_PROMPT_SERVICES = 50;
 
@@ -131,7 +141,7 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
 
 async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
   const conversation = check(
-    await db.from("conversations").select("id, location_id, contact_id, agent_id, mode").eq("id", conversationId).maybeSingle(),
+    await db.from("conversations").select("id, location_id, contact_id, agent_id, mode, channel_account_id").eq("id", conversationId).maybeSingle(),
     "la conversación",
   );
   if (!conversation) return { kind: "skip", reason: "conversation_missing" };
@@ -153,7 +163,13 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
   const raw = await db.agentTurnContext(conversation.agent_id);
   if (!raw) return { kind: "skip", reason: "agent_missing" };
   const context = contextSchema.parse(raw);
-  if (!ANSWERING.has(context.agent.status)) return { kind: "skip", reason: "agent_not_answering" };
+  if (!ANSWERING.has(context.agent.status)) {
+    const account = check(
+      await db.from("channel_accounts").select("channel").eq("id", conversation.channel_account_id).maybeSingle(),
+      "el canal de la conversación",
+    );
+    if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
+  }
 
   const messages = check(
     await db

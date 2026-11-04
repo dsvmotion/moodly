@@ -67,11 +67,11 @@ async function setAutonomy(skillKey: string, autonomy: string): Promise<void> {
 }
 
 /** Un mensaje del cliente: su trigger escribe message.received en la misma transacción. */
-async function customerSays(content: string): Promise<string> {
+async function customerSays(content: string, conversationId = ids.conversation): Promise<string> {
   return one(
     `insert into public.messages (organization_id, conversation_id, direction, author, content)
      values ($1, $2, 'in', 'contact', $3) returning id`,
-    [ids.org, ids.conversation, content],
+    [ids.org, conversationId, content],
   );
 }
 
@@ -131,6 +131,7 @@ beforeAll(async () => {
     [ids.org],
   );
   const agentType = await one("select t.key as id from public.agents a join public.agent_types t on t.id = a.agent_type_id where a.id = $1", [ids.agent]);
+  ids.agentType = agentType;
   const { rows: agentRows } = await admin.query<{ status: string }>("select status from public.agents where id = $1", [ids.agent]);
   const { rows: skillRows } = await admin.query<{ skill_id: string; autonomy_level: string; enabled: boolean }>(
     "select skill_id, autonomy_level, enabled from public.agent_skills where agent_id = $1",
@@ -211,9 +212,10 @@ afterAll(async () => {
       [ids.agent, ids.location],
     );
     await admin.query("delete from public.agent_runs where agent_id = $1 and location_id = $2", [ids.agent, ids.location]);
-    await admin.query("delete from public.domain_events where payload->>'conversation_id' = $1", [ids.conversation]);
-    await admin.query("delete from public.conversations where id = $1", [ids.conversation]);
+    await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
+    await admin.query("delete from public.conversations where id = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
   }
+  if (ids.testChannel) await admin.query("delete from public.channel_accounts where id = $1", [ids.testChannel]);
   await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
   await admin.query("delete from public.contacts where id = $1", [ids.contact]);
   await admin.query("delete from public.channel_accounts where id = $1", [ids.channel]);
@@ -316,6 +318,29 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     expect(await runFor(next)).toEqual([]);
     expect(await agentMessages()).toHaveLength(before);
     await admin.query("update public.conversations set mode = 'agent' where id = $1", [ids.conversation]);
+  });
+
+  it("en el chat de pruebas de la app (canal test) contesta también en draft; en pausa, no", async () => {
+    ids.testChannel = await one(
+      `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+       values ($1, $2, 'test', $3, $4, 'active') returning id`,
+      [ids.org, ids.location, `test:${marker}`, ids.agentType],
+    );
+    ids.testConversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.testChannel, ids.agent],
+    );
+    await admin.query("update public.agents set status = 'draft' where id = $1", [ids.agent]);
+    const drafted = await customerSays("¿Tenéis hueco el lunes para láser?", ids.testConversation);
+    await waitFor(async () => ((await runFor(drafted))[0]?.status ?? "running") !== "running", "el agente en draft contesta en la prueba");
+    expect((await runFor(drafted))[0]).toMatchObject({ organization_id: ids.org, status: "completed" });
+
+    await admin.query("update public.agents set status = 'paused' where id = $1", [ids.agent]);
+    const paused = await customerSays("¿Hay alguien?", ids.testConversation);
+    await waitFor(async () => delivered(await eventOf(paused)), "la entrega termina");
+    expect(await runFor(paused)).toEqual([]);
+    await admin.query("update public.agents set status = 'live' where id = $1", [ids.agent]);
   });
 
   it("un agente que no está en marcha no contesta", async () => {
