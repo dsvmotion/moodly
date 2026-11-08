@@ -513,6 +513,12 @@ sequenceDiagram
 - **La respuesta en el chat web** se guarda en la conversación (`messages`, `author = 'agent'`) con la clave de su ejecución (`messages.idempotency_key`): un reintento no escribe dos mensajes.
 - **El chat de pruebas (paso 4d-3e).** Una persona del equipo prueba un agente desde la app como si fuera un cliente, sin WhatsApp. Su mensaje entra por `public.send_test_message`, que escribe como el contacto de prueba de esa persona (identidad `test` con su id) en el canal `test` del local, y emite `message.received` como cualquier otro. Lo que el agente propone llega a la bandeja de aprobaciones, como en una conversación real; si se aprueba una reserva, la cita se crea de verdad en el calendario del local. Solo dentro de lo que la persona ya ve (su alcance; sin local, solo un `org_admin`, y un `org_admin` con aal2), nunca con un agente en pausa y como mucho 30 mensajes por hora y persona, porque cada turno llama al modelo de verdad. «Empezar de nuevo» (`public.close_test_conversation`) cierra su conversación de prueba: la siguiente empieza sin historial.
   - **En la app**, va en la ventana de cada agente (`/app/agents/<clave>`, «Pruébalo»), en un local del alcance elegido (si hay varios, se elige). Debajo de cada mensaje de la persona se ve lo que hizo el agente (buscar huecos, reservar, responder) con su estado, y lo que espera a una persona se aprueba o rechaza ahí mismo, como en Aprobaciones. Mientras el agente trabaja, la pantalla se refresca cada 2 s, como mucho 2 minutos. Avisa de que lo aprobado es real.
+- **Recordatorios y lista de espera de Recepción (pasos 4e y 4f) [DECIDIDO: producto, 2026-11-08]:**
+  - **Dos recordatorios por cita:** 24 h y 4 h antes. Si se reserva con menos de 24 h, el de 24 h sale al reservar si aún faltan más de 4 h; con menos de 4 h no hay recordatorio.
+  - **Salen solos**, sin aprobación (`external_outreach` con autonomía `execute`, §5.6), con un texto fijo por idioma: no llaman al modelo.
+  - **Permiso:** reservar a través del agente cuenta como permiso para los recordatorios de esa cita por el mismo canal, y el cliente se puede dar de baja contestando. En WhatsApp, fuera de la ventana de 24 h, con la plantilla aprobada por Meta.
+  - **Lista de espera:** si no hay hueco que le sirva, el agente ofrece apuntarle. Cuando se libera un hueco (`appointment.cancelled`), se ofrece al primero de la lista durante 30 minutos y después al siguiente. Si acepta, la reserva va a la bandeja de aprobaciones como cualquier otra.
+  - **Chat de pruebas:** lo que se aprueba es real, también las reservas.
 - **Qué trae cada agente de serie:** al crearse, recibe las skills de código de la plataforma que tocan a su tipo (`private.default_agent_skills`), con su autonomía por defecto: Recepción, buscar huecos y ver citas (solas) y reservar, mover, cancelar y responder (en borrador); Atención al cliente, responder.
 
 ### 5.2 Enrutado **[PROPUESTO]**
@@ -635,6 +641,7 @@ Reglas:
 - Los agentes **no** se invocan entre sí. Se comunican mediante **eventos de dominio** escritos en `domain_events` en la misma transacción que la acción (patrón outbox).
   - Los escriben triggers de la base de datos; nadie de la app los escribe.
   - El primero es `invitation.created`; los mensajes de los clientes emiten `message.received` (paso 4d-2).
+  - Las citas (paso 4e-0, `private.emit_appointment_event`): `appointment.created` al reservar, `appointment.rescheduled` al cambiar una cita viva de hora o de recurso y `appointment.cancelled` al cancelarla. Llevan el id de la cita y sus horas, nunca el contacto. Completar una cita o marcarla como perdida no emite nada todavía. Los consumirán el recordatorio de 24 h (4e) y la lista de espera (4f).
 - **El tenant de un evento sale de la fila (`organization_id`, `location_id`), nunca del payload** (control 3.7). El payload lleva ids y datos mínimos, sin datos personales en claro, con un esquema Zod por tipo que quita lo que sobre.
 - Un publicador lee el outbox y encola una entrega por cada consumidor suscrito:
   - es un workflow programado de DBOS (`outbox.publish`, cada 5 s);
@@ -793,7 +800,7 @@ Para que el contexto esté realmente cruzado, la plataforma mantiene un **mapa d
 | 2 | Comunicación interna | Slack, Microsoft Teams |
 | 3 | Ecommerce e inventario | Shopify, WooCommerce |
 | 3 | Pagos | Stripe (cobros del cliente final) |
-| 3+ | Voz | Telefonía + STT/TTS o plataforma de voz **[ABIERTO]** |
+| 3+ | Voz | ElevenLabs para la voz de los agentes (producto, 2026-11-08); telefonía **[ABIERTO]** |
 
 **Regla:** ninguna integración se da por conectada hasta haberla probado con una cuenta real o sandbox del proveedor. Las credenciales las aporta producto; no se inventan.
 
@@ -803,11 +810,11 @@ Para que el contexto esté realmente cruzado, la plataforma mantiene un **mapa d
 
 | Canal | Notas técnicas |
 |---|---|
-| WhatsApp | API oficial vía BSP **[ABIERTO]** qué proveedor. Respetar la ventana de atención de 24 h: fuera de ella solo se pueden enviar plantillas aprobadas. Hace falta opt-in para mensajes iniciados por la empresa. Verificación de firma en los webhooks. |
+| WhatsApp | Cloud API de Meta, directa, sin BSP (ADR 0020; producto, 2026-11-08). Respetar la ventana de atención de 24 h: fuera de ella solo se pueden enviar plantillas aprobadas. Hace falta opt-in para mensajes iniciados por la empresa. Verificación de firma en los webhooks. |
 | Instagram DM | API de mensajería de Meta; mismas reglas generales de la plataforma de Meta. |
 | Email | Gmail API / Microsoft Graph. Respuestas dentro del hilo; firmas por organización o local. |
 | Web chat | Widget propio embebible (script con `organization_id` y `location_id` opcional), con identificación opcional del contacto. |
-| Voz | Fase posterior. Coste y latencia distintos; se medirá por minuto (§15). |
+| Voz | Justo después de Recepción (B19). La voz de los agentes, con ElevenLabs (producto, 2026-11-08); la telefonía (número español) se elige con el *spike* de voz (A18). Coste y latencia distintos; se medirá por minuto (§15). |
 | Consola interna | "Ventana por agente" dentro de la app: el personal da instrucciones al agente ("envía recordatorio a las citas de mañana"). Actúa con los permisos del usuario que la da. |
 
 Todos los canales se normalizan a un formato interno único (`NormalizedMessage`) en `packages/channels`.
@@ -1159,7 +1166,7 @@ Para quien necesita trabajo extra para quedar bien integrado: cadenas multi-loca
   - auditoría consultable;
   - soporte con canal dedicado;
   - nube dedicada desde cierto tamaño (ADR 0026; `docs/design/benchmark-langdock.md` §5).
-- **En la web:** una página de precios y otra de enterprise con la estructura de las de Langdock (langdock.com/pricing y langdock.com/enterprise). Se copia la estructura, nunca la identidad visual (§9):
+- **En la web [DECIDIDO: producto, 2026-11-08: se rehace ya con esta estructura, sin importes hasta que estén decididos]:** una página de precios y otra de enterprise con la estructura de las de Langdock (langdock.com/pricing y langdock.com/enterprise). Se copia la estructura, nunca la identidad visual (§9):
   - autoservicio con precios visibles;
   - enterprise con «hablar con ventas».
 
@@ -1263,7 +1270,7 @@ Las fases 4 y 5 **no** se empiezan hasta cerrar la 3. En las fases 0-1 la config
 | 6 | Secretos: mecanismo cerrado (KMS con clave por tenant, ADR 0019). **Proveedor decidido** (producto, 2026-10-24): AWS KMS en `eu-central-1`, solo KMS (no Bedrock), con una clave maestra por entorno y una clave de datos por organización ligada a su `organization_id` (se fija en el ADR 0034 con `SecretVault`) | Seguridad | Técnico |
 | 7 | Proveedores de facturación española a integrar primero | Agente `admin` | Producto |
 | 8 | Precios: cuota, consumo, voz, precio por local | Stripe, límites | Producto |
-| 9 | Momento de entrada de la voz y proveedor | Roadmap, costes | Producto |
+| 9 | ~~Momento de entrada de la voz y proveedor~~ — cerrado: justo después de B19, con ElevenLabs para la voz (producto, 2026-11-08); la telefonía, con el *spike* A18 | Roadmap, costes | Producto |
 | 10 | Fechas de pentest, ISO 27001 y SOC 2 | Ventas enterprise | Producto |
 | 11 | Plan de Supabase necesario (SSO, región, soporte) | Infraestructura | Técnico |
 | 12 | Revisión legal del vertical de clínicas (datos de salud) | Cumplimiento | Legal |

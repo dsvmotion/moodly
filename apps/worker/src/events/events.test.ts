@@ -22,6 +22,24 @@ describe("catálogo de eventos", () => {
     expect(() => parsePayload("invitation.created", { invitation_id: INVITATION, role: "dueño", invited_by: USER })).toThrow();
   });
 
+  it("los de las citas: el id y las horas con su zona, tal como los escribe Postgres", () => {
+    const appointment = "a0000000-0000-4000-8000-0000000000a1";
+    // to_jsonb(timestamptz) da la hora con su desfase, p. ej. "2030-06-03T09:00:00+02:00".
+    expect(parsePayload("appointment.created", { appointment_id: appointment, starts_at: "2030-06-03T07:00:00+00:00", contact_id: USER })).toEqual({
+      appointment_id: appointment,
+      starts_at: "2030-06-03T07:00:00+00:00",
+    });
+    expect(
+      parsePayload("appointment.rescheduled", {
+        appointment_id: appointment,
+        starts_at: "2030-06-03T09:00:00.123456+00:00",
+        previous_starts_at: "2030-06-03T07:00:00+00:00",
+      }),
+    ).toMatchObject({ previous_starts_at: "2030-06-03T07:00:00+00:00" });
+    expect(() => parsePayload("appointment.cancelled", { appointment_id: appointment, starts_at: "mañana" })).toThrow();
+    expect(() => parsePayload("appointment.cancelled", { appointment_id: appointment })).toThrow();
+  });
+
   it("ningún esquema admite claves de tenant", () => {
     for (const schema of Object.values(eventPayloads)) {
       expect(Object.keys(schema.shape)).not.toContain("organization_id");
@@ -32,7 +50,8 @@ describe("catálogo de eventos", () => {
   it("solo conoce los tipos de su catálogo", () => {
     expect(isEventType("invitation.created")).toBe(true);
     expect(isEventType("toString")).toBe(false);
-    expect(isEventType("appointment.created")).toBe(false);
+    expect(isEventType("appointment.created")).toBe(true);
+    expect(isEventType("payment.received")).toBe(false);
   });
 });
 
@@ -48,7 +67,7 @@ describe("registro de consumidores", () => {
   it("rechaza claves repetidas o no válidas y tipos fuera del catálogo", () => {
     expect(() => createEventRegistry([handler("log", "*"), handler("log", "*")])).toThrow(/repetido/);
     expect(() => createEventRegistry([handler("Con Espacios", "*")])).toThrow(/clave/);
-    expect(() => createEventRegistry([handler("x", ["appointment.created" as "invitation.created"])])).toThrow(/catálogo/);
+    expect(() => createEventRegistry([handler("x", ["payment.received" as "invitation.created"])])).toThrow(/catálogo/);
   });
 
   it("el ID de una entrega es el mismo cada vez: volver a encolar no crea otra", () => {

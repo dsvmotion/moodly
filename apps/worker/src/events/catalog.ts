@@ -33,6 +33,22 @@ export const eventPayloads = {
     conversation_id: z.uuid(),
     message_id: z.uuid(),
   }),
+  // private.emit_appointment_event, en la misma transacción que el cambio de la
+  // cita (paso 4e-0). Los consumirán el recordatorio de 24 h y la lista de
+  // espera. Solo el id y las horas: el contacto se lee de la cita.
+  "appointment.created": z.object({
+    appointment_id: z.uuid(),
+    starts_at: z.iso.datetime({ offset: true }),
+  }),
+  "appointment.rescheduled": z.object({
+    appointment_id: z.uuid(),
+    starts_at: z.iso.datetime({ offset: true }),
+    previous_starts_at: z.iso.datetime({ offset: true }),
+  }),
+  "appointment.cancelled": z.object({
+    appointment_id: z.uuid(),
+    starts_at: z.iso.datetime({ offset: true }),
+  }),
 } satisfies Record<string, z.ZodType<Record<string, unknown>>>;
 
 export type EventType = keyof typeof eventPayloads;
