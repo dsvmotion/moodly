@@ -144,6 +144,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
         serviceId: input.service_id,
         resourceId: input.resource_id,
         contactId: requireContact(ctx),
+        conversationId: ctx.conversationId,
         startsAt: new Date(input.starts_at),
         idempotencyKey: ctx.idempotencyKey,
       });

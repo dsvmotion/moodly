@@ -74,6 +74,7 @@ describe("calendario propio de Moodly (BookingProvider sobre tenantDb)", () => {
       serviceId: ids.service ?? "",
       resourceId: ids.resource ?? "",
       contactId: ids.ana ?? "",
+      conversationId: null,
       startsAt: new Date("2030-06-03T07:00:00Z"),
       idempotencyKey: `${marker}:run-1:book`,
     };

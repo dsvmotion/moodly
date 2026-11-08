@@ -142,7 +142,13 @@ describe("un turno sin herramientas", () => {
     expect(executed[0]).toMatchObject({
       key: REPLY_SKILL_KEY,
       input: { text: "Sí, a las 9:00." },
-      ctx: { organizationId: "org-1", locationId: "loc-1", contactId: "ana", target: { kind: "conversation", conversationId: "conv-1", contactId: "ana" } },
+      ctx: {
+        organizationId: "org-1",
+        locationId: "loc-1",
+        contactId: "ana",
+        conversationId: "conv-1",
+        target: { kind: "conversation", conversationId: "conv-1", contactId: "ana" },
+      },
     });
     expect(result.usage).toEqual({ tokensIn: 100, tokensOut: 20, costEur: 0.001, model: "fake/fast" });
   });

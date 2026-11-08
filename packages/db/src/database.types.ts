@@ -125,13 +125,13 @@ isOneToOne: false
                   ]
                 },"appointments": {
                   Row: {
-                    "booked_by": string,"cancelled_at": string | null,"contact_id": string,"created_at": string,"ends_at": string,"external_ref": string | null,"id": string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status": string,"synced_at": string | null,"updated_at": string
+                    "booked_by": string,"cancelled_at": string | null,"contact_id": string,"conversation_id": string | null,"created_at": string,"ends_at": string,"external_ref": string | null,"id": string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status": string,"synced_at": string | null,"updated_at": string
                   }
                   Insert: {
-                    "booked_by": string,"cancelled_at"?: string | null,"contact_id": string,"created_at"?: string,"ends_at": string,"external_ref"?: string | null,"id"?: string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
+                    "booked_by": string,"cancelled_at"?: string | null,"contact_id": string,"conversation_id"?: string | null,"created_at"?: string,"ends_at": string,"external_ref"?: string | null,"id"?: string,"idempotency_key": string,"location_id": string,"organization_id": string,"resource_id": string,"service_id": string,"starts_at": string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "booked_by"?: string,"cancelled_at"?: string | null,"contact_id"?: string,"created_at"?: string,"ends_at"?: string,"external_ref"?: string | null,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"organization_id"?: string,"resource_id"?: string,"service_id"?: string,"starts_at"?: string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
+                    "booked_by"?: string,"cancelled_at"?: string | null,"contact_id"?: string,"conversation_id"?: string | null,"created_at"?: string,"ends_at"?: string,"external_ref"?: string | null,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"organization_id"?: string,"resource_id"?: string,"service_id"?: string,"starts_at"?: string,"status"?: string,"synced_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -139,6 +139,12 @@ isOneToOne: false
       columns: ["contact_id","organization_id"]
 isOneToOne: false
       referencedRelation: "contacts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "appointments_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
       referencedColumns: ["id","organization_id"]
     },{
       foreignKeyName: "appointments_location_same_org"

@@ -34,7 +34,7 @@ describe("createFakeBookingProvider", () => {
 
   it("reserva, y la misma petición devuelve la misma cita", async () => {
     const calendar = setup();
-    const request = { locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" };
+    const request = { locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" };
     const first = await calendar.book(request);
     const again = await calendar.book(request);
     expect(again).toBe(first);
@@ -44,9 +44,9 @@ describe("createFakeBookingProvider", () => {
 
   it("nunca dos citas solapadas del mismo recurso", async () => {
     const calendar = setup();
-    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" });
+    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" });
     await expect(
-      calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "luis", startsAt: at("2030-06-03T09:15:00Z"), idempotencyKey: "k-2" }),
+      calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "luis", conversationId: null, startsAt: at("2030-06-03T09:15:00Z"), idempotencyKey: "k-2" }),
     ).rejects.toThrow(SlotTakenError);
     const slots = await calendar.findSlots({ locationId: LOC, serviceId: "laser", ...day, limit: 50 });
     expect(slots).toHaveLength(36);
@@ -54,13 +54,13 @@ describe("createFakeBookingProvider", () => {
 
   it("rechaza un recurso que no hace el servicio", async () => {
     await expect(
-      setup().book({ locationId: LOC, serviceId: "masaje", resourceId: "cab1", contactId: "ana", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" }),
+      setup().book({ locationId: LOC, serviceId: "masaje", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" }),
     ).rejects.toThrow(InvalidBookingError);
   });
 
   it("solo mueve o cancela las citas del contacto, y cancelar es idempotente y definitivo", async () => {
     const calendar = setup();
-    const appointment = await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" });
+    const appointment = await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-1" });
     await expect(calendar.cancel({ appointmentId: appointment.id, contactId: "luis" })).rejects.toThrow(AppointmentNotFoundError);
     const moved = await calendar.reschedule({ appointmentId: appointment.id, contactId: "ana", startsAt: at("2030-06-03T10:00:00Z") });
     expect(moved.endsAt).toEqual(at("2030-06-03T10:30:00Z"));
@@ -73,9 +73,9 @@ describe("createFakeBookingProvider", () => {
 
   it("lista las próximas citas vivas del contacto", async () => {
     const calendar = setup();
-    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", startsAt: at("2030-06-03T11:00:00Z"), idempotencyKey: "k-1" });
-    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab2", contactId: "ana", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-2" });
-    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "luis", startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-3" });
+    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T11:00:00Z"), idempotencyKey: "k-1" });
+    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab2", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-2" });
+    await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "luis", conversationId: null, startsAt: at("2030-06-03T09:00:00Z"), idempotencyKey: "k-3" });
     const upcoming = await calendar.upcomingForContact({ contactId: "ana", from: at("2030-06-01T00:00:00Z"), limit: 5 });
     expect(upcoming.map((a) => a.startsAt.toISOString())).toEqual(["2030-06-03T09:00:00.000Z", "2030-06-03T11:00:00.000Z"]);
   });

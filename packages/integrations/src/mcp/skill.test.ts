@@ -52,6 +52,7 @@ const ctx: SkillContext = {
   locationId: null,
   runId: scope.runId,
   contactId: null,
+  conversationId: null,
   target: { kind: "none" },
   idempotencyKey: "k",
 };

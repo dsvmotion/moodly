@@ -10,6 +10,7 @@ const ctx = (over: Partial<SkillContext> = {}): SkillContext => ({
   locationId: "loc-1",
   runId: "run-1",
   contactId: "ana",
+  conversationId: "conv-1",
   target: { kind: "conversation", conversationId: "conv-1", contactId: "ana" },
   idempotencyKey: "run-1:0:0:reply",
   ...over,

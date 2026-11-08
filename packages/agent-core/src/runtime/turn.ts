@@ -187,6 +187,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       locationId: scope.locationId,
       runId: scope.runId,
       contactId: scope.conversation?.contactId ?? null,
+      conversationId: scope.conversation?.id ?? null,
       target: decision.target,
       idempotencyKey,
     };
