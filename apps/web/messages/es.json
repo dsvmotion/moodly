@@ -402,7 +402,8 @@
       "list_my_appointments": "Ver citas",
       "book_appointment": "Reserva",
       "reschedule_appointment": "Cambio de cita",
-      "cancel_appointment": "Cancelación"
+      "cancel_appointment": "Cancelación",
+      "appointment_reminder": "Recordatorio de cita"
     },
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",

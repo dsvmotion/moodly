@@ -3,7 +3,7 @@ import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, policyFromSetting
 import type { BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
-import { FIND_SLOTS_SKILL_KEY, createReceptionSkills, createReplySkill } from "@repo/skills";
+import { APPOINTMENT_REMINDER_SKILL_KEY, FIND_SLOTS_SKILL_KEY, createReceptionSkills, createReplySkill } from "@repo/skills";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
@@ -108,7 +108,7 @@ const contextSchema = z.object({
     }),
   ),
 });
-type TurnContext = z.infer<typeof contextSchema>;
+export type TurnContext = z.infer<typeof contextSchema>;
 
 interface Conversation {
   id: string;
@@ -232,11 +232,15 @@ export function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> 
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
+/** Las que lanza la plataforma y no el modelo (los recordatorios, 4e): nunca se le ofrecen como herramienta. */
+export const PLATFORM_TRIGGERED_SKILLS: ReadonlySet<string> = new Set([APPOINTMENT_REMINDER_SKILL_KEY]);
+
 /** Las del agente que existen en el código con la misma versión que en el catálogo; las demás no se le ofrecen. */
-function agentSkills(available: Map<string, SkillDefinition<unknown>>, configured: TurnContext["skills"], log: Logger) {
+export function agentSkills(available: Map<string, SkillDefinition<unknown>>, configured: TurnContext["skills"], log: Logger) {
   const skills = new Map<string, SkillDefinition<unknown>>();
   const settings = new Map<string, SkillSettings>();
   for (const row of configured) {
+    if (PLATFORM_TRIGGERED_SKILLS.has(row.key)) continue;
     const skill = available.get(row.key);
     if (row.kind !== "code" || !skill || skill.version !== row.version || skill.effectClass !== row.effect_class) {
       log.warn({ skillKey: row.key, version: row.version }, "skill del agente sin implementación que coincida: no se ofrece");

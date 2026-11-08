@@ -378,7 +378,7 @@ Convenciones:
 | `services` | `organization_id`, `location_id?` (null = en todos los locales), `name`, `duration_minutes`, `active`, `external_ref?` (paso 4b) |
 | `booking_resources` | `organization_id`, `location_id`, `name`, `kind` (`staff`/`room`/`equipment`), `active`, `external_ref?` |
 | `resource_services` | `resource_id`, `service_id`, `organization_id`: qué servicios hace cada recurso (solo los que se ofrecen en su local) |
-| `appointments` | `organization_id`, `location_id`, `service_id`, `resource_id`, `contact_id`, `starts_at`, `ends_at` (la pone la base de datos con la duración), `status` (`booked`/`cancelled`/`completed`/`no_show`; cancelar es definitivo), `idempotency_key` (única por organización: reintentar no duplica), `booked_by`, `external_ref?`, `synced_at?`. Sin solapes por recurso (restricción de exclusión). Los huecos, solo con `find_booking_slots` (horario y zona horaria del local) |
+| `appointments` | `organization_id`, `location_id`, `service_id`, `resource_id`, `contact_id`, `starts_at`, `ends_at` (la pone la base de datos con la duración), `status` (`booked`/`cancelled`/`completed`/`no_show`; cancelar es definitivo), `idempotency_key` (única por organización: reintentar no duplica), `booked_by`, `conversation_id?` (la conversación en la que la reservó el agente: de su contacto, no cambia; por ella salen los recordatorios, paso 4e-1), `external_ref?`, `synced_at?`. Sin solapes por recurso (restricción de exclusión). Los huecos, solo con `find_booking_slots` (horario y zona horaria del local) |
 | `inbound_events` | `channel`, `external_event_id` (clave de idempotencia), `raw` (jsonb), `received_at`, `processed_at`, `error?` |
 
 **Ejecución, aprobaciones y auditoría**
@@ -519,6 +519,7 @@ sequenceDiagram
   - **Permiso:** reservar a través del agente cuenta como permiso para los recordatorios de esa cita por el mismo canal, y el cliente se puede dar de baja contestando. En WhatsApp, fuera de la ventana de 24 h, con la plantilla aprobada por Meta.
   - **Lista de espera:** si no hay hueco que le sirva, el agente ofrece apuntarle. Cuando se libera un hueco (`appointment.cancelled`), se ofrece al primero de la lista durante 30 minutos y después al siguiente. Si acepta, la reserva va a la bandeja de aprobaciones como cualquier otra.
   - **Chat de pruebas:** lo que se aprueba es real, también las reservas.
+  - **Cómo está hecho (4e-1):** la cita guarda la conversación en la que la reservó el agente (`appointments.conversation_id`, la pone el runtime como el contacto, nunca el LLM). La skill `appointment_reminder` (`external_outreach`, `execute`, solo de Recepción) la trae de serie cada Recepción; no se le ofrece al modelo como herramienta, porque la lanza la plataforma cuando llega la hora. Quien no quiera recordatorios, la desactiva en su agente.
 - **Qué trae cada agente de serie:** al crearse, recibe las skills de código de la plataforma que tocan a su tipo (`private.default_agent_skills`), con su autonomía por defecto: Recepción, buscar huecos y ver citas (solas) y reservar, mover, cancelar y responder (en borrador); Atención al cliente, responder.
 
 ### 5.2 Enrutado **[PROPUESTO]**

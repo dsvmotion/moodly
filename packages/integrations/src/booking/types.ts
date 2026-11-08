@@ -20,6 +20,8 @@ export interface Appointment {
   serviceId: string;
   resourceId: string;
   contactId: string;
+  /** La conversación en la que la reservó el agente, o null (la reservó el equipo o vino sincronizada). */
+  conversationId: string | null;
   startsAt: Date;
   endsAt: Date;
   status: AppointmentStatus;
@@ -38,6 +40,12 @@ export interface BookRequest {
   serviceId: string;
   resourceId: string;
   contactId: string;
+  /**
+   * La conversación del run, la pone el runtime como el contacto: reservar a
+   * través del agente es el permiso para los recordatorios de esa cita, que
+   * salen por ella (producto, 2026-11-08). Null si el run no viene de una.
+   */
+  conversationId: string | null;
   startsAt: Date;
   /** La de la ejecución (ADR 0047): la misma petición crea una sola cita. */
   idempotencyKey: string;

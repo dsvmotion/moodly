@@ -13,7 +13,7 @@ import type { Appointment, AppointmentStatus, BookingProvider } from "@repo/inte
 // petición, la hora de fin por la duración, cancelar es definitivo); aquí se
 // traducen sus errores y se comprueba que la cita es del contacto del runtime.
 
-const COLUMNS = "id, location_id, service_id, resource_id, contact_id, starts_at, ends_at, status";
+const COLUMNS = "id, location_id, service_id, resource_id, contact_id, conversation_id, starts_at, ends_at, status";
 
 interface AppointmentRow {
   id: string;
@@ -21,6 +21,7 @@ interface AppointmentRow {
   service_id: string;
   resource_id: string;
   contact_id: string;
+  conversation_id: string | null;
   starts_at: string;
   ends_at: string;
   status: string;
@@ -38,6 +39,7 @@ function toAppointment(row: AppointmentRow): Appointment {
     serviceId: row.service_id,
     resourceId: row.resource_id,
     contactId: row.contact_id,
+    conversationId: row.conversation_id,
     startsAt: new Date(row.starts_at),
     endsAt: new Date(row.ends_at),
     status: row.status as AppointmentStatus,
@@ -71,7 +73,7 @@ export function createMoodlyCalendar(db: TenantDb): BookingProvider {
       return rows.map((row) => ({ resourceId: row.resource_id, startsAt: new Date(row.starts_at), endsAt: new Date(row.ends_at) }));
     },
 
-    async book({ locationId, serviceId, resourceId, contactId, startsAt, idempotencyKey }) {
+    async book({ locationId, serviceId, resourceId, contactId, conversationId, startsAt, idempotencyKey }) {
       const { data, error } = await db
         .from("appointments")
         .insert({
@@ -79,6 +81,7 @@ export function createMoodlyCalendar(db: TenantDb): BookingProvider {
           service_id: serviceId,
           resource_id: resourceId,
           contact_id: contactId,
+          conversation_id: conversationId,
           starts_at: startsAt.toISOString(),
           // La recalcula la base de datos con la duración del servicio.
           ends_at: startsAt.toISOString(),

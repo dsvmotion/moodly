@@ -1,7 +1,18 @@
-import type { TurnResult } from "@repo/agent-core";
-import { describe, expect, it } from "vitest";
+import type { SkillDefinition, TurnResult } from "@repo/agent-core";
+import type { Logger } from "pino";
+import { describe, expect, it, vi } from "vitest";
 import { createEventRegistry } from "../events/handlers.ts";
-import { CONVERSE_HANDLER_KEY, MAX_PROMPT_SERVICES, agentAnswers, bookableServices, createConverseHandler, runIdFor, runStatusFor } from "./converse.ts";
+import {
+  CONVERSE_HANDLER_KEY,
+  MAX_PROMPT_SERVICES,
+  agentAnswers,
+  agentSkills,
+  bookableServices,
+  createConverseHandler,
+  runIdFor,
+  runStatusFor,
+} from "./converse.ts";
+import type { TurnContext } from "./converse.ts";
 
 const usage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null };
 
@@ -75,5 +86,32 @@ describe("lo que se puede reservar en el prompt", () => {
     const { services, truncated } = bookableServices(many, CENTRO);
     expect(services).toHaveLength(MAX_PROMPT_SERVICES);
     expect(truncated).toBe(true);
+  });
+});
+
+describe("las herramientas que ve el modelo", () => {
+  const findSlots = { key: "find_slots", version: 1, effectClass: "read" } as unknown as SkillDefinition<unknown>;
+  const row = (key: string, effect_class: TurnContext["skills"][number]["effect_class"]): TurnContext["skills"][number] => ({
+    key,
+    version: 1,
+    kind: "code",
+    effect_class,
+    enabled: true,
+    autonomy_level: "execute",
+  });
+
+  it("los recordatorios no: los lanza la plataforma, y no es un fallo que no estén entre las del modelo", () => {
+    const warn = vi.fn();
+    const log = { warn } as unknown as Logger;
+    const { skills, settings } = agentSkills(
+      new Map([["find_slots", findSlots]]),
+      [row("find_slots", "read"), row("appointment_reminder", "external_outreach"), row("una_que_no_existe", "read")],
+      log,
+    );
+    expect([...skills.keys()]).toEqual(["find_slots"]);
+    expect([...settings.keys()]).toEqual(["find_slots"]);
+    // Solo avisa de la que de verdad falta.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatchObject({ skillKey: "una_que_no_existe" });
   });
 });

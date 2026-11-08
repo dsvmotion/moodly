@@ -73,6 +73,7 @@ type Loaded =
       execution: ExecutionRow;
       approval: { execution_id: string; organization_id: string; location_id: string | null; input_hash: string; status: string; expires_at: string; decided_at: string | null };
       contactId: string | null;
+      conversationId: string | null;
     };
 
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
@@ -102,17 +103,19 @@ async function load(db: TenantDb, approvalId: string, executionId: string): Prom
   // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
   if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: "already_settled" };
 
-  // El contacto del run: el de la conversación del mensaje que lo despertó.
+  // El contacto y la conversación del run: los del mensaje que lo despertó.
   const run = check(await db.from("agent_runs").select("trigger, trigger_ref").eq("id", execution.run_id).maybeSingle(), "el run");
   let contactId: string | null = null;
+  let conversationId: string | null = null;
   if (run?.trigger === "inbound_message" && run.trigger_ref) {
     const message = check(await db.from("messages").select("conversation_id").eq("id", run.trigger_ref).maybeSingle(), "el mensaje del run");
     if (message) {
-      const conversation = check(await db.from("conversations").select("contact_id").eq("id", message.conversation_id).maybeSingle(), "la conversación");
+      const conversation = check(await db.from("conversations").select("id, contact_id").eq("id", message.conversation_id).maybeSingle(), "la conversación");
       contactId = conversation?.contact_id ?? null;
+      conversationId = conversation?.id ?? null;
     }
   }
-  return { kind: "decided", execution: execution as ExecutionRow, approval, contactId };
+  return { kind: "decided", execution: execution as ExecutionRow, approval, contactId, conversationId };
 }
 
 async function settleExecution(db: TenantDb, executionId: string, status: "executed" | "failed" | "rejected", output?: unknown): Promise<void> {
@@ -179,6 +182,7 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
         locationId: execution.location_id,
         runId: execution.run_id,
         contactId: loaded.contactId,
+        conversationId: loaded.conversationId,
         target: execution.target as Target,
         idempotencyKey: execution.idempotency_key,
       };

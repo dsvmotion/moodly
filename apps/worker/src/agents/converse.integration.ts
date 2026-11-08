@@ -441,11 +441,14 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
     await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
 
     expect(await executionStatus(booking.execution_id)).toBe("executed");
-    const { rows } = await admin.query<{ contact_id: string; starts_at: Date }>(
-      "select contact_id, starts_at from public.appointments where location_id = $1",
+    const { rows } = await admin.query<{ contact_id: string; starts_at: Date; conversation_id: string | null }>(
+      "select contact_id, starts_at, conversation_id from public.appointments where location_id = $1",
       [ids.location],
     );
-    expect(rows.map((row) => [row.contact_id, row.starts_at.toISOString()])).toEqual([[ids.contact, "2030-06-03T07:00:00.000Z"]]);
+    // Con la conversación en la que se pidió: por ella saldrán sus recordatorios (4e).
+    expect(rows.map((row) => [row.contact_id, row.starts_at.toISOString(), row.conversation_id])).toEqual([
+      [ids.contact, "2030-06-03T07:00:00.000Z", ids.conversation],
+    ]);
     const { rows: runs } = await admin.query<{ status: string }>("select status from public.agent_runs where id = $1", [booking.run_id]);
     expect(runs[0]?.status).toBe("completed");
   });

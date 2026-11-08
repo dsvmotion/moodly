@@ -40,6 +40,7 @@ const ctx = (over: Partial<SkillContext> = {}): SkillContext => ({
   locationId: LOC,
   runId: RUN,
   contactId: ANA,
+  conversationId: "conv-1",
   target: { kind: "none" },
   idempotencyKey: `${RUN}:book:1`,
   ...over,
@@ -159,6 +160,17 @@ describe("ejecutar las skills de Recepción", () => {
     expect(retry.appointment.id).toBe(first.appointment.id);
     expect(booking.appointments).toHaveLength(1);
     expect(booking.appointments[0]?.contactId).toBe(ANA);
+  });
+
+  it("la cita guarda la conversación del run: por ella saldrán sus recordatorios", async () => {
+    const { booking, skills } = setup();
+    await skills.bookAppointment.execute(ctx(), { service_id: LASER, resource_id: CAB1, starts_at: "2030-06-03T09:00:00Z" });
+    await skills.bookAppointment.execute(ctx({ conversationId: null, idempotencyKey: "sin-conversacion" }), {
+      service_id: LASER,
+      resource_id: CAB1,
+      starts_at: "2030-06-03T10:00:00Z",
+    });
+    expect(booking.appointments.map((appointment) => appointment.conversationId)).toEqual(["conv-1", null]);
   });
 
   it("otra ejecución en el mismo hueco no pisa la cita", async () => {

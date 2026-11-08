@@ -70,7 +70,7 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
       }
       return Promise.resolve(slots.slice(0, Math.min(Math.max(limit, 1), 50)));
     },
-    book({ locationId, serviceId, resourceId, contactId, startsAt, idempotencyKey }) {
+    book({ locationId, serviceId, resourceId, contactId, conversationId, startsAt, idempotencyKey }) {
       const existing = byKey.get(idempotencyKey);
       if (existing) return Promise.resolve(existing);
       const service = serviceAt(serviceId, locationId);
@@ -85,6 +85,7 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
         serviceId,
         resourceId,
         contactId,
+        conversationId,
         startsAt,
         endsAt,
         status: "booked",
