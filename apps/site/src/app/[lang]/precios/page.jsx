@@ -1,134 +1,81 @@
 "use client";
 import LangLink from "@/components/lang-link";
-import { useState } from "react";
 import PageShell, { card, h2, muted, pillBtn, section, wrap } from "@/components/page-shell";
-import { AGENTS } from "@/components/site-data";
-import { PRICING as P, eur, estimate } from "@/components/pricing";
 import { useLang } from "@/components/use-lang";
-import { COPY, LOCALES } from "./copy";
+import { COPY } from "./copy";
 
-const IDS = ["recepcion", "atencion", "comercial", "admin"];
-const PART_COLORS = [["#ffffff", "#000000"], ["#e8edff", "#000000"], ["#000000", "#ffffff"]];
+// /precios (MANUAL §15.1 y §15.2): prueba con tarjeta y crédito de IA, tres
+// formas de seguir pagando la IA que se usa, y Enterprise con implantación y
+// contrato. Estructura de la página de precios de Langdock; los importes de los
+// planes siguen abiertos y la página lo dice.
 
-function Toggle({ on, onClick, label, color = "#2457f5" }) {
+const li = { margin: 0, padding: "16px 0 0", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" };
+const badge = (txt) => <span style={{ padding: "4px 10px", borderRadius: "800px", background: "#2457f5", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{txt}</span>;
+
+function Plan({ plan, recommended }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} style={{ flex: "none", width: "40px", height: "24px", borderRadius: "800px", border: 0, padding: "3px", background: on ? color : "#d9d9de", cursor: "pointer", display: "flex", justifyContent: on ? "flex-end" : "flex-start" }}>
-      <span style={{ width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }} />
-    </button>
+    <div style={{ ...card, border: plan.highlight ? "1px solid #2457f5" : card.border, display: "flex", flexDirection: "column", gap: "14px" }} data-testid="plan">
+      <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "20px", lineHeight: "24px" }}>{plan.name}</span>
+        {plan.highlight ? badge(recommended) : null}
+      </span>
+      <span style={{ fontSize: "30px", lineHeight: "36px", letterSpacing: "-0.04em" }}>{plan.price}</span>
+      <span style={{ fontSize: "14px", lineHeight: "21px" }}>{plan.sub}</span>
+      <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{plan.desc}</span>
+      <LangLink href="/contacto" style={{ ...pillBtn(Boolean(plan.highlight)), alignSelf: "stretch", marginTop: "auto" }}>{plan.cta}</LangLink>
+      <ul style={{ ...li, borderTop: "1px solid #0000000f" }}>{plan.list.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
+    </div>
   );
 }
 
 export default function Precios() {
   const lang = useLang();
   const t = COPY[lang] || COPY.es;
-  const loc = LOCALES[lang] || "es-ES";
-  const nf = (n) => n.toLocaleString(loc);
-  const [on, setOn] = useState({ recepcion: true, atencion: true, comercial: false, admin: false });
-  const [sites, setSites] = useState(1);
-  const [conversations, setConversations] = useState(600);
-  const [voice, setVoice] = useState(0);
-  const [byok, setByok] = useState(false);
-
-  const agents = IDS.filter((id) => on[id]).length;
-  const e = estimate({ agents, sites, conversations, voiceMinutes: voice, byok });
-  const label = { fontSize: "13px", lineHeight: "18px", ...muted };
-  const row = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "15px", lineHeight: "22px" };
-  const slider = { width: "100%", accentColor: "#2457f5" };
-  const li = { margin: 0, padding: "16px 0 0", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" };
-  const badge = (txt) => <span style={{ padding: "4px 10px", borderRadius: "800px", background: "#2457f5", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{txt}</span>;
 
   return (
     <PageShell eyebrow={t.eyebrow} title={t.title} intro={t.intro}>
       <section style={{ ...section, paddingTop: "clamp(40px, 6vw, 72px)" }}>
-        <div style={{ ...wrap, display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
-          <aside aria-label={t.calc} className="sticky-wide" style={{ ...card, flex: "1 1 300px", maxWidth: "380px", display: "flex", flexDirection: "column", gap: "22px" }}>
-            <span style={{ fontSize: "18px", lineHeight: "22px" }}>{t.calc}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <span style={label}>{t.agentsLabel}</span>
-              {AGENTS.map((a, i) => (
-                <div key={IDS[i]} style={row}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ width: "10px", height: "10px", borderRadius: "800px", background: a.color }} />{t.agents[i]}</span>
-                  <Toggle label={t.agents[i]} color={a.color} on={on[IDS[i]]} onClick={() => setOn({ ...on, [IDS[i]]: !on[IDS[i]] })} />
-                </div>
-              ))}
-            </div>
-            <label style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <span style={row}><span>{t.convMonth}</span><strong style={{ fontWeight: 500 }}>{nf(conversations)}</strong></span>
-              <input type="range" min="0" max="6000" step="100" value={conversations} onChange={(ev) => setConversations(Number(ev.target.value))} style={slider} />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <span style={row}><span>{t.voiceMonth}</span><strong style={{ fontWeight: 500 }}>{nf(voice)}</strong></span>
-              <input type="range" min="0" max="3000" step="50" value={voice} onChange={(ev) => setVoice(Number(ev.target.value))} style={slider} />
-            </label>
-            <div style={row}>
-              <span>{t.sites}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button type="button" aria-label={t.lessSites} onClick={() => setSites(Math.max(1, sites - 1))} style={{ width: "32px", height: "32px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", cursor: "pointer" }}>−</button>
-                <span aria-live="polite" style={{ minWidth: "24px", textAlign: "center" }}>{sites}</span>
-                <button type="button" aria-label={t.moreSites} onClick={() => setSites(Math.min(20, sites + 1))} style={{ width: "32px", height: "32px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", cursor: "pointer" }}>+</button>
-              </span>
-            </div>
-            <div style={row}>
-              <span>{t.byok}<br /><span style={label}>{t.byokSub}</span></span>
-              <Toggle label={t.byok} on={byok} onClick={() => setByok(!byok)} />
-            </div>
-          </aside>
+        <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "16px" }}>
+          <h2 style={h2}>{t.plansTitle}</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "16px" }}>
+            {t.plans.map((plan) => (<Plan key={plan.name} plan={plan} recommended={t.recommended} />))}
+          </div>
+          <span style={{ fontSize: "13px", lineHeight: "19px", ...muted }} data-testid="amounts-note">{t.amountsNote}</span>
 
-          <div style={{ flex: "2 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-              <div style={{ ...card, display: "flex", flexDirection: "column", gap: "14px" }}>
-                <span style={{ fontSize: "20px", lineHeight: "24px" }}>{t.trial}</span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{t.trialDesc}</span>
-                <span style={{ fontSize: "36px", lineHeight: "40px", letterSpacing: "-0.04em" }}>0 €</span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{t.trialMeta}</span>
-                <LangLink href="/contacto" style={{ ...pillBtn(false), alignSelf: "stretch" }}>{t.trialStart}</LangLink>
-                <ul style={{ ...li, borderTop: "1px solid #0000000f" }}>{t.trialList.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
-              </div>
-              <div style={{ ...card, border: e.enterprise ? card.border : "1px solid #2457f5", display: "flex", flexDirection: "column", gap: "14px" }}>
-                <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "20px", lineHeight: "24px" }}>{t.biz}</span>{!e.enterprise && badge(t.yourPlan)}</span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{t.bizDesc}</span>
-                <span style={{ fontSize: "36px", lineHeight: "40px", letterSpacing: "-0.04em" }}>{eur(Math.round(e.total))}<span style={{ fontSize: "15px", ...muted }}> {t.perMonth}</span></span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{t.bizBreakdown(eur(e.fixed), eur(Math.round(e.variable)))}</span>
-                <LangLink href="/contacto" style={{ ...pillBtn(true), alignSelf: "stretch" }}>{t.demo}</LangLink>
-                <ul style={{ ...li, borderTop: "1px solid #0000000f" }}>{t.bizList.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
-              </div>
-              <div style={{ ...card, background: "#000000", color: "#ffffff", border: e.enterprise ? "1px solid #2457f5" : 0, display: "flex", flexDirection: "column", gap: "14px" }}>
-                <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "20px", lineHeight: "24px" }}>{t.ent}</span>{e.enterprise && badge(t.recommended)}</span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", opacity: 0.7 }}>{t.entDesc}</span>
-                <span style={{ fontSize: "36px", lineHeight: "40px", letterSpacing: "-0.04em" }}>{t.custom}</span>
-                <span style={{ fontSize: "14px", lineHeight: "21px", opacity: 0.7 }}>{t.entSub}</span>
-                <LangLink href="/contacto" style={{ ...pillBtn(false), alignSelf: "stretch" }}>{t.talkSales}</LangLink>
-                <ul style={{ ...li, borderTop: "1px solid #ffffff26" }}>{t.entList.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
-              </div>
+          <div style={{ ...card, background: "#000000", color: "#ffffff", border: 0, display: "flex", flexWrap: "wrap", gap: "24px 48px", alignItems: "flex-start" }} data-testid="plan-enterprise">
+            <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <span style={{ fontSize: "20px", lineHeight: "24px" }}>{t.ent.name}</span>
+              <span style={{ fontSize: "30px", lineHeight: "36px", letterSpacing: "-0.04em" }}>{t.ent.price}</span>
+              <span style={{ fontSize: "14px", lineHeight: "21px" }}>{t.ent.sub}</span>
+              <span style={{ fontSize: "14px", lineHeight: "21px", opacity: 0.7 }}>{t.ent.desc}</span>
+              <LangLink href="/enterprise" style={{ ...pillBtn(false), alignSelf: "flex-start" }}>{t.ent.cta}</LangLink>
             </div>
-
-            <div style={{ ...card, padding: "8px 28px" }} aria-live="polite">
-              {[
-                [t.bAgents(Math.max(1, agents)), eur(e.fixedAgents)],
-                [t.bSites(Math.max(0, sites - 1)), eur(e.fixedSites)],
-                [t.bConv(nf(e.extraConversations), nf(e.included)), eur(e.variableConversations, 2)],
-                [t.bVoice(nf(voice)), eur(e.variableVoice, 2)],
-              ].map(([k, v]) => (<div key={k} style={{ display: "flex", justifyContent: "space-between", gap: "16px", padding: "12px 0", borderBottom: "1px solid #0000000f", fontSize: "14px", lineHeight: "20px" }}><span style={muted}>{k}</span><span>{v}</span></div>))}
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", padding: "14px 0", fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}><span>{t.totalMonth}</span><span>{eur(e.total, 2)}</span></div>
-            </div>
-            <span style={{ fontSize: "13px", lineHeight: "19px", ...muted }}>{t.disclaimer}</span>
+            <ul style={{ ...li, flex: "1 1 280px", padding: 0 }}>{t.ent.list.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
           </div>
         </div>
       </section>
 
       <section style={section}>
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
-          <h2 style={h2}>{t.howA} <span style={muted}>{t.howB}</span></h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px" }}>
-            {t.parts.map(([k, title, d], i) => {
-              const [bg, fg] = PART_COLORS[i];
-              return (<div key={k} style={{ ...card, background: bg, color: fg, border: bg === "#ffffff" ? card.border : 0, minHeight: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                <span style={{ fontSize: "13px", opacity: 0.65 }}>{k}</span>
-                <span style={{ fontSize: "22px", lineHeight: "26px", letterSpacing: "-0.4px" }}>{title}</span>
-                <p style={{ margin: 0, fontSize: "15px", lineHeight: "23px", opacity: 0.78 }}>{d}</p>
-              </div>);
-            })}
-          </div>
+          <h2 style={h2}>{t.afterA} <span style={muted}>{t.afterB}</span></h2>
+          <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "32px" }}>
+            {t.after.map(([title, d], i) => (
+              <li key={title} style={{ borderTop: "1px solid #000000", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <span style={{ font: "400 13px/20px var(--font-mono)", color: "#6b6b70" }}>0{i + 1}</span>
+                <span style={{ fontSize: "18px", lineHeight: "22px", letterSpacing: "-0.36px" }}>{title}</span>
+                <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>{d}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section style={section}>
+        <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
+          <h2 style={h2}>{t.visibleA} <span style={muted}>{t.visibleB}</span></h2>
+          <ul style={{ ...card, margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "14px 32px", listStyle: "none", fontSize: "15px", lineHeight: "22px" }}>
+            {t.visible.map((x) => (<li key={x}>✓ {x}</li>))}
+          </ul>
         </div>
       </section>
 
@@ -137,7 +84,7 @@ export default function Precios() {
           <h2 style={h2}>{t.implA} <span style={muted}>{t.implB}</span></h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px" }}>
             {t.implementation.map(([fit, name, price, text], i) => (
-              <div key={i} style={{ ...card, background: i === 0 ? "#dcebdd" : "#ffffff", border: i === 0 ? 0 : card.border, display: "flex", flexDirection: "column", gap: "10px", minHeight: "230px" }}>
+              <div key={name} style={{ ...card, background: i === 0 ? "#dcebdd" : "#ffffff", border: i === 0 ? 0 : card.border, display: "flex", flexDirection: "column", gap: "10px", minHeight: "230px" }}>
                 <span style={{ fontSize: "13px", ...muted }}>{fit}</span>
                 <span style={{ fontSize: "20px", lineHeight: "24px" }}>{name}</span>
                 <span style={{ fontSize: "28px", lineHeight: "32px", fontWeight: 100, letterSpacing: "-0.03em" }}>{price}</span>

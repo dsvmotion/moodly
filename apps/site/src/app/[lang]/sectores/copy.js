@@ -12,7 +12,7 @@ export const COPY = {
     fourA: (p) => `Cuatro agentes para ${p}.`, fourB: "Activa los que necesites.",
     faqTitle: "Preguntas frecuentes",
     demoH2: (tu) => `Prueba Moodly en ${tu}.`,
-    fine: `${P.trialDays} días gratis · después, desde ${P.perAgent} € por agente al mes + implantación según escala.`,
+    fine: `Prueba de ${P.trialDays} días con ${P.trialCreditEur} € de crédito de IA · después pagas la IA que usas, sin implantación.`,
     ariaSectors: "Sectores", ariaSub: "Subsector", ariaAgent: "Agente", ariaSteps: "Pasos de configuración",
   },
   en: {
@@ -25,7 +25,7 @@ export const COPY = {
     fourA: (p) => `Four agents for ${p}.`, fourB: "Turn on the ones you need.",
     faqTitle: "Frequently asked questions",
     demoH2: (tu) => `Try Moodly at ${tu}.`,
-    fine: `${P.trialDays} days free · then from ${P.perAgent} € per agent per month + setup priced to scale.`,
+    fine: `A ${P.trialDays}-day trial with ${P.trialCreditEur} € of AI credit · then you pay for the AI you use, no setup fee.`,
     ariaSectors: "Industries", ariaSub: "Subsector", ariaAgent: "Agent", ariaSteps: "Setup steps",
   },
   fr: {
@@ -38,7 +38,7 @@ export const COPY = {
     fourA: (p) => `Quatre agents pour ${p}.`, fourB: "Activez ceux qu'il vous faut.",
     faqTitle: "Questions fréquentes",
     demoH2: (tu) => `Essayez Moodly pour ${tu}.`,
-    fine: `${P.trialDays} jours gratuits · ensuite à partir de ${P.perAgent} € par agent et par mois + mise en place selon l'ampleur.`,
+    fine: `Essai de ${P.trialDays} jours avec ${P.trialCreditEur} € de crédit d'IA · ensuite vous payez l'IA utilisée, sans mise en place.`,
     ariaSectors: "Secteurs", ariaSub: "Sous-secteur", ariaAgent: "Agent", ariaSteps: "Étapes de configuration",
   },
   de: {
@@ -51,7 +51,7 @@ export const COPY = {
     fourA: (p) => `Vier Agenten für ${p}.`, fourB: "Aktiviere die, die du brauchst.",
     faqTitle: "Häufige Fragen",
     demoH2: (tu) => `Teste Moodly für ${tu}.`,
-    fine: `${P.trialDays} Tage kostenlos · danach ab ${P.perAgent} € pro Agent und Monat + Einrichtung nach Umfang.`,
+    fine: `${P.trialDays} Tage Test mit ${P.trialCreditEur} € KI-Guthaben · danach zahlst du die genutzte KI, ohne Einrichtung.`,
     ariaSectors: "Branchen", ariaSub: "Untersegment", ariaAgent: "Agent", ariaSteps: "Einrichtungsschritte",
   },
 };
