@@ -20,9 +20,12 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 //   determinista: reminders:<cita>:<hora>. No va en la cola de eventos (allí
 //   ocuparía un hueco mientras duerme): duerme con DBOS.sleep, que guarda la
 //   hora de despertar y sobrevive a reinicios y despliegues.
-// - Cuándo: 24 h y 4 h antes. Si se reserva con menos de 24 h, el de 24 h sale
-//   al reservar si aún faltan más de 4 h; con menos de 4 h, solo el de 4 h si
-//   todavía no ha pasado su hora (reminderPlan).
+// - Cuándo (reminderPlan): 24 h y 4 h antes. Si se reserva con menos de 24 h,
+//   el de 24 h sale al reservar si aún faltan más de 4 h; con menos de 4 h,
+//   solo el de 4 h si todavía no ha pasado su hora. Nunca entre las 22:00 y
+//   las 07:00 del local: el que caería ahí sale a las 07:00, y si para
+//   entonces la cita ya ha empezado, no sale. Entre dos recordatorios, al
+//   menos 1 h: si no, solo sale el primero (producto, 2026-11-08).
 // - Al despertar se relee todo: si la cita ya no está reservada a esa hora, no
 //   tiene conversación, el contacto se dio de baja, la conversación está
 //   cerrada, el agente no contesta en ese canal o tiene la skill desactivada,
@@ -41,9 +44,24 @@ export const REMINDERS_WORKFLOW = "appointment.reminders";
 export const REMINDER_CONSENT_KEY = "appointment_reminders";
 
 const HOUR_MS = 3_600_000;
+const MINUTE_MS = 60_000;
 export type ReminderOffsets = Readonly<Record<ReminderKind, number>>;
-/** Cuánto antes de la cita sale cada recordatorio. */
-export const REMINDER_OFFSETS: ReminderOffsets = { "24h": 24 * HOUR_MS, "4h": 4 * HOUR_MS };
+
+export interface ReminderRules {
+  /** Cuánto antes de la cita sale cada recordatorio. */
+  offsets: ReminderOffsets;
+  /** Horas del local en las que no se envía (minutos desde las 00:00): desde start hasta end, cruzando la medianoche. */
+  quietHours: { startMinute: number; endMinute: number } | null;
+  /** Lo mínimo entre dos recordatorios de la misma cita. */
+  minGapMs: number;
+}
+
+/** Producto, 2026-11-08: 24 h y 4 h antes, nunca de 22:00 a 07:00 y al menos 1 h entre los dos. */
+export const REMINDER_RULES: ReminderRules = {
+  offsets: { "24h": 24 * HOUR_MS, "4h": 4 * HOUR_MS },
+  quietHours: { startMinute: 22 * 60, endMinute: 7 * 60 },
+  minGapMs: HOUR_MS,
+};
 
 export interface PlannedReminder {
   kind: ReminderKind;
@@ -51,15 +69,59 @@ export interface PlannedReminder {
   at: number;
 }
 
-/** Cuándo sale cada recordatorio de una cita que empieza en startsAt, visto en now. */
-export function reminderPlan(startsAt: number, now: number, offsets: ReminderOffsets = REMINDER_OFFSETS): PlannedReminder[] {
-  const first = startsAt - offsets["24h"];
-  const second = startsAt - offsets["4h"];
-  const plan: PlannedReminder[] = [];
-  if (now <= first) plan.push({ kind: "24h", at: first });
+export interface ReminderPlan {
+  reminders: PlannedReminder[];
+  /** Los que tocaban y no salen, y por qué (para el log). */
+  dropped: { kind: ReminderKind; reason: "quiet_hours" | "gap" }[];
+}
+
+/** La hora del día en el local (minutos desde las 00:00). */
+export function localMinutes(at: number, timezone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? "0");
+  return value("hour") * 60 + value("minute");
+}
+
+/** Si at cae en las horas de silencio del local, la primera hora en que se puede enviar; si no, at. */
+export function outOfQuietHours(at: number, timezone: string, quiet: ReminderRules["quietHours"] = REMINDER_RULES.quietHours): number {
+  if (!quiet) return at;
+  const local = localMinutes(at, timezone);
+  const crossesMidnight = quiet.startMinute > quiet.endMinute;
+  const quietNow = crossesMidnight ? local >= quiet.startMinute || local < quiet.endMinute : local >= quiet.startMinute && local < quiet.endMinute;
+  if (!quietNow) return at;
+  // Al minuto en punto del final, contado en hora local.
+  let result = at - (at % MINUTE_MS) + (((quiet.endMinute - local + 1440) % 1440) * MINUTE_MS);
+  // Si esa noche cambia la hora (horario de verano), se corrige la diferencia.
+  const drift = quiet.endMinute - localMinutes(result, timezone);
+  if (drift !== 0 && Math.abs(drift) <= 120) result += drift * MINUTE_MS;
+  return result;
+}
+
+/** Cuándo sale cada recordatorio de una cita que empieza en startsAt, visto en now, en la zona horaria del local. */
+export function reminderPlan(startsAt: number, now: number, timezone: string, rules: ReminderRules = REMINDER_RULES): ReminderPlan {
+  const first = startsAt - rules.offsets["24h"];
+  const second = startsAt - rules.offsets["4h"];
+  const candidates: PlannedReminder[] = [];
+  if (now <= first) candidates.push({ kind: "24h", at: first });
   // Reservada con menos de 24 h: sale ya, si aún faltan más de 4 h.
-  else if (now < second) plan.push({ kind: "24h", at: now });
-  if (now <= second) plan.push({ kind: "4h", at: second });
+  else if (now < second) candidates.push({ kind: "24h", at: now });
+  if (now <= second) candidates.push({ kind: "4h", at: second });
+
+  const plan: ReminderPlan = { reminders: [], dropped: [] };
+  for (const candidate of candidates) {
+    const at = outOfQuietHours(candidate.at, timezone, rules.quietHours);
+    // Pasadas las horas de silencio, la cita ya ha empezado: ya no sirve.
+    if (at >= startsAt) {
+      plan.dropped.push({ kind: candidate.kind, reason: "quiet_hours" });
+      continue;
+    }
+    const previous = plan.reminders.at(-1);
+    if (previous && at - previous.at < rules.minGapMs) {
+      plan.dropped.push({ kind: candidate.kind, reason: "gap" });
+      continue;
+    }
+    plan.reminders.push({ kind: candidate.kind, at });
+  }
   return plan;
 }
 
@@ -255,6 +317,14 @@ async function finishRun(db: TenantDb, runId: string, status: "completed" | "fai
   if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
 }
 
+/** La zona horaria del local de la cita (UTC si la cita ya no existe: sin cita no sale nada). */
+async function locationTimezone(db: TenantDb, appointmentId: string): Promise<string> {
+  const appointment = check(await db.from("appointments").select("location_id").eq("id", appointmentId).maybeSingle(), "la cita");
+  if (!appointment) return "UTC";
+  const location = check(await db.from("locations").select("timezone").eq("id", appointment.location_id).maybeSingle(), "el local");
+  return location?.timezone ?? "UTC";
+}
+
 export interface ReminderInput {
   /** La organización de la fila del evento (control 3.7), nunca del payload. */
   organizationId: string;
@@ -266,12 +336,12 @@ export interface ReminderInput {
 export interface RemindersOptions {
   db: ServiceDb;
   logger: Logger;
-  /** Solo para los tests: cuánto antes sale cada recordatorio. */
-  offsets?: ReminderOffsets;
+  /** Solo para los tests: cuándo sale cada recordatorio. */
+  rules?: ReminderRules;
 }
 
 /** Registra el workflow (antes de DBOS.launch) y devuelve el consumidor que lo arranca. */
-export function registerReminders({ db, logger, offsets = REMINDER_OFFSETS }: RemindersOptions): EventHandler {
+export function registerReminders({ db, logger, rules = REMINDER_RULES }: RemindersOptions): EventHandler {
   const log = logger.child({ component: "reminders" });
 
   function skillFor(tenant: TenantDb, fallbackLocale: string): AppointmentReminderSkill {
@@ -345,8 +415,16 @@ export function registerReminders({ db, logger, offsets = REMINDER_OFFSETS }: Re
   // paso) y DBOS.sleep guarda cuándo despertar.
   async function remind(input: ReminderInput): Promise<void> {
     const startsAt = Date.parse(input.startsAt);
-    const plan = reminderPlan(startsAt, await DBOS.now(), offsets);
-    for (const reminder of plan) {
+    const tenant = db.forOrganization(input.organizationId);
+    // Las horas de silencio son las del local de la cita.
+    const timezone = await DBOS.runStep(() => locationTimezone(tenant, input.appointmentId), { name: "timezone" });
+    const plan = reminderPlan(startsAt, await DBOS.now(), timezone, rules);
+    if (plan.dropped.length > 0) {
+      for (const dropped of plan.dropped) {
+        log.info({ organizationId: input.organizationId, appointmentId: input.appointmentId, kind: dropped.kind, reason: dropped.reason }, "recordatorio que no sale");
+      }
+    }
+    for (const reminder of plan.reminders) {
       const now = await DBOS.now();
       if (reminder.at > now) await DBOS.sleep(reminder.at - now);
       await sendOne(input, reminder.kind);

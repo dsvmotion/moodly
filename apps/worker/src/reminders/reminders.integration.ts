@@ -13,7 +13,9 @@ import { reminderKey, reminderWorkflowId } from "./reminders.ts";
 // en un worker de verdad (DBOS y Supabase local), que duerme hasta cada
 // recordatorio, relee la cita y lo envía por la conversación de la reserva.
 // Para no esperar 24 h, el worker de prueba los manda 30 s y 8 s antes de la
-// cita. Los datos viven en un local temporal de Demo A que se borra al terminar.
+// cita, con 10 s de separación mínima en vez de 1 h. Las horas de silencio
+// son las de verdad: el local está en una zona horaria en la que ahora son
+// las 14:00, salvo en el test que las comprueba. Los datos viven en un local temporal de Demo A que se borra al terminar.
 const fixture = join(import.meta.dirname, "..", "testing", "reminders-worker.ts");
 const dir = mkdtempSync(join(tmpdir(), "worker-reminders-"));
 const children = new Set<ChildProcess>();
@@ -21,7 +23,13 @@ const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
 const api = localSupabaseApi();
 const marker = `reminders-${randomUUID().slice(0, 8)}`;
 const markerFile = join(dir, "started.jsonl");
-const OFFSETS = { "24h": 30_000, "4h": 8_000 };
+const TIMING = { "24h": 30_000, "4h": 8_000, minGap: 10_000 };
+
+/** Una zona horaria fija en la que ahora son más o menos las `hour` (en Etc/GMT el signo va al revés). */
+function zoneAt(hour: number): string {
+  const offset = ((hour - new Date().getUTCHours() + 36) % 24) - 12;
+  return offset === 0 ? "Etc/GMT" : offset > 0 ? `Etc/GMT-${offset}` : `Etc/GMT+${-offset}`;
+}
 const ids: Record<string, string> = {};
 const resources: string[] = [];
 let saved: { status: string; reminder: { autonomy_level: string; enabled: boolean } | null } | null = null;
@@ -93,11 +101,16 @@ async function finished(appointmentId: string, startsAt: string): Promise<boolea
   return (await workflowStatus(appointmentId, startsAt)) === "SUCCESS";
 }
 
-/** Si el worker dejó en el log que no envió un recordatorio de esa cita, y por qué. */
-function skipped(appointmentId: string, reason: string): boolean {
+/** Si el worker dejó en el log una línea de esa cita con ese fragmento. */
+function logged(appointmentId: string, fragment: string): boolean {
   return (worker?.output() ?? "")
     .split("\n")
-    .some((line) => line.includes(`"appointmentId":"${appointmentId}"`) && line.includes(`"reason":"${reason}"`));
+    .some((line) => line.includes(`"appointmentId":"${appointmentId}"`) && line.includes(fragment));
+}
+
+/** Si el worker dejó en el log que no envió un recordatorio de esa cita, y por qué. */
+function skipped(appointmentId: string, reason: string): boolean {
+  return logged(appointmentId, `"reason":"${reason}"`);
 }
 
 async function reminders(conversationId: string) {
@@ -149,11 +162,11 @@ beforeAll(async () => {
 
   ids.location = await one(
     `insert into public.locations (organization_id, name, timezone, opening_hours)
-     values ($1, $2, 'Europe/Madrid', '{"mon": ["09:00", "14:00"]}') returning id`,
-    [ids.org, marker],
+     values ($1, $2, $3, '{"mon": ["09:00", "14:00"]}') returning id`,
+    [ids.org, marker, zoneAt(14)],
   );
   ids.service = await one("insert into public.services (organization_id, name, duration_minutes) values ($1, 'Láser', 30) returning id", [ids.org]);
-  for (let i = 1; i <= 10; i += 1) {
+  for (let i = 1; i <= 12; i += 1) {
     const resource = await one(
       "insert into public.booking_resources (organization_id, location_id, name, kind) values ($1, $2, $3, 'room') returning id",
       [ids.org, ids.location, `Cabina ${i}`],
@@ -178,7 +191,7 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
-      REMINDER_OFFSETS_MS: JSON.stringify(OFFSETS),
+      REMINDER_TIMING_MS: JSON.stringify(TIMING),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -297,52 +310,90 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
     const staff = await customer("dani");
     const optedOut = await customer("eva", { consents: { appointment_reminders: { opted_out_at: new Date().toISOString() } } });
     const closed = await customer("fran", { mode: "closed" });
-    const byStaff = await book({ contact: staff.contact, conversation: null }, 12_000, "user");
-    const toOptedOut = await book(optedOut, 12_000);
-    const toClosed = await book(closed, 12_000);
+    // A 17 s: el primero tocaría al llegar el evento (unos segundos), y así se ve por qué no sale.
+    const byStaff = await book({ contact: staff.contact, conversation: null }, 17_000, "user");
+    const toOptedOut = await book(optedOut, 17_000);
+    const toClosed = await book(closed, 17_000);
     const cases = [
-      { appointment: byStaff, conversation: staff.conversation },
-      { appointment: toOptedOut, conversation: optedOut.conversation },
-      { appointment: toClosed, conversation: closed.conversation },
+      { appointment: byStaff, conversation: staff.conversation, reason: "not_booked_by_agent" },
+      // La audiencia queda vacía: el permiso la filtra.
+      { appointment: toOptedOut, conversation: optedOut.conversation, reason: "no_recipients" },
+      { appointment: toClosed, conversation: closed.conversation, reason: "conversation_closed" },
     ];
     for (const { appointment } of cases) {
       const startsAt = await eventStartsAt(appointment.id);
       await waitFor(() => finished(appointment.id, startsAt), "su workflow termina", 30_000);
     }
-    for (const { appointment, conversation } of cases) {
+    for (const { appointment, conversation, reason } of cases) {
       expect(await reminders(conversation)).toEqual([]);
       expect(await runsOf(appointment.id)).toEqual([]);
+      expect(skipped(appointment.id, reason), reason).toBe(true);
     }
   }, 90_000);
 
   it("tampoco con la skill desactivada, con menos autonomía que execute o con el agente en pausa", async () => {
-    const cases: { name: string; set: string; reset: string; params: unknown[] }[] = [
+    const cases: { name: string; set: string; reset: string; params: unknown[]; why: string }[] = [
       {
         name: "gema",
         set: "update public.agent_skills set enabled = false where agent_id = $1 and skill_id = $2",
         reset: "update public.agent_skills set enabled = true where agent_id = $1 and skill_id = $2",
         params: [ids.agent, ids.reminderSkill],
+        why: '"reason":"skill_disabled"',
       },
       {
         name: "hugo",
         set: "update public.agent_skills set autonomy_level = 'draft' where agent_id = $1 and skill_id = $2",
         reset: "update public.agent_skills set autonomy_level = 'execute' where agent_id = $1 and skill_id = $2",
         params: [ids.agent, ids.reminderSkill],
+        why: '"outcome":"draft"',
       },
-      { name: "ines", set: "update public.agents set status = 'paused' where id = $1", reset: "update public.agents set status = 'live' where id = $1", params: [ids.agent] },
+      {
+        name: "ines",
+        set: "update public.agents set status = 'paused' where id = $1",
+        reset: "update public.agents set status = 'live' where id = $1",
+        params: [ids.agent],
+        why: '"reason":"agent_not_answering"',
+      },
     ];
-    for (const { name, set, reset, params } of cases) {
+    for (const { name, set, reset, params, why } of cases) {
       await admin.query(set, params);
       try {
         const who = await customer(name);
-        const appointment = await book(who, 12_000);
+        const appointment = await book(who, 17_000);
         const startsAt = await eventStartsAt(appointment.id);
         await waitFor(() => finished(appointment.id, startsAt), `el workflow de ${name} termina`, 30_000);
         expect(await reminders(who.conversation), name).toEqual([]);
         expect(await runsOf(appointment.id), name).toEqual([]);
+        expect(logged(appointment.id, why), why).toBe(true);
       } finally {
         await admin.query(reset, params);
       }
     }
   }, 120_000);
+
+  it("si el de «4 h» caería a menos de la separación mínima del primero, solo sale el primero", async () => {
+    const jon = await customer("jon", { locale: "es" });
+    // A 17 s: el primero sale al llegar el evento y el de «4 h» tocaría a los 9 s, a menos de los 10 s de separación.
+    const appointment = await book(jon, 17_000);
+    const startsAt = await eventStartsAt(appointment.id);
+    await waitFor(() => finished(appointment.id, startsAt), "su workflow termina", 30_000);
+    expect((await reminders(jon.conversation)).map((message) => message.idempotency_key)).toEqual([reminderKey(appointment.id, startsAt, "24h")]);
+    expect(skipped(appointment.id, "gap")).toBe(true);
+  }, 90_000);
+
+  it("de 22:00 a 07:00 del local no sale nada: espera a las 07:00 y, si la cita ya ha empezado, no sale", async () => {
+    // El local pasa a una zona en la que ahora son las 02:00: los dos tocarían ya y esperarían a las 07:00, después de la cita.
+    await admin.query("update public.locations set timezone = $2 where id = $1", [ids.location, zoneAt(2)]);
+    try {
+      const kai = await customer("kai", { locale: "es" });
+      const appointment = await book(kai, 24_000);
+      const startsAt = await eventStartsAt(appointment.id);
+      await waitFor(() => finished(appointment.id, startsAt), "su workflow termina", 30_000);
+      expect(await reminders(kai.conversation)).toEqual([]);
+      expect(await runsOf(appointment.id)).toEqual([]);
+      expect(skipped(appointment.id, "quiet_hours")).toBe(true);
+    } finally {
+      await admin.query("update public.locations set timezone = $2 where id = $1", [ids.location, zoneAt(14)]);
+    }
+  }, 90_000);
 });

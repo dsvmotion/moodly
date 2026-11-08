@@ -1,25 +1,28 @@
 // Proceso de prueba para reminders/reminders.integration.ts: el worker real con
 // el consumidor reception.reminders y los recordatorios a unos segundos de la
-// cita en vez de a 24 h y 4 h (REMINDER_OFFSETS_MS, en milisegundos).
+// cita en vez de a 24 h y 4 h, y unos segundos de separación mínima en vez de
+// 1 h (REMINDER_TIMING_MS, en milisegundos). Las horas de silencio son las de
+// verdad (de 22:00 a 07:00 del local).
 //
-//   REMINDER_OFFSETS_MS='{"24h":20000,"4h":8000}' node reminders-worker.ts <archivo>
+//   REMINDER_TIMING_MS='{"24h":30000,"4h":8000,"minGap":5000}' node reminders-worker.ts <archivo>
 //
 // Al arrancar escribe «started» en el archivo.
 import { appendFileSync } from "node:fs";
 import { loadConfig } from "../config.ts";
 import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";
-import { registerReminders, type ReminderOffsets } from "../reminders/reminders.ts";
+import { REMINDER_RULES, registerReminders } from "../reminders/reminders.ts";
 import { createWorker } from "../worker.ts";
 
 const [markerFile] = process.argv.slice(2);
 if (!markerFile) throw new Error("uso: reminders-worker.ts <archivo>");
-const offsets = JSON.parse(process.env["REMINDER_OFFSETS_MS"] ?? "null") as ReminderOffsets | null;
+const timing = JSON.parse(process.env["REMINDER_TIMING_MS"] ?? "null") as { "24h": number; "4h": number; minGap: number } | null;
+const rules = timing ? { ...REMINDER_RULES, offsets: { "24h": timing["24h"], "4h": timing["4h"] }, minGapMs: timing.minGap } : REMINDER_RULES;
 
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const worker = createWorker(config, logger, {
-  eventHandlers: ({ db }) => [logHandler, registerReminders({ db, logger, ...(offsets ? { offsets } : {}) })],
+  eventHandlers: ({ db }) => [logHandler, registerReminders({ db, logger, rules })],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);
