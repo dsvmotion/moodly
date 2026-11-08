@@ -3,7 +3,15 @@
 // familia, Recepción (paso 4c).
 export { FIND_SLOTS_SKILL_KEY, ReceptionScopeError, createReceptionSkills } from "./reception/skills.js";
 export type { ReceptionCatalog, ReceptionSkills } from "./reception/skills.js";
-export { APPOINTMENT_REMINDER_SKILL_KEY } from "./reception/reminder.js";
+export {
+  APPOINTMENT_REMINDER_SKILL_KEY,
+  REMINDER_KINDS,
+  ReminderNotApplicableError,
+  createAppointmentReminderSkill,
+  reminderText,
+  stillApplies,
+} from "./reception/reminder.js";
+export type { AppointmentReminderSkill, ReminderAppointment, ReminderKind, ReminderSource } from "./reception/reminder.js";
 export { MAX_REPLY_LENGTH, ReplyTargetError, createReplySkill } from "./conversation/reply.js";
 export type { ConversationSender, ReplySkill } from "./conversation/reply.js";
 export { createFakeConversationSender } from "./conversation/fake.js";

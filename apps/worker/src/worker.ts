@@ -1,5 +1,5 @@
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
-import { createServiceDb } from "@repo/db/service";
+import { createServiceDb, type ServiceDb } from "@repo/db/service";
 import type pg from "pg";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
@@ -32,8 +32,18 @@ export interface WorkerOptions {
   onLeaseLost: (err: Error) => void;
   /** Cancela la espera del lock (SIGTERM antes de arrancar). */
   signal?: AbortSignal;
-  /** Los consumidores de eventos de dominio (ADR 0009). Todos los procesos de una versión, los mismos. */
-  eventHandlers: readonly EventHandler[];
+  /**
+   * Los consumidores de eventos de dominio (ADR 0009). Todos los procesos de
+   * una versión, los mismos. Como función, recibe el acceso a los datos del
+   * worker: para los que registran workflows propios (los recordatorios).
+   */
+  eventHandlers: readonly EventHandler[] | ((services: WorkerServices) => readonly EventHandler[]);
+}
+
+/** Lo que el worker comparte con los consumidores que registran workflows propios. */
+export interface WorkerServices {
+  db: ServiceDb;
+  logger: Logger;
 }
 
 // Los logs de DBOS salen por nuestro logger (ADR 0032), con la misma censura.
@@ -52,8 +62,10 @@ function dbosLogger(logger: Logger): DLogger {
 }
 
 export function createWorker(config: WorkerConfig, logger: Logger, options: WorkerOptions): Worker {
-  const registry = createEventRegistry(options.eventHandlers);
   const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
+  // Antes de DBOS.launch(): un consumidor puede registrar aquí sus workflows.
+  const handlers = typeof options.eventHandlers === "function" ? options.eventHandlers({ db, logger }) : options.eventHandlers;
+  const registry = createEventRegistry(handlers);
   let lease: ExecutorLease | undefined;
   let pool: pg.Pool | undefined;
   let launched = false;
