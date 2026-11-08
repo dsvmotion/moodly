@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import LangLink from "@/components/lang-link";
 import PhoneDemo from "@/components/phone-demo";
-import { PRICING as P, eur } from "@/components/pricing";
+import { PRICING as P } from "@/components/pricing";
 import { getVerticals } from "@/components/verticals";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
@@ -242,14 +242,14 @@ export default function Page() {
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{P.trialDays} {t.priceTrialSub}</span>
               <span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>0 €</span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceTrialDesc}</span>
-              <ul style={{ margin: "8px 0 0", padding: "16px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}><li>✓ {P.trialConversations} {t.priceTrialList[0]}</li><li>✓ {t.priceTrialList[1]}</li><li>✓ {t.priceTrialList[2]}</li></ul>
+              <ul style={{ margin: "8px 0 0", padding: "16px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}><li>✓ {t.priceTrialList[0]}</li><li>✓ {t.priceTrialList[1]}</li><li>✓ {t.priceTrialList[2]}</li></ul>
             </div>
             <div style={{ flex: "1 1 280px", borderRadius: "12px", border: "1px solid #2457f5", padding: "32px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>
               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{t.priceBizName}</span><span style={{ padding: "4px 10px", borderRadius: "800px", background: "#2457f5", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{t.priceBizTag}</span></span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceBizPer}</span>
-              <span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{P.perAgent} €<span style={{ fontSize: "16px", color: "#5f5f63" }}> {t.priceBizUnit}</span></span>
-              <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceBizIncl(P.includedPerAgent, eur(P.perConversation, 2))}</span>
-              <ul style={{ margin: "8px 0 0", padding: "16px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}><li>✓ {t.priceBizList[0]}</li><li>+ {t.priceBizList[1]}</li><li>✓ {t.priceBizList[2]}</li><li>✓ {t.priceBizList[3]}</li></ul>
+              <span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.priceBizPrice}</span>
+              <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceBizIncl}</span>
+              <ul style={{ margin: "8px 0 0", padding: "16px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}><li>✓ {t.priceBizList[0]}</li><li>✓ {t.priceBizList[1]}</li><li>✓ {t.priceBizList[2]}</li><li>✓ {t.priceBizList[3]}</li></ul>
               <LangLink href="/precios" style={{ marginTop: "auto", textAlign: "center", padding: "11px 18px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "14px", lineHeight: "21px" }}>{t.priceBizCta}</LangLink>
             </div>
             <div style={{ flex: "1 1 280px", borderRadius: "12px", background: "#000000cc", color: "#ffffff", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>

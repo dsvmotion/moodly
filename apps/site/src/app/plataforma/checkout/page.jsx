@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-// Flujo: alta de pago (Stripe). Plan → pago → prueba de 14 días.
+// Flujo: alta de pago (Stripe). Plan → pago → prueba de 7 días con 5 € de crédito de IA (MANUAL §15.1).
 // TODO(backend): Stripe Checkout/Elements real; billing_accounts, subscriptions,
 // usage_limits; IVA ES (Stripe Tax/Holded). Nunca tocamos la tarjeta (tokeniza Stripe).
 const AGENTS = [
@@ -45,7 +45,7 @@ export default function Checkout() {
         <div style={{ flex: "3 1 440px", minWidth: 0, display: "flex", flexDirection: "column", gap: "20px" }}>
           {step === 1 && (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Tu plan</h1><span style={SUB}>Cuota fija por agente y por sede. El uso extra (conversaciones, voz) se factura aparte, con tope. 14 días de prueba.</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Tu plan</h1><span style={SUB}>Pagas la IA que usas: bajo demanda, paquete de créditos o plan mensual, con tope. Prueba de 7 días con 5 € de crédito.</span></div>
               <section style={{ ...box, overflow: "hidden" }}>
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", fontSize: "14px", fontWeight: 500 }}>{`Agentes · ${PER_AGENT} €/mes cada uno`}</div>
                 {AGENTS.map((a) => (
@@ -71,7 +71,7 @@ export default function Checkout() {
 
           {step === 2 && (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Pago</h1><span style={SUB}>No se cobra nada hoy. Empiezan 14 días de prueba; al acabar, se cobra el plan salvo que canceles.</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>Pago</h1><span style={SUB}>No se cobra nada hoy. Empieza una prueba de 7 días con 5 € de crédito de IA; al acabar, eliges cómo seguir.</span></div>
               <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Titular de la tarjeta<input defaultValue="Marta Ruiz" style={field} /></label>
                 <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Número de tarjeta<input placeholder="1234 1234 1234 1234" style={field} inputMode="numeric" /></label>
@@ -86,7 +86,7 @@ export default function Checkout() {
 
           {step === 3 && (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ display: "flex", gap: "14px", alignItems: "center" }}><span style={{ width: "44px", height: "44px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flex: "none" }}>✓</span><div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>Prueba iniciada</h1><span style={SUB}>Tienes 14 días. Te avisaremos antes de cobrar, y al 80 % del uso incluido.</span></div></div>
+              <div style={{ display: "flex", gap: "14px", alignItems: "center" }}><span style={{ width: "44px", height: "44px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flex: "none" }}>✓</span><div style={{ display: "flex", flexDirection: "column", gap: "4px" }}><h1 style={H}>Prueba iniciada</h1><span style={SUB}>Tienes 7 días y 5 € de crédito. Te avisaremos al 80 % y al acabarse.</span></div></div>
               <section style={{ ...box, padding: "20px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}>
                 <span style={{ fontWeight: 500 }}>Siguiente</span>
                 <a href="/plataforma/conectar" style={{ color: "var(--blue-fg)" }}>Conectar WhatsApp →</a>
