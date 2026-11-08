@@ -408,5 +408,36 @@
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
       "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
     }
+  },
+  "testChat": {
+    "title": "Pruébalo",
+    "description": "Escribe como si fueras un cliente. El agente contesta con el modelo de verdad y lo que proponga lo apruebas aquí o en Aprobaciones.",
+    "realWarning": "Lo que apruebes aquí es real: una reserva aprobada ocupa el calendario del local. Cada mensaje cuesta lo que un turno del agente.",
+    "inLocation": "En {location}",
+    "locationLabel": "Local de la prueba",
+    "empty": "Aún no le has escrito. Prueba con «¿Tenéis hueco el lunes?».",
+    "you": "Tú (prueba)",
+    "waiting": "{agent} está contestando…",
+    "inputLabel": "Mensaje de prueba",
+    "placeholder": "Escribe como un cliente…",
+    "send": "Enviar",
+    "restart": "Empezar de nuevo",
+    "steps": {
+      "pending": "Espera tu aprobación",
+      "suggested": "Sugerido",
+      "drafted": "En borrador",
+      "needs_approval": "Pendiente de aprobación",
+      "approved": "Aprobado, ejecutándose",
+      "rejected": "Rechazado",
+      "executed": "Hecho",
+      "failed": "No se pudo hacer"
+    },
+    "errors": {
+      "invalid": "Escribe un mensaje de hasta 2000 caracteres.",
+      "not_allowed": "No puedes probar este agente en este local.",
+      "paused": "El agente está en pausa: no se puede probar.",
+      "too_many": "Has enviado muchos mensajes de prueba en la última hora. Espera un poco.",
+      "failed": "No se pudo enviar. Vuelve a intentarlo."
+    }
   }
 }

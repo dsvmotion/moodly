@@ -5,13 +5,11 @@ import { ApprovalActions } from "@/components/approvals/approval-actions";
 import { loadPendingApprovals } from "@/lib/approvals-data";
 import { requireUser } from "@/lib/auth/session";
 import { resolveScope } from "@/lib/scope-data";
+import { isKnownSkill } from "@/lib/skill-labels";
 
 // Aprobaciones (paso 4d-3d, MANUAL §5.7 y §9): lo que el agente dejó esperando a
 // una persona, del alcance elegido. Aprobar envía la respuesta o hace la
 // reserva (lo ejecuta el worker); rechazar no ejecuta nada.
-const SKILLS = ["reply", "find_slots", "list_my_appointments", "book_appointment", "reschedule_appointment", "cancel_appointment"] as const;
-type KnownSkill = (typeof SKILLS)[number];
-const isKnownSkill = (key: string): key is KnownSkill => (SKILLS as readonly string[]).includes(key);
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
   await requireUser();

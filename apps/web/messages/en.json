@@ -408,5 +408,36 @@
       "invalid": "The decision could not be read. Please try again.",
       "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
     }
+  },
+  "testChat": {
+    "title": "Try it",
+    "description": "Write as if you were a customer. The agent answers with the real model, and you approve what it proposes here or in Approvals.",
+    "realWarning": "What you approve here is real: an approved booking takes up the location's calendar. Each message costs one agent turn.",
+    "inLocation": "At {location}",
+    "locationLabel": "Location for the test",
+    "empty": "You have not written to it yet. Try “Do you have a slot on Monday?”.",
+    "you": "You (test)",
+    "waiting": "{agent} is answering…",
+    "inputLabel": "Test message",
+    "placeholder": "Write as a customer…",
+    "send": "Send",
+    "restart": "Start over",
+    "steps": {
+      "pending": "Waiting for your approval",
+      "suggested": "Suggested",
+      "drafted": "Drafted",
+      "needs_approval": "Needs approval",
+      "approved": "Approved, running",
+      "rejected": "Rejected",
+      "executed": "Done",
+      "failed": "Could not be done"
+    },
+    "errors": {
+      "invalid": "Write a message of up to 2000 characters.",
+      "not_allowed": "You cannot test this agent at this location.",
+      "paused": "The agent is paused: it cannot be tested.",
+      "too_many": "You have sent many test messages in the last hour. Please wait a little.",
+      "failed": "It could not be sent. Please try again."
+    }
   }
 }
