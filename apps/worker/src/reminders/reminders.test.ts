@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { isEventType } from "../events/catalog.ts";
+import { optedOut } from "./consent.ts";
 import {
   REMINDER_RULES,
   localMinutes,
-  optedOut,
   outOfQuietHours,
   reminderKey,
   reminderPlan,

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { createConversationSender } from "../agents/conversation-sender.ts";
 import { agentAnswers } from "../agents/converse.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { optedOut } from "./consent.ts";
 
 // Los recordatorios de las citas (paso 4e-2, MANUAL §5.1, decidido por
 // producto el 2026-11-08).
@@ -40,8 +41,6 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 
 export const REMINDERS_HANDLER_KEY = "reception.reminders";
 export const REMINDERS_WORKFLOW = "appointment.reminders";
-/** Clave en contacts.consents: quien contesta BAJA o STOP deja de recibir recordatorios. */
-export const REMINDER_CONSENT_KEY = "appointment_reminders";
 
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
@@ -140,13 +139,6 @@ export function reminderRunId(key: string): string {
   const hex = createHash("sha256").update(`${REMINDERS_HANDLER_KEY}:${key}`).digest("hex");
   const variant = ((parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-}
-
-/** Si el contacto se dio de baja de los recordatorios. */
-export function optedOut(consents: unknown): boolean {
-  if (typeof consents !== "object" || consents === null) return false;
-  const entry = (consents as Record<string, unknown>)[REMINDER_CONSENT_KEY];
-  return typeof entry === "object" && entry !== null && typeof (entry as Record<string, unknown>)["opted_out_at"] === "string";
 }
 
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {

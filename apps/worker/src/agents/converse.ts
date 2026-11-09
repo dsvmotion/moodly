@@ -7,6 +7,7 @@ import { APPOINTMENT_REMINDER_SKILL_KEY, FIND_SLOTS_SKILL_KEY, createReceptionSk
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
+import { handleOptOut } from "../reminders/consent.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
@@ -336,6 +337,13 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
     async handle(event: DomainEvent, ctx: EventContext) {
       const conversationId = String(event.payload["conversation_id"]);
       const messageId = String(event.payload["message_id"]);
+      // La baja de los recordatorios (BAJA o STOP) va antes que el turno, también
+      // con la conversación en manos de una persona: no llama al modelo (4e-3).
+      const optOut = await ctx.step("opt-out", () => handleOptOut(ctx.db, conversationId, messageId, new Date()));
+      if (optOut.handled) {
+        ctx.logger.info({ conversationId, alreadyOptedOut: optOut.alreadyOptedOut }, "baja de los recordatorios");
+        return;
+      }
       const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId));
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");

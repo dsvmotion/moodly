@@ -523,3 +523,51 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
     await setAutonomy("reply", "autonomous");
   });
 });
+
+describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
+  async function consentsOf(contactId: string) {
+    const { rows } = await admin.query<{ consents: { appointment_reminders?: { opted_out_at?: string; via?: string; conversation_id?: string } } }>(
+      "select consents from public.contacts where id = $1",
+      [contactId],
+    );
+    return rows[0]?.consents ?? {};
+  }
+
+  it("BAJA queda registrada y se confirma con un texto fijo, sin modelo y sin run del agente", async () => {
+    const modelBefore = modelCalls().length;
+    const messageId = await customerSays("BAJA");
+    const eventId = await eventOf(messageId);
+    await waitFor(() => delivered(eventId), "la baja se entrega");
+
+    const consents = await consentsOf(ids.contact ?? "");
+    expect(consents.appointment_reminders).toMatchObject({ via: "reply", conversation_id: ids.conversation });
+    expect(Number.isNaN(Date.parse(consents.appointment_reminders?.opted_out_at ?? ""))).toBe(false);
+    const confirmation = (await agentMessages()).filter((message) => message.idempotency_key === `opt-out:${messageId}`);
+    expect(confirmation).toHaveLength(1);
+    expect(confirmation[0]?.content).toMatch(/^(Hecho: ya no te enviaremos recordatorios|Done: we won't send you appointment reminders)/);
+    expect(modelCalls()).toHaveLength(modelBefore);
+    expect(await runFor(messageId)).toEqual([]);
+  });
+
+  it("con la conversación en manos de una persona también se atiende, y repetirla no cambia la fecha", async () => {
+    const before = (await consentsOf(ids.contact ?? "")).appointment_reminders?.opted_out_at;
+    await admin.query("update public.conversations set mode = 'human' where id = $1", [ids.conversation]);
+    try {
+      const messageId = await customerSays("stop!");
+      const eventId = await eventOf(messageId);
+      await waitFor(() => delivered(eventId), "la baja se entrega");
+      expect((await consentsOf(ids.contact ?? "")).appointment_reminders?.opted_out_at).toBe(before);
+      expect((await agentMessages()).filter((message) => message.idempotency_key === `opt-out:${messageId}`)).toHaveLength(1);
+    } finally {
+      await admin.query("update public.conversations set mode = 'agent' where id = $1", [ids.conversation]);
+    }
+  });
+
+  it("una frase que la nombra no es una baja: la contesta el agente", async () => {
+    const modelBefore = modelCalls().length;
+    const messageId = await customerSays("Hola, ¿cómo me doy de baja?");
+    await waitFor(async () => (await runFor(messageId))[0]?.status === "completed", "el agente contesta");
+    expect(modelCalls().length).toBeGreaterThan(modelBefore);
+    expect((await agentMessages()).some((message) => message.idempotency_key === `opt-out:${messageId}`)).toBe(false);
+  });
+});
