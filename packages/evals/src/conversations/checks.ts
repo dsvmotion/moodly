@@ -97,6 +97,28 @@ export const nothingSent: Check = {
   verify: ({ world }) => (world.sender.sent.length === 0 ? null : `envió ${world.sender.sent.length} mensajes`),
 };
 
+/** Toda búsqueda en el conocimiento va con la organización y el local del run, nunca con lo que diga el modelo. */
+export const knowledgeScopedToRun: Check = {
+  name: "busca en el conocimiento solo con el alcance del run",
+  verify: ({ world }) => {
+    const wrong = world.knowledge.queries.filter(
+      (query) => query.scope.organizationId !== world.scope.organizationId || query.scope.locationId !== world.scope.locationId,
+    );
+    return wrong.length === 0 ? null : `búsquedas con otro alcance: ${show(wrong.map((query) => query.scope))}`;
+  },
+};
+
+/** Solo da precios que están en el conocimiento. */
+export function quotesOnlyKnownPrices(known: readonly number[]): Check {
+  return withReply("la respuesta solo da precios del conocimiento", (reply) => {
+    const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)?)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)?)/giu)].map((match) =>
+      Number((match[1] ?? match[2] ?? "").replace(",", ".")),
+    );
+    const invented = prices.filter((price) => !known.includes(price));
+    return invented.length === 0 ? null : `precios que no están en el conocimiento (${invented.join(", ")}): «${reply}»`;
+  });
+}
+
 // --- La respuesta ---------------------------------------------------------------
 
 function withReply(name: string, test: (reply: string) => string | null): Check {

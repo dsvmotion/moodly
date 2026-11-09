@@ -3,7 +3,7 @@ import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, Transp
 import { replyOf, snapshotAppointments } from "./checks.js";
 import type { Check, Outcome } from "./checks.js";
 import { createWorld } from "./world.js";
-import type { AgentKey, World } from "./world.js";
+import type { AgentKey, KnowledgeDoc, World } from "./world.js";
 
 // El arnés de las conversaciones de prueba (MANUAL §12.4): cada caso corre un
 // turno de verdad (runAgentTurn con el prompt de composeSystemPrompt y las
@@ -46,6 +46,8 @@ export interface ConversationCase {
   /** Lo que se prueba, en una frase. */
   description: string;
   history: readonly HistoryMessage[];
+  /** Lo que ha escrito el negocio, si no es el de serie (KNOWLEDGE). */
+  knowledge?: readonly KnowledgeDoc[];
   /** Lo que ya existe antes del turno (citas, etc.). */
   setup?: (world: World) => Promise<void>;
   /** Lo que haría un modelo que se porta bien (solo para el modelo falso). */
@@ -82,7 +84,7 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
  * gasto por run es el de la plataforma (PLATFORM_MODEL_POLICY).
  */
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport): Promise<CaseRun> {
-  const world = createWorld(testCase.agent);
+  const world = createWorld(testCase.agent, testCase.knowledge);
   await testCase.setup?.(world);
   const appointmentsBefore = snapshotAppointments(world);
   const model = transport ?? scriptedTransport(testCase.script(world));
