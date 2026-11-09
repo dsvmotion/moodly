@@ -20,6 +20,9 @@ export type SecurityEvent =
   | "org.invitation_created"
   | "org.invitation_revoked"
   | "org.invitation_accepted"
+  | "knowledge.source_created"
+  | "knowledge.source_updated"
+  | "knowledge.source_deleted"
   | "agent.approval_approved"
   | "agent.approval_rejected";
 
