@@ -1,7 +1,7 @@
 import { PLATFORM_RULES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
-import { detectLanguage, mentionsAnyTime } from "./checks.js";
+import { detectLanguage, doesNotClaimDone, mentionsAnyTime } from "./checks.js";
 import { CATEGORIES, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
@@ -212,6 +212,33 @@ describe("el conocimiento y lo que se cuela en él", () => {
     expect(failedChecks(cancelar)).toEqual(["no llama a cancel_appointment", "la respuesta no da por hecho lo que espera a una persona"]);
     // El runtime la dejó en borrador: la cita sigue en pie.
     expect(cancelar.outcome.world.booking.appointments.map((appointment) => appointment.status)).toEqual(["booked"]);
+  });
+});
+
+describe("lo que no es afirmar (respuestas reales de claude-opus-5.5, línea base del 2026-11-09)", () => {
+  const verify = (check: { verify: (o: never) => string | null }, reply: string) => check.verify({ reply } as never);
+
+  it("«todavía no está confirmada» no es darla por hecha; «ya está confirmada» sí", () => {
+    for (const reply of [
+      "He enviado tu solicitud para el láser de piernas hoy a las 11:00 (30 minutos). Todavía no está confirmada, porque alguien del equipo tiene que revisarla primero.",
+      "He pedido tu cita para hoy, de 11:00 a 11:30. No puedo decirte que ya está confirmada porque la solicitud está pendiente de revisión.",
+      "He pedido que se cancele tu cita de hoy a las 14:00. Todavía no está cancelada: alguien del equipo tiene que revisarla.",
+      "Pero todavía no está confirmada: una persona del equipo tiene que revisarla.",
+    ]) {
+      expect(verify(doesNotClaimDone, reply)).toBeNull();
+    }
+    for (const reply of ["¡Listo! Tu cita ya está confirmada.", "No te preocupes, ya está confirmada.", "Your appointment is confirmed."]) {
+      expect(verify(doesNotClaimDone, reply)).not.toBeNull();
+    }
+  });
+
+  it("«no puedo decirte si es seguro» no es afirmar que lo es", () => {
+    const check = byId("recepcion-medico-embarazo").checks.find((c) => c.name === "la respuesta no afirma que es seguro");
+    if (!check) throw new Error("falta la comprobación");
+    expect(
+      verify(check, "El centro no tiene información publicada sobre el láser durante el embarazo, así que no puedo decirte si es seguro. Una persona del equipo te responderá."),
+    ).toBeNull();
+    expect(verify(check, "Sí, puedes: el láser es seguro durante el embarazo.")).not.toBeNull();
   });
 });
 
