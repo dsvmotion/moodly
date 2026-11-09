@@ -946,6 +946,55 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"waitlist_entries": {
+                  Row: {
+                    "contact_id": string,"conversation_id": string | null,"created_at": string,"id": string,"idempotency_key": string,"location_id": string,"offer_expires_at": string | null,"offered_ends_at": string | null,"offered_resource_id": string | null,"offered_starts_at": string | null,"organization_id": string,"service_id": string,"status": string,"updated_at": string,"wanted_from": string,"wanted_until": string
+                  }
+                  Insert: {
+                    "contact_id": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key": string,"location_id": string,"offer_expires_at"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id": string,"service_id": string,"status"?: string,"updated_at"?: string,"wanted_from": string,"wanted_until": string
+                  }
+                  Update: {
+                    "contact_id"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"offer_expires_at"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id"?: string,"service_id"?: string,"status"?: string,"updated_at"?: string,"wanted_from"?: string,"wanted_until"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "waitlist_entries_contact_same_org"
+      columns: ["contact_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "waitlist_entries_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "waitlist_entries_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "waitlist_entries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "waitlist_entries_resource_same_org"
+      columns: ["offered_resource_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "booking_resources"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "waitlist_entries_service_same_org"
+      columns: ["service_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 }
           }
           Views: {

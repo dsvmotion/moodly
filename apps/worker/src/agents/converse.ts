@@ -3,10 +3,11 @@ import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, policyFromSetting
 import type { BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
-import { APPOINTMENT_REMINDER_SKILL_KEY, FIND_SLOTS_SKILL_KEY, createReceptionSkills, createReplySkill } from "@repo/skills";
+import { APPOINTMENT_REMINDER_SKILL_KEY, FIND_SLOTS_SKILL_KEY, createJoinWaitlistSkill, createReceptionSkills, createReplySkill } from "@repo/skills";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
+import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { handleOptOut } from "../reminders/consent.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
@@ -229,7 +230,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
 export function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> {
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
-  const all = [...Object.values(reception), reply] as unknown as SkillDefinition<unknown>[];
+  const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
+  const all = [...Object.values(reception), reply, joinWaitlist] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
