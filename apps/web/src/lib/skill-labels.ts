@@ -10,6 +10,7 @@ export const KNOWN_SKILLS = [
   "appointment_reminder",
   "join_waitlist",
   "waitlist_offer",
+  "search_knowledge",
 ] as const;
 export type KnownSkill = (typeof KNOWN_SKILLS)[number];
 export const isKnownSkill = (key: string): key is KnownSkill => (KNOWN_SKILLS as readonly string[]).includes(key);

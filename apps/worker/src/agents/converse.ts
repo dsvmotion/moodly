@@ -1,20 +1,35 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyFromSettings, runAgentTurn } from "@repo/agent-core";
-import type { AutonomyLevel, BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, Target, TurnExecution, TurnResult } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import type {
+  AutonomyLevel,
+  BookableService,
+  HistoryMessage,
+  ModelRouter,
+  RouteOrigin,
+  SkillDefinition,
+  SkillSettings,
+  Target,
+  TurnExecution,
+  TurnResult,
+} from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
+import type { Embedder } from "@repo/knowledge";
 import {
   APPOINTMENT_REMINDER_SKILL_KEY,
   FIND_SLOTS_SKILL_KEY,
+  SEARCH_KNOWLEDGE_SKILL_KEY,
   WAITLIST_OFFER_SKILL_KEY,
   createJoinWaitlistSkill,
   createReceptionSkills,
   createReplySkill,
+  createSearchKnowledgeSkill,
 } from "@repo/skills";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
+import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
@@ -56,6 +71,11 @@ export const MAX_PROMPT_SERVICES = 50;
 
 export interface ConverseOptions {
   router: ModelRouter;
+  /**
+   * Los embeddings de las consultas de search_knowledge (B20-2, ADR 0048) y por
+   * dónde van. Sin ellos, el agente no busca en el conocimiento.
+   */
+  knowledge?: { embedder: Embedder; route: RouteOrigin };
 }
 
 /** El id del run de un evento: siempre el mismo para la misma entrega (UUID de 128 bits del SHA-256). */
@@ -235,12 +255,17 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
   };
 }
 
-/** Las skills de código que el worker sabe ejecutar, sobre los datos de esta organización. */
-export function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> {
+/**
+ * Las skills de código que el worker sabe ejecutar, sobre los datos de esta
+ * organización. search_knowledge solo con un embedder (que la política de la
+ * organización deje usar): sin él no existe y no se ofrece.
+ */
+export function codeSkills(db: TenantDb, options: { embedder?: Embedder | null } = {}): Map<string, SkillDefinition<unknown>> {
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
-  const all = [...Object.values(reception), reply, joinWaitlist] as unknown as SkillDefinition<unknown>[];
+  const knowledge = options.embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, options.embedder) })] : [];
+  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
@@ -444,7 +469,7 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
   return true;
 }
 
-export function createConverseHandler({ router }: ConverseOptions): EventHandler {
+export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -469,7 +494,12 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
       const runId = runIdFor(event.id);
       await ctx.step("run:start", () => startRun(ctx.db, runId, conversation, messageId));
 
-      const { skills, settings } = agentSkills(codeSkills(ctx.db), context.skills, ctx.logger);
+      const policy = policyFromSettings(prepared.modelSettings);
+      // La consulta sale hacia el proveedor de embeddings: solo si la política de la organización deja usar esa vía (ADR 0048).
+      const knowledgeAllowed = knowledge !== undefined && policyAllows(policy, knowledge.route);
+      if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
+      const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
+      const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
       const result = await runAgentTurn({
         scope: {
           organizationId: event.organizationId,
@@ -484,12 +514,13 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
           timezone: prepared.location?.timezone ?? "UTC",
           now: new Date(prepared.now),
           ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+          knowledge: searchesKnowledge,
         }),
         history: prepared.history,
         skills,
         settings,
         router,
-        policy: policyFromSettings(prepared.modelSettings),
+        policy,
         spend: { runEur: 0, dayEur: prepared.dayEur },
         step: (name, fn) => ctx.step(name, fn),
         record: async (execution) => {

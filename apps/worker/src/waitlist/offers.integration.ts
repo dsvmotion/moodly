@@ -521,6 +521,21 @@ describe("las ofertas de la lista de espera (paso 4f-2)", () => {
 });
 
 describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
+  /**
+   * El plazo de prueba (6 s) es más corto que lo que puede tardar en entregarse
+   * un mensaje (el outbox publica cada 5 s): para que el «sí» llegue dentro del
+   * plazo, la oferta de esa entrada se alarga a un minuto. El workflow ya lo
+   * contempla: al despertar, si la oferta sigue viva, espera hasta su nuevo
+   * final (lo mismo que cuando la reserva espera a una persona).
+   */
+  async function extendOffer(entryId: string): Promise<void> {
+    // En milisegundos, como los pone el worker: guardar y cerrar la oferta la buscan por su hora exacta.
+    await admin.query(
+      "update public.waitlist_entries set offer_expires_at = date_trunc('milliseconds', now() + interval '1 minute') where id = $1 and status = 'offered'",
+      [entryId],
+    );
+  }
+
   it("si contesta SÍ, la reserva va a la bandeja con el hueco guardado, sin modelo; al aprobarla, queda reservada", async () => {
     const service = await newService();
     const appointment = await book(ids.staffContact ?? "", 2 * HOUR, service);
@@ -530,6 +545,7 @@ describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
     await enlist(olivia, around(appointment.startsAt), service);
     await cancel(appointment.id);
     await waitFor(async () => (await outbound(nora.conversation)).length === 1, "a Nora le llega la oferta");
+    await extendOffer(noraEntry);
     const offeredUntil = (await entry(noraEntry)).offer_expires_at?.getTime() ?? 0;
 
     // Antes del «sí», una pregunta (seguidas, dentro del plazo de la oferta): la pregunta no acepta nada.
@@ -581,6 +597,7 @@ describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
     const quimEntry = await enlist(quim, around(appointment.startsAt), service);
     await cancel(appointment.id);
     await waitFor(async () => (await outbound(pablo.conversation)).length === 1, "a Pablo le llega la oferta");
+    await extendOffer(pabloEntry);
     await say(pablo.conversation, "si");
     await waitFor(async () => (await acceptancesOf(pabloEntry)).some((accepted) => accepted.approval_status === "pending"), "su reserva espera a una persona");
     const [accepted] = await acceptancesOf(pabloEntry);
@@ -606,6 +623,7 @@ describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
       const ritaEntry = await enlist(rita, around(appointment.startsAt), service);
       await cancel(appointment.id);
       await waitFor(async () => (await outbound(rita.conversation)).length === 1, "a Rita le llega la oferta");
+      await extendOffer(ritaEntry);
       await say(rita.conversation, "Yes!");
       await waitFor(async () => (await outbound(rita.conversation)).length === 2, "Rita recibe la respuesta");
       expect((await outbound(rita.conversation))[1]?.content).toMatch(/^Done! You're booked for Láser at waitlist-/);
