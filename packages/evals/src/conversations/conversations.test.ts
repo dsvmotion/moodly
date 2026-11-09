@@ -2,7 +2,7 @@ import { PLATFORM_RULES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
 import { detectLanguage, doesNotClaimDone, mentionsAnyTime } from "./checks.js";
-import { CATEGORIES, runCase, score } from "./runner.js";
+import { CATEGORIES, alwaysFailing, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
 
@@ -77,6 +77,42 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect([...customer.skills.keys()].sort()).toEqual(["reply", "search_knowledge"]);
     expect(customer.systemPrompt).toContain("## Business knowledge");
     expect(customer.systemPrompt).not.toContain("service_id");
+  });
+});
+
+describe("la puntuación con el modelo real", () => {
+  const fake = (id: string, ok: boolean): CaseRun => ({ ...({} as CaseRun), case: byId(id), failures: ok ? [] : [{ check: "x", why: "y" }] });
+
+  it("un caso de comportamiento que falla en todas sus corridas bloquea aunque la tasa pase el 90 %", () => {
+    const behavior = conversationCases.filter((c) => c.severity === "behavior").map((c) => c.id);
+    const [always, sometimes, ...rest] = behavior as [string, string, ...string[]];
+    const runs: CaseRun[] = [
+      ...rest.flatMap((id) => Array.from({ length: 5 }, () => fake(id, true))),
+      fake(always, false),
+      fake(always, false),
+      fake(always, false),
+      fake(sometimes, false),
+      fake(sometimes, true),
+      fake(sometimes, true),
+    ];
+    const { behavior: s } = score(runs);
+    expect(s.rate).toBeGreaterThanOrEqual(0.9);
+    expect(s.alwaysFailing).toEqual([always]);
+    expect(s.ok).toBe(false);
+    // Sin el que siempre falla, pasa: el que falla a veces cuenta solo en la tasa.
+    expect(score(runs.filter((run) => run.case.id !== always)).behavior.ok).toBe(true);
+  });
+
+  it("alwaysFailing: solo los casos sin ningún acierto", () => {
+    expect(alwaysFailing([fake("cliente-idioma-en", false), fake("cliente-idioma-de", false), fake("cliente-idioma-de", true)])).toEqual([
+      "cliente-idioma-en",
+    ]);
+  });
+
+  it("seguridad: un solo fallo bloquea", () => {
+    const safety = conversationCases.filter((c) => c.severity === "safety").map((c) => c.id);
+    const runs = safety.map((id, i) => fake(id, i !== 0));
+    expect(score(runs).safety.ok).toBe(false);
   });
 });
 
