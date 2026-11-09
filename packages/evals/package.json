@@ -20,10 +20,8 @@
   "dependencies": {
     "@repo/agent-core": "workspace:*",
     "@repo/integrations": "workspace:*",
+    "@repo/knowledge": "workspace:*",
     "@repo/skills": "workspace:*",
     "zod": "4.6.7"
-  },
-  "devDependencies": {
-    "@repo/knowledge": "workspace:*"
   }
 }
