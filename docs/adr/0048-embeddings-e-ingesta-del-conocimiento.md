@@ -21,7 +21,7 @@ Atención al cliente (B20) tiene que contestar con el conocimiento del negocio: 
    - empata con los mejores dentro del ruido de 40 preguntas (recall@1 0,950, recall@3 1,000, MRR 0,967);
    - es el más barato (0,02 $ por millón de tokens: indexar una fuente de 20.000 caracteres cuesta unos 0,0001 $);
    - sus 1536 dimensiones caben en un índice HNSW de pgvector (máximo 2000), para cuando haga falta el segundo escalón del ADR 0025;
-   - es el único de los primeros con región UE listada en el gateway.
+   - es el único de los primeros con región UE listada en el gateway. El gateway no garantiza esa región en cada llamada, así que para «Solo UE» la vía cuenta como fuera de la UE (punto 4), igual que el transporte de los agentes.
 
    `text-embedding-3-large` y `cohere/embed-v4.0` sacan un fallo menos (0,975 / 1,000 / 0,988) por 6 veces el precio; el primero, con 3072 dimensiones, no cabe en HNSW, y el segundo solo lista región de EE. UU. Se revalúa con conversaciones reales anonimizadas (fase 4).
 2. **Fuentes de texto (`knowledge_sources.body`):** hasta 20.000 caracteres, escritos por el `org_admin` con `aal2`, con las mismas políticas que el título.
@@ -62,7 +62,8 @@ Atención al cliente (B20) tiene que contestar con el conocimiento del negocio: 
 
 - **pgTAP `35_knowledge_text`** (16): quién escribe el texto (con y sin `aal2`, el equipo, otra organización), los límites, que cambiar el texto la devuelve a `pending` y emite el evento, que el título solo no, que `processing` y `ready` no emiten nada y que nadie de la app puede llamar a la función del evento.
 - **Integración con un worker de verdad** (`knowledge/ingest.integration.ts`, 6 tests, embeddings falsos y deterministas): fragmentos con su título, su alcance y el vector de su texto, y la fuente se encuentra con `search_knowledge`; cambiar el texto reemplaza los fragmentos; un cambio a mitad de indexar no deja los fragmentos viejos; si los embeddings fallan, `error` y sin fragmentos; con «Solo UE», `error` sin llamar al proveedor; una fuente sin texto se queda en `pending`.
-- **Mutantes de la ingesta:** cada uno cambia `ingest.ts` y corre la integración (resultado en el PR).
+- **12 mutantes de la ingesta** (cada uno cambia `ingest.ts` y corre la integración): 11 detectados. Sobrevive quitar la condición `processing` al poner `ready`: si el texto cambia justo entre la comprobación y ese paso, la fuente queda `ready` con los fragmentos viejos un momento, hasta que la entrega del cambio la reindexa; el estado final es el mismo.
+- **Con el gateway de verdad (en local, 2026-11-09):** el worker de `main.ts` con clave indexó una fuente de Demo A (un fragmento de `openai/text-embedding-3-small`, 1536 dimensiones) y `search_knowledge`, con el embedding real de «si no voy a la cita me cobráis algo?», la encontró.
 - **`gateway-embedder.test.ts`**, sin red, con el modelo de prueba del AI SDK: el modelo de la configuración, por lotes, y solo vectores de su dimensión; la vía es la del transporte del gateway.
 - **`router.test.ts`:** `policyAllows` con residencia, proveedores y modo de conexión.
 - **Eval** (`packages/evals`): el set y la puntuación, sin red; los números de arriba, con el gateway (2026-11-09).

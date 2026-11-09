@@ -76,7 +76,8 @@ export interface GatewayEmbeddingModel {
  * El modelo de embeddings del conocimiento (ADR 0048, elegido por eval el
  * 2026-11-09): empata con los mejores en la eval de preguntas de clientes en
  * español e inglés, es el más barato, sus 1536 dimensiones admiten un índice
- * HNSW y el gateway lo sirve en la UE. Cambiarlo es reindexar (ADR 0025 §3).
+ * HNSW y tiene región UE listada en el gateway (sin garantía: la vía cuenta
+ * como fuera de la UE para «Solo UE»). Cambiarlo es reindexar (ADR 0025 §3).
  */
 export const GATEWAY_EMBEDDING: GatewayEmbeddingModel = { id: "openai/text-embedding-3-small", dim: 1536, inputUsdPerMTok: 0.02 };
 
