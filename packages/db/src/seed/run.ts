@@ -16,10 +16,12 @@ import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
+  SEED_INBOX_ORG,
   seedApprovals,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
+  seedInboxConversations,
   seedLocations,
   seedOrganizations,
   seedPlatformStaff,
@@ -364,6 +366,96 @@ async function main(): Promise<void> {
     });
     check("approvals", pending.error);
   }
+
+  // La bandeja de conversaciones de Demo A (V2). Las conversaciones se borran y
+  // se vuelven a crear con sus mensajes (que caen en cascada), así que cada
+  // ejecución deja los mismos modos y el mismo orden. Las lleva el mismo agente
+  // que las aprobaciones, sin escribir aquí la clave de ningún agente.
+  const inboxAgentId = bookingAgent.data?.agent_id ?? "";
+  const inboxAgent = await admin.from("agents").select("agent_type_id").eq("id", inboxAgentId).single();
+  check("agents", inboxAgent.error);
+  const inboxAgentType = await admin
+    .from("agent_types")
+    .select("key")
+    .eq("id", inboxAgent.data?.agent_type_id ?? "")
+    .single();
+  check("agent_types", inboxAgentType.error);
+  const inboxAgentKey: string = inboxAgentType.data?.key ?? "";
+  const removedConversations = await admin
+    .from("conversations")
+    .delete()
+    .in("id", seedInboxConversations.map((conversation) => conversation.id));
+  check("conversations", removedConversations.error);
+  const seededAt = Date.now();
+  for (const conversation of seedInboxConversations) {
+    // La cuenta del canal: la de pruebas es la misma que crea send_test_message
+    // para ese local; las demás, una por canal y local del seed.
+    const place = conversation.locationId ?? "org";
+    const externalId = conversation.channel === "test" ? `test:${SEED_INBOX_ORG}:${place}` : `seed:${conversation.channel}:${place}`;
+    const account = await admin.from("channel_accounts").upsert(
+      {
+        organization_id: SEED_INBOX_ORG,
+        location_id: conversation.locationId,
+        channel: conversation.channel,
+        external_id: externalId,
+        default_agent_type: inboxAgentKey,
+        status: "active",
+      },
+      { onConflict: "channel,external_id", ignoreDuplicates: true },
+    );
+    check("channel_accounts", account.error);
+    const accountRow = await admin
+      .from("channel_accounts")
+      .select("id")
+      .eq("channel", conversation.channel)
+      .eq("external_id", externalId)
+      .single();
+    check("channel_accounts", accountRow.error);
+
+    const contact = await admin
+      .from("contacts")
+      .upsert({ id: conversation.contactId, organization_id: SEED_INBOX_ORG, display_name: conversation.contactName });
+    check("contacts", contact.error);
+    const created = await admin.from("conversations").insert({
+      id: conversation.id,
+      organization_id: SEED_INBOX_ORG,
+      location_id: conversation.locationId,
+      contact_id: conversation.contactId,
+      channel_account_id: accountRow.data?.id ?? "",
+      // La base de datos lo pone igual al de la cuenta (validate_conversation); el tipo lo pide.
+      channel: conversation.channel,
+      agent_id: inboxAgentId,
+      mode: conversation.mode,
+    });
+    check("conversations", created.error);
+    const messages = await admin.from("messages").insert(
+      conversation.messages.map((message) => ({
+        organization_id: SEED_INBOX_ORG,
+        conversation_id: conversation.id,
+        direction: message.author === "contact" ? "in" : "out",
+        author: message.author,
+        content: message.content,
+        status: message.status ?? (message.author === "contact" ? "received" : "sent"),
+        created_at: new Date(seededAt - message.minutesAgo * 60_000).toISOString(),
+      })),
+    );
+    check("messages", messages.error);
+  }
+  // Cada mensaje de un cliente deja un message.received para el agente. Los del
+  // seed son historia, no mensajes nuevos: se marcan como publicados para que
+  // un worker en marcha (la integración del CI) no les responda ni cambie de
+  // modo las conversaciones que los e2e esperan tal cual.
+  const quietEvents = await admin
+    .from("domain_events")
+    .update({ published_at: new Date().toISOString() })
+    .eq("organization_id", SEED_INBOX_ORG)
+    .eq("type", "message.received")
+    .is("published_at", null)
+    .in(
+      "payload->>conversation_id",
+      seedInboxConversations.map((conversation) => conversation.id),
+    );
+  check("domain_events", quietEvents.error);
 
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {

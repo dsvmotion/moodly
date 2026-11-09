@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  SEED_INBOX_ORG,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
+  seedInboxConversations,
   seedLocations,
   seedOrganizations,
   seedPlatformStaff,
@@ -111,5 +113,25 @@ describe("seed", () => {
       expect(type.color).toMatch(/^agent-(reception|customer|sales|admin)$/);
     }
     expect(new Set(seedCustomAgentTypes.map((t) => t.id)).size).toBe(seedCustomAgentTypes.length);
+  });
+
+  it("bandeja: ids únicos, locales de su organización, cada modo, una de toda la organización y una del chat de pruebas", () => {
+    const conversations = seedInboxConversations;
+    expect(new Set(conversations.map((c) => c.id)).size).toBe(conversations.length);
+    expect(new Set(conversations.map((c) => c.contactId)).size).toBe(conversations.length);
+    for (const conversation of conversations) {
+      if (conversation.locationId !== null) {
+        expect(seedLocations.find((l) => l.id === conversation.locationId)?.organizationId).toBe(SEED_INBOX_ORG);
+      }
+      expect(conversation.messages.length).toBeGreaterThan(0);
+      for (const message of conversation.messages) {
+        expect(message.content.length).toBeGreaterThan(0);
+        expect(message.content.length).toBeLessThanOrEqual(10_000);
+        expect(message.minutesAgo).toBeGreaterThan(0);
+      }
+    }
+    expect(new Set(conversations.map((c) => c.mode))).toEqual(new Set(["agent", "human", "closed"]));
+    expect(conversations.some((c) => c.locationId === null)).toBe(true);
+    expect(conversations.some((c) => c.channel === "test")).toBe(true);
   });
 });

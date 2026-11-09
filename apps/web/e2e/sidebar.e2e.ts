@@ -46,17 +46,18 @@ test.describe("barra lateral", () => {
 
   test("navega a cada sección con su estado vacío, entrada activa y migas", async ({ page }) => {
     const sidebar = page.getByRole("navigation", { name: "Navegación principal" });
-    await sidebar.getByRole("link", { name: "Bandeja", exact: true }).click();
-    await expect(page).toHaveURL(/\/app\/inbox$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Bandeja" })).toBeVisible();
+    // Tareas sigue sin contenido (la Bandeja ya tiene el suyo: inbox.e2e.ts).
+    await sidebar.getByRole("link", { name: "Tareas", exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/tasks$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Tareas" })).toBeVisible();
     await expect(page.getByTestId("section-empty")).toBeVisible();
-    await expect(sidebar.getByRole("link", { name: "Bandeja", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByTestId("breadcrumbs")).toHaveText("Bandeja");
+    await expect(sidebar.getByRole("link", { name: "Tareas", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId("breadcrumbs")).toHaveText("Tareas");
 
     await sidebar.getByRole("link", { name: "Clientes", exact: true }).click();
     await expect(page).toHaveURL(/\/app\/contacts$/);
     await expect(page.getByTestId("breadcrumbs")).toHaveText("Registros/Clientes");
-    await expect(sidebar.getByRole("link", { name: "Bandeja", exact: true })).not.toHaveAttribute("aria-current", "page");
+    await expect(sidebar.getByRole("link", { name: "Tareas", exact: true })).not.toHaveAttribute("aria-current", "page");
   });
 
   test("cada agente de serie tiene su ventana, sin datos inventados", async ({ page }) => {
