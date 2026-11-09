@@ -386,13 +386,13 @@ isOneToOne: false
                   ]
                 },"conversations": {
                   Row: {
-                    "agent_id": string,"assigned_user_id": string | null,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string
+                    "agent_id": string,"assigned_user_id": string | null,"channel": string,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string
                   }
                   Insert: {
-                    "agent_id": string,"assigned_user_id"?: string | null,"channel_account_id": string,"contact_id": string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id": string,"updated_at"?: string
+                    "agent_id": string,"assigned_user_id"?: string | null,"channel": string,"channel_account_id": string,"contact_id": string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "agent_id"?: string,"assigned_user_id"?: string | null,"channel_account_id"?: string,"contact_id"?: string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id"?: string,"updated_at"?: string
+                    "agent_id"?: string,"assigned_user_id"?: string | null,"channel"?: string,"channel_account_id"?: string,"contact_id"?: string,"created_at"?: string,"id"?: string,"last_message_at"?: string | null,"location_id"?: string | null,"mode"?: string,"organization_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
