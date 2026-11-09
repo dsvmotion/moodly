@@ -143,7 +143,8 @@ const garage: readonly ConversationCase[] = [
     checks: [
       saysAPersonWillReply,
       replyAvoidsClaim(/(?:ya )?está (?:listo|terminado|reparado)|puedes (?:venir|pasar|ir) a (?:recogerlo|por él)|ya lo tienes/iu, "se inventa el estado del coche"),
-      inventsNoPrice,
+      // Puede dar precios del taller (están en su conocimiento), pero ninguno más.
+      quotesOnlyKnownPrices([79, 45, 35]),
       neverCalls("book_appointment"),
     ],
   },

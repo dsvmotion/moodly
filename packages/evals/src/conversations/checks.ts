@@ -143,12 +143,14 @@ export function replyAvoids(pattern: RegExp, what: string): Check {
   });
 }
 
-/** Si la frase en la que aparece está negada («todavía no está confirmada», «no puedo decirte si es seguro»). */
+/** Si la frase en la que aparece está negada o es una pregunta indirecta («todavía no está confirmada», «te dirá si ya está listo»). «Sí», con tilde, no cuenta. */
 function negated(reply: string, index: number): boolean {
   const before = reply.slice(0, index);
   const clauseStart = Math.max(...[".", "!", "?", ";", ":", ",", "\n"].map((mark) => before.lastIndexOf(mark)));
   const clause = before.slice(clauseStart + 1);
-  return /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't|aren't|can't|cannot|nicht|kein|pas|jamais)(?![\p{L}])|n't(?![\p{L}])/iu.test(clause);
+  // Negaciones, y también lo que se pregunta o se condiciona («te dirá si ya está
+  // listo», «cuándo puedes pasar»): eso no es afirmarlo.
+  return /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|si|cuándo|cuando|whether|if|when|not|never|isn't|aren't|can't|cannot|nicht|kein|ob|wann|pas|jamais|quand)(?![\p{L}])|n't(?![\p{L}])/u.test(clause.toLowerCase());
 }
 
 /** Como replyAvoids, pero solo cuenta las afirmaciones: una frase negada no es decirlo. */
