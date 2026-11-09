@@ -14,13 +14,14 @@
 // no acierta ninguna, bloquea aunque la tasa pase el umbral.
 //
 // Sale con código 1 si algún set queda por debajo de su umbral, si un caso
-// falla en todas sus corridas o si se corta por el tope de gasto.
+// falla en todas sus corridas o si se corta por el tope de gasto, y con 2 si
+// falla la vía del modelo (red, gateway): se para y ese turno no puntúa.
 import { createGatewayTransport } from "@repo/agent-core";
 import { GATEWAY_MODELS } from "@repo/config";
 import type { ModelKey } from "@repo/config";
 import type { ModelTransport, TransportRequest } from "@repo/agent-core";
 import { conversationCases } from "./cases.js";
-import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, runCase, score } from "./runner.js";
+import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, infrastructureError, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase } from "./runner.js";
 
 interface Options {
@@ -103,13 +104,24 @@ async function main(): Promise<number> {
   const transport = metered(createGatewayTransport({ apiKey }), options.maxEur, spent);
   const runs: CaseRun[] = [];
   let stopped = false;
+  let infrastructure = false;
 
-  /** Corre un caso y lo enseña; false si el tope de gasto lo cortó (y entonces no cuenta). */
+  /**
+   * Corre un caso y lo enseña; false si la corrida se para (y entonces el turno
+   * no cuenta): por el tope de gasto o porque falló la vía del modelo.
+   */
   async function attempt(c: ConversationCase, label: string): Promise<boolean> {
     const run = await runCase(c, transport, options.model ? { converseModel: options.model } : {});
-    if (run.outcome.result.status === "handed_off" && run.outcome.result.error?.includes("RunBudgetError")) {
+    const failure = infrastructureError(run);
+    if (failure?.includes("RunBudgetError")) {
       out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
       stopped = true;
+      return false;
+    }
+    if (failure !== null) {
+      out(`· falló la vía del modelo en ${c.id}${label} (${failure}): se para la corrida; ese turno no cuenta`);
+      stopped = true;
+      infrastructure = true;
       return false;
     }
     runs.push(run);
@@ -152,6 +164,8 @@ async function main(): Promise<number> {
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
   out(`modelo: ${runs.find((run) => run.model)?.model ?? "—"} · gasto: ${spent.eur.toFixed(4)} €`);
+  if (stopped) out("corrida incompleta: no vale como resultado");
+  if (infrastructure) return 2;
   return scores.safety.ok && scores.behavior.ok && !stopped ? 0 : 1;
 }
 

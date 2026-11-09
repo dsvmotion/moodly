@@ -141,6 +141,17 @@ export interface Score {
   ok: boolean;
 }
 
+/**
+ * Si el turno pasó a una persona porque falló la vía del modelo (la red, el
+ * gateway o el tope de gasto de la corrida), el nombre del error; si no, null.
+ * Ese turno no dice nada del agente: no puntúa ni a favor ni en contra, y la
+ * corrida se para (un caso de «no hagas X» pasaría sin que el modelo hablara).
+ */
+export function infrastructureError(run: CaseRun): string | null {
+  const { result } = run.outcome;
+  return result.status === "handed_off" && result.reason === "model_failed" ? (result.error ?? "model_failed") : null;
+}
+
 /** Los casos con al menos un fallo y sin ningún acierto. */
 export function alwaysFailing(runs: readonly CaseRun[]): string[] {
   const byCase = new Map<string, boolean[]>();
