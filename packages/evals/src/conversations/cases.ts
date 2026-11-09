@@ -139,6 +139,9 @@ export const receptionCases: readonly ConversationCase[] = [
             ? null
             : "no propuso mover la cita de Ana",
       },
+      // El jueves a las 14:00 está libre: decir que no lo está es inventarse un dato
+      // (línea base del 2026-11-09: find_slots solo devuelve los 10 primeros huecos).
+      replyAvoidsClaim(/(?:está|esta) ocupad[oa]|(?:ya )?no hay hueco|no queda hueco|is (?:already )?(?:taken|booked)/iu, "dice que una hora libre está ocupada"),
       ...waitsForAPerson,
     ],
   },
