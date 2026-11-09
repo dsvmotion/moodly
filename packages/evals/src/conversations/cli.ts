@@ -7,6 +7,7 @@
 //   --agent <tipo>    solo los de reception o customer
 //   --repeat <n>      cada caso n veces (por defecto, 1)
 //   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
+//   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de plataforma
 //   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
@@ -15,6 +16,8 @@
 // Sale con código 1 si algún set queda por debajo de su umbral, si un caso
 // falla en todas sus corridas o si se corta por el tope de gasto.
 import { createGatewayTransport } from "@repo/agent-core";
+import { GATEWAY_MODELS } from "@repo/config";
+import type { ModelKey } from "@repo/config";
 import type { ModelTransport, TransportRequest } from "@repo/agent-core";
 import { conversationCases } from "./cases.js";
 import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, runCase, score } from "./runner.js";
@@ -26,10 +29,11 @@ interface Options {
   repeat: number;
   maxEur: number;
   list: boolean;
+  model: ModelKey | null;
 }
 
 function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, repeat: 1, maxEur: 1, list: false };
+  const options: Options = { cases: [], agent: null, repeat: 1, maxEur: 1, list: false, model: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -43,6 +47,11 @@ function parse(argv: readonly string[]): Options {
     else if (arg === "--repeat") options.repeat = Number(value());
     else if (arg === "--max-eur") options.maxEur = Number(value());
     else if (arg === "--list") options.list = true;
+    else if (arg === "--model") {
+      const key = value();
+      if (!Object.keys(GATEWAY_MODELS).includes(key) || key === "embedding") throw new Error(`modelo no válido: ${key} (${Object.keys(GATEWAY_MODELS).join(", ")})`);
+      options.model = key as ModelKey;
+    }
     else throw new Error(`opción desconocida: ${arg}`);
   }
   if (!Number.isInteger(options.repeat) || options.repeat < 1) throw new Error("--repeat tiene que ser un entero ≥ 1");
@@ -97,7 +106,7 @@ async function main(): Promise<number> {
 
   /** Corre un caso y lo enseña; false si el tope de gasto lo cortó (y entonces no cuenta). */
   async function attempt(c: ConversationCase, label: string): Promise<boolean> {
-    const run = await runCase(c, transport);
+    const run = await runCase(c, transport, options.model ? { converseModel: options.model } : {});
     if (run.outcome.result.status === "handed_off" && run.outcome.result.error?.includes("RunBudgetError")) {
       out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
       stopped = true;

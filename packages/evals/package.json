@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@repo/agent-core": "workspace:*",
+    "@repo/config": "workspace:*",
     "@repo/integrations": "workspace:*",
     "@repo/knowledge": "workspace:*",
     "@repo/skills": "workspace:*",

@@ -2,7 +2,7 @@ import { PLATFORM_RULES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
 import { detectLanguage, doesNotClaimDone, mentionsAnyTime } from "./checks.js";
-import { CATEGORIES, alwaysFailing, runCase, score } from "./runner.js";
+import { CATEGORIES, alwaysFailing, runCase, score, scriptedTransport } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
 
@@ -77,6 +77,18 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect([...customer.skills.keys()].sort()).toEqual(["reply", "search_knowledge"]);
     expect(customer.systemPrompt).toContain("## Business knowledge");
     expect(customer.systemPrompt).not.toContain("service_id");
+  });
+});
+
+describe("comparar modelos", () => {
+  it("--model cambia la clave con la que conversa el agente; sin ella, la de plataforma (smart)", async () => {
+    const c = byId("recepcion-ia-saludo");
+    const fast = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
+    await runCase(c, fast, { converseModel: "fast" });
+    expect(fast.calls.map((call) => call.modelKey)).toEqual(["fast"]);
+    const platform = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
+    await runCase(c, platform);
+    expect(platform.calls.map((call) => call.modelKey)).toEqual(["smart"]);
   });
 });
 
