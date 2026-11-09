@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@repo/config": "workspace:*",
-    "ai": "7.0.145",
+    "ai": "7.0.153",
     "zod": "4.6.7"
   }
 }
