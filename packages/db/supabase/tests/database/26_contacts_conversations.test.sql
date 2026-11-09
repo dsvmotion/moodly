@@ -105,8 +105,8 @@ select throws_ok(
   format($$insert into public.messages (organization_id, conversation_id, direction, author, content) values (%L, %L, 'out', 'user', 'x')$$, :org_a, :'conv_loc1'),
   '42501', null, 'la app no escribe mensajes (los envía el worker)');
 select throws_ok(
-  format($$update public.conversations set mode = 'human' where id = %L$$, :'conv_loc1'),
-  '42501', null, 'ni cambia conversaciones todavía (llega con la bandeja, A13)');
+  format($$update public.conversations set mode = 'closed' where id = %L$$, :'conv_loc1'),
+  '42501', null, 'ni cierra conversaciones (tomar y devolver el control, en 37_inbox_takeover)');
 reset role;
 -- Y no por casualidad (por ejemplo, porque un trigger falle después): sin privilegio.
 select ok(
