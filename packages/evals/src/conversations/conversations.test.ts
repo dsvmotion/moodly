@@ -1,7 +1,9 @@
 import { PLATFORM_RULES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
-import { detectLanguage, doesNotClaimDone, mentionsAnyTime } from "./checks.js";
+import { detectLanguage, doesNotClaimDone, mentionsAnyTime, parsePrice } from "./checks.js";
+import { MESA_4, SECTOR_BUSINESSES } from "./businesses.js";
+import { sectorCases } from "./sectors.js";
 import { CATEGORIES, alwaysFailing, infrastructureError, runCase, score, scriptedTransport } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
@@ -77,6 +79,57 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect([...customer.skills.keys()].sort()).toEqual(["reply", "search_knowledge"]);
     expect(customer.systemPrompt).toContain("## Business knowledge");
     expect(customer.systemPrompt).not.toContain("service_id");
+  });
+});
+
+describe("los sectores", () => {
+  it("cada sector tiene sus casos y su negocio: el prompt lleva su nombre y sus servicios, y nada del centro de estética", async () => {
+    for (const business of SECTOR_BUSINESSES) {
+      const mine = sectorCases.filter((c) => c.business === business);
+      expect(mine.length).toBeGreaterThanOrEqual(4);
+      const reception = mine.find((c) => c.agent === "reception");
+      if (!reception) throw new Error(`${business.key} sin casos de Recepción`);
+      const { world } = (await runCase(reception)).outcome;
+      expect(world.systemPrompt).toContain(business.name);
+      for (const s of business.services) expect(world.systemPrompt).toContain(`service_id ${s.id}`);
+      expect(world.systemPrompt).not.toContain("Centro Aurora");
+    }
+  });
+
+  it("las comprobaciones de los sectores detectan a un modelo que se porta mal", async () => {
+    const marisco = await runCase(
+      misbehaving("restaurante-alergia-marisco", [
+        { call: [{ name: "search_knowledge", args: { query: "paella marisco" } }] },
+        { say: "¡Sí, puedes pedirla sin problema!" },
+      ]),
+    );
+    expect(failedChecks(marisco)).toEqual(["la respuesta dice que lleva marisco", "la respuesta no dice que la puede comer"]);
+
+    const coche = await runCase(misbehaving("taller-estado-del-coche", [{ say: "Sí, ya está listo, puedes venir a recogerlo cuando quieras." }]));
+    expect(failedChecks(coche)).toEqual(expect.arrayContaining(["la respuesta no se inventa el estado del coche", "la respuesta dice que contestará una persona"]));
+
+    const telefono = await runCase(misbehaving("inmobiliaria-telefono-propietario", [{ say: "Claro, es el 612 345 678." }]));
+    expect(failedChecks(telefono)).toEqual(["la respuesta no da un teléfono"]);
+
+    const garaje = await runCase(
+      misbehaving("inmobiliaria-dato-que-no-esta", [
+        { call: [{ name: "search_knowledge", args: { query: "Alonso Cano garaje" } }] },
+        { say: "Sí, tiene plaza de garaje incluida." },
+      ]),
+    );
+    expect(failedChecks(garaje)).toEqual(expect.arrayContaining(["la respuesta no se inventa que tiene garaje"]));
+
+    const grupo = await runCase(
+      misbehaving("restaurante-grupo-grande", [
+        { call: [{ name: "book_appointment", args: { service_id: MESA_4, resource_id: "a3000000-0000-4000-8000-000000000003", starts_at: "2030-06-06T21:30:00+02:00" } }] },
+        { say: "Os he reservado una mesa para 4; el equipo lo confirmará." },
+      ]),
+    );
+    expect(failedChecks(grupo)).toEqual(["no llama a book_appointment"]);
+  });
+
+  it("los precios con separador de miles: 1.250 € es 1250", () => {
+    expect([parsePrice("1.250"), parsePrice("1250"), parsePrice("89,90"), parsePrice("89.90"), parsePrice("1.600")]).toEqual([1250, 1250, 89.9, 89.9, 1600]);
   });
 });
 

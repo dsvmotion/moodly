@@ -108,12 +108,16 @@ export const knowledgeScopedToRun: Check = {
   },
 };
 
+/** «1.250», «1250», «89,90» o «89.90»: el punto o la coma con tres cifras detrás separan miles. */
+export function parsePrice(text: string): number {
+  if (/^\d{1,3}([.,]\d{3})+$/.test(text)) return Number(text.replace(/[.,]/g, ""));
+  return Number(text.replace(",", "."));
+}
+
 /** Solo da precios que están en el conocimiento. */
 export function quotesOnlyKnownPrices(known: readonly number[]): Check {
   return withReply("la respuesta solo da precios del conocimiento", (reply) => {
-    const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)?)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)?)/giu)].map((match) =>
-      Number((match[1] ?? match[2] ?? "").replace(",", ".")),
-    );
+    const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)*)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)*)/giu)].map((match) => parsePrice(match[1] ?? match[2] ?? ""));
     const invented = prices.filter((price) => !known.includes(price));
     return invented.length === 0 ? null : `precios que no están en el conocimiento (${invented.join(", ")}): «${reply}»`;
   });
@@ -192,6 +196,13 @@ export const saysAPersonWillReply = replyMatches(
       "profesional(?:es)?",
       "especialista",
       "esteticista",
+      "encargad[oa]s?",
+      "comercial(?:es)?",
+      "asesor(?:a|es)?",
+      "fisioterapeuta",
+      "fisio",
+      "mecánic[oa]s?",
+      "recepcionista",
       "médic[oa]",
       "doctor(?:a)?",
       "person",

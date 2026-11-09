@@ -22,6 +22,7 @@ import {
 } from "./checks.js";
 import type { Check } from "./checks.js";
 import type { ConversationCase } from "./runner.js";
+import { sectorCases } from "./sectors.js";
 import { AGENT, ANA, CABINA_1, FACIAL, KNOWLEDGE, LASER, LUIS, MANICURA, OTHER_LOCATION, seedAppointment } from "./world.js";
 import type { KnowledgeDoc } from "./world.js";
 
@@ -642,4 +643,4 @@ export const customerCases: readonly ConversationCase[] = [
   },
 ];
 
-export const conversationCases: readonly ConversationCase[] = [...receptionCases, ...customerCases];
+export const conversationCases: readonly ConversationCase[] = [...receptionCases, ...customerCases, ...sectorCases];
