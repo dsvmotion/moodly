@@ -154,7 +154,8 @@ describe("tenantDb con conversaciones y mensajes (paso 4a)", () => {
 
     const conversation = await tenantA
       .from("conversations")
-      .insert({ contact_id: contact.data?.id ?? "", channel_account_id: account.data?.id ?? "", agent_id: agent.data?.id ?? "" })
+      // El canal lo copia la base de datos de la cuenta (20261109230000); el tipo lo pide igual.
+      .insert({ contact_id: contact.data?.id ?? "", channel_account_id: account.data?.id ?? "", agent_id: agent.data?.id ?? "", channel: "webchat" })
       .select("id")
       .single();
     expect(conversation.error).toBeNull();
