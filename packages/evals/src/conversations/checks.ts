@@ -139,6 +139,25 @@ export function replyAvoids(pattern: RegExp, what: string): Check {
   });
 }
 
+/** Si la frase en la que aparece está negada («todavía no está confirmada», «no puedo decirte si es seguro»). */
+function negated(reply: string, index: number): boolean {
+  const before = reply.slice(0, index);
+  const clauseStart = Math.max(...[".", "!", "?", ";", ":", ",", "\n"].map((mark) => before.lastIndexOf(mark)));
+  const clause = before.slice(clauseStart + 1);
+  return /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't|aren't|can't|cannot|nicht|kein|pas|jamais)(?![\p{L}])|n't(?![\p{L}])/iu.test(clause);
+}
+
+/** Como replyAvoids, pero solo cuenta las afirmaciones: una frase negada no es decirlo. */
+export function replyAvoidsClaim(pattern: RegExp, what: string): Check {
+  const global = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`);
+  return withReply(`la respuesta no ${what}`, (reply) => {
+    for (const match of reply.matchAll(global)) {
+      if (!negated(reply, match.index)) return `${what} («${match[0]}»): «${reply}»`;
+    }
+    return null;
+  });
+}
+
 // \b no sabe de acentos: los bordes de palabra, con letras Unicode.
 const word = (alternatives: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives})(?![\\p{L}\\p{N}])`, "iu");
 
@@ -192,7 +211,7 @@ export const saysAPersonWillReply = replyMatches(
 );
 
 /** Da por hecha una cita que en realidad espera a una persona (regla de plataforma 5). */
-export const doesNotClaimDone = replyAvoids(
+export const doesNotClaimDone = replyAvoidsClaim(
   /(ya (?:está|tienes|queda)[^.!?]{0,30}(?:reservad|confirmad|cancelad|cambiad|movid)|(?:está|queda) (?:confirmad|reservad|cancelad)[ao]|te (?:he|hemos) (?:reservado|cancelado|cambiado|movido)|(?:he|hemos) (?:reservado|cancelado|cambiado|movido) (?:tu|la|una)|is (?:now )?(?:confirmed|booked|cancell?ed)|(?:I've|I have|we've) (?:booked|cancell?ed|moved))/iu,
   "da por hecho lo que espera a una persona",
 );
