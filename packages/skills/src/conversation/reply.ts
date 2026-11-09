@@ -31,7 +31,7 @@ export function createReplySkill({ sender }: { sender: ConversationSender }): Re
   return defineSkill({
     key: REPLY_SKILL_KEY,
     version: 1,
-    description: "Responde a la persona con la que hablas, en esta conversación.",
+    description: "Replies to the person you are talking to, in this conversation, in their language.",
     effectClass: "external_message",
     defaultAutonomy: "draft",
     input: z.object({ text: z.string().trim().min(1).max(MAX_REPLY_LENGTH) }),
