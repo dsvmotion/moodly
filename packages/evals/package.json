@@ -14,10 +14,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "eval:embeddings": "tsc -p tsconfig.build.json && node dist/embeddings/cli.js"
+    "eval:embeddings": "tsc -p tsconfig.build.json && node dist/embeddings/cli.js",
+    "eval:agents": "tsc -p tsconfig.build.json && node dist/conversations/cli.js"
   },
   "dependencies": {
     "@repo/agent-core": "workspace:*",
+    "@repo/integrations": "workspace:*",
+    "@repo/skills": "workspace:*",
     "zod": "4.6.7"
   },
   "devDependencies": {
