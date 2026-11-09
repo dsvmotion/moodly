@@ -8,6 +8,7 @@ import { createConversationSender } from "../agents/conversation-sender.ts";
 import { check, conversationAgent, scheduledRunId, sendScheduled } from "../agents/scheduled-skill.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { REMINDER_RULES, outOfQuietHours } from "../reminders/reminders.ts";
+import { acceptedEntry } from "./accept.ts";
 import type { ReminderRules } from "../reminders/reminders.ts";
 
 // La oferta de la lista de espera (paso 4f-2, MANUAL §5.1, decidido por
@@ -31,11 +32,17 @@ import type { ReminderRules } from "../reminders/reminders.ts";
 // - No se ofrece de 22:00 a 07:00 del local (como los recordatorios), ni un
 //   hueco que empieza antes de que acabe el plazo de la oferta. Las entradas
 //   cuya franja ya pasó caducan.
-// - Aceptar contestando SÍ va en 4f-3; mientras, la persona puede reservarlo
-//   con el agente como cualquier otra cita.
+// - Aceptar contestando SÍ (4f-3, waitlist/accept.ts): la reserva va a la
+//   bandeja de aprobaciones y la oferta se alarga mientras espera. El workflow
+//   duerme con DBOS.recv: lo despierta la cita de quien lo tenía ofrecido
+//   (appointment.created) o el rechazo de su reserva (approval.decided), por
+//   offer_ref; si no, el final del plazo. Mientras la oferta siga viva, sigue
+//   esperando.
 
 export const WAITLIST_HANDLER_KEY = "reception.waitlist";
 export const WAITLIST_WORKFLOW = "waitlist.offers";
+/** El tema de DBOS por el que se despierta al workflow de una oferta. */
+export const WAKE_TOPIC = "waitlist.wake";
 
 const MINUTE_MS = 60_000;
 
@@ -112,7 +119,7 @@ type Picked =
  * se repite tras un corte, la oferta que ya hizo (el mismo hueco con el mismo
  * plazo) es la suya.
  */
-async function pickNext(db: TenantDb, slot: FreeSlot, tried: readonly string[], now: string, expiresAt: string): Promise<Picked> {
+async function pickNext(db: TenantDb, slot: FreeSlot, tried: readonly string[], now: string, expiresAt: string, ref: string): Promise<Picked> {
   const entries = () => db.from("waitlist_entries");
   const mine = check(
     await entries()
@@ -180,6 +187,7 @@ async function pickNext(db: TenantDb, slot: FreeSlot, tried: readonly string[], 
         offered_starts_at: slot.startsAt,
         offered_ends_at: slot.endsAt,
         offer_expires_at: expiresAt,
+        offer_ref: ref,
       })
       .eq("id", candidate.id)
       .eq("status", "waiting")
@@ -196,7 +204,7 @@ async function pickNext(db: TenantDb, slot: FreeSlot, tried: readonly string[], 
 async function release(db: TenantDb, entryId: string, slot: FreeSlot, expiresAt: string): Promise<boolean> {
   const { data, error } = await db
     .from("waitlist_entries")
-    .update({ status: "waiting", offered_resource_id: null, offered_starts_at: null, offered_ends_at: null, offer_expires_at: null })
+    .update({ status: "waiting", offered_resource_id: null, offered_starts_at: null, offered_ends_at: null, offer_expires_at: null, offer_ref: null })
     .eq("id", entryId)
     .eq("status", "offered")
     .eq("offered_starts_at", slot.startsAt)
@@ -206,10 +214,23 @@ async function release(db: TenantDb, entryId: string, slot: FreeSlot, expiresAt:
   return (data ?? []).length > 0;
 }
 
-type Settled = "booked" | "taken" | "released" | "changed";
+type Settled = { kind: "booked" | "taken" | "released" | "changed" } | { kind: "held"; until: string };
 
-/** Al acabar el plazo: qué pasó con el hueco y con la entrada. */
-async function settle(db: TenantDb, entryId: string, contactId: string, slot: FreeSlot, expiresAt: string): Promise<Settled> {
+/**
+ * Al despertar: qué pasó con el hueco y con la entrada. Si la oferta sigue
+ * viva (se despertó antes de tiempo, o la persona aceptó y su reserva espera a
+ * una persona del equipo, 4f-3), se sigue esperando hasta su plazo.
+ */
+async function settle(db: TenantDb, entryId: string, contactId: string, slot: FreeSlot, now: string): Promise<Settled> {
+  const entry = check(
+    await db.from("waitlist_entries").select("status, offered_starts_at, offer_expires_at").eq("id", entryId).maybeSingle(),
+    "la entrada de la lista",
+  );
+  if (entry?.status === "booked") return { kind: "booked" };
+  if (!entry || entry.status !== "offered" || !entry.offered_starts_at || Date.parse(entry.offered_starts_at) !== Date.parse(slot.startsAt) || !entry.offer_expires_at) {
+    return { kind: "changed" };
+  }
+  const expiresAt = new Date(entry.offer_expires_at).toISOString();
   const booked = check(
     await db
       .from("appointments")
@@ -226,16 +247,62 @@ async function settle(db: TenantDb, entryId: string, contactId: string, slot: Fr
     // Lo reservó quien lo tenía ofrecido: la entrada queda reservada, con su hueco.
     const { error } = await db
       .from("waitlist_entries")
-      .update({ status: "booked" })
+      .update({ status: "booked", offer_ref: null })
       .eq("id", entryId)
       .eq("status", "offered")
       .eq("offer_expires_at", expiresAt);
     if (error) throw new Error(`no se pudo cerrar la entrada (${error.code})`);
-    return "booked";
+    return { kind: "booked" };
   }
-  const released = await release(db, entryId, slot, expiresAt);
-  if (holder) return "taken";
-  return released ? "released" : "changed";
+  if (holder) {
+    await release(db, entryId, slot, expiresAt);
+    return { kind: "taken" };
+  }
+  if (Date.parse(expiresAt) > Date.parse(now)) return { kind: "held", until: expiresAt };
+  return { kind: (await release(db, entryId, slot, expiresAt)) ? "released" : "changed" };
+}
+
+/** Una oferta viva y el workflow que la hizo. */
+interface Woken {
+  entryId: string;
+  ref: string;
+}
+
+/** Las ofertas vivas que cierra una cita nueva: las de su contacto en ese mismo hueco. */
+async function offersBookedBy(db: TenantDb, appointmentId: string): Promise<Woken[]> {
+  const appointment = check(
+    await db.from("appointments").select("status, contact_id, resource_id, starts_at, ends_at").eq("id", appointmentId).maybeSingle(),
+    "la cita",
+  );
+  if (!appointment || appointment.status !== "booked") return [];
+  const entries = check(
+    await db
+      .from("waitlist_entries")
+      .select("id, offer_ref")
+      .eq("status", "offered")
+      .eq("contact_id", appointment.contact_id)
+      .eq("offered_resource_id", appointment.resource_id)
+      .lt("offered_starts_at", appointment.ends_at)
+      .gt("offered_ends_at", appointment.starts_at),
+    "las ofertas del contacto",
+  );
+  return (entries ?? []).flatMap((entry) => (entry.offer_ref ? [{ entryId: entry.id, ref: entry.offer_ref }] : []));
+}
+
+/** La oferta que sostenía una reserva rechazada (4f-3): se acaba ya, para que el workflow pase al siguiente. */
+async function offerOfRejected(db: TenantDb, executionId: string, now: string): Promise<Woken[]> {
+  const execution = check(await db.from("executions").select("skill_key, idempotency_key").eq("id", executionId).maybeSingle(), "la ejecución");
+  const entryId = execution ? acceptedEntry(execution.skill_key, execution.idempotency_key) : null;
+  if (!entryId) return [];
+  const { data, error } = await db
+    .from("waitlist_entries")
+    .update({ offer_expires_at: now })
+    .eq("id", entryId)
+    .eq("status", "offered")
+    .gt("offer_expires_at", now)
+    .select("id, offer_ref");
+  if (error) throw new Error(`no se pudo acabar la oferta (${error.code})`);
+  return (data ?? []).flatMap((entry) => (entry.offer_ref ? [{ entryId: entry.id, ref: entry.offer_ref }] : []));
 }
 
 /** La entrada y lo que pide el texto, de esta organización. */
@@ -340,6 +407,7 @@ export function registerWaitlistOffers({ db, logger, rules = WAITLIST_RULES }: W
   async function offerSlot(input: WaitlistInput): Promise<void> {
     const tenant = db.forOrganization(input.organizationId);
     const fields = { organizationId: input.organizationId, appointmentId: input.appointmentId };
+    const workflowId = waitlistWorkflowId(input.appointmentId);
     const slot = await DBOS.runStep(() => loadSlot(tenant, input.appointmentId), { name: "slot" });
     if (slot.kind === "skip") {
       log.info({ ...fields, reason: slot.reason }, "hueco que no se ofrece");
@@ -365,7 +433,7 @@ export function registerWaitlistOffers({ db, logger, rules = WAITLIST_RULES }: W
       }
       const expiresAt = new Date(now + rules.offerMs).toISOString();
       const nowIso = new Date(now).toISOString();
-      const picked = await DBOS.runStep(() => pickNext(tenant, slot, tried, nowIso, expiresAt), { name: `offer-${round}:pick` });
+      const picked = await DBOS.runStep(() => pickNext(tenant, slot, tried, nowIso, expiresAt, workflowId), { name: `offer-${round}:pick` });
       if (picked.kind === "none") {
         log.info({ ...fields, reason: picked.reason }, "hueco que no se ofrece");
         return;
@@ -377,21 +445,59 @@ export function registerWaitlistOffers({ db, logger, rules = WAITLIST_RULES }: W
         await DBOS.runStep(() => release(tenant, picked.entryId, slot, expiresAt), { name: `offer-${round}:release` });
         continue;
       }
-      const wait = Date.parse(expiresAt) - (await DBOS.now());
-      if (wait > 0) await DBOS.sleep(wait);
-      const settled = await DBOS.runStep(() => settle(tenant, picked.entryId, picked.contactId, slot, expiresAt), { name: `offer-${round}:settle` });
-      log.info({ ...fields, entryId: picked.entryId, round, settled }, "plazo de la oferta cumplido");
-      if (settled === "booked" || settled === "taken") return;
+      // Espera al final del plazo, o a que la despierten: se reservó el hueco o
+      // se rechazó la reserva de quien lo aceptó (4f-3). Mientras la oferta siga
+      // viva (también si se alargó al aceptarla), sigue esperando.
+      let until = expiresAt;
+      let settled: Settled;
+      for (let wake = 1; ; wake += 1) {
+        const wait = Date.parse(until) - (await DBOS.now());
+        if (wait > 0) await DBOS.recv<string>(WAKE_TOPIC, Math.ceil(wait / 1000));
+        const at = new Date(await DBOS.now()).toISOString();
+        settled = await DBOS.runStep(() => settle(tenant, picked.entryId, picked.contactId, slot, at), { name: `offer-${round}:settle-${wake}` });
+        if (settled.kind !== "held") break;
+        until = settled.until;
+      }
+      log.info({ ...fields, entryId: picked.entryId, round, settled: settled.kind }, "plazo de la oferta cumplido");
+      if (settled.kind === "booked" || settled.kind === "taken") return;
     }
     log.info({ ...fields, reason: "max_offers" }, "hueco que no se ofrece");
   }
 
   const workflow = DBOS.registerWorkflow(offerSlot, { name: WAITLIST_WORKFLOW });
 
+  /** Despierta a los workflows de esas ofertas; la clave hace que una entrega repetida no lo repita. */
+  async function wake(event: DomainEvent, ctx: EventContext, offers: readonly Woken[], why: "booked" | "rejected"): Promise<void> {
+    for (const offer of offers) {
+      try {
+        await DBOS.send(offer.ref, why, WAKE_TOPIC, `${event.id}:${offer.entryId}`);
+        ctx.logger.info({ entryId: offer.entryId, why }, "oferta de la lista de espera despertada");
+      } catch (error) {
+        // Sin su workflow (ya terminó), no hay a quién despertar.
+        ctx.logger.warn({ entryId: offer.entryId, why, error: (error as Error).name }, "no se pudo despertar la oferta");
+      }
+    }
+  }
+
   return {
     key: WAITLIST_HANDLER_KEY,
-    eventTypes: ["appointment.cancelled"],
+    eventTypes: ["appointment.cancelled", "appointment.created", "approval.decided"],
     async handle(event: DomainEvent, ctx: EventContext) {
+      if (event.type === "appointment.created") {
+        // Si la reservó quien tenía el hueco ofrecido, su oferta se cierra ya.
+        const appointmentId = String(event.payload["appointment_id"]);
+        const offers = await ctx.step("offers", () => offersBookedBy(ctx.db, appointmentId));
+        await wake(event, ctx, offers, "booked");
+        return;
+      }
+      if (event.type === "approval.decided") {
+        // Si se rechaza la reserva de quien aceptó, el hueco pasa al siguiente ya (4f-3).
+        if (String(event.payload["decision"]) !== "rejected") return;
+        const executionId = String(event.payload["execution_id"]);
+        const offers = await ctx.step("offers", () => offerOfRejected(ctx.db, executionId, new Date().toISOString()));
+        await wake(event, ctx, offers, "rejected");
+        return;
+      }
       const input: WaitlistInput = { organizationId: event.organizationId, appointmentId: String(event.payload["appointment_id"]) };
       // Desde la entrega (un workflow): DBOS guarda que la arrancó y, si la
       // entrega se repite, devuelve el mismo en vez de arrancar otro.
