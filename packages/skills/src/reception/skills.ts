@@ -75,7 +75,10 @@ function localTime(iso: string, timezone: string): string {
 }
 
 export interface ReceptionSkills {
-  findSlots: SkillDefinition<{ service_id: string; from: string; until?: string | undefined }, { slots: { resource_id: string; starts_at: string; ends_at: string }[] }>;
+  findSlots: SkillDefinition<
+    { service_id: string; from: string; until?: string | undefined },
+    { slots: { resource_id: string; starts_at: string; ends_at: string }[]; truncated: boolean }
+  >;
   listAppointments: SkillDefinition<Record<string, never>, { appointments: AppointmentOutput[] }>;
   bookAppointment: SkillDefinition<{ service_id: string; resource_id: string; starts_at: string }, { appointment: AppointmentOutput }>;
   rescheduleAppointment: SkillDefinition<
@@ -94,19 +97,31 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const findSlots = defineSkill({
     key: FIND_SLOTS_SKILL_KEY,
     version: 1,
-    description: "Busca huecos libres de un servicio en este local, desde una fecha (como mucho 14 días).",
+    // Devuelve los primeros 10: sin decirlo, un modelo leía la lista como completa
+    // y daba por ocupada una hora libre que caía después (lo vio la eval
+    // recepcion-mover, V4). truncated lo dice, y la descripción dice cómo mirar
+    // una hora concreta.
+    description:
+      "Finds free slots for a service at this location, starting at `from` (at most 14 days). Returns at most 10, the earliest first. If `truncated` is true there are more free slots after the last one returned: never say a later time is taken; to check a specific time, search again with `from` at that time.",
     effectClass: "read",
     defaultAutonomy: "autonomous",
     // «until» y no «to»: «to» es un campo reservado (un destinatario, ADR 0047).
     input: z.object({ service_id: uuid, from: instant, until: instant.optional() }),
-    output: z.object({ slots: z.array(z.object({ resource_id: z.string(), starts_at: z.string(), ends_at: z.string() })) }),
+    output: z.object({
+      slots: z.array(z.object({ resource_id: z.string(), starts_at: z.string(), ends_at: z.string() })),
+      truncated: z.boolean(),
+    }),
     preview: (_ctx, input) => Promise.resolve({ summary: `Buscar huecos desde ${input.from}` }),
     async execute(ctx, input) {
       const from = new Date(input.from);
       const to = new Date(Math.min(input.until ? new Date(input.until).getTime() : from.getTime() + 86_400_000, from.getTime() + MAX_WINDOW_MS));
-      const slots = await booking.findSlots({ locationId: requireLocation(ctx), serviceId: input.service_id, from, to, limit: SLOT_LIMIT });
+      // Uno más que los que se devuelven: así se sabe si hay más.
+      const slots = await booking.findSlots({ locationId: requireLocation(ctx), serviceId: input.service_id, from, to, limit: SLOT_LIMIT + 1 });
       return {
-        slots: slots.map((slot) => ({ resource_id: slot.resourceId, starts_at: slot.startsAt.toISOString(), ends_at: slot.endsAt.toISOString() })),
+        slots: slots
+          .slice(0, SLOT_LIMIT)
+          .map((slot) => ({ resource_id: slot.resourceId, starts_at: slot.startsAt.toISOString(), ends_at: slot.endsAt.toISOString() })),
+        truncated: slots.length > SLOT_LIMIT,
       };
     },
   });

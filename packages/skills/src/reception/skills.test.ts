@@ -140,6 +140,25 @@ describe("ejecutar las skills de Recepción", () => {
     expect(result.slots[0]).toEqual({ resource_id: CAB1, starts_at: "2030-06-03T09:00:00.000Z", ends_at: "2030-06-03T09:30:00.000Z" });
   });
 
+  it("dice si hay más huecos de los 10 que devuelve, y si no, también", async () => {
+    const { skills } = setup();
+    const many = await skills.findSlots.execute(ctx(), { service_id: LASER, from: "2030-06-03T00:00:00Z" });
+    expect(many.truncated).toBe(true);
+    expect(skills.findSlots.output.parse(many)).toEqual(many);
+    // En la ventana justa de un hueco caben pocos: la lista está completa.
+    const last = many.slots.at(-1);
+    const few = await skills.findSlots.execute(ctx(), { service_id: LASER, from: last?.starts_at ?? "", until: last?.ends_at ?? "" });
+    expect(few.slots.length).toBeGreaterThan(0);
+    expect(few.slots.length).toBeLessThan(10);
+    expect(few.truncated).toBe(false);
+  });
+
+  it("la descripción le dice al modelo cómo comprobar una hora concreta", () => {
+    const { skills } = setup();
+    expect(skills.findSlots.description).toContain("search again with `from` at that time");
+    expect(skills.findSlots.description).toContain("never say a later time is taken");
+  });
+
   it("busca como mucho 14 días aunque le pidan más", async () => {
     const { booking, skills } = setup();
     const calls: { from: Date; to: Date }[] = [];
