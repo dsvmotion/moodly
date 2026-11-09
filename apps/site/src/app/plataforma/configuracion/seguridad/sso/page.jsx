@@ -70,8 +70,8 @@ export default function Sso() {
             {IDPS.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={idp === v} onClick={() => setIdp(v)} style={{ padding: "12px 14px", borderRadius: "10px", textAlign: "left", border: "1px solid", borderColor: idp === v ? "var(--ink)" : "var(--line)", outline: idp === v ? "1px solid var(--ink)" : "none", background: "var(--paper)", color: "var(--ink)", font: "500 14px/18px var(--font-display)", cursor: "pointer" }}>{l}</button>)}
           </div>
           <span style={muted}>1. En tu proveedor, crea una aplicación SAML con estos datos:</span>
-          <Copy label="URL de respuesta (ACS)" value="https://auth.moodly.ai/sso/saml/acs/org_8f21" />
-          <Copy label="Identificador (Entity ID)" value="https://auth.moodly.ai/sso/saml/metadata/org_8f21" />
+          <Copy label="URL de respuesta (ACS)" value="https://auth.moodlycrm.com/sso/saml/acs/org_8f21" />
+          <Copy label="Identificador (Entity ID)" value="https://auth.moodlycrm.com/sso/saml/metadata/org_8f21" />
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>2. Pega aquí la URL de metadatos que te da el proveedor
             <input value={meta} onChange={(e) => setMeta(e.target.value)} placeholder="https://accounts.google.com/o/saml2/idp?idpid=…" aria-invalid={meta !== "" && !metaOk} style={field} />
             {meta !== "" && !metaOk && <span role="alert" style={{ color: "var(--rose-fg)" }}>Tiene que ser una URL que empiece por https://</span>}

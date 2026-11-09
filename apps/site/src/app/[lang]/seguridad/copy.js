@@ -54,7 +54,7 @@ export const COPY = {
       ["¿Los modelos de IA aprenden de mis datos o de mis clientes?", "No. Usamos APIs empresariales que excluyen el entrenamiento con datos de clientes [confirmar proveedor a proveedor]."],
       ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "Sí, con todos los clientes, antes de empezar."],
       ["¿Qué pasa si un agente se equivoca?", "Defines qué puede hacer solo y qué necesita aprobación. Todo queda registrado y puedes corregirlo o revertirlo."],
-      ["¿Cómo informo de una vulnerabilidad?", "Escribe a [security@moodly.ai]. Respondemos en [72 horas] y no emprendemos acciones contra investigaciones de buena fe."],
+      ["¿Cómo informo de una vulnerabilidad?", "Escribe a [security@moodlycrm.com]. Respondemos en [72 horas] y no emprendemos acciones contra investigaciones de buena fe."],
     ],
   },
   en: {
@@ -111,7 +111,7 @@ export const COPY = {
       ["Do the AI models learn from my data or my customers'?", "No. We use enterprise APIs that exclude training on customer data [to confirm provider by provider]."],
       ["Do you sign a data processing agreement (DPA)?", "Yes, with all customers, before we start."],
       ["What if an agent makes a mistake?", "You define what it can do alone and what needs approval. Everything is logged and you can correct or revert it."],
-      ["How do I report a vulnerability?", "Write to [security@moodly.ai]. We respond within [72 hours] and take no action against good-faith research."],
+      ["How do I report a vulnerability?", "Write to [security@moodlycrm.com]. We respond within [72 hours] and take no action against good-faith research."],
     ],
   },
   fr: {
@@ -168,7 +168,7 @@ export const COPY = {
       ["Les modèles d'IA apprennent-ils de mes données ou de celles de mes clients ?", "Non. Nous utilisons des API d'entreprise qui excluent l'entraînement avec les données clients [à confirmer fournisseur par fournisseur]."],
       ["Signez-vous un contrat de sous-traitance (DPA) ?", "Oui, avec tous les clients, avant de commencer."],
       ["Que se passe-t-il si un agent se trompe ?", "Vous définissez ce qu'il peut faire seul et ce qui nécessite une validation. Tout est enregistré et vous pouvez le corriger ou l'annuler."],
-      ["Comment signaler une vulnérabilité ?", "Écrivez à [security@moodly.ai]. Nous répondons sous [72 heures] et n'engageons aucune action contre les recherches de bonne foi."],
+      ["Comment signaler une vulnérabilité ?", "Écrivez à [security@moodlycrm.com]. Nous répondons sous [72 heures] et n'engageons aucune action contre les recherches de bonne foi."],
     ],
   },
   de: {
@@ -225,7 +225,7 @@ export const COPY = {
       ["Lernen die KI-Modelle aus meinen Daten oder denen meiner Kunden?", "Nein. Wir nutzen Enterprise-APIs, die das Training mit Kundendaten ausschließen [Anbieter für Anbieter zu bestätigen]."],
       ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "Ja, mit allen Kunden, bevor wir beginnen."],
       ["Was passiert, wenn ein Agent einen Fehler macht?", "Du legst fest, was er allein darf und was eine Freigabe braucht. Alles wird protokolliert und du kannst es korrigieren oder rückgängig machen."],
-      ["Wie melde ich eine Schwachstelle?", "Schreibe an [security@moodly.ai]. Wir antworten innerhalb von [72 Stunden] und gehen nicht gegen gutgläubige Forschung vor."],
+      ["Wie melde ich eine Schwachstelle?", "Schreibe an [security@moodlycrm.com]. Wir antworten innerhalb von [72 Stunden] und gehen nicht gegen gutgläubige Forschung vor."],
     ],
   },
 };
