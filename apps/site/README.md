@@ -1,4 +1,6 @@
-# @repo/site — web pública de moodly.ai (prototipo)
+# @repo/site — web pública de moodlycrm.com (prototipo)
+
+Dominio: `moodlycrm.com` (decisión de producto del 2026-10-24). La marca «Moodly» sigue siendo provisional.
 
 Landings generadas a partir del canvas de diseño (ver `docs/design/traspaso-canvas-2026-10-06.md`):
 `/`, `/agentes`, `/sectores`, `/precios`, `/seguridad`, `/integraciones`, `/implantacion`, `/casos`.

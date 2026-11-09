@@ -6,7 +6,7 @@ export function BrowserFrame({ src, alt, priority = false }) {
         <span style={{ width: "10px", height: "10px", borderRadius: "800px", background: "#d9d9de" }} />
         <span style={{ width: "10px", height: "10px", borderRadius: "800px", background: "#d9d9de" }} />
         <span style={{ width: "10px", height: "10px", borderRadius: "800px", background: "#d9d9de" }} />
-        <span style={{ marginLeft: "12px", flex: 1, maxWidth: "320px", height: "18px", borderRadius: "800px", background: "#ffffff", fontSize: "11px", lineHeight: "18px", color: "#6b6b70", paddingLeft: "10px" }}>app.moodly.ai</span>
+        <span style={{ marginLeft: "12px", flex: 1, maxWidth: "320px", height: "18px", borderRadius: "800px", background: "#ffffff", fontSize: "11px", lineHeight: "18px", color: "#6b6b70", paddingLeft: "10px" }}>app.moodlycrm.com</span>
       </div>
       <img src={src} alt={alt} width="1440" height="900" loading={priority ? "eager" : "lazy"} style={{ display: "block", width: "100%", height: "auto" }} />
     </div>

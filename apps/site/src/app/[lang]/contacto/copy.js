@@ -1,5 +1,5 @@
 // Textos de /contacto. Los correos son placeholders e iguales en todos los idiomas.
-export const MAILS = ["[ventas@moodly.ai]", "[soporte@moodly.ai]", "[privacidad@moodly.ai]", "[security@moodly.ai]"];
+export const MAILS = ["[ventas@moodlycrm.com]", "[soporte@moodlycrm.com]", "[privacidad@moodlycrm.com]", "[security@moodlycrm.com]"];
 export const COPY = {
   es: {
     eyebrow: "Contacto", title: "Hablemos de tu negocio",
