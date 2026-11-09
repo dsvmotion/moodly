@@ -651,6 +651,61 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"knowledge_requests": {
+                  Row: {
+                    "agent_id": string,"answer": string | null,"answered_at": string | null,"answered_by": string | null,"assigned_role": string,"conversation_id": string | null,"created_at": string,"id": string,"idempotency_key": string | null,"location_id": string | null,"organization_id": string,"question": string,"resulting_source_id": string | null,"run_id": string | null,"status": string,"updated_at": string
+                  }
+                  Insert: {
+                    "agent_id": string,"answer"?: string | null,"answered_at"?: string | null,"answered_by"?: string | null,"assigned_role": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string | null,"location_id"?: string | null,"organization_id": string,"question": string,"resulting_source_id"?: string | null,"run_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "agent_id"?: string,"answer"?: string | null,"answered_at"?: string | null,"answered_by"?: string | null,"assigned_role"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string | null,"location_id"?: string | null,"organization_id"?: string,"question"?: string,"resulting_source_id"?: string | null,"run_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "knowledge_requests_agent_same_org"
+      columns: ["agent_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_answered_by_fkey"
+      columns: ["answered_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_run_id_fkey"
+      columns: ["run_id"]
+isOneToOne: false
+      referencedRelation: "agent_runs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_source_same_org"
+      columns: ["resulting_source_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "knowledge_sources"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"knowledge_sources": {
                   Row: {
                     "body": string | null,"created_at": string,"created_by": string | null,"id": string,"location_id": string | null,"organization_id": string,"status": string,"storage_path": string | null,"title": string,"type": string,"updated_at": string

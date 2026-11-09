@@ -348,6 +348,13 @@ async function recordExecution(
 
 async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult): Promise<void> {
   const status = runStatusFor(result);
+  if (status === "handed_off") {
+    // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
+    // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
+    // una persona. Si el paso se repite, no cambia nada (solo de agent a human).
+    const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
+    if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
+  }
   const { error } = await db
     .from("agent_runs")
     .update({
@@ -359,11 +366,6 @@ async function finishRun(db: TenantDb, runId: string, conversationId: string, re
     })
     .eq("id", runId);
   if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
-  if (status === "handed_off") {
-    // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
-    const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
-    if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
-  }
 }
 
 /** Lo que decidió el motor para la reserva al aceptar una oferta. Serializable: es el resultado de un paso. */

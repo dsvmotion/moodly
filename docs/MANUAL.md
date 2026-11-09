@@ -336,7 +336,7 @@ Convenciones:
 |---|---|
 | `knowledge_sources` | `organization_id`, `location_id?` (null = toda la organización; inmutable), `type` (`faq`/`pricing`/`policy`/`catalog`/`document`/`website`/`human_answer`), `title`, `body?` (el texto de una fuente escrita en la app, hasta 20.000 caracteres; cambiarlo la devuelve a `pending`), `status` (`pending`/`processing`/`ready`/`error`; solo se busca en `ready`), `storage_path?`, `created_by`. La gestiona el `org_admin` con aal2 (ADR 0037, 0048) |
 | `knowledge_chunks` | `source_id` (de la misma organización), `organization_id`, `location_id` (copiado de la fuente por la base de datos), `ordinal`, `content`, `embedding vector` (sin dimensión fija), `embedding_model`, `embedding_dim`, `tsv tsvector` (`simple`), `valid_until?`. Los escribe la ingesta; se buscan solo con `search_knowledge` (ADR 0025, 0037) |
-| `knowledge_requests` | `organization_id`, `location_id?`, `agent_id`, `run_id`, `question`, `context`, `assigned_role`, `status` (`open`/`answered`/`dismissed`), `answer`, `answered_by`, `resulting_source_id` |
+| `knowledge_requests` | `organization_id`, `location_id?` (null = de toda la organización: la contesta un `org_admin`), `agent_id`, `run_id?`, `conversation_id?`, `question`, `assigned_role`, `status` (`open`/`answered`/`dismissed`, una vez y solo desde `open`), `answer`, `answered_by` y `answered_at` (los pone la base de datos), `resulting_source_id`. La escribe el worker; la contesta o descarta quien tiene el rol que pide en su local (como las aprobaciones; el `org_admin`, con aal2). Al contestar, la base de datos guarda la respuesta como fuente `human_answer` de su alcance y la manda al cliente en su conversación (B20-4a) |
 
 **Memoria y objetivos**
 
