@@ -77,7 +77,7 @@ export async function handleOptOut(db: TenantDb, conversationId: string, message
   if (!alreadyOptedOut) {
     const current = typeof contact.consents === "object" && contact.consents !== null && !Array.isArray(contact.consents) ? contact.consents : {};
     const consents = { ...current, [REMINDER_CONSENT_KEY]: { opted_out_at: now.toISOString(), via: "reply", conversation_id: conversationId } };
-    const { error } = await db.from("contacts").update({ consents: consents as Json }).eq("id", conversation.contact_id);
+    const { error } = await db.from("contacts").update({ consents: consents as NonNullable<Json> }).eq("id", conversation.contact_id);
     if (error) throw new Error(`no se pudo registrar la baja (${error.code})`);
   }
 
