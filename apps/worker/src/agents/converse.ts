@@ -3,7 +3,14 @@ import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, policyFromSetting
 import type { BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
-import { APPOINTMENT_REMINDER_SKILL_KEY, FIND_SLOTS_SKILL_KEY, createJoinWaitlistSkill, createReceptionSkills, createReplySkill } from "@repo/skills";
+import {
+  APPOINTMENT_REMINDER_SKILL_KEY,
+  FIND_SLOTS_SKILL_KEY,
+  WAITLIST_OFFER_SKILL_KEY,
+  createJoinWaitlistSkill,
+  createReceptionSkills,
+  createReplySkill,
+} from "@repo/skills";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
@@ -235,8 +242,8 @@ export function codeSkills(db: TenantDb): Map<string, SkillDefinition<unknown>> 
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
-/** Las que lanza la plataforma y no el modelo (los recordatorios, 4e): nunca se le ofrecen como herramienta. */
-export const PLATFORM_TRIGGERED_SKILLS: ReadonlySet<string> = new Set([APPOINTMENT_REMINDER_SKILL_KEY]);
+/** Las que lanza la plataforma y no el modelo (los recordatorios, 4e, y las ofertas de la lista de espera, 4f-2): nunca se le ofrecen como herramienta. */
+export const PLATFORM_TRIGGERED_SKILLS: ReadonlySet<string> = new Set([APPOINTMENT_REMINDER_SKILL_KEY, WAITLIST_OFFER_SKILL_KEY]);
 
 /** Las del agente que existen en el código con la misma versión que en el catálogo; las demás no se le ofrecen. */
 export function agentSkills(available: Map<string, SkillDefinition<unknown>>, configured: TurnContext["skills"], log: Logger) {

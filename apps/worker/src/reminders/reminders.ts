@@ -1,15 +1,12 @@
-import { createHash } from "node:crypto";
 import { DBOS } from "@dbos-inc/dbos-sdk";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, decide } from "@repo/agent-core";
-import type { AutonomyLevel, ConsentChecker, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
-import type { Json } from "@repo/db";
+import type { ConsentChecker, SkillDefinition } from "@repo/agent-core";
 import type { ServiceDb, TenantDb } from "@repo/db/service";
 import { APPOINTMENT_REMINDER_SKILL_KEY, createAppointmentReminderSkill } from "@repo/skills";
 import type { AppointmentReminderSkill, ReminderAppointment, ReminderKind, ReminderSource } from "@repo/skills";
 import type { Logger } from "pino";
-import { z } from "zod";
 import { createConversationSender } from "../agents/conversation-sender.ts";
-import { agentAnswers } from "../agents/converse.ts";
+import { check, conversationAgent, scheduledRunId, sendScheduled } from "../agents/scheduled-skill.ts";
+import type { ConversationAgent } from "../agents/scheduled-skill.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { optedOut } from "./consent.ts";
 
@@ -136,14 +133,7 @@ export function reminderKey(appointmentId: string, startsAt: string, kind: Remin
 
 /** El run de un recordatorio: siempre el mismo id para la misma cita, hora y recordatorio. */
 export function reminderRunId(key: string): string {
-  const hex = createHash("sha256").update(`${REMINDERS_HANDLER_KEY}:${key}`).digest("hex");
-  const variant = ((parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-}
-
-function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
-  if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
-  return result.data;
+  return scheduledRunId(REMINDERS_HANDLER_KEY, key);
 }
 
 /** El permiso para los recordatorios: todos menos quien se dio de baja. Reservar por el agente es el permiso (la audiencia ya lo exige). */
@@ -191,33 +181,12 @@ export function createReminderSource(db: TenantDb, fallbackLocale: string): Remi
   };
 }
 
-const contextSchema = z.object({
-  agent: z.object({ id: z.uuid(), status: z.string() }),
-  organization: z.object({ default_locale: z.string() }),
-  skills: z.array(
-    z.object({
-      key: z.string(),
-      version: z.number().int(),
-      kind: z.string(),
-      effect_class: z.enum(EFFECT_CLASSES),
-      enabled: z.boolean(),
-      autonomy_level: z.enum(AUTONOMY_LEVELS),
-    }),
-  ),
-});
-
-/** Lo que hace falta para decidir, leído al despertar. Serializable: es el resultado de un paso. */
-type Loaded =
-  | { kind: "skip"; reason: string }
-  | {
-      kind: "ready";
-      locationId: string;
-      contactId: string;
-      conversationId: string;
-      agentId: string;
-      defaultLocale: string;
-      settings: { enabled: boolean; autonomy: AutonomyLevel };
-    };
+/**
+ * Lo que hace falta para decidir, leído al despertar. Serializable: es el
+ * resultado de un paso, y con la misma forma que antes de 4f-2 (los
+ * recordatorios que ya duermen la reciben así al reanudarse).
+ */
+type Loaded = { kind: "skip"; reason: string } | ({ locationId: string; contactId: string } & ConversationAgent);
 
 async function load(db: TenantDb, appointmentId: string, startsAt: string, skill: AppointmentReminderSkill): Promise<Loaded> {
   const appointment = check(
@@ -228,85 +197,9 @@ async function load(db: TenantDb, appointmentId: string, startsAt: string, skill
   if (appointment.status !== "booked") return { kind: "skip", reason: "not_booked" };
   if (Date.parse(appointment.starts_at) !== Date.parse(startsAt)) return { kind: "skip", reason: "moved" };
   if (!appointment.conversation_id) return { kind: "skip", reason: "not_booked_by_agent" };
-  const conversation = check(
-    await db.from("conversations").select("id, agent_id, mode, channel_account_id").eq("id", appointment.conversation_id).maybeSingle(),
-    "la conversación",
-  );
-  if (!conversation) return { kind: "skip", reason: "conversation_missing" };
-  if (conversation.mode === "closed") return { kind: "skip", reason: "conversation_closed" };
-  const raw = await db.agentTurnContext(conversation.agent_id);
-  if (!raw) return { kind: "skip", reason: "agent_missing" };
-  const context = contextSchema.parse(raw);
-  const account = check(await db.from("channel_accounts").select("channel").eq("id", conversation.channel_account_id).maybeSingle(), "el canal");
-  if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
-  const row = context.skills.find((candidate) => candidate.key === APPOINTMENT_REMINDER_SKILL_KEY);
-  if (!row || row.kind !== "code" || row.version !== skill.version || row.effect_class !== skill.effectClass) {
-    return { kind: "skip", reason: "skill_not_configured" };
-  }
-  return {
-    kind: "ready",
-    locationId: appointment.location_id,
-    contactId: appointment.contact_id,
-    conversationId: conversation.id,
-    agentId: conversation.agent_id,
-    defaultLocale: context.organization.default_locale,
-    settings: { enabled: row.enabled, autonomy: row.autonomy_level },
-  };
-}
-
-interface Decided {
-  outcome: string;
-  reason?: string;
-  input?: unknown;
-  target?: Target;
-  inputHash?: string;
-  autonomy?: AutonomyLevel;
-}
-
-async function startRun(db: TenantDb, runId: string, ready: Extract<Loaded, { kind: "ready" }>, ref: string): Promise<void> {
-  const { error } = await db.from("agent_runs").insert({
-    id: runId,
-    location_id: ready.locationId,
-    agent_id: ready.agentId,
-    trigger: "schedule",
-    trigger_ref: ref,
-    status: "running",
-  });
-  // 23505: ya existía (el workflow se reanudó después de crearlo).
-  if (error && error.code !== "23505") throw new Error(`no se pudo crear el run (${error.code})`);
-}
-
-async function recordExecution(
-  db: TenantDb,
-  runId: string,
-  locationId: string,
-  skill: SkillDefinition<unknown>,
-  decided: Required<Pick<Decided, "input" | "target" | "inputHash" | "autonomy">>,
-  key: string,
-  status: "executed" | "failed",
-  output: unknown,
-): Promise<void> {
-  const { error } = await db.from("executions").insert({
-    run_id: runId,
-    location_id: locationId,
-    skill_key: skill.key,
-    skill_version: skill.version,
-    effect_class: skill.effectClass,
-    autonomy_applied: decided.autonomy,
-    input: decided.input as NonNullable<Json>,
-    target: decided.target as unknown as NonNullable<Json>,
-    input_hash: decided.inputHash,
-    preview: null,
-    output: (output ?? null) as Json,
-    status,
-    idempotency_key: key,
-  });
-  if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
-}
-
-async function finishRun(db: TenantDb, runId: string, status: "completed" | "failed"): Promise<void> {
-  const { error } = await db.from("agent_runs").update({ status }).eq("id", runId).eq("status", "running");
-  if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
+  const agent = await conversationAgent(db, appointment.conversation_id, skill as unknown as SkillDefinition<unknown>);
+  if (agent.kind === "skip") return agent;
+  return { ...agent, locationId: appointment.location_id, contactId: appointment.contact_id };
 }
 
 /** La zona horaria del local de la cita (UTC si la cita ya no existe: sin cita no sale nada). */
@@ -352,55 +245,23 @@ export function registerReminders({ db, logger, rules = REMINDER_RULES }: Remind
     const skill = skillFor(tenant, loaded.defaultLocale);
     const key = reminderKey(input.appointmentId, input.startsAt, kind);
     const runId = reminderRunId(key);
-    const args = { appointment_id: input.appointmentId, kind, starts_at: input.startsAt };
-    const decided = await DBOS.runStep(
-      async (): Promise<Decided> => {
-        const decision = await decide({
-          proposal: { skillKey: skill.key, args },
-          scope: {
-            organizationId: input.organizationId,
-            locationId: loaded.locationId,
-            runId,
-            conversation: { id: loaded.conversationId, contactId: loaded.contactId },
-          },
-          skills: new Map([[skill.key, skill as unknown as SkillDefinition<unknown>]]),
-          settings: new Map([[skill.key, loaded.settings]]),
-          consent: createReminderConsent(tenant),
-        });
-        if (decision.outcome === "reject") return { outcome: "reject", reason: decision.reason };
-        return { outcome: decision.outcome, input: decision.input, target: decision.target, inputHash: decision.inputHash, autonomy: decision.autonomy };
-      },
-      { name: `${kind}:decide` },
-    );
-    if (decided.outcome !== "execute" || !decided.target || !decided.inputHash || !decided.autonomy) {
-      log.info({ ...fields, outcome: decided.outcome, reason: decided.reason }, "recordatorio que no sale");
-      return;
-    }
-    const executable = { input: decided.input, target: decided.target, inputHash: decided.inputHash, autonomy: decided.autonomy };
-    await DBOS.runStep(() => startRun(tenant, runId, loaded, `${input.appointmentId}:${kind}`), { name: `${kind}:run:start` });
-    const ctx: SkillContext = {
+    const result = await sendScheduled({
+      db: tenant,
       organizationId: input.organizationId,
       locationId: loaded.locationId,
-      runId,
       contactId: loaded.contactId,
-      conversationId: loaded.conversationId,
-      target: decided.target,
-      idempotencyKey: key,
-    };
-    let output: unknown = null;
-    let status: "executed" | "failed" = "executed";
-    try {
-      output = await DBOS.runStep(() => skill.execute(ctx, skill.input.parse(decided.input)), { name: `${kind}:execute` });
-    } catch (error) {
-      status = "failed";
-      log.warn({ ...fields, error: (error as Error).name }, "el recordatorio no se pudo enviar");
-    }
-    await DBOS.runStep(
-      () => recordExecution(tenant, runId, loaded.locationId, skill as unknown as SkillDefinition<unknown>, executable, key, status, output),
-      { name: `${kind}:record` },
-    );
-    await DBOS.runStep(() => finishRun(tenant, runId, status === "executed" ? "completed" : "failed"), { name: `${kind}:run:finish` });
-    if (status === "executed") log.info({ ...fields, runId }, "recordatorio enviado");
+      agent: loaded,
+      skill: skill as unknown as SkillDefinition<unknown>,
+      args: { appointment_id: input.appointmentId, kind, starts_at: input.startsAt },
+      consent: createReminderConsent(tenant),
+      key,
+      runId,
+      ref: `${input.appointmentId}:${kind}`,
+      step: kind,
+    });
+    if (result.sent) log.info({ ...fields, runId }, "recordatorio enviado");
+    else if ("status" in result) log.warn({ ...fields, error: result.error }, "el recordatorio no se pudo enviar");
+    else log.info({ ...fields, outcome: result.outcome, reason: result.reason }, "recordatorio que no sale");
   }
 
   // Entre paso y paso, solo lógica determinista: la hora sale de DBOS.now (un

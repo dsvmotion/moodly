@@ -404,7 +404,8 @@
       "reschedule_appointment": "Cambio de cita",
       "cancel_appointment": "Cancelación",
       "appointment_reminder": "Recordatorio de cita",
-      "join_waitlist": "Lista de espera"
+      "join_waitlist": "Lista de espera",
+      "waitlist_offer": "Oferta de la lista de espera"
     },
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",

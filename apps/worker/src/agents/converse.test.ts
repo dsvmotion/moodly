@@ -100,12 +100,17 @@ describe("las herramientas que ve el modelo", () => {
     autonomy_level: "execute",
   });
 
-  it("los recordatorios no: los lanza la plataforma, y no es un fallo que no estén entre las del modelo", () => {
+  it("los recordatorios y las ofertas de la lista de espera no: los lanza la plataforma, y no es un fallo que no estén entre las del modelo", () => {
     const warn = vi.fn();
     const log = { warn } as unknown as Logger;
     const { skills, settings } = agentSkills(
       new Map([["find_slots", findSlots]]),
-      [row("find_slots", "read"), row("appointment_reminder", "external_outreach"), row("una_que_no_existe", "read")],
+      [
+        row("find_slots", "read"),
+        row("appointment_reminder", "external_outreach"),
+        row("waitlist_offer", "external_outreach"),
+        row("una_que_no_existe", "read"),
+      ],
       log,
     );
     expect([...skills.keys()]).toEqual(["find_slots"]);

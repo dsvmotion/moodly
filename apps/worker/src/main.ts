@@ -7,6 +7,7 @@ import { logHandler } from "./events/log-handler.ts";
 import { LeaseAbortedError } from "./lease.ts";
 import { createLogger } from "./logger.ts";
 import { registerReminders } from "./reminders/reminders.ts";
+import { registerWaitlistOffers } from "./waitlist/offers.ts";
 import { createWorker } from "./worker.ts";
 
 const config = loadConfig(process.env);
@@ -23,11 +24,13 @@ const worker = createWorker(config, logger, {
   // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3).
   // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).
   // reception.reminders: los recordatorios de cada cita, 24 h y 4 h antes (4e-2).
+  // reception.waitlist: el hueco de una cita cancelada, a la lista de espera (4f-2).
   eventHandlers: ({ db }) => [
     logHandler,
     createConverseHandler({ router: models.router }),
     createApprovalHandler({ skills: codeSkills }),
     registerReminders({ db, logger }),
+    registerWaitlistOffers({ db, logger }),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
   // workflows: se sale sin esperar a un apagado limpio (regla 1).
