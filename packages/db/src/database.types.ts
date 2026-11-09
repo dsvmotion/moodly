@@ -948,13 +948,13 @@ isOneToOne: false
                   ]
                 },"waitlist_entries": {
                   Row: {
-                    "contact_id": string,"conversation_id": string | null,"created_at": string,"id": string,"idempotency_key": string,"location_id": string,"offer_expires_at": string | null,"offered_ends_at": string | null,"offered_resource_id": string | null,"offered_starts_at": string | null,"organization_id": string,"service_id": string,"status": string,"updated_at": string,"wanted_from": string,"wanted_until": string
+                    "contact_id": string,"conversation_id": string | null,"created_at": string,"id": string,"idempotency_key": string,"location_id": string,"offer_expires_at": string | null,"offer_ref": string | null,"offered_ends_at": string | null,"offered_resource_id": string | null,"offered_starts_at": string | null,"organization_id": string,"service_id": string,"status": string,"updated_at": string,"wanted_from": string,"wanted_until": string
                   }
                   Insert: {
-                    "contact_id": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key": string,"location_id": string,"offer_expires_at"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id": string,"service_id": string,"status"?: string,"updated_at"?: string,"wanted_from": string,"wanted_until": string
+                    "contact_id": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key": string,"location_id": string,"offer_expires_at"?: string | null,"offer_ref"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id": string,"service_id": string,"status"?: string,"updated_at"?: string,"wanted_from": string,"wanted_until": string
                   }
                   Update: {
-                    "contact_id"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"offer_expires_at"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id"?: string,"service_id"?: string,"status"?: string,"updated_at"?: string,"wanted_from"?: string,"wanted_until"?: string
+                    "contact_id"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string,"location_id"?: string,"offer_expires_at"?: string | null,"offer_ref"?: string | null,"offered_ends_at"?: string | null,"offered_resource_id"?: string | null,"offered_starts_at"?: string | null,"organization_id"?: string,"service_id"?: string,"status"?: string,"updated_at"?: string,"wanted_from"?: string,"wanted_until"?: string
                   }
                   Relationships: [
                     {

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, policyFromSettings, runAgentTurn } from "@repo/agent-core";
-import type { BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, TurnExecution, TurnResult } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import type { AutonomyLevel, BookableService, HistoryMessage, ModelRouter, SkillDefinition, SkillSettings, Target, TurnExecution, TurnResult } from "@repo/agent-core";
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
 import {
@@ -16,6 +16,8 @@ import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { handleOptOut } from "../reminders/consent.ts";
+import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
+import type { AcceptanceOutcome } from "../waitlist/accept.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
@@ -339,6 +341,109 @@ async function finishRun(db: TenantDb, runId: string, conversationId: string, re
   }
 }
 
+/** Lo que decidió el motor para la reserva al aceptar una oferta. Serializable: es el resultado de un paso. */
+interface AcceptDecision {
+  outcome: string;
+  reason?: string;
+  input?: unknown;
+  target?: Target;
+  inputHash?: string;
+  autonomy?: AutonomyLevel;
+}
+
+/**
+ * Aceptar una oferta de la lista de espera contestando SÍ (paso 4f-3): sin
+ * modelo, la reserva del hueco ofrecido por el motor de políticas, con la
+ * autonomía del agente (de serie, a la bandeja de aprobaciones). Devuelve si
+ * el mensaje era eso; si no, el turno sigue como siempre.
+ */
+async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId: string, messageId: string): Promise<boolean> {
+  const found = await ctx.step("waitlist-accept:find", () => findAcceptance(ctx.db, conversationId, messageId, new Date()));
+  if (found.kind === "none") return false;
+  const book = codeSkills(ctx.db).get(BOOK_SKILL_KEY);
+  const row = found.book;
+  if (!book || !row || row.kind !== "code" || row.version !== book.version || row.effectClass !== book.effectClass) return false;
+  if (!agentAnswers(found.agentStatus, found.channel)) return false;
+
+  const { conversation } = found;
+  const runId = runIdFor(event.id);
+  const key = acceptanceKey(found.entryId, messageId);
+  const args = { service_id: found.serviceId, resource_id: found.resourceId, starts_at: found.startsAt };
+  const decided = await ctx.step("waitlist-accept:decide", async (): Promise<AcceptDecision> => {
+    const decision = await decide({
+      proposal: { skillKey: BOOK_SKILL_KEY, args },
+      scope: { organizationId: event.organizationId, locationId: conversation.locationId, runId, conversation: { id: conversation.id, contactId: conversation.contactId } },
+      skills: new Map([[BOOK_SKILL_KEY, book]]),
+      settings: new Map([[BOOK_SKILL_KEY, { enabled: row.enabled, autonomy: row.autonomy }]]),
+    });
+    if (decision.outcome === "reject") return { outcome: "reject", reason: decision.reason };
+    return { outcome: decision.outcome, input: decision.input, target: decision.target, inputHash: decision.inputHash, autonomy: decision.autonomy };
+  });
+  // Si el motor no la deja (la skill desactivada, por ejemplo), el «sí» lo contesta el agente.
+  if (decided.outcome === "reject" || !decided.target || !decided.inputHash || !decided.autonomy) {
+    ctx.logger.info({ conversationId, entryId: found.entryId, reason: decided.reason }, "aceptación de la oferta que no se reserva");
+    return false;
+  }
+  await ctx.step("run:start", () =>
+    startRun(ctx.db, runId, { id: conversation.id, location_id: conversation.locationId, contact_id: conversation.contactId, agent_id: conversation.agentId }, messageId),
+  );
+  const skillCtx = {
+    organizationId: event.organizationId,
+    locationId: conversation.locationId,
+    runId,
+    contactId: conversation.contactId,
+    conversationId: conversation.id,
+    target: decided.target,
+    idempotencyKey: key,
+  };
+  const input = book.input.parse(decided.input);
+  let status: TurnExecution["status"];
+  let output: unknown;
+  let preview: TurnExecution["preview"];
+  if (decided.outcome === "execute") {
+    try {
+      output = await ctx.step("waitlist-accept:execute", () => book.execute(skillCtx, input));
+      status = "executed";
+    } catch (error) {
+      status = "failed";
+      ctx.logger.warn({ conversationId, entryId: found.entryId, error: (error as Error).name }, "la reserva de la oferta no se pudo hacer");
+    }
+  } else {
+    preview = await ctx.step("waitlist-accept:preview", () => book.preview(skillCtx, input));
+    status = decided.outcome === "draft" ? "drafted" : decided.outcome === "suggest" ? "suggested" : "needs_approval";
+  }
+  const execution: TurnExecution = {
+    step: 0,
+    callId: "waitlist-accept",
+    skillKey: BOOK_SKILL_KEY,
+    status,
+    idempotencyKey: key,
+    input: decided.input,
+    target: decided.target,
+    inputHash: decided.inputHash,
+    autonomy: decided.autonomy,
+    ...(preview ? { preview } : {}),
+    ...(output === undefined ? {} : { output }),
+  };
+  await ctx.step(`record:${key}`, () => recordExecution(ctx.db, runId, conversation.locationId, book, execution, new Date()));
+  const outcome: AcceptanceOutcome = status === "executed" ? "booked" : status === "failed" ? "failed" : "pending";
+  if (outcome === "pending") {
+    // Mientras espera a una persona, nadie más ve el hueco y la oferta no caduca.
+    await ctx.step("waitlist-accept:hold", () => holdOffer(ctx.db, found.entryId, found.expiresAt, holdUntil(new Date(), new Date(found.startsAt))));
+  }
+  const text = acceptanceText(outcome, { ...found.text, startsAt: new Date(found.startsAt) });
+  await ctx.step("waitlist-accept:reply", () =>
+    createConversationSender(ctx.db).send({ conversationId: conversation.id, text, idempotencyKey: `${key}:reply` }),
+  );
+  await ctx.step("run:finish", async () => {
+    const runStatus = outcome === "booked" ? "completed" : outcome === "pending" ? "awaiting_approval" : "failed";
+    const { error } = await ctx.db.from("agent_runs").update({ status: runStatus }).eq("id", runId).eq("status", "running");
+    if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
+  });
+  ctx.logger.info({ runId, conversationId, entryId: found.entryId, outcome }, "oferta de la lista de espera aceptada");
+  return true;
+}
+
 export function createConverseHandler({ router }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
@@ -353,6 +458,8 @@ export function createConverseHandler({ router }: ConverseOptions): EventHandler
         ctx.logger.info({ conversationId, alreadyOptedOut: optOut.alreadyOptedOut }, "baja de los recordatorios");
         return;
       }
+      // Un «sí» a una oferta viva de la lista de espera: la reserva, sin modelo (4f-3).
+      if (await acceptOffer(event, ctx, conversationId, messageId)) return;
       const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId));
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");

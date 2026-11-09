@@ -6,6 +6,7 @@ import { join } from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { acceptanceKey } from "./accept.ts";
 import { offerKey, waitlistWorkflowId } from "./offers.ts";
 
 // Las ofertas de la lista de espera de punta a punta (paso 4f-2): una cita que
@@ -40,7 +41,7 @@ const ids: Record<string, string> = {};
 const resources: string[] = [];
 const allResources: string[] = [];
 const services: string[] = [];
-let saved: { status: string; offer: { autonomy_level: string; enabled: boolean } | null } | null = null;
+let saved: { status: string; offer: { autonomy_level: string; enabled: boolean } | null; book: { autonomy_level: string } | null } | null = null;
 let worker: { child: ChildProcess; output(): string } | null = null;
 let entries = 0;
 
@@ -174,6 +175,71 @@ async function runsOf(appointmentId: string) {
   return rows;
 }
 
+/** Un mensaje del cliente por su conversación (emite message.received). */
+async function say(conversationId: string, content: string): Promise<string> {
+  return one("insert into public.messages (organization_id, conversation_id, direction, author, content) values ($1, $2, 'in', 'contact', $3) returning id", [
+    ids.org,
+    conversationId,
+    content,
+  ]);
+}
+
+/** El run que abrió un mensaje del cliente, y con qué modelo (null si no llamó a ninguno). */
+async function runFor(messageId: string) {
+  const { rows } = await admin.query<{ status: string; model: string | null }>("select status, model from public.agent_runs where trigger_ref = $1", [messageId]);
+  return rows[0] ?? null;
+}
+
+/** Lo que salió hacia el cliente por su conversación. */
+async function outbound(conversationId: string) {
+  return (await messages(conversationId)).filter((message) => message.direction === "out");
+}
+
+/** Las reservas que salieron de aceptar la oferta de una entrada, con su aprobación y su run. */
+async function acceptancesOf(entryId: string) {
+  const { rows } = await admin.query<{
+    skill_key: string;
+    status: string;
+    idempotency_key: string;
+    input: { service_id: string; resource_id: string; starts_at: string };
+    approval_id: string | null;
+    approval_status: string | null;
+    run_status: string;
+    run_model: string | null;
+  }>(
+    `select e.skill_key, e.status, e.idempotency_key, e.input, a.id as approval_id, a.status as approval_status, r.status as run_status, r.model as run_model
+     from public.executions e join public.agent_runs r on r.id = e.run_id left join public.approvals a on a.execution_id = e.id
+     where e.idempotency_key like $1 order by e.created_at`,
+    [`waitlist-accept:${entryId}:%`],
+  );
+  return rows;
+}
+
+/**
+ * Lo que deja la base de datos cuando una persona decide una aprobación: la
+ * fila decidida y su evento, como emit_approval_decided (decidir de verdad
+ * exige una sesión con MFA, probado en pgTAP).
+ */
+async function decideApproval(approvalId: string, decision: "approved" | "rejected"): Promise<void> {
+  await admin.query("begin");
+  try {
+    await admin.query("set local session_replication_role = replica");
+    await admin.query("update public.approvals set status = $2, decided_at = now() where id = $1", [approvalId, decision]);
+    await admin.query("set local session_replication_role = origin");
+    await admin.query(
+      `insert into public.domain_events (organization_id, location_id, type, payload)
+       select a.organization_id, a.location_id, 'approval.decided',
+              jsonb_build_object('approval_id', a.id, 'execution_id', a.execution_id, 'run_id', e.run_id, 'decision', a.status)
+       from public.approvals a join public.executions e on e.id = a.execution_id where a.id = $1`,
+      [approvalId],
+    );
+    await admin.query("commit");
+  } catch (error) {
+    await admin.query("rollback");
+    throw error;
+  }
+}
+
 /** Si el worker dejó en el log una línea de esa cita con ese fragmento. */
 function logged(appointmentId: string, fragment: string): boolean {
   return (worker?.output() ?? "")
@@ -197,7 +263,12 @@ beforeAll(async () => {
     "select autonomy_level, enabled from public.agent_skills where agent_id = $1 and skill_id = $2",
     [ids.agent, ids.offerSkill],
   );
-  saved = { status: agentRows[0]?.status ?? "draft", offer: skillRows[0] ?? null };
+  ids.bookSkill = await one("select id from public.skills where organization_id is null and key = 'book_appointment'", []);
+  const { rows: bookRows } = await admin.query<{ autonomy_level: string }>("select autonomy_level from public.agent_skills where agent_id = $1 and skill_id = $2", [
+    ids.agent,
+    ids.bookSkill,
+  ]);
+  saved = { status: agentRows[0]?.status ?? "draft", offer: skillRows[0] ?? null, book: bookRows[0] ?? null };
 
   ids.location = await one(
     `insert into public.locations (organization_id, name, timezone, opening_hours)
@@ -254,6 +325,9 @@ afterAll(async () => {
         saved.offer.enabled,
       ]);
     }
+    if (saved.book) {
+      await admin.query("update public.agent_skills set autonomy_level = $3 where agent_id = $1 and skill_id = $2", [ids.agent, ids.bookSkill, saved.book.autonomy_level]);
+    }
   }
   if (ids.location) {
     await admin.query("delete from public.agent_runs where agent_id = $1 and location_id = $2", [ids.agent, ids.location]);
@@ -261,6 +335,7 @@ afterAll(async () => {
       "delete from public.domain_events where type like 'appointment.%' and payload->>'appointment_id' in (select id::text from public.appointments where location_id = $1)",
       [ids.location],
     );
+    await admin.query("delete from public.domain_events where location_id = $1", [ids.location]);
     await admin.query("delete from public.waitlist_entries where location_id = $1", [ids.location]);
     await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
     await admin.query("delete from public.conversations where location_id = $1", [ids.location]);
@@ -441,6 +516,104 @@ describe("las ofertas de la lista de espera (paso 4f-2)", () => {
       expect(logged(appointment.id, '"reason":"skill_disabled"')).toBe(true);
     } finally {
       await admin.query("update public.agent_skills set enabled = true where agent_id = $1 and skill_id = $2", [ids.agent, ids.offerSkill]);
+    }
+  }, 60_000);
+});
+
+describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
+  it("si contesta SÍ, la reserva va a la bandeja con el hueco guardado, sin modelo; al aprobarla, queda reservada", async () => {
+    const service = await newService();
+    const appointment = await book(ids.staffContact ?? "", 2 * HOUR, service);
+    const nora = await customer("nora");
+    const olivia = await customer("olivia");
+    const noraEntry = await enlist(nora, around(appointment.startsAt), service);
+    await enlist(olivia, around(appointment.startsAt), service);
+    await cancel(appointment.id);
+    await waitFor(async () => (await outbound(nora.conversation)).length === 1, "a Nora le llega la oferta");
+    const offeredUntil = (await entry(noraEntry)).offer_expires_at?.getTime() ?? 0;
+
+    // Antes del «sí», una pregunta (seguidas, dentro del plazo de la oferta): la pregunta no acepta nada.
+    await say(nora.conversation, "¿Y es con la misma persona?");
+    const yes = await say(nora.conversation, "¡Sí!");
+    await waitFor(async () => (await outbound(nora.conversation)).length === 2, "Nora recibe la respuesta");
+    expect((await outbound(nora.conversation))[1]?.content).toMatch(/^¡Genial! Te guardamos el hueco del /);
+    const acceptances = await acceptancesOf(noraEntry);
+    expect(acceptances).toHaveLength(1);
+    const [accepted] = acceptances;
+    expect(accepted).toMatchObject({
+      skill_key: "book_appointment",
+      status: "drafted",
+      idempotency_key: acceptanceKey(noraEntry, yes),
+      input: { service_id: service, resource_id: appointment.resource, starts_at: new Date(appointment.startsAt).toISOString() },
+      approval_status: "pending",
+      run_status: "awaiting_approval",
+      // Sin modelo: el «sí» no pasa por el LLM.
+      run_model: null,
+    });
+    // Mientras espera a una persona, el hueco sigue guardado más allá del plazo de la oferta, y nunca más allá del hueco.
+    const held = await entry(noraEntry);
+    expect(held.status).toBe("offered");
+    expect(held.offer_expires_at?.getTime() ?? 0).toBeGreaterThan(offeredUntil);
+    expect(held.offer_expires_at?.getTime() ?? 0).toBeLessThanOrEqual(appointment.startsAt);
+    await new Promise((resolve) => setTimeout(resolve, OFFER_MS + 3_000));
+    expect((await entry(noraEntry)).status).toBe("offered");
+    expect(await outbound(olivia.conversation)).toEqual([]);
+
+    // Al aprobarla se hace la cita, por su conversación, y la oferta se cierra ya: reservada.
+    await decideApproval(accepted?.approval_id ?? "", "approved");
+    await waitFor(() => finished(appointment.id), "el workflow termina", 30_000);
+    expect((await entry(noraEntry)).status).toBe("booked");
+    const { rows: booked } = await admin.query<{ contact_id: string; conversation_id: string | null; status: string }>(
+      "select contact_id, conversation_id, status from public.appointments where resource_id = $1 and starts_at = $2 and status = 'booked'",
+      [appointment.resource, new Date(appointment.startsAt).toISOString()],
+    );
+    expect(booked).toEqual([{ contact_id: nora.contact, conversation_id: nora.conversation, status: "booked" }]);
+    expect(await outbound(olivia.conversation)).toEqual([]);
+    expect(logged(appointment.id, '"settled":"booked"')).toBe(true);
+  }, 90_000);
+
+  it("si se rechaza la reserva, el hueco pasa a la siguiente; y un «sí» sin oferta viva lo contesta el agente", async () => {
+    const service = await newService();
+    const appointment = await book(ids.staffContact ?? "", 2 * HOUR, service);
+    const pablo = await customer("pablo");
+    const quim = await customer("quim");
+    const pabloEntry = await enlist(pablo, around(appointment.startsAt), service);
+    const quimEntry = await enlist(quim, around(appointment.startsAt), service);
+    await cancel(appointment.id);
+    await waitFor(async () => (await outbound(pablo.conversation)).length === 1, "a Pablo le llega la oferta");
+    await say(pablo.conversation, "si");
+    await waitFor(async () => (await acceptancesOf(pabloEntry)).some((accepted) => accepted.approval_status === "pending"), "su reserva espera a una persona");
+    const [accepted] = await acceptancesOf(pabloEntry);
+
+    await decideApproval(accepted?.approval_id ?? "", "rejected");
+    // Sin esperar al final del plazo alargado: el hueco pasa a Quim.
+    await waitFor(async () => (await outbound(quim.conversation)).length === 1, "a Quim le llega la oferta", 20_000);
+    expect(await entry(pabloEntry)).toMatchObject({ status: "waiting", offered_resource_id: null });
+    expect((await entry(quimEntry)).status).toBe("offered");
+
+    // Ya sin oferta, su «sí» lo contesta el agente, con el modelo, y no reserva nada.
+    const again = await say(pablo.conversation, "sí");
+    await waitFor(async () => (await runFor(again))?.model === "fake/fast", "lo contesta el agente con el modelo");
+    expect(await acceptancesOf(pabloEntry)).toHaveLength(1);
+  }, 90_000);
+
+  it("con book_appointment en execute, el «sí» reserva ya y la oferta se cierra sin esperar al plazo", async () => {
+    await admin.query("update public.agent_skills set autonomy_level = 'execute' where agent_id = $1 and skill_id = $2", [ids.agent, ids.bookSkill]);
+    try {
+      const service = await newService();
+      const appointment = await book(ids.staffContact ?? "", 2 * HOUR, service);
+      const rita = await customer("rita", { locale: "en" });
+      const ritaEntry = await enlist(rita, around(appointment.startsAt), service);
+      await cancel(appointment.id);
+      await waitFor(async () => (await outbound(rita.conversation)).length === 1, "a Rita le llega la oferta");
+      await say(rita.conversation, "Yes!");
+      await waitFor(async () => (await outbound(rita.conversation)).length === 2, "Rita recibe la respuesta");
+      expect((await outbound(rita.conversation))[1]?.content).toMatch(/^Done! You're booked for Láser at waitlist-/);
+      expect(await acceptancesOf(ritaEntry)).toMatchObject([{ status: "executed", approval_id: null, run_status: "completed", run_model: null }]);
+      await waitFor(() => finished(appointment.id), "el workflow termina", 30_000);
+      expect((await entry(ritaEntry)).status).toBe("booked");
+    } finally {
+      await admin.query("update public.agent_skills set autonomy_level = $3 where agent_id = $1 and skill_id = $2", [ids.agent, ids.bookSkill, saved?.book?.autonomy_level ?? "draft"]);
     }
   }, 60_000);
 });
