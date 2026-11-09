@@ -1,5 +1,5 @@
 // Genera los iconos PNG de la PWA a partir del icono maestro
-// (scripts/pwa-icons/app-icon.svg: la «M» del logotipo, blanca sobre negro, a
+// (scripts/pwa-icons/app-icon.svg: la «M» del logotipo, negra sobre blanco, a
 // sangre), dibujándolo en un canvas del Chromium de Playwright. Los PNG se commitean.
 // Uso (desde la raíz): node apps/web/scripts/pwa-icons.ts
 // (CHROMIUM_PATH=<ruta> si el Chromium de Playwright no está instalado.)
