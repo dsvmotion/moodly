@@ -1,6 +1,6 @@
 // Genera los iconos PNG de la PWA a partir del icono maestro
-// (scripts/pwa-icons/app-icon.png, la baldosa sobre fondo transparente),
-// componiéndolos en un canvas del Chromium de Playwright. Los PNG se commitean.
+// (scripts/pwa-icons/app-icon.svg: la «M» del logotipo, blanca sobre negro, a
+// sangre), dibujándolo en un canvas del Chromium de Playwright. Los PNG se commitean.
 // Uso (desde la raíz): node apps/web/scripts/pwa-icons.ts
 // (CHROMIUM_PATH=<ruta> si el Chromium de Playwright no está instalado.)
 import { readFileSync, writeFileSync } from "node:fs";
@@ -10,18 +10,13 @@ import { chromium } from "@playwright/test";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const iconsDir = resolve(scriptDir, "../public/icons");
-const source = readFileSync(resolve(scriptDir, "pwa-icons/app-icon.png")).toString("base64");
+const source = readFileSync(resolve(scriptDir, "pwa-icons/app-icon.svg")).toString("base64");
 
-// La baldosa dentro del maestro (px del maestro): fuera de ella es transparente.
-// No es del todo cuadrada; se encaja en el lienzo sin deformarla.
-const TILE = { x: 90, y: 105, w: 1075, h: 1047 };
-
-// - any: la baldosa tal cual, con sus esquinas transparentes.
-// - full-bleed: opaco para iOS. La baldosa ocupa todo el icono y las esquinas
-//   (más redondas que la máscara de iOS) se rellenan con la propia baldosa
-//   ampliada y difuminada, para que no queden en negro.
-// - maskable: opaco para Android. La baldosa al 80 % sobre ese mismo fondo,
-//   con el símbolo dentro de la zona segura circular (80 % central).
+// - any: la baldosa con las esquinas redondeadas (radio de la máscara de iOS,
+//   22,37 %) y transparentes fuera de ella.
+// - full-bleed: opaco y a sangre para iOS, que aplica su propia máscara.
+// - maskable: opaco y a sangre para Android. La M (50 % del ancho) ya cae dentro
+//   de la zona segura circular (80 % central), así que no hace falta reducirla.
 type Kind = "any" | "full-bleed" | "maskable";
 const targets: ReadonlyArray<{ file: string; size: number; kind: Kind }> = [
   { file: "icon-192.png", size: 192, kind: "any" },
@@ -40,25 +35,22 @@ try {
     await page.setViewportSize({ width: size, height: size });
     await page.setContent(`<body style="margin:0"><canvas id="c" width="${size}" height="${size}" style="display:block"></canvas></body>`);
     await page.evaluate(
-      async ({ src, tile, size, kind }) => {
+      async ({ src, size, kind }) => {
         const image = new Image();
-        image.src = `data:image/png;base64,${src}`;
+        image.src = `data:image/svg+xml;base64,${src}`;
         await image.decode();
         const canvas = document.getElementById("c") as HTMLCanvasElement;
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("El canvas no ofrece contexto 2d");
         ctx.imageSmoothingQuality = "high";
-        const drawTile = (scale: number, blur = 0) => {
-          const k = (size * scale) / Math.max(tile.w, tile.h);
-          const w = tile.w * k;
-          const h = tile.h * k;
-          ctx.filter = blur ? `blur(${blur}px)` : "none";
-          ctx.drawImage(image, tile.x, tile.y, tile.w, tile.h, (size - w) / 2, (size - h) / 2, w, h);
-        };
-        if (kind !== "any") drawTile(1.6, size / 12);
-        drawTile(kind === "maskable" ? 0.8 : 1);
+        if (kind === "any") {
+          ctx.beginPath();
+          ctx.roundRect(0, 0, size, size, size * 0.2237);
+          ctx.clip();
+        }
+        ctx.drawImage(image, 0, 0, size, size);
       },
-      { src: source, tile: TILE, size, kind },
+      { src: source, size, kind },
     );
     const png = await page.locator("#c").screenshot({ omitBackground: kind === "any" });
     writeFileSync(resolve(iconsDir, file), png);
