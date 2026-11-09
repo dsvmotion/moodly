@@ -26,7 +26,7 @@ test("sin elegir: login en inglés y la app en el idioma de la organización; lo
   await expect(html).toHaveAttribute("lang", "en");
   await sidebarEn.getByRole("link", { name: "Inbox", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
-  await expect(page.getByTestId("section-empty")).toContainText("once you connect a channel");
+  await expect(page.getByTestId("inbox-filter")).toHaveText(["Open", "Handled by the team", "Closed"]);
 
   await page.goto("/app/settings/locations");
   await expect(page.getByRole("columnheader", { name: /Time zone/ })).toBeVisible();

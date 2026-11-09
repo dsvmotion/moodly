@@ -413,6 +413,64 @@
       "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
     }
   },
+  "inboxPage": {
+    "title": "Inbox",
+    "description": "Conversations with your customers in the selected scope: who is handling each one and the latest message. It refreshes on its own.",
+    "filterLabel": "Filter conversations",
+    "filters": {
+      "open": "Open",
+      "human": "Handled by the team",
+      "closed": "Closed"
+    },
+    "searchLabel": "Search conversations",
+    "searchPlaceholder": "Search by customer name",
+    "search": "Search",
+    "emptyTitle": {
+      "open": "No open conversations",
+      "human": "No conversations handled by the team",
+      "closed": "No closed conversations"
+    },
+    "empty": {
+      "open": "When a customer writes through a connected channel, the conversation shows up here.",
+      "human": "When someone on the team takes over a conversation from the agent, it shows up here.",
+      "closed": "Finished conversations show up here."
+    },
+    "noResultsTitle": "No results",
+    "noResults": "No conversation in this tab has a customer named like “{search}”.",
+    "choose": "Choose a conversation to read it.",
+    "unknownContact": "Customer without a name",
+    "wholeOrganization": "Whole organization",
+    "noMessages": "No messages yet",
+    "back": "Back to the inbox",
+    "truncated": "Showing the latest {count} messages.",
+    "mode": {
+      "agent": "Agent",
+      "human": "Team",
+      "closed": "Closed"
+    },
+    "handledBy": {
+      "agent": "Handled by the agent",
+      "human": "Handled by the team",
+      "closed": "Closed"
+    },
+    "author": {
+      "contact": "Customer",
+      "agent": "Agent",
+      "user": "Team",
+      "system": "System"
+    },
+    "status": {
+      "pending": "Not sent yet",
+      "failed": "Could not be sent"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "email": "Email",
+      "webchat": "Web chat",
+      "voice": "Phone"
+    }
+  },
   "testChat": {
     "title": "Try it",
     "description": "Write as if you were a customer. The agent answers with the real model, and you approve what it proposes here or in Approvals.",

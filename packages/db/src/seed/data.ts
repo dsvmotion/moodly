@@ -309,3 +309,102 @@ export const seedApprovals: readonly SeedApproval[] = [
 /** La organización de las aprobaciones del seed. */
 export const SEED_APPROVALS_ORG = ORG_A;
 
+
+/**
+ * La bandeja de conversaciones (`/app/inbox`, V2): conversaciones de Demo A con
+ * ids fijos, para que los e2e las abran por su id. Una abierta en A1 que lleva
+ * el agente, una en A2 que lleva el equipo (con un aviso del sistema y un
+ * mensaje que no se pudo enviar), una cerrada en A1, una de toda la
+ * organización (solo la ve el org_admin) y una del chat de pruebas en A1, que
+ * la bandeja nunca enseña. Los mensajes van con minutos de antigüedad respecto
+ * a la ejecución del seed: el orden de la bandeja es el de su último mensaje.
+ */
+export type SeedInboxChannel = "whatsapp" | "webchat" | "email" | "test";
+
+export interface SeedInboxMessage {
+  author: "contact" | "agent" | "user" | "system";
+  content: string;
+  status?: "received" | "sent" | "failed";
+  minutesAgo: number;
+}
+
+export interface SeedInboxConversation {
+  key: string;
+  id: string;
+  contactId: string;
+  contactName: string;
+  locationId: string | null;
+  channel: SeedInboxChannel;
+  mode: "agent" | "human" | "closed";
+  messages: readonly SeedInboxMessage[];
+}
+
+/** La organización de la bandeja del seed. */
+export const SEED_INBOX_ORG = ORG_A;
+
+export const seedInboxConversations: readonly SeedInboxConversation[] = [
+  {
+    key: "a1_open",
+    id: "5eed000b-0000-4000-8000-0000000000b1",
+    contactId: "5eed000c-0000-4000-8000-0000000000c1",
+    contactName: "Lucía Martín",
+    locationId: LOC_A1,
+    channel: "whatsapp",
+    mode: "agent",
+    messages: [
+      { author: "contact", content: "Hola, ¿tenéis hueco mañana por la tarde para un tratamiento facial?", minutesAgo: 20 },
+      {
+        author: "agent",
+        content: "Hola Lucía, soy el asistente de IA del centro. Mañana tengo libre a las 17:00 y a las 18:30. ¿Te viene bien alguna?",
+        status: "sent",
+        minutesAgo: 19,
+      },
+      { author: "contact", content: "A las 18:30 perfecto", minutesAgo: 5 },
+    ],
+  },
+  {
+    key: "a2_human",
+    id: "5eed000b-0000-4000-8000-0000000000b2",
+    contactId: "5eed000c-0000-4000-8000-0000000000c2",
+    contactName: "Jorge Pérez",
+    locationId: LOC_A2,
+    channel: "webchat",
+    mode: "human",
+    messages: [
+      { author: "contact", content: "Quiero hablar con una persona, por favor.", minutesAgo: 120 },
+      { author: "system", content: "El equipo ha tomado el control. El agente queda en pausa en esta conversación.", status: "sent", minutesAgo: 110 },
+      { author: "user", content: "Hola Jorge, soy del equipo del centro A2. Cuéntame.", status: "sent", minutesAgo: 100 },
+      { author: "user", content: "Te he enviado el presupuesto por email.", status: "failed", minutesAgo: 90 },
+    ],
+  },
+  {
+    key: "a1_closed",
+    id: "5eed000b-0000-4000-8000-0000000000b3",
+    contactId: "5eed000c-0000-4000-8000-0000000000c3",
+    contactName: "Marta Ruiz",
+    locationId: LOC_A1,
+    channel: "whatsapp",
+    mode: "closed",
+    messages: [{ author: "contact", content: "Gracias, todo claro.", minutesAgo: 3 * 24 * 60 }],
+  },
+  {
+    key: "org_wide",
+    id: "5eed000b-0000-4000-8000-0000000000b4",
+    contactId: "5eed000c-0000-4000-8000-0000000000c4",
+    contactName: "Empresa Sol",
+    locationId: null,
+    channel: "email",
+    mode: "agent",
+    messages: [{ author: "contact", content: "Buenos días, ¿hacéis precios para empresas?", minutesAgo: 60 }],
+  },
+  {
+    key: "a1_test_chat",
+    id: "5eed000b-0000-4000-8000-0000000000b5",
+    contactId: "5eed000c-0000-4000-8000-0000000000c5",
+    contactName: "Prueba interna",
+    locationId: LOC_A1,
+    channel: "test",
+    mode: "agent",
+    messages: [{ author: "contact", content: "Mensaje del chat de pruebas", minutesAgo: 1 }],
+  },
+];

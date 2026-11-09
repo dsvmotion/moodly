@@ -413,6 +413,64 @@
       "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
     }
   },
+  "inboxPage": {
+    "title": "Bandeja",
+    "description": "Las conversaciones con tus clientes en el alcance elegido: quién lleva cada una y su último mensaje. Se actualiza sola.",
+    "filterLabel": "Filtrar conversaciones",
+    "filters": {
+      "open": "Abiertas",
+      "human": "Las lleva el equipo",
+      "closed": "Cerradas"
+    },
+    "searchLabel": "Buscar conversaciones",
+    "searchPlaceholder": "Buscar por nombre del cliente",
+    "search": "Buscar",
+    "emptyTitle": {
+      "open": "No hay conversaciones abiertas",
+      "human": "El equipo no lleva ninguna conversación",
+      "closed": "No hay conversaciones cerradas"
+    },
+    "empty": {
+      "open": "Cuando un cliente escriba por un canal conectado, la conversación aparecerá aquí.",
+      "human": "Cuando alguien del equipo tome el control de una conversación, aparecerá aquí.",
+      "closed": "Aquí aparecen las conversaciones terminadas."
+    },
+    "noResultsTitle": "Sin resultados",
+    "noResults": "Ninguna conversación de esta pestaña tiene un cliente que se llame como «{search}».",
+    "choose": "Elige una conversación para leerla.",
+    "unknownContact": "Cliente sin nombre",
+    "wholeOrganization": "Toda la organización",
+    "noMessages": "Aún no hay mensajes",
+    "back": "Volver a la bandeja",
+    "truncated": "Se muestran los últimos {count} mensajes.",
+    "mode": {
+      "agent": "Agente",
+      "human": "Equipo",
+      "closed": "Cerrada"
+    },
+    "handledBy": {
+      "agent": "La lleva el agente",
+      "human": "La lleva el equipo",
+      "closed": "Cerrada"
+    },
+    "author": {
+      "contact": "Cliente",
+      "agent": "Agente",
+      "user": "Equipo",
+      "system": "Sistema"
+    },
+    "status": {
+      "pending": "Aún sin enviar",
+      "failed": "No se pudo enviar"
+    },
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "instagram": "Instagram",
+      "email": "Email",
+      "webchat": "Chat web",
+      "voice": "Teléfono"
+    }
+  },
   "testChat": {
     "title": "Pruébalo",
     "description": "Escribe como si fueras un cliente. El agente contesta con el modelo de verdad y lo que proponga lo apruebas aquí o en Aprobaciones.",
