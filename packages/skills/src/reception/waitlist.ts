@@ -5,7 +5,7 @@ import { z } from "zod";
 // Apuntarse a la lista de espera (paso 4f, MANUAL §5.1, decidido por producto
 // el 2026-11-08): si no hay hueco que le sirva, el agente le ofrece apuntarse a
 // la lista del servicio en su local, dentro de la franja en la que le viene
-// bien. Cuando se libera un hueco, la plataforma se lo ofrece (4f-3).
+// bien. Cuando se libera un hueco, la plataforma se lo ofrece (4f-2).
 //
 // - El contacto, el local y la conversación los pone el runtime; el LLM solo
 //   propone el servicio y la franja.

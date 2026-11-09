@@ -404,7 +404,8 @@
       "reschedule_appointment": "Reschedule",
       "cancel_appointment": "Cancellation",
       "appointment_reminder": "Appointment reminder",
-      "join_waitlist": "Waitlist"
+      "join_waitlist": "Waitlist",
+      "waitlist_offer": "Waitlist offer"
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
