@@ -403,7 +403,8 @@
       "book_appointment": "Booking",
       "reschedule_appointment": "Reschedule",
       "cancel_appointment": "Cancellation",
-      "appointment_reminder": "Appointment reminder"
+      "appointment_reminder": "Appointment reminder",
+      "join_waitlist": "Waitlist"
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",

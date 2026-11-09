@@ -58,6 +58,9 @@ function respond(request: TransportRequest): TransportResponse {
   if (/res[eé]rv/i.test(customer)) {
     return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
   }
+  if (/lista de espera/i.test(customer)) {
+    return call("join_waitlist", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00", until: "2030-06-10T00:00:00+02:00" });
+  }
   if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");

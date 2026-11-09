@@ -12,6 +12,8 @@ export {
   stillApplies,
 } from "./reception/reminder.js";
 export type { AppointmentReminderSkill, ReminderAppointment, ReminderKind, ReminderSource } from "./reception/reminder.js";
+export { JOIN_WAITLIST_SKILL_KEY, MAX_WAITLIST_WINDOW_MS, WaitlistScopeError, createJoinWaitlistSkill } from "./reception/waitlist.js";
+export type { JoinWaitlistRequest, JoinWaitlistSkill, WaitlistEntry, WaitlistStore } from "./reception/waitlist.js";
 export { MAX_REPLY_LENGTH, ReplyTargetError, createReplySkill } from "./conversation/reply.js";
 export type { ConversationSender, ReplySkill } from "./conversation/reply.js";
 export { createFakeConversationSender } from "./conversation/fake.js";
