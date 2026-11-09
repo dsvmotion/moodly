@@ -9,12 +9,15 @@
 //   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
 //   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
 //
-// Sale con código 1 si algún set queda por debajo de su umbral o si se corta
-// por el tope de gasto.
+// Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
+// no acierta ninguna, bloquea aunque la tasa pase el umbral.
+//
+// Sale con código 1 si algún set queda por debajo de su umbral, si un caso
+// falla en todas sus corridas o si se corta por el tope de gasto.
 import { createGatewayTransport } from "@repo/agent-core";
 import type { ModelTransport, TransportRequest } from "@repo/agent-core";
 import { conversationCases } from "./cases.js";
-import { CATEGORIES, runCase, score } from "./runner.js";
+import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase } from "./runner.js";
 
 interface Options {
@@ -91,29 +94,53 @@ async function main(): Promise<number> {
   const transport = metered(createGatewayTransport({ apiKey }), options.maxEur, spent);
   const runs: CaseRun[] = [];
   let stopped = false;
+
+  /** Corre un caso y lo enseña; false si el tope de gasto lo cortó (y entonces no cuenta). */
+  async function attempt(c: ConversationCase, label: string): Promise<boolean> {
+    const run = await runCase(c, transport);
+    if (run.outcome.result.status === "handed_off" && run.outcome.result.error?.includes("RunBudgetError")) {
+      out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
+      stopped = true;
+      return false;
+    }
+    runs.push(run);
+    const ok = run.failures.length === 0;
+    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €`);
+    out(`    herramientas: ${run.outcome.calls.map((e) => `${e.skillKey}(${e.status})`).join(", ") || "ninguna"}`);
+    out(`    respuesta: ${run.outcome.reply === null ? "—" : `«${run.outcome.reply.replace(/\s+/g, " ")}»`}`);
+    for (const failure of run.failures) out(`    ✗ ${failure.check}: ${failure.why}`);
+    return true;
+  }
+
   for (const c of cases) {
-    for (let attempt = 1; attempt <= options.repeat && !stopped; attempt += 1) {
-      const run = await runCase(c, transport);
-      // Si el tope de la corrida cortó el turno, ese caso no cuenta.
-      if (run.outcome.result.status === "handed_off" && run.outcome.result.error?.includes("RunBudgetError")) {
-        out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
-        stopped = true;
-        break;
-      }
-      runs.push(run);
-      const ok = run.failures.length === 0;
-      out(`${ok ? "✓" : "✗"} ${c.id}${options.repeat > 1 ? ` #${attempt}` : ""} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €`);
-      out(`    herramientas: ${run.outcome.calls.map((e) => `${e.skillKey}(${e.status})`).join(", ") || "ninguna"}`);
-      out(`    respuesta: ${run.outcome.reply === null ? "—" : `«${run.outcome.reply.replace(/\s+/g, " ")}»`}`);
-      for (const failure of run.failures) out(`    ✗ ${failure.check}: ${failure.why}`);
+    for (let n = 1; n <= options.repeat && !stopped; n += 1) {
+      if (!(await attempt(c, options.repeat > 1 ? ` #${n}` : ""))) break;
     }
     if (stopped) break;
+  }
+
+  // Un caso de comportamiento que no acertó ninguna vez se repite hasta
+  // CONFIRM_RUNS corridas: si sigue sin acertar, bloquea; si acierta alguna,
+  // cuenta en la tasa como cualquier otro. Repetir nunca convierte un fallo en
+  // acierto: todas las corridas cuentan. Los de seguridad no se repiten: un
+  // solo fallo ya bloquea.
+  if (!stopped) {
+    for (const id of alwaysFailing(runs)) {
+      const c = cases.find((candidate) => candidate.id === id);
+      if (!c || c.severity !== "behavior") continue;
+      const done = runs.filter((run) => run.case.id === id).length;
+      for (let n = done + 1; n <= CONFIRM_RUNS && !stopped; n += 1) {
+        if (!(await attempt(c, ` · confirmación ${n}/${CONFIRM_RUNS}`))) break;
+      }
+      if (stopped) break;
+    }
   }
 
   const scores = score(runs);
   out();
   for (const [severity, s] of Object.entries(scores)) {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
+    if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
   out(`modelo: ${runs.find((run) => run.model)?.model ?? "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   return scores.safety.ok && scores.behavior.ok && !stopped ? 0 : 1;
