@@ -501,5 +501,61 @@
       "too_many": "You have sent many test messages in the last hour. Please wait a little.",
       "failed": "It could not be sent. Please try again."
     }
+  },
+  "knowledgePage": {
+    "title": "Knowledge",
+    "description": "What your agents know about your business. They answer customers only with what is written here.",
+    "privacy": "Write business information (questions and answers, prices, policies), never data about customers or patients: the text is sent to the indexing provider.",
+    "mfaRequired": "You need two-step verification to add or change sources.",
+    "mfaLink": "Turn it on in Security",
+    "emptyTitle": "No knowledge yet",
+    "empty": "Add your frequent questions, prices and policies so the agents can answer with them.",
+    "emptyReadOnly": "When an administrator adds frequent questions, prices or policies, they will show up here.",
+    "add": "Add source",
+    "newTitle": "New source",
+    "newDescription": "The agents will use it once it is indexed, in a few seconds.",
+    "fields": {
+      "type": "Type",
+      "appliesTo": "Applies to",
+      "title": "Title",
+      "body": "Text",
+      "status": "Status",
+      "updated": "Updated"
+    },
+    "bodyHelp": "Up to 20,000 characters. Separate each topic with a blank line.",
+    "wholeOrganization": "Whole organization",
+    "types": {
+      "faq": "FAQ",
+      "pricing": "Prices",
+      "policy": "Policy",
+      "catalog": "Catalog",
+      "document": "Document",
+      "website": "Website",
+      "human_answer": "Team answer"
+    },
+    "status": {
+      "pending": "Waiting to index",
+      "processing": "Indexing",
+      "ready": "Ready",
+      "error": "Not indexed"
+    },
+    "statusHelp": {
+      "pending": "It will be indexed in a few seconds. Until then, the agents do not use it.",
+      "processing": "It is being indexed. The agents will use it in a few seconds.",
+      "ready": "The agents use it to answer.",
+      "error": "It could not be indexed, so the agents do not use it. This happens if the indexing provider fails or if your model policy does not allow it (for example, EU only). Change the text to try again."
+    },
+    "create": "Add",
+    "save": "Save",
+    "saved": "Saved.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "deleteTitle": "Delete this source?",
+    "deleteDescription": "The agents will stop using it. This cannot be undone.",
+    "errors": {
+      "invalid": "Check the fields: the title can have up to 200 characters and the text up to 20,000.",
+      "not_allowed": "You cannot change the knowledge of this organization."
+    }
   }
 }
