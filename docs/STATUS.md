@@ -91,6 +91,13 @@
 - **Frontend y seguridad del 2026-10-23 (#61–#69), verificado sobre `main`** (`e1b27d5`): CI en verde en los 5 checks y despliegue a staging en verde (run 39924025758). La web de staging sirve ese commit.
 
 ## En curso
+- **Cuatro sesiones en paralelo (decisión de producto, 2026-11-09):** excepción a «una fase no avanza hasta que la anterior está mergeada». Trabajan a la vez:
+  - V1, la sesión líder: B20, todas las migraciones, este archivo y los workflows de staging;
+  - V2: la bandeja en vivo con «tomar el control» y los arreglos de la revisión de diseño;
+  - V3: el borrador del ADR 0046, `moodlycrm.com` en `apps/site` y la estructura de la página de precios;
+  - V4: el arnés de evals.
+
+  Reglas, carpetas y orden de los mergeos: `docs/WORKSTREAMS.md`. Los mergeos siguen siendo de uno en uno, con CI en verde sobre el commit exacto y `main` comprobado antes del siguiente.
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22), con la del frontend (`2026-10-23-auditoria-frontend.md`) y la segunda pasada (`2026-10-23-auditoria-segunda-pasada.md`: R-29…R-36 y orden propuesto para la revisión con producto). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
 - **Dirección del producto (decisión de producto, 2026-10-24):** `docs/design/roadmap-enterprise.md` (v4) y `docs/design/design-review.md` orientan el producto, pero no lo limitan: si algo choca con lo construido, se avisa a producto en vez de forzarlo. La referencia visual es el diseño «Moodly Landing Pages» (tokens en su `project/ds/moodly/tokens.json`: los colores coinciden con los de `packages/ui`, la tipografía no); la revisión del diseño dice qué incoherencias corregir. Sin Bedrock, Vertex, Azure, Apigee, LangGraph ni Firestore hasta que lo pida un cliente; ningún agente llama a un proveedor de modelos sin pasar por el enrutador.
   - **Decisiones de fase 1 (MANUAL §18):** vertical de estética no médica en Madrid (gimnasios como alternativa; el cliente piloto concreto, pendiente); Vercel AI Gateway; AWS KMS en `eu-central-1`; embeddings elegidos por eval en el conocimiento v0.
