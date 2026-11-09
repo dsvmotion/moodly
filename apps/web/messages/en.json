@@ -405,7 +405,8 @@
       "cancel_appointment": "Cancellation",
       "appointment_reminder": "Appointment reminder",
       "join_waitlist": "Waitlist",
-      "waitlist_offer": "Waitlist offer"
+      "waitlist_offer": "Waitlist offer",
+      "search_knowledge": "Knowledge search"
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",

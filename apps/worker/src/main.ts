@@ -27,14 +27,15 @@ if (!embedder) logger.warn("sin AI_GATEWAY_API_KEY: las fuentes de conocimiento 
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
-  // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3).
+  // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3),
+  // que busca en el conocimiento del negocio con los mismos embeddings (B20-2).
   // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).
   // reception.reminders: los recordatorios de cada cita, 24 h y 4 h antes (4e-2).
   // reception.waitlist: el hueco de una cita cancelada, a la lista de espera (4f-2).
   // knowledge.ingest: cada fuente de conocimiento nueva o cambiada, troceada e indexada (B20-1).
   eventHandlers: ({ db }) => [
     logHandler,
-    createConverseHandler({ router: models.router }),
+    createConverseHandler({ router: models.router, ...(embedder ? { knowledge: { embedder, route: embedder.route } } : {}) }),
     createApprovalHandler({ skills: codeSkills }),
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),
