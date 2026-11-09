@@ -5,6 +5,7 @@ import {
   NoEligibleTransportError,
   PLATFORM_MODEL_POLICY,
   createModelRouter,
+  policyAllows,
 } from "./router.js";
 import type { ModelCall, ModelPolicy, Spend } from "./router.js";
 import { createFakeTransport } from "./transports/fake.js";
@@ -199,5 +200,21 @@ describe("herramientas (paso 4d)", () => {
     const transport = createFakeTransport({ provider: "a" });
     await createModelRouter([transport]).generate(call, policy(), noSpend);
     expect(transport.calls[0]).not.toHaveProperty("tools");
+  });
+});
+
+describe("policyAllows: la misma regla para los embeddings (ADR 0048)", () => {
+  const gateway = { provider: "vercel-ai-gateway", region: "other", connection: "managed" } as const;
+  it("por defecto, la vía del gateway vale", () => {
+    expect(policyAllows(policy(), gateway)).toBe(true);
+  });
+  it("con «Solo UE», solo una vía con región UE garantizada", () => {
+    expect(policyAllows(policy({ residency: "eu" }), gateway)).toBe(false);
+    expect(policyAllows(policy({ residency: "eu" }), { ...gateway, region: "eu" })).toBe(true);
+  });
+  it("con proveedores permitidos, solo esos; y nunca otro modo de conexión", () => {
+    expect(policyAllows(policy({ allowedProviders: ["mistral"] }), gateway)).toBe(false);
+    expect(policyAllows(policy({ allowedProviders: ["vercel-ai-gateway"] }), gateway)).toBe(true);
+    expect(policyAllows(policy({ connection: "byok" }), gateway)).toBe(false);
   });
 });

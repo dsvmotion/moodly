@@ -24,6 +24,7 @@
     "@repo/agent-core": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/integrations": "workspace:*",
+    "@repo/knowledge": "workspace:*",
     "@repo/skills": "workspace:*",
     "pg": "8.23.1",
     "pino": "10.4.0",

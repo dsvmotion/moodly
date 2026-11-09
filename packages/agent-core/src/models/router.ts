@@ -145,16 +145,22 @@ export class AllTransportsFailedError extends Error {
   }
 }
 
+/** Por dónde va una llamada: lo que mira la política, también para los embeddings (ADR 0048). */
+export type RouteOrigin = Pick<ModelTransport, "provider" | "region" | "connection">;
+
+/** Si la política deja usar esa vía: mismo modo de conexión, la residencia y los proveedores permitidos. */
+export function policyAllows(policy: ModelPolicy, route: RouteOrigin): boolean {
+  return (
+    // BYOK nunca cae a credenciales de Moodly, ni lo gestionado a las del cliente.
+    route.connection === policy.connection &&
+    (policy.residency === "any" || route.region === "eu") &&
+    (policy.allowedProviders.length === 0 || policy.allowedProviders.includes(route.provider))
+  );
+}
+
 /** Los transportes que esta política permite para la clave, en el orden en que se probarán. */
 export function eligibleTransports(policy: ModelPolicy, modelKey: ModelKey, transports: readonly ModelTransport[]): ModelTransport[] {
-  return transports.filter(
-    (transport) =>
-      transport.serves.includes(modelKey) &&
-      // BYOK nunca cae a credenciales de Moodly, ni lo gestionado a las del cliente.
-      transport.connection === policy.connection &&
-      (policy.residency === "any" || transport.region === "eu") &&
-      (policy.allowedProviders.length === 0 || policy.allowedProviders.includes(transport.provider)),
-  );
+  return transports.filter((transport) => transport.serves.includes(modelKey) && policyAllows(policy, transport));
 }
 
 export interface ModelRouter {

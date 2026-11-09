@@ -1,9 +1,11 @@
 // Proceso del worker: `pnpm --filter @repo/worker start` (o `dev` en local).
+import { createGatewayEmbedder } from "@repo/agent-core";
 import { createApprovalHandler } from "./agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
 import { logHandler } from "./events/log-handler.ts";
+import { createIngestHandler } from "./knowledge/ingest.ts";
 import { LeaseAbortedError } from "./lease.ts";
 import { createLogger } from "./logger.ts";
 import { registerReminders } from "./reminders/reminders.ts";
@@ -18,6 +20,10 @@ if (models.transports.length === 0) {
 } else {
   logger.info({ providers: models.transports.map((transport) => transport.provider) }, "vías de modelo activas");
 }
+// Los embeddings del conocimiento, por el mismo gateway (ADR 0048). Sin clave no
+// se registra knowledge.ingest: las fuentes que se creen o cambien se quedan en pending.
+const embedder = config.aiGatewayApiKey ? createGatewayEmbedder({ apiKey: config.aiGatewayApiKey }) : null;
+if (!embedder) logger.warn("sin AI_GATEWAY_API_KEY: las fuentes de conocimiento no se indexan");
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
@@ -25,12 +31,14 @@ const worker = createWorker(config, logger, {
   // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).
   // reception.reminders: los recordatorios de cada cita, 24 h y 4 h antes (4e-2).
   // reception.waitlist: el hueco de una cita cancelada, a la lista de espera (4f-2).
+  // knowledge.ingest: cada fuente de conocimiento nueva o cambiada, troceada e indexada (B20-1).
   eventHandlers: ({ db }) => [
     logHandler,
     createConverseHandler({ router: models.router }),
     createApprovalHandler({ skills: codeSkills }),
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),
+    ...(embedder ? [createIngestHandler({ embedder, route: embedder.route })] : []),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
   // workflows: se sale sin esperar a un apagado limpio (regla 1).

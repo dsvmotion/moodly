@@ -26,6 +26,7 @@ export {
   PLATFORM_MODEL_POLICY,
   createModelRouter,
   eligibleTransports,
+  policyAllows,
 } from "./models/router.js";
 export type {
   ConnectionMode,
@@ -37,6 +38,7 @@ export type {
   ModelRouter,
   ModelTransport,
   Residency,
+  RouteOrigin,
   RoutedResult,
   Spend,
   TransportRequest,
@@ -45,6 +47,8 @@ export type {
 } from "./models/router.js";
 export { createFakeTransport } from "./models/transports/fake.js";
 export { ModelOutputTruncatedError, ModelRefusalError, ModelResponseError, createGatewayTransport } from "./models/transports/gateway.js";
+export { GatewayEmbeddingError, createGatewayEmbedder } from "./models/transports/gateway-embedder.js";
+export type { GatewayEmbedder, GatewayEmbedderOptions } from "./models/transports/gateway-embedder.js";
 export type { GatewayTransportOptions } from "./models/transports/gateway.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";

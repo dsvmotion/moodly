@@ -12,8 +12,8 @@ WORKDIR /repo
 COPY . .
 
 # Solo las dependencias de producción del worker y de los paquetes del monorepo
-# que usa («...»: @repo/db, @repo/agent-core, @repo/config, @repo/integrations
-# y @repo/skills), para la imagen final.
+# que usa («...»: @repo/db, @repo/agent-core, @repo/config, @repo/integrations,
+# @repo/knowledge y @repo/skills), para la imagen final.
 FROM base AS prod-deps
 RUN pnpm install --frozen-lockfile --prod --filter "@repo/worker..."
 
@@ -33,6 +33,7 @@ COPY apps/worker/package.json ./apps/worker/
 # - @repo/db: createServiceDb (ADR 0009).
 # - @repo/agent-core, @repo/config, @repo/integrations y @repo/skills: el turno del
 #   agente, el enrutador de modelos, el calendario y las skills (paso 4d-3).
+# - @repo/knowledge: el troceado de las fuentes de conocimiento (paso B20-1).
 # Si el worker usa otro paquete del monorepo, va aquí (lo comprueba
 # src/dockerfile.test.ts) y en las rutas que despliegan el worker en Railway
 # (CLAUDE.md, «Worker en staging»).
@@ -47,6 +48,8 @@ COPY packages/config/package.json ./packages/config/
 COPY --from=prod-deps /repo/packages/integrations/node_modules ./packages/integrations/node_modules
 COPY --from=build /repo/packages/integrations/dist ./packages/integrations/dist
 COPY packages/integrations/package.json ./packages/integrations/
+COPY --from=build /repo/packages/knowledge/dist ./packages/knowledge/dist
+COPY packages/knowledge/package.json ./packages/knowledge/
 COPY --from=prod-deps /repo/packages/skills/node_modules ./packages/skills/node_modules
 COPY --from=build /repo/packages/skills/dist ./packages/skills/dist
 COPY packages/skills/package.json ./packages/skills/

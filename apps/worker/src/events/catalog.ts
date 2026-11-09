@@ -49,6 +49,10 @@ export const eventPayloads = {
     appointment_id: z.uuid(),
     starts_at: z.iso.datetime({ offset: true }),
   }),
+  // Paso B20-1: una fuente de conocimiento que hay que (re)indexar.
+  "knowledge_source.pending": z.object({
+    source_id: z.uuid(),
+  }),
 } satisfies Record<string, z.ZodType<Record<string, unknown>>>;
 
 export type EventType = keyof typeof eventPayloads;

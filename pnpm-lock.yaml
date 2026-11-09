@@ -144,6 +144,9 @@ importers:
       '@repo/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      '@repo/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@repo/skills':
         specifier: workspace:*
         version: link:../../packages/skills
@@ -200,6 +203,10 @@ importers:
       zod:
         specifier: 4.6.6
         version: 4.6.6
+    devDependencies:
+      '@repo/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
 
   packages/integrations:
     dependencies:
