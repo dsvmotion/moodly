@@ -12,8 +12,10 @@ import { reminderKey, reminderWorkflowId } from "./reminders.ts";
 // agente emite appointment.created, el outbox lo entrega a reception.reminders
 // en un worker de verdad (DBOS y Supabase local), que duerme hasta cada
 // recordatorio, relee la cita y lo envía por la conversación de la reserva.
-// Para no esperar 24 h, el worker de prueba los manda 30 s y 8 s antes de la
-// cita, con 10 s de separación mínima en vez de 1 h. Las horas de silencio
+// Para no esperar 24 h, el worker de prueba los manda 40 s y 8 s antes de la
+// cita, con 20 s de separación mínima en vez de 1 h. Las horas de cada cita
+// dejan margen a que el evento tarde en llegar al worker (el outbox publica
+// cada 5 s y en el CI puede tardar más): hasta unos 20 s no cambia nada. Las horas de silencio
 // son las de verdad: el local está en una zona horaria en la que ahora son
 // las 14:00, salvo en el test que las comprueba. Los datos viven en un local temporal de Demo A que se borra al terminar.
 const fixture = join(import.meta.dirname, "..", "testing", "reminders-worker.ts");
@@ -23,7 +25,7 @@ const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
 const api = localSupabaseApi();
 const marker = `reminders-${randomUUID().slice(0, 8)}`;
 const markerFile = join(dir, "started.jsonl");
-const TIMING = { "24h": 30_000, "4h": 8_000, minGap: 10_000 };
+const TIMING = { "24h": 40_000, "4h": 8_000, minGap: 20_000 };
 
 /** Una zona horaria fija en la que ahora son más o menos las `hour` (en Etc/GMT el signo va al revés). */
 function zoneAt(hour: number): string {
@@ -238,12 +240,12 @@ afterAll(async () => {
 describe("los recordatorios de las citas (paso 4e-2)", () => {
   it("una cita reservada por el agente con menos de «24 h»: el primero sale al reservar y el de «4 h» a su hora, por su conversación", async () => {
     const ana = await customer("ana", { locale: "es" });
-    // A 24 s: el de «24 h» (30 s antes) ya pasó, así que sale ya; el de «4 h» (8 s antes), dentro de unos 16 s.
-    const appointment = await book(ana, 24_000);
+    // A 50 s: el de «24 h» sale a los 10 s (o al llegar el evento, si tarda más) y el de «4 h» a los 42 s.
+    const appointment = await book(ana, 50_000);
     const startsAt = await eventStartsAt(appointment.id);
     await waitFor(async () => (await reminders(ana.conversation)).length === 1, "sale el primero");
     expect(await workflowStatus(appointment.id, startsAt)).toBe("PENDING");
-    await waitFor(() => finished(appointment.id, startsAt), "el workflow termina", 30_000);
+    await waitFor(() => finished(appointment.id, startsAt), "el workflow termina", 60_000);
 
     const sent = await reminders(ana.conversation);
     expect(sent.map((message) => [message.direction, message.author, message.idempotency_key])).toEqual([
@@ -279,21 +281,21 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
   it("si se mueve, salen los de la hora nueva y no los de la vieja; si se cancela, no sale lo que quedaba", async () => {
     const bea = await customer("bea", { locale: "es" });
     const carla = await customer("carla", { locale: "es" });
-    // Bea reserva a 45 s y enseguida se mueve a 24 s: el workflow viejo despierta a los 15 s y a los 37 s y no envía nada.
-    const moved = await book(bea, 45_000);
+    // Bea reserva a 70 s y enseguida se mueve a 50 s: el workflow viejo despierta a los 30 s y a los 62 s y no envía nada.
+    const moved = await book(bea, 70_000);
     const oldStartsAt = await eventStartsAt(moved.id);
-    const newStartsAt = new Date(Date.now() + 24_000).toISOString();
+    const newStartsAt = new Date(Date.now() + 50_000).toISOString();
     await admin.query("update public.appointments set starts_at = $2 where id = $1", [moved.id, newStartsAt]);
     const movedStartsAt = await eventStartsAt(moved.id, "appointment.rescheduled");
-    // Carla, a 24 s: sale el primero y, antes del de «4 h», cancela.
-    const cancelled = await book(carla, 24_000);
+    // Carla, a 50 s: sale el primero y, antes del de «4 h» (a los 42 s), cancela.
+    const cancelled = await book(carla, 50_000);
     const cancelledStartsAt = await eventStartsAt(cancelled.id);
     await waitFor(async () => (await reminders(carla.conversation)).length === 1, "a Carla le sale el primero");
     await admin.query("update public.appointments set status = 'cancelled' where id = $1", [cancelled.id]);
 
-    await waitFor(() => finished(cancelled.id, cancelledStartsAt), "el workflow de Carla termina", 30_000);
-    await waitFor(() => finished(moved.id, movedStartsAt), "el de la hora nueva de Bea termina", 30_000);
-    await waitFor(() => finished(moved.id, oldStartsAt), "el de la hora vieja de Bea termina", 60_000);
+    await waitFor(() => finished(cancelled.id, cancelledStartsAt), "el workflow de Carla termina", 60_000);
+    await waitFor(() => finished(moved.id, movedStartsAt), "el de la hora nueva de Bea termina", 60_000);
+    await waitFor(() => finished(moved.id, oldStartsAt), "el de la hora vieja de Bea termina", 90_000);
 
     expect((await reminders(bea.conversation)).map((message) => message.idempotency_key)).toEqual([
       reminderKey(moved.id, movedStartsAt, "24h"),
@@ -304,16 +306,16 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
     // Y en el log, por qué: la cita se movió o se canceló antes de su hora.
     expect(skipped(moved.id, "moved")).toBe(true);
     expect(skipped(cancelled.id, "not_booked")).toBe(true);
-  }, 120_000);
+  }, 150_000);
 
   it("no sale nada si la reservó el equipo, si el cliente se dio de baja o si la conversación está cerrada", async () => {
     const staff = await customer("dani");
     const optedOut = await customer("eva", { consents: { appointment_reminders: { opted_out_at: new Date().toISOString() } } });
     const closed = await customer("fran", { mode: "closed" });
-    // A 17 s: el primero tocaría al llegar el evento (unos segundos), y así se ve por qué no sale.
-    const byStaff = await book({ contact: staff.contact, conversation: null }, 17_000, "user");
-    const toOptedOut = await book(optedOut, 17_000);
-    const toClosed = await book(closed, 17_000);
+    // A 24 s: el primero tocaría al llegar el evento, y así se ve por qué no sale.
+    const byStaff = await book({ contact: staff.contact, conversation: null }, 24_000, "user");
+    const toOptedOut = await book(optedOut, 24_000);
+    const toClosed = await book(closed, 24_000);
     const cases = [
       { appointment: byStaff, conversation: staff.conversation, reason: "not_booked_by_agent" },
       // La audiencia queda vacía: el permiso la filtra.
@@ -359,7 +361,7 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
       await admin.query(set, params);
       try {
         const who = await customer(name);
-        const appointment = await book(who, 17_000);
+        const appointment = await book(who, 24_000);
         const startsAt = await eventStartsAt(appointment.id);
         await waitFor(() => finished(appointment.id, startsAt), `el workflow de ${name} termina`, 30_000);
         expect(await reminders(who.conversation), name).toEqual([]);
@@ -373,8 +375,8 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
 
   it("si el de «4 h» caería a menos de la separación mínima del primero, solo sale el primero", async () => {
     const jon = await customer("jon", { locale: "es" });
-    // A 17 s: el primero sale al llegar el evento y el de «4 h» tocaría a los 9 s, a menos de los 10 s de separación.
-    const appointment = await book(jon, 17_000);
+    // A 24 s: el primero sale al llegar el evento y el de «4 h» tocaría a los 16 s, a menos de los 20 s de separación.
+    const appointment = await book(jon, 24_000);
     const startsAt = await eventStartsAt(appointment.id);
     await waitFor(() => finished(appointment.id, startsAt), "su workflow termina", 30_000);
     expect((await reminders(jon.conversation)).map((message) => message.idempotency_key)).toEqual([reminderKey(appointment.id, startsAt, "24h")]);
