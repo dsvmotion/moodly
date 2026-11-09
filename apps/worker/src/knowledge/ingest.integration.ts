@@ -156,7 +156,8 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
     const parking = "Hay aparcamiento gratuito para clientes en la calle de atrás, entrando por la rampa azul.";
     const long = Array.from({ length: 30 }, (_, i) => `La sesión de láser número ${i + 1} dura unos cuarenta minutos y conviene no tomar el sol antes.`).join(" ");
     const id = await source("Información práctica", `${parking}\n\n${long}`);
-    await waitFor(async () => (await status(id)) === "ready", "la fuente queda ready");
+    // ready se pone dentro del paso; el workflow termina justo después: se esperan las dos cosas.
+    await waitFor(async () => (await status(id)) === "ready" && (await deliveries(id)).join() === "SUCCESS", "la fuente queda ready y la entrega termina");
 
     const rows = await chunks(id);
     expect(rows.length).toBeGreaterThan(2);
@@ -207,7 +208,8 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
 
   it("si los embeddings fallan, la fuente queda en error, sin fragmentos, y no se busca en ella", async () => {
     const id = await source("Precios", "El precio de la limpieza facial es de 45 euros. FALLA-EMBEDDING");
-    await waitFor(async () => (await status(id)) === "error", "la fuente queda en error");
+    // La fuente pasa a error dentro del paso; el workflow termina justo después: se esperan las dos cosas.
+    await waitFor(async () => (await status(id)) === "error" && (await deliveries(id)).join() === "SUCCESS", "la fuente queda en error y la entrega termina");
     expect(await chunks(id)).toEqual([]);
     expect(await deliveries(id)).toEqual(["SUCCESS"]);
     expect((worker?.output() ?? "").split("\n").some((line) => line.includes(`"sourceId":"${id}"`) && line.includes("no se pudo indexar"))).toBe(true);
