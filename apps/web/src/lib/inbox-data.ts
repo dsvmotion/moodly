@@ -35,7 +35,7 @@ export interface InboxConversation {
   id: string;
   contactName: string | null;
   mode: ConversationMode;
-  /** null: el canal no se sabe (hoy solo lo lee el org_admin) o no es uno de los conocidos. */
+  /** null: un canal que la bandeja aún no sabe nombrar. */
   channel: InboxChannel | null;
   locationId: string | null;
   location: string | null;
@@ -61,16 +61,16 @@ export interface InboxThread {
 
 // Una sola cadena literal: así el cliente de Supabase deduce el tipo de cada fila.
 const CONVERSATION_COLUMNS =
-  "id, mode, location_id, last_message_at, created_at, contact:contacts!conversations_contact_same_org!inner(display_name), channel_account:channel_accounts!conversations_channel_account_same_org(channel), agent:agents!conversations_agent_same_org(type:agent_types(key))";
+  "id, mode, channel, location_id, last_message_at, created_at, contact:contacts!conversations_contact_same_org!inner(display_name), agent:agents!conversations_agent_same_org(type:agent_types(key))";
 
 interface ConversationRow {
   id: string;
   mode: string;
+  channel: string;
   location_id: string | null;
   last_message_at: string | null;
   created_at: string;
   contact: { display_name: string | null } | null;
-  channel_account: { channel: string } | null;
   agent: { type: { key: string } | null } | null;
 }
 
@@ -84,15 +84,14 @@ function toConversation(
   names: ReadonlyMap<string, string>,
   preview: MessagePreview | null,
 ): InboxConversation | null {
-  if (!isConversationMode(row.mode)) return null;
-  // El chat de pruebas de cada persona no es un cliente: fuera de la bandeja.
-  if (row.channel_account?.channel === TEST_CHANNEL) return null;
-  const channel = row.channel_account?.channel;
+  // El chat de pruebas de cada persona no es un cliente: fuera de la bandeja
+  // (las consultas ya lo excluyen; esto es la red).
+  if (!isConversationMode(row.mode) || row.channel === TEST_CHANNEL) return null;
   return {
     id: row.id,
     contactName: row.contact?.display_name ?? null,
     mode: row.mode,
-    channel: isInboxChannel(channel) ? channel : null,
+    channel: isInboxChannel(row.channel) ? row.channel : null,
     locationId: row.location_id,
     location: row.location_id ? (names.get(row.location_id) ?? null) : null,
     agentKey: row.agent?.type?.key ?? null,
@@ -124,6 +123,7 @@ export async function loadInboxConversations(input: {
     .from("conversations")
     .select(CONVERSATION_COLUMNS)
     .eq("organization_id", organization.id)
+    .neq("channel", TEST_CHANNEL)
     .in("mode", modesFor(input.filter))
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
@@ -181,6 +181,7 @@ export async function loadInboxThread(input: { id: string; scope: Scope; context
       .select(CONVERSATION_COLUMNS)
       .eq("organization_id", organization.id)
       .eq("id", input.id)
+      .neq("channel", TEST_CHANNEL)
       .maybeSingle(),
     "la conversación",
   );

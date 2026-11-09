@@ -422,6 +422,8 @@ async function main(): Promise<void> {
       location_id: conversation.locationId,
       contact_id: conversation.contactId,
       channel_account_id: accountRow.data?.id ?? "",
+      // La base de datos lo pone igual al de la cuenta (validate_conversation); el tipo lo pide.
+      channel: conversation.channel,
       agent_id: inboxAgentId,
       mode: conversation.mode,
     });
