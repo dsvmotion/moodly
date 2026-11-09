@@ -551,7 +551,11 @@ describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
     // Antes del «sí», una pregunta (seguidas, dentro del plazo de la oferta): la pregunta no acepta nada.
     await say(nora.conversation, "¿Y es con la misma persona?");
     const yes = await say(nora.conversation, "¡Sí!");
-    await waitFor(async () => (await outbound(nora.conversation)).length === 2, "Nora recibe la respuesta");
+    // La respuesta sale dentro del turno y el run se cierra justo después: se esperan las dos cosas.
+    await waitFor(
+      async () => (await outbound(nora.conversation)).length === 2 && (await acceptancesOf(noraEntry))[0]?.run_status === "awaiting_approval",
+      "Nora recibe la respuesta y su run espera a una persona",
+    );
     expect((await outbound(nora.conversation))[1]?.content).toMatch(/^¡Genial! Te guardamos el hueco del /);
     const acceptances = await acceptancesOf(noraEntry);
     expect(acceptances).toHaveLength(1);
@@ -625,7 +629,10 @@ describe("aceptar la oferta contestando SÍ (paso 4f-3)", () => {
       await waitFor(async () => (await outbound(rita.conversation)).length === 1, "a Rita le llega la oferta");
       await extendOffer(ritaEntry);
       await say(rita.conversation, "Yes!");
-      await waitFor(async () => (await outbound(rita.conversation)).length === 2, "Rita recibe la respuesta");
+      await waitFor(
+        async () => (await outbound(rita.conversation)).length === 2 && (await acceptancesOf(ritaEntry))[0]?.run_status === "completed",
+        "Rita recibe la respuesta y su run se cierra",
+      );
       expect((await outbound(rita.conversation))[1]?.content).toMatch(/^Done! You're booked for Láser at waitlist-/);
       expect(await acceptancesOf(ritaEntry)).toMatchObject([{ status: "executed", approval_id: null, run_status: "completed", run_model: null }]);
       await waitFor(() => finished(appointment.id), "el workflow termina", 30_000);
