@@ -421,7 +421,8 @@
       "appointment_reminder": "Recordatorio de cita",
       "join_waitlist": "Lista de espera",
       "waitlist_offer": "Oferta de la lista de espera",
-      "search_knowledge": "Buscar en el conocimiento"
+      "search_knowledge": "Buscar en el conocimiento",
+      "ask_team": "Preguntar al equipo"
     },
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",

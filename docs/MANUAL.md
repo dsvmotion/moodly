@@ -668,6 +668,7 @@ Reglas:
 2. Crea un `knowledge_request` asignado al rol adecuado del local o de la central y responde al cliente final con un mensaje honesto de espera (configurable).
 3. Cuando un humano responde, la respuesta se envía al cliente y se guarda como fuente `human_answer` con el alcance adecuado (organización o local), para que la próxima vez el agente ya lo sepa.
 4. Métrica asociada: número de solicitudes por semana. Debe bajar con el tiempo.
+5. **Cómo está hecho [DECIDIDO: B20-4]:** la skill `ask_team` (escritura interna, sale sola; Atención al cliente y Recepción la traen de serie) crea la `knowledge_request` con el local, el run y la conversación del runtime; el modelo solo escribe la pregunta. Si el agente la tiene, su prompt le dice que, si `search_knowledge` no trae la respuesta, pregunte al equipo una vez y diga al cliente que una persona le contestará por esa conversación. La pregunta de un local va a su equipo (`staff` o superior); la de toda la organización, a un `org_admin`. Al contestar, la base de datos manda la respuesta al cliente tal cual, como mensaje de quien contestó, y la guarda como fuente `human_answer` del mismo alcance.
 
 ### 5.10 Paso a humano **[PROPUESTO]**
 

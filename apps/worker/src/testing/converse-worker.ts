@@ -9,8 +9,9 @@
 // real: si los servicios no llegan al prompt, no hay hueco que buscar); si
 // pregunta un precio o una política, search_knowledge con su pregunta; con el
 // resultado de una herramienta, contesta según se hizo o queda para una
-// persona (y con lo que encontró en el conocimiento, el primer fragmento, o que
-// le contestará una persona); ante una duda médica, no dice nada (el turno pasa
+// persona (y con lo que encontró en el conocimiento, el primer fragmento; si no
+// encontró nada, ask_team con la pregunta si la tiene, o que le contestará una
+// persona); ante una duda médica, no dice nada (el turno pasa
 // a una persona); si no, saluda.
 //
 // El conocimiento, con embeddings falsos y deterministas: el mismo worker
@@ -60,14 +61,21 @@ function respond(request: TransportRequest): TransportResponse {
     customer,
     system: request.messages[0]?.role === "system" ? request.messages[0].content : null,
   });
+  // La pregunta, sin la marca de mensaje del cliente.
+  const question = customer.split("\n").slice(1).join("\n");
   if (last?.role === "tool") {
-    const result = JSON.parse(last.content) as { status: string; output?: { results?: { text: string }[] } };
+    const result = JSON.parse(last.content) as { status: string; output?: { results?: { text: string }[]; request_id?: string } };
     const found = result.output?.results;
-    if (found) return say(found[0] ? `Según el centro: ${found[0].text}` : "Una persona del equipo te contestará enseguida.");
+    if (found) {
+      if (found[0]) return say(`Según el centro: ${found[0].text}`);
+      // Sin nada escrito: si puede, se lo pregunta al equipo (B20-4b).
+      if ((request.tools ?? []).some((tool) => tool.name === "ask_team")) return call("ask_team", { question });
+      return say("Una persona del equipo te contestará enseguida.");
+    }
+    if (result.output?.request_id) return say("Se lo he preguntado al equipo: una persona te contestará por aquí.");
     return say(result.status === "executed" ? "Tengo hueco el lunes a las 9:00." : "Una persona del equipo te lo confirma enseguida.");
   }
-  // La pregunta, sin la marca de mensaje del cliente.
-  if (/cuesta|precio|tatuaje/i.test(customer)) return call("search_knowledge", { query: customer.split("\n").slice(1).join("\n") });
+  if (/cuesta|precio|tatuaje|aparcamiento/i.test(customer)) return call("search_knowledge", { query: question });
   if (/res[eé]rv/i.test(customer)) {
     return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
   }

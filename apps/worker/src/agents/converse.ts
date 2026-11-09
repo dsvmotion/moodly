@@ -18,8 +18,10 @@ import type { Embedder } from "@repo/knowledge";
 import {
   APPOINTMENT_REMINDER_SKILL_KEY,
   FIND_SLOTS_SKILL_KEY,
+  ASK_TEAM_SKILL_KEY,
   SEARCH_KNOWLEDGE_SKILL_KEY,
   WAITLIST_OFFER_SKILL_KEY,
+  createAskTeamSkill,
   createJoinWaitlistSkill,
   createReceptionSkills,
   createReplySkill,
@@ -29,6 +31,7 @@ import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
+import { createMoodlyKnowledgeRequests } from "../knowledge/requests.ts";
 import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
@@ -264,8 +267,9 @@ export function codeSkills(db: TenantDb, options: { embedder?: Embedder | null }
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
+  const askTeam = createAskTeamSkill({ store: createMoodlyKnowledgeRequests(db) });
   const knowledge = options.embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, options.embedder) })] : [];
-  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge] as unknown as SkillDefinition<unknown>[];
+  const all = [...Object.values(reception), reply, joinWaitlist, askTeam, ...knowledge] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
@@ -502,6 +506,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
       const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      const asksTeam = skills.has(ASK_TEAM_SKILL_KEY) && settings.get(ASK_TEAM_SKILL_KEY)?.enabled === true;
       const result = await runAgentTurn({
         scope: {
           organizationId: event.organizationId,
@@ -517,6 +522,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           now: new Date(prepared.now),
           ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
           knowledge: searchesKnowledge,
+          asksTeam,
         }),
         history: prepared.history,
         skills,
