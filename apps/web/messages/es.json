@@ -2,6 +2,21 @@
   "common": {
     "loading": "Cargando…"
   },
+  "states": {
+    "notFound": {
+      "title": "No encontrado",
+      "heading": "Esta página no existe o no está disponible para ti",
+      "description": "Puede que el enlace esté mal, o que sea de un local o una organización a la que no tienes acceso.",
+      "home": "Ir al inicio"
+    },
+    "error": {
+      "title": "Algo ha fallado",
+      "heading": "Esta página no se ha podido cargar",
+      "description": "El fallo es nuestro, no tuyo. Inténtalo de nuevo; si sigue fallando, da a soporte la referencia de abajo.",
+      "retry": "Reintentar",
+      "reference": "Referencia: {digest}"
+    }
+  },
   "login": {
     "title": "Entrar en {brand}",
     "description": "Con el email y la contraseña de tu cuenta.",

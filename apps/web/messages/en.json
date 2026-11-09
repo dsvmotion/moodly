@@ -2,6 +2,21 @@
   "common": {
     "loading": "Loading…"
   },
+  "states": {
+    "notFound": {
+      "title": "Not found",
+      "heading": "This page doesn't exist or isn't available to you",
+      "description": "The link may be wrong, or it may belong to a location or organization you don't have access to.",
+      "home": "Go to home"
+    },
+    "error": {
+      "title": "Something went wrong",
+      "heading": "This page couldn't load",
+      "description": "It's on our side, not yours. Try again; if it keeps failing, tell support the reference below.",
+      "retry": "Try again",
+      "reference": "Reference: {digest}"
+    }
+  },
   "login": {
     "title": "Sign in to {brand}",
     "description": "With your account's email and password.",
