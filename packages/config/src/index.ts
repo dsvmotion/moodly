@@ -64,6 +64,23 @@ export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> =
   smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20 },
 };
 
+export interface GatewayEmbeddingModel {
+  /** El modelo en Vercel AI Gateway (`proveedor/modelo`); se guarda con cada fragmento. */
+  id: string;
+  /** Las dimensiones de sus vectores: las de la columna y las de la consulta. */
+  dim: number;
+  inputUsdPerMTok: number;
+}
+
+/**
+ * El modelo de embeddings del conocimiento (ADR 0048, elegido por eval el
+ * 2026-11-09): empata con los mejores en la eval de preguntas de clientes en
+ * español e inglés, es el más barato, sus 1536 dimensiones admiten un índice
+ * HNSW y tiene región UE listada en el gateway (sin garantía: la vía cuenta
+ * como fuera de la UE para «Solo UE»). Cambiarlo es reindexar (ADR 0025 §3).
+ */
+export const GATEWAY_EMBEDDING: GatewayEmbeddingModel = { id: "openai/text-embedding-3-small", dim: 1536, inputUsdPerMTok: 0.02 };
+
 /**
  * USD → EUR para los topes y los costes, que van en euros. Uno a uno a propósito:
  * un dólar vale menos que un euro, así que el coste anotado nunca se queda corto.

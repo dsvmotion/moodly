@@ -653,13 +653,13 @@ isOneToOne: false
                   ]
                 },"knowledge_sources": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"id": string,"location_id": string | null,"organization_id": string,"status": string,"storage_path": string | null,"title": string,"type": string,"updated_at": string
+                    "body": string | null,"created_at": string,"created_by": string | null,"id": string,"location_id": string | null,"organization_id": string,"status": string,"storage_path": string | null,"title": string,"type": string,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id": string,"status"?: string,"storage_path"?: string | null,"title": string,"type": string,"updated_at"?: string
+                    "body"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id": string,"status"?: string,"storage_path"?: string | null,"title": string,"type": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id"?: string,"status"?: string,"storage_path"?: string | null,"title"?: string,"type"?: string,"updated_at"?: string
+                    "body"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"location_id"?: string | null,"organization_id"?: string,"status"?: string,"storage_path"?: string | null,"title"?: string,"type"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
