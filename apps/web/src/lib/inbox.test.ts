@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ilikePattern,
+  inboxErrorFor,
   inboxHref,
   inScope,
   isInboxChannel,
@@ -151,5 +152,14 @@ describe("inboxHref", () => {
 
   it("codifica el id de la conversación", () => {
     expect(inboxHref({ filter: "open", search: "", scope: null }, "a/b?c")).toBe("/app/inbox/a%2Fb%3Fc");
+  });
+});
+
+describe("inboxErrorFor", () => {
+  it("sin permiso, mensaje vacío o fallo nuestro", () => {
+    expect(inboxErrorFor("42501")).toBe("not_allowed");
+    expect(inboxErrorFor("23514")).toBe("invalid");
+    expect(inboxErrorFor("XX000")).toBe("failed");
+    expect(inboxErrorFor(undefined)).toBe("failed");
   });
 });

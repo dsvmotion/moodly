@@ -4,11 +4,14 @@ import { Badge } from "@repo/ui/components/badge";
 import { cn } from "@repo/ui/lib/utils";
 import { messageSide, THREAD_LIMIT } from "@/lib/inbox";
 import type { InboxMessage, InboxThread } from "@/lib/inbox-data";
+import { ConversationControls } from "./conversation-controls";
+import { StaffComposer } from "./staff-composer";
 
 // Una conversación de la bandeja (P3): quién es, por dónde escribe, en qué local
 // y quién la lleva (el agente, el equipo o nadie, si está cerrada), y el hilo:
 // el cliente a un lado, el negocio (agente o equipo) al otro y los avisos del
-// sistema en medio. Solo lectura: «tomar el control» llega con sus funciones.
+// sistema en medio. Quien la ve puede tomar el control (el agente deja de
+// responder), escribir como equipo mientras la lleva y devolvérsela al agente.
 
 export async function ConversationThread({
   thread,
@@ -29,30 +32,33 @@ export async function ConversationThread({
       <Link href={backHref} className="text-muted-foreground hover:text-foreground text-sm lg:hidden" data-testid="inbox-back">
         ← {t("back")}
       </Link>
-      <header className="flex flex-col gap-2 border-b pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 id="inbox-thread-title" className="text-lg font-semibold break-words" data-testid="inbox-thread-contact">
-            {contactName}
-          </h2>
-          <Badge variant={conversation.mode === "human" ? "default" : "muted"} data-testid="inbox-thread-mode">
-            {t(`handledBy.${conversation.mode}`)}
-          </Badge>
+      <header className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="inbox-thread-title" className="text-lg font-semibold break-words" data-testid="inbox-thread-contact">
+              {contactName}
+            </h2>
+            <Badge variant={conversation.mode === "human" ? "default" : "muted"} data-testid="inbox-thread-mode">
+              {t(`handledBy.${conversation.mode}`)}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
+            <span data-testid="inbox-thread-location">{conversation.location ?? t("wholeOrganization")}</span>
+            {conversation.channel ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{t(`channels.${conversation.channel}`)}</span>
+              </>
+            ) : null}
+            {agentLabel ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{agentLabel}</span>
+              </>
+            ) : null}
+          </p>
         </div>
-        <p className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-          <span data-testid="inbox-thread-location">{conversation.location ?? t("wholeOrganization")}</span>
-          {conversation.channel ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{t(`channels.${conversation.channel}`)}</span>
-            </>
-          ) : null}
-          {agentLabel ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{agentLabel}</span>
-            </>
-          ) : null}
-        </p>
+        <ConversationControls id={conversation.id} mode={conversation.mode} contactName={contactName} />
       </header>
 
       {thread.truncated ? (
@@ -80,6 +86,14 @@ export async function ConversationThread({
           ))}
         </ol>
       )}
+
+      {conversation.mode === "human" ? (
+        <StaffComposer id={conversation.id} contactName={contactName} />
+      ) : conversation.mode === "agent" ? (
+        <p className="text-muted-foreground border-t pt-3 text-sm" data-testid="inbox-composer-hint">
+          {t("composerHint")}
+        </p>
+      ) : null}
     </section>
   );
 }

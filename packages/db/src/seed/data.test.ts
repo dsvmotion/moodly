@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  SEED_INBOX_ORG,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
@@ -29,7 +28,10 @@ describe("seed", () => {
 
   it("A tiene un usuario de cada rol y B su org_admin", () => {
     const [orgA, orgB] = seedOrganizations;
-    const rolesA = seedUsers.filter((u) => u.organizationId === orgA?.id).map((u) => u.role).sort();
+    const rolesA = seedUsers
+      .filter((u) => u.organizationId === orgA?.id)
+      .map((u) => u.role)
+      .sort();
     expect(rolesA).toEqual(["location_manager", "org_admin", "region_manager", "staff"]);
     expect(seedUsers.filter((u) => u.organizationId === orgB?.id).map((u) => u.role)).toEqual(["org_admin"]);
   });
@@ -66,13 +68,18 @@ describe("seed", () => {
       expect(user).toBeDefined();
       expect(orgIds).toContain(extra.organizationId);
       expect(extra.organizationId).not.toBe(user?.organizationId);
-      for (const id of extra.scopeLocationIds) expect(seedLocations.find((l) => l.id === id)?.organizationId).toBe(extra.organizationId);
-      for (const id of extra.scopeRegionIds) expect(seedRegions.find((r) => r.id === id)?.organizationId).toBe(extra.organizationId);
+      for (const id of extra.scopeLocationIds)
+        expect(seedLocations.find((l) => l.id === id)?.organizationId).toBe(extra.organizationId);
+      for (const id of extra.scopeRegionIds)
+        expect(seedRegions.find((r) => r.id === id)?.organizationId).toBe(extra.organizationId);
       if (extra.role === "org_admin") expect([extra.scopeRegionIds.length, extra.scopeLocationIds.length]).toEqual([0, 0]);
       if (extra.role === "staff" || extra.role === "location_manager") expect(extra.scopeLocationIds.length).toBeGreaterThan(0);
     }
     // Una membership por organización y usuario (unique en la base de datos).
-    const pairs = [...seedUsers.map((u) => `${u.key}:${u.organizationId}`), ...seedExtraMemberships.map((m) => `${m.userKey}:${m.organizationId}`)];
+    const pairs = [
+      ...seedUsers.map((u) => `${u.key}:${u.organizationId}`),
+      ...seedExtraMemberships.map((m) => `${m.userKey}:${m.organizationId}`),
+    ];
     expect(new Set(pairs).size).toBe(pairs.length);
   });
 
@@ -90,7 +97,10 @@ describe("seed", () => {
   });
 
   it("equipo interno: un platform_admin y un platform_operator vigentes y un interno revocado", () => {
-    const active = seedPlatformStaff.filter((s) => s.revokedAt === null).map((s) => s.role).sort();
+    const active = seedPlatformStaff
+      .filter((s) => s.revokedAt === null)
+      .map((s) => s.role)
+      .sort();
     expect(active).toEqual(["platform_admin", "platform_operator"]);
     expect(seedPlatformStaff.filter((s) => s.revokedAt !== null)).toHaveLength(1);
   });
@@ -120,8 +130,9 @@ describe("seed", () => {
     expect(new Set(conversations.map((c) => c.id)).size).toBe(conversations.length);
     expect(new Set(conversations.map((c) => c.contactId)).size).toBe(conversations.length);
     for (const conversation of conversations) {
+      expect(orgIds.has(conversation.organizationId)).toBe(true);
       if (conversation.locationId !== null) {
-        expect(seedLocations.find((l) => l.id === conversation.locationId)?.organizationId).toBe(SEED_INBOX_ORG);
+        expect(seedLocations.find((l) => l.id === conversation.locationId)?.organizationId).toBe(conversation.organizationId);
       }
       expect(conversation.messages.length).toBeGreaterThan(0);
       for (const message of conversation.messages) {

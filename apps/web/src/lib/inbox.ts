@@ -142,3 +142,20 @@ export function inboxHref(query: InboxQuery, conversationId?: string): string {
   const path = conversationId ? `/app/inbox/${encodeURIComponent(conversationId)}` : "/app/inbox";
   return withScope(search ? `${path}?${search}` : path, query.scope);
 }
+
+/** Lo más largo que el equipo puede escribir en un mensaje (el mismo tope que la base de datos). */
+export const MESSAGE_MAX_LENGTH = 10_000;
+
+export const INBOX_ACTION_ERRORS = ["invalid", "not_allowed", "failed"] as const;
+export type InboxActionError = (typeof INBOX_ACTION_ERRORS)[number];
+
+/**
+ * Qué decirle a la persona cuando la base de datos rechaza tomar el control,
+ * devolverlo o escribir: sin permiso o en un estado que no lo admite (42501, la
+ * RLS o las guardas), un mensaje vacío (23514) o un fallo nuestro.
+ */
+export function inboxErrorFor(code: string | undefined): InboxActionError {
+  if (code === "42501") return "not_allowed";
+  if (code === "23514") return "invalid";
+  return "failed";
+}

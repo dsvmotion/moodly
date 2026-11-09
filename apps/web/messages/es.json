@@ -484,6 +484,21 @@
       "email": "Email",
       "webchat": "Chat web",
       "voice": "Teléfono"
+    },
+    "takeOver": "Tomar el control",
+    "takeOverTitle": "¿Tomar el control de esta conversación?",
+    "takeOverDescription": "El agente dejará de responder a {name} hasta que se la devuelvas. Escribirás tú. El cambio queda registrado.",
+    "takeOverConfirm": "Sí, tomo el control",
+    "cancel": "Cancelar",
+    "giveBack": "Devolver al agente",
+    "composerLabel": "Mensaje para {name}",
+    "composerPlaceholder": "Escribe a {name}…",
+    "send": "Enviar",
+    "composerHint": "Esta conversación la lleva el agente. Toma el control para escribir tú: el agente queda en pausa hasta que se la devuelvas.",
+    "errors": {
+      "invalid": "Escribe un mensaje antes de enviarlo.",
+      "not_allowed": "No puedes hacerlo aquí: la conversación no es de tu alcance, alguien ya cambió quién la lleva o está cerrada.",
+      "failed": "No ha funcionado. Inténtalo de nuevo."
     }
   },
   "testChat": {
