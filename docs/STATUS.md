@@ -7,7 +7,7 @@
 ## Estado a 2026-11-10 (auditoría)
 
 > Foto del día, hecha al cerrar la cola de mergeos de las cuatro sesiones, justo antes del plan nuevo de producto (#161). Lo de abajo de esta sección es el historial; si discrepa, manda esta.
-> **`main` en `c290ee3`.** Cada PR se mergeó de uno en uno (squash con el commit comprobado), con CI en verde sobre ese commit y «✅ Verificado sobre main» antes del siguiente.
+> **`main` en `c290ee3` al cerrar la cola; el plan entró en `38f4afa` (#161).** Cada PR se mergeó de uno en uno (squash con el commit comprobado), con CI en verde sobre ese commit y «✅ Verificado sobre main» antes del siguiente.
 
 ### Hecho y verificado (2026-11-09 y 2026-11-10)
 
@@ -33,13 +33,15 @@
 | #154 | `47efdaf` | Bandeja: tomar el control, escribir como equipo y devolverla al agente | V2 |
 | #155 | `11e47ef` | Evals: conversaciones largas, otro local y solicitudes pendientes | V4 |
 | #156 | `c290ee3` | Evals: sets por sector (restauración, talleres, salud e inmobiliarias) | V4 |
+| #161 | `38f4afa` | Plan nuevo de producto: auditoría de preproducción, decisiones del 2026-11-10 y registro de alcance (`docs/scope.yaml`) | sesión de auditoría (revisado y mergeado por V1) |
 
-**Verificación sobre `main`** (`c290ee3`): «✅ Verificado sobre main» de V4 en #156 tras su merge; cada PR de la tabla tiene el suyo.
+**Verificación sobre `main`:** cada PR de la tabla tiene su «✅ Verificado sobre main». El de #161 (`38f4afa`), en el propio PR.
 
 **Staging en `c290ee3`:** sin comprobar todavía (paso 4 de la auditoría, en pausa con los mergeos).
 
 ### En curso
-- **El plan nuevo** (#161): la auditoría de preproducción y `docs/scope.yaml`, y este PR, que lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
+- **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
+  - **#163** (V4, `[M0][K-03]`): restaura el check de afirmaciones que relajó #156. Va después de #161 con permiso de producto.
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.

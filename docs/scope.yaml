@@ -29,6 +29,11 @@ milestones:
 m0_findings: ["P-01", "P-02", "P-04", "P-05", "G-02", "G-03", "G-04", "D-01", "D-02", "R-08", "M-07", "M-08"]
 m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conversations/checks.ts:153), owner V4"]
 
+# Hallazgos de la auditoría (sección 8) con trabajo en marcha: un PR que trabaja un hallazgo
+# añade o pone al día su fila aquí (docs/WORKSTREAMS.md, regla 1). Mismos estados que las unidades.
+findings:
+  - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
+
 areas:
   use_cases:
     done_when: "Its eval set passes three runs with the real model; an end-to-end test passes on a real channel; the owner can see and correct it in the app"
