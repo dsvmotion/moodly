@@ -1,6 +1,7 @@
 # 0033 — Enrutador de modelos: interfaz, política por organización y Vercel AI Gateway como primera vía
 
 - **Estado:** aceptado (producto, 2026-10-30)
+- **Cambiado en parte (producto, 2026-11-10; auditoría de preproducción §18.1 #6 y §18.2):** todos los proveedores detrás del enrutador (modelos alojados en la UE, Bedrock, Vertex, Azure y el gateway), con la UE por defecto. Lo fija el ADR de T6 del hito M0; hasta entonces, donde este ADR limite los proveedores, manda la decisión de producto (MANUAL §18.0).
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §3.2, §5.11, §13, §18 #5
 - **Relación:**

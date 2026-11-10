@@ -10,8 +10,9 @@ Cada empresa tiene 4 agentes integrados (`reception`, `customer`, `sales`, `admi
 
 ## Al empezar cada sesión, lee en este orden
 1. `docs/STATUS.md` — qué está hecho y verificado, en curso, bloqueado y lo próximo.
-2. Las secciones de `docs/MANUAL.md` que afectan a la tarea.
-3. Los ADRs recientes en `docs/adr/`.
+2. `docs/scope.yaml` — el registro de alcance: cada unidad y hallazgo con su hito (M0–M5), responsable, estado y evidencia (plan del piloto, MANUAL §17.0).
+3. Las secciones de `docs/MANUAL.md` que afectan a la tarea.
+4. Los ADRs recientes en `docs/adr/`.
 
 Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUAL.md` > `docs/design/` > prototipo `apps/site/plataforma` (solo visual) > `docs/audits/` (históricas). Ver ADR 0023.
 
@@ -29,6 +30,7 @@ Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUA
 - [ ] Flujo afectado ejecutado de extremo a extremo, con evidencia en el PR.
 - [ ] Migraciones reversibles o con plan de vuelta atrás.
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
+- [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y su fila de `docs/scope.yaml` está al día (`docs/WORKSTREAMS.md`, regla 1).
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
 TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, aceptado; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.

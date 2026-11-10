@@ -27,7 +27,13 @@ milestones:
 
 # Trabajo de M0 que no es una unidad de alcance: hallazgos de la auditoría (sección 8) a cerrar primero.
 m0_findings: ["P-01", "P-02", "P-04", "P-05", "G-02", "G-03", "G-04", "D-01", "D-02", "R-08", "M-07", "M-08"]
-m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conversations/checks.ts:153), owner V4"]
+m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conversations/checks.ts:153), owner V4 (done in #163, see findings K-03)"]
+
+# Hallazgos de la auditoría (sección 8) con trabajo en marcha: un PR que trabaja un hallazgo
+# añade o pone al día su fila aquí (docs/WORKSTREAMS.md, regla 1). Mismos estados que las unidades.
+findings:
+  - {id: "K-03", milestone: "M0", owner: "V4", status: "done", evidence: ["PR #163", "723d604"], note: "El check de afirmaciones vuelve a tratar una condición como afirmar; solo las preguntas indirectas quedan exentas"}
+  - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
 # El estado lo declara producto; lo que no se puede comprobar desde el repositorio lo dice en la evidencia.
