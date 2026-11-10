@@ -31,6 +31,14 @@ export const COPY = {
     ],
     onbA: "Tu equipo para el despliegue.", onbB: "Te acompañamos de la primera sede a la última.",
     onboarding: ["Equipo de implantación dedicado", "Canal compartido (Slack o Teams) con respuesta rápida", "Taller de arranque en remoto o presencial", "Formación por rol: dirección, gerentes y recepción", "Alta de sedes en lote", "Revisiones trimestrales de resultados"],
+    buyA: "Cómo se contrata.", buyB: "Implantación a medida y contrato con factura.",
+    buy: [
+      ["Implantación a medida", "Presupuesto cerrado por proyecto, como pago único.", ["Integraciones a medida con tus sistemas", "Carga del conocimiento y configuración de agentes, sedes y permisos", "Formación de tu equipo"]],
+      ["Contrato con factura", "En lugar del alta con tarjeta.", ["Créditos de IA comprometidos o plan mensual", "Factura en vez de cargo en tarjeta", "La IA siempre con su tope de gasto y sus avisos"]],
+      ["Lo que suma Enterprise", "Sobre todo lo del autoservicio.", ["SSO (y SCIM más adelante)", "DPA y residencia en la UE", "Auditoría consultable", "Soporte con canal dedicado", "Nube dedicada desde cierto tamaño"]],
+    ],
+    buyNote: "Los importes se acuerdan en cada propuesta. Para empezar por tu cuenta, mira los precios de autoservicio.",
+    pricingLink: "Ver precios",
   },
   en: {
     eyebrow: "Chains · multi-location · large companies",
@@ -63,6 +71,14 @@ export const COPY = {
     ],
     onbA: "Your deployment team.", onbB: "We're with you from the first location to the last.",
     onboarding: ["Dedicated implementation team", "Shared channel (Slack or Teams) with fast response", "Kick-off workshop, remote or on-site", "Training by role: management, managers and reception", "Bulk location onboarding", "Quarterly results reviews"],
+    buyA: "How you buy it.", buyB: "Tailored implementation and an invoiced contract.",
+    buy: [
+      ["Tailored implementation", "A fixed quote per project, paid once.", ["Custom integrations with your systems", "Knowledge loading and setup of agents, locations and permissions", "Training for your team"]],
+      ["Invoiced contract", "Instead of signing up with a card.", ["Committed AI credits or a monthly plan", "An invoice instead of a card charge", "AI always with its spending cap and alerts"]],
+      ["What Enterprise adds", "On top of everything in self-service.", ["SSO (and SCIM later)", "DPA and EU data residency", "Searchable audit log", "Support through a dedicated channel", "Dedicated cloud above a certain size"]],
+    ],
+    buyNote: "Amounts are agreed in each proposal. To start on your own, see the self-service pricing.",
+    pricingLink: "See pricing",
   },
   fr: {
     eyebrow: "Chaînes · multisites · grandes entreprises",
@@ -95,6 +111,14 @@ export const COPY = {
     ],
     onbA: "Votre équipe de déploiement.", onbB: "Nous vous accompagnons du premier site au dernier.",
     onboarding: ["Équipe de mise en place dédiée", "Canal partagé (Slack ou Teams) à réponse rapide", "Atelier de lancement à distance ou sur place", "Formation par rôle : direction, managers et accueil", "Création de sites en lot", "Revues trimestrielles des résultats"],
+    buyA: "Comment s'abonner.", buyB: "Mise en place sur mesure et contrat sur facture.",
+    buy: [
+      ["Mise en place sur mesure", "Devis fermé par projet, en paiement unique.", ["Intégrations sur mesure avec vos systèmes", "Chargement des connaissances et configuration des agents, sites et permissions", "Formation de votre équipe"]],
+      ["Contrat sur facture", "À la place de l'inscription par carte.", ["Crédits d'IA engagés ou plan mensuel", "Une facture au lieu d'un prélèvement sur carte", "L'IA toujours avec son plafond de dépense et ses alertes"]],
+      ["Ce qu'ajoute Enterprise", "En plus de tout le libre-service.", ["SSO (et SCIM plus tard)", "DPA et hébergement des données dans l'UE", "Journal d'audit consultable", "Support via un canal dédié", "Cloud dédié à partir d'une certaine taille"]],
+    ],
+    buyNote: "Les montants sont fixés dans chaque proposition. Pour démarrer seul, consultez les tarifs en libre-service.",
+    pricingLink: "Voir les tarifs",
   },
   de: {
     eyebrow: "Ketten · Multi-Standort · Großunternehmen",
@@ -127,5 +151,13 @@ export const COPY = {
     ],
     onbA: "Dein Team für die Einführung.", onbB: "Wir begleiten dich vom ersten bis zum letzten Standort.",
     onboarding: ["Dediziertes Einführungsteam", "Gemeinsamer Kanal (Slack oder Teams) mit schneller Antwort", "Kick-off-Workshop, remote oder vor Ort", "Schulung nach Rolle: Leitung, Manager und Empfang", "Standorte im Block anlegen", "Vierteljährliche Ergebnis-Reviews"],
+    buyA: "So wird es vereinbart.", buyB: "Einrichtung nach Maß und Vertrag auf Rechnung.",
+    buy: [
+      ["Einrichtung nach Maß", "Festpreisangebot pro Projekt, als Einmalzahlung.", ["Individuelle Integrationen mit deinen Systemen", "Wissen einspielen und Agenten, Standorte und Berechtigungen einrichten", "Schulung deines Teams"]],
+      ["Vertrag auf Rechnung", "Statt Anmeldung mit Karte.", ["Zugesagtes KI-Guthaben oder Monatsplan", "Rechnung statt Kartenabbuchung", "KI immer mit Ausgabenlimit und Warnungen"]],
+      ["Was Enterprise dazu bringt", "Zusätzlich zu allem aus dem Self-Service.", ["SSO (und später SCIM)", "AVV und Datenhaltung in der EU", "Durchsuchbares Audit-Log", "Support über einen eigenen Kanal", "Dedizierte Cloud ab einer bestimmten Größe"]],
+    ],
+    buyNote: "Die Beträge werden in jedem Angebot vereinbart. Um selbst zu starten, sieh dir die Self-Service-Preise an.",
+    pricingLink: "Preise ansehen",
   },
 };

@@ -41,6 +41,24 @@ export default function Enterprise() {
 
       <section style={section}>
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
+          <h2 style={h2}>{t.buyA} <span style={muted}>{t.buyB}</span></h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+            {t.buy.map(([title, sub, list]) => (
+              <div key={title} style={{ ...card, display: "flex", flexDirection: "column", gap: "10px" }}>
+                <h3 style={h3}>{title}</h3>
+                <p style={{ margin: 0, fontSize: "15px", lineHeight: "22px", ...muted }}>{sub}</p>
+                <ul style={{ margin: "6px 0 0", padding: "14px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "8px", fontSize: "15px", lineHeight: "22px" }}>
+                  {list.map((li) => (<li key={li} style={{ display: "flex", gap: "10px" }}><span aria-hidden="true">✓</span>{li}</li>))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", lineHeight: "22px", ...muted }}>{t.buyNote} <LangLink href="/precios" style={{ color: "#2457f5" }}>{t.pricingLink} →</LangLink></p>
+        </div>
+      </section>
+
+      <section style={section}>
+        <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
           <h2 style={h2}>{t.deployA} <span style={muted}>{t.deployB}</span></h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
             {t.deploy.map(([title, d, tier], i) => (
