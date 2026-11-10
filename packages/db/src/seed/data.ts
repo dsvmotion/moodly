@@ -26,6 +26,8 @@ export interface SeedLocation {
   organizationId: string;
   regionId: string | null;
   name: string;
+  /** Zona horaria IANA; sin ella, la de la base de datos (Europe/Madrid). */
+  timezone?: string;
 }
 
 export interface SeedUser {
@@ -114,7 +116,8 @@ export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_D1, organizationId: ORG_D, regionId: null, name: "D1" },
   { id: LOC_E1, organizationId: ORG_E, regionId: null, name: "E1" },
   { id: LOC_F1, organizationId: ORG_F, regionId: null, name: "F1" },
-  { id: LOC_F2, organizationId: ORG_F, regionId: null, name: "F2" },
+  // F2 en Canarias: Demo F tiene locales en dos zonas (e2e de M-08).
+  { id: LOC_F2, organizationId: ORG_F, regionId: null, name: "F2", timezone: "Atlantic/Canary" },
 ];
 
 /**

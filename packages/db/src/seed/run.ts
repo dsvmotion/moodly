@@ -177,7 +177,15 @@ async function main(): Promise<void> {
   check("regions", regions.error);
   const locations = await admin
     .from("locations")
-    .upsert(seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })));
+    .upsert(
+      seedLocations.map((l) => ({
+        id: l.id,
+        organization_id: l.organizationId,
+        region_id: l.regionId,
+        name: l.name,
+        timezone: l.timezone ?? "Europe/Madrid",
+      })),
+    );
   check("locations", locations.error);
 
   // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
