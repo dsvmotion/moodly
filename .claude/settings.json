@@ -14,7 +14,8 @@
     "moodly-toolkit": {
       "source": {
         "source": "github",
-        "repo": "dsvmotion/moodly-toolkit"
+        "repo": "dsvmotion/moodly-toolkit",
+        "ref": "release/v1.0.0"
       }
     }
   }
