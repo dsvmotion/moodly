@@ -73,14 +73,30 @@ export const AGENT = Object.fromEntries(Object.keys(AGENTS).map((key) => [key, k
 export const BUSINESS_NAME = "Centro Aurora";
 export const LOCATION_NAME = "Chamberí";
 
-const catalog: ReceptionCatalog = {
-  describe: ({ serviceId, resourceId }) => {
-    const service = SERVICES.find((s) => s.id === serviceId);
-    if (!service) return Promise.resolve(null);
-    const resource = resourceId === CABINA_1 ? "Cabina 1" : resourceId === CABINA_2 ? "Cabina 2" : null;
-    return Promise.resolve({ service: service.name, resource, timezone: TIMEZONE });
-  },
-};
+/** Un negocio de prueba: lo que se puede reservar, con qué recursos y lo que ha escrito (MANUAL §12.4, «agent_type × vertical»). */
+export interface Business {
+  key: string;
+  name: string;
+  locationName: string;
+  services: readonly BookableService[];
+  resources: readonly { id: string; name: string; serviceIds: readonly string[] }[];
+  /** Lo que ha escrito el negocio (se completa más abajo, en KNOWLEDGE). */
+  knowledge?: readonly KnowledgeDoc[];
+  /** Horario del calendario falso, en horas UTC (por defecto, de 9 a 14). */
+  openHour?: number;
+  closeHour?: number;
+}
+
+function catalogFor(business: Business): ReceptionCatalog {
+  return {
+    describe: ({ serviceId, resourceId }) => {
+      const service = business.services.find((s) => s.id === serviceId);
+      if (!service) return Promise.resolve(null);
+      const resource = business.resources.find((r) => r.id === resourceId)?.name ?? null;
+      return Promise.resolve({ service: service.name, resource, timezone: TIMEZONE });
+    },
+  };
+}
 
 /** Un documento del conocimiento del negocio de prueba. */
 export interface KnowledgeDoc {
@@ -196,8 +212,22 @@ export function createFakeWaitlist(): WaitlistStore & { entries: StoredWaitlistE
   };
 }
 
+/** El centro de estética de siempre (belleza y bienestar): el negocio por defecto. */
+export const AURORA: Business = {
+  key: "estetica",
+  name: BUSINESS_NAME,
+  locationName: LOCATION_NAME,
+  services: SERVICES,
+  resources: [
+    { id: CABINA_1, name: "Cabina 1", serviceIds: [LASER, FACIAL] },
+    { id: CABINA_2, name: "Cabina 2", serviceIds: [MANICURA, FACIAL] },
+  ],
+  knowledge: KNOWLEDGE,
+};
+
 export interface World {
   agent: AgentKey;
+  business: Business;
   scope: RunScope;
   booking: FakeBookingProvider;
   sender: FakeConversationSender;
@@ -210,18 +240,18 @@ export interface World {
   seeded: Record<string, string>;
 }
 
-export function createWorld(agent: AgentKey, knowledgeDocs: readonly KnowledgeDoc[] = KNOWLEDGE): World {
+export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeDoc[], business: Business = AURORA): World {
   const booking = createFakeBookingProvider({
-    services: SERVICES.map((service) => ({ id: service.id, durationMinutes: service.durationMinutes, locationId: null })),
-    resources: [
-      { id: CABINA_1, locationId: LOCATION, serviceIds: [LASER, FACIAL] },
-      { id: CABINA_2, locationId: LOCATION, serviceIds: [MANICURA, FACIAL] },
-    ],
+    services: business.services.map((service) => ({ id: service.id, durationMinutes: service.durationMinutes, locationId: null })),
+    resources: business.resources.map((resource) => ({ id: resource.id, locationId: LOCATION, serviceIds: resource.serviceIds })),
     now: () => NOW,
+    ...(business.openHour !== undefined ? { openHour: business.openHour } : {}),
+    ...(business.closeHour !== undefined ? { closeHour: business.closeHour } : {}),
   });
+  const catalog = catalogFor(business);
   const sender = createFakeConversationSender();
   const waitlist = createFakeWaitlist();
-  const knowledge = createFakeKnowledge(knowledgeDocs);
+  const knowledge = createFakeKnowledge(knowledgeDocs ?? business.knowledge ?? []);
   const all = [
     ...Object.values(createReceptionSkills({ booking, catalog })),
     createJoinWaitlistSkill({ store: waitlist }),
@@ -233,6 +263,7 @@ export function createWorld(agent: AgentKey, knowledgeDocs: readonly KnowledgeDo
   const books = keys.includes("find_slots");
   return {
     agent,
+    business,
     scope: { organizationId: ORG, locationId: LOCATION, runId: RUN, conversation: { id: CONVERSATION, contactId: ANA } },
     booking,
     sender,
@@ -243,11 +274,11 @@ export function createWorld(agent: AgentKey, knowledgeDocs: readonly KnowledgeDo
     settings: new Map(mine.map((skill) => [skill.key, { enabled: true, autonomy: skill.defaultAutonomy }])),
     systemPrompt: composeSystemPrompt({
       agentName: AGENTS[agent].name,
-      businessName: BUSINESS_NAME,
-      locationName: LOCATION_NAME,
+      businessName: business.name,
+      locationName: business.locationName,
       timezone: TIMEZONE,
       now: NOW,
-      ...(books ? { services: SERVICES } : {}),
+      ...(books ? { services: business.services } : {}),
       knowledge: keys.includes("search_knowledge"),
     }),
     seeded: {},
@@ -256,7 +287,8 @@ export function createWorld(agent: AgentKey, knowledgeDocs: readonly KnowledgeDo
 
 /** Una cita ya reservada, directamente en el calendario (no por el agente). */
 export async function seedAppointment(world: World, contactId: string, serviceId: string, startsAt: string): Promise<string> {
-  const resourceId = serviceId === MANICURA ? CABINA_2 : CABINA_1;
+  const resourceId = world.business.resources.find((resource) => resource.serviceIds.includes(serviceId))?.id;
+  if (!resourceId) throw new Error(`ningún recurso hace el servicio ${serviceId}`);
   const appointment = await world.booking.book({
     locationId: LOCATION,
     serviceId,

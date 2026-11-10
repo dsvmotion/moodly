@@ -93,7 +93,7 @@ async function main(): Promise<number> {
   const options = parse(process.argv.slice(2));
   const cases = select(options);
   if (options.list) {
-    for (const c of cases) out(`${c.id.padEnd(40)} ${c.agent.padEnd(9)} ${c.severity.padEnd(8)} ${CATEGORIES[c.category]}`);
+    for (const c of cases) out(`${c.id.padEnd(40)} ${(c.business?.key ?? "estetica").padEnd(12)} ${c.agent.padEnd(9)} ${c.severity.padEnd(8)} ${CATEGORIES[c.category]}`);
     out(`${cases.length} casos × ${options.repeat}`);
     return 0;
   }
