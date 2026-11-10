@@ -2,6 +2,7 @@
 
 > Actualizar al cerrar cada tarea. Solo va en "Hecho y verificado" lo que se ha ejecutado y comprobado de verdad.
 >
+> **Para coordinar:** sesiones, cola de mergeos y reglas de trabajo, en `docs/WORKSTREAMS.md` → «Para coordinar: lo que necesita una sesión nueva».
 > **Plan vigente (producto, 2026-11-10):** el piloto por hitos M0 a M5 (MANUAL §17.0) y sus decisiones (MANUAL §18.0), a partir de `docs/audits/2026-11-10-auditoria-preproduccion.md` §18 y §19. El alcance, unidad a unidad, está en `docs/scope.yaml`; cuando STATUS se genere a partir de él (puerta de M0, hallazgo P-08), este archivo se recorta.
 
 ## Estado a 2026-11-10 (auditoría)

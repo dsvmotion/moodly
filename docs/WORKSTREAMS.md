@@ -42,6 +42,50 @@
 5. el avance del piloto, desde `docs/scope.yaml`;
 6. riesgos y bloqueos.
 
+## Para coordinar: lo que necesita una sesión nueva (2026-11-10)
+
+Si V1 cambia de sesión, la nueva empieza aquí. Lo vivo está en esta sección; lo demás, en el resto del archivo y en `docs/STATUS.md`.
+
+**Sesiones** (en la nube; se les escribe con `send_message`):
+
+| Línea | Sesión | Notas |
+| --- | --- | --- |
+| V1 · coordina | `session_01WB7xSPrKWSi7cnsCGBbKhW` | Producto solo escribe aquí |
+| V2 · Frontend | `session_016SLeJPQzGfzXfRwnYRHXXt` | Creada por producto desde el móvil; no es hija de V1 ni se recrea |
+| V3 · Docs/Site | `session_016SLeJSbzdsD9Hmywd5UPoc` | En espera hasta que se levante el límite de sesiones |
+| V4 · Evals | `session_016SLeJPMkYaxTnWAF2wYfXk` | |
+| V5 · Toolkit | `session_016SLeJQyj2iGZLzk5VrXyfe` | Desarrolla en `dsvmotion/moodly-toolkit` |
+| Revisora · #166 | `session_016SLeJNUVaU6zgtpykp6LWG` | Pidió cambios sobre `f7a541a` |
+| Revisora · #166 (2) | `session_016SLeJNJKeMPAaChs6BxmGX` | Sobre `ec9e2c7`, ya superado por el enfoque de copias: para el head nuevo hace falta otra |
+| Revisora · #168 | `session_016SLeJSPDwWYxfWHVNRHmUq` | P-01 |
+
+**Cola de mergeos, en orden** (de uno en uno; antes de cada uno, «✅ Verificado sobre main» en el anterior):
+1. #165 (V4, K-03).
+2. #167 (V1, decisiones de producto y esta sección).
+3. #168 (V1, P-01). Lo mergea producto, con el veredicto de la Revisora; el check `sensitive-paths` no aparece en ese PR.
+4. SE01 (V1, sin PR todavía).
+5. #166 (V5, P-10): Revisora nueva sobre su head y visto bueno de producto.
+
+Además, sin turno todavía:
+- #159 y #160 (V1, M2): esperan OA07.
+- #158 (V3, ADR 0046): en borrador.
+- #131 (Dependabot): se rebasa y se corren las evals a mano.
+
+**Cómo se trabaja (recorte de consumo, producto 2026-11-10):**
+- Cada sesión se suscribe solo al PR que está mergeando en ese momento.
+- No se contesta a los avisos de bots (Vercel, Supabase) ni a los checks de commits ya sustituidos.
+- Nada de esperas activas: como mucho, un aviso de seguridad por PR, a 50 minutos.
+- V1 informa a producto al cerrar cada punto de su cola (forma de la sección «Cómo se coordina»), sin resúmenes intermedios.
+
+**Lo que se aprende al verificar `main` en una sesión en la nube:**
+- **Docker** se cae cuando se reinicia el contenedor: hay que volver a levantar Supabase (`pnpm db:start`) antes de los tests de base de datos.
+- **Build de la web:** si `pnpm check` falla, la web no se compila y el e2e corre contra una build vieja. Se repite `pnpm check` hasta que pase antes de creerse el e2e.
+- **Tiempos de 5 s en los tests unitarios del worker:** salen con la máquina cargada de otros trabajos. Se repiten solos antes de darlos por fallo.
+- **Sesiones creadas desde otra sesión:** no reciben los plugins de la cuenta. Las skills del proyecto llegan con `.claude/` del repositorio (P-10).
+- **Primer mensaje de una Revisora:** es literal, el de `docs/audits/2026-11-10-ordenes-m0.md` §8, con el encargo al final.
+
+**Pendiente de V1 fuera de la cola numerada:** los datos del seed para M-07 (más de 100 conversaciones en un local y una más antigua en otro), que V2 necesita para probar el filtro.
+
 ## Las líneas de trabajo
 
 | Línea | Sesión | Qué hace |
