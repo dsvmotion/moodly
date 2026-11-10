@@ -331,6 +331,13 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     await waitFor(async () => (await delivered(await eventOf(earlier ?? ""))) && (await delivered(await eventOf(latest ?? ""))), "las dos entregas terminan");
     expect(await runFor(earlier ?? "")).toEqual([]);
     expect(await runFor(latest ?? "")).toHaveLength(1);
+
+    // La respuesta en borrador del test anterior sigue pendiente: entra como un hecho, nunca con su texto.
+    const system = modelCalls()
+      .filter((entry) => entry.customer?.endsWith("¿Tenéis hueco?"))
+      .at(-1)?.system;
+    expect(system).toContain("\n- A reply to the customer, drafted and waiting for a person from the team to review it");
+    expect(system).not.toContain("Responder:");
   });
 
   it("si el agente no sabe qué decir, pasa la conversación a una persona y deja de contestar", async () => {

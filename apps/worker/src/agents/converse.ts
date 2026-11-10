@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, MAX_PENDING_IN_PROMPT, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, MAX_PENDING_IN_PROMPT, REPLY_SKILL_KEY, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -182,6 +182,9 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
  * nace de un mensaje del contacto (trigger_ref); una aprobación dura un día
  * (APPROVAL_TTL_MS), así que bastan los mensajes del contacto de ese día.
  */
+/** Lo que entra en el prompt por una respuesta en borrador pendiente: sin su texto. */
+export const DRAFTED_REPLY_PENDING = "A reply to the customer, drafted and waiting for a person from the team to review it";
+
 async function pendingApprovals(db: TenantDb, conversationId: string, now: Date): Promise<string[]> {
   const since = new Date(now.getTime() - APPROVAL_TTL_MS).toISOString();
   const asked = check(
@@ -204,13 +207,14 @@ async function pendingApprovals(db: TenantDb, conversationId: string, now: Date)
   const runIds = (runs ?? []).map((run) => run.id);
   if (runIds.length === 0) return [];
   // tenantDb no admite recursos embebidos: una consulta acotada por tabla.
-  const executions = check(await db.from("executions").select("id").in("run_id", runIds).limit(500), "las ejecuciones de la conversación");
-  const executionIds = (executions ?? []).map((execution) => execution.id);
+  const executions = check(await db.from("executions").select("id, skill_key").in("run_id", runIds).limit(500), "las ejecuciones de la conversación");
+  const skillOf = new Map((executions ?? []).map((execution) => [execution.id, execution.skill_key]));
+  const executionIds = [...skillOf.keys()];
   if (executionIds.length === 0) return [];
   const pending = check(
     await db
       .from("approvals")
-      .select("reason, created_at")
+      .select("execution_id, reason, created_at")
       .eq("status", "pending")
       .gt("expires_at", now.toISOString())
       .in("execution_id", executionIds)
@@ -218,7 +222,11 @@ async function pendingApprovals(db: TenantDb, conversationId: string, now: Date)
       .limit(MAX_PENDING_IN_PROMPT),
     "lo pendiente de la conversación",
   );
-  return (pending ?? []).map((approval) => approval.reason ?? "").filter((reason) => reason.length > 0);
+  // Una respuesta en borrador entra como un hecho, nunca con su texto: el
+  // borrador no lo ha visto nadie del equipo y no pasa a ser contexto del agente.
+  return (pending ?? [])
+    .map((approval) => (skillOf.get(approval.execution_id) === REPLY_SKILL_KEY ? DRAFTED_REPLY_PENDING : (approval.reason ?? "")))
+    .filter((reason) => reason.length > 0);
 }
 
 async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
