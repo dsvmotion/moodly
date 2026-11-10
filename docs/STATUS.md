@@ -1,10 +1,12 @@
 # STATUS — estado real del proyecto
 
 > Actualizar al cerrar cada tarea. Solo va en "Hecho y verificado" lo que se ha ejecutado y comprobado de verdad.
+>
+> **Plan vigente (producto, 2026-11-10):** el piloto por hitos M0 a M5 (MANUAL §17.0) y sus decisiones (MANUAL §18.0), a partir de `docs/audits/2026-11-10-auditoria-preproduccion.md` §18 y §19. El alcance, unidad a unidad, está en `docs/scope.yaml`; cuando STATUS se genere a partir de él (puerta de M0, hallazgo P-08), este archivo se recorta.
 
 ## Estado a 2026-11-10 (auditoría)
 
-> Foto del día. **Los mergeos están en pausa por decisión de producto (2026-11-10, plan nuevo en #161)**: esta sección recoge `main` hasta la pausa. Lo de abajo de esta sección es el historial; si discrepa, manda esta.
+> Foto del día, hecha al cerrar la cola de mergeos de las cuatro sesiones, justo antes del plan nuevo de producto (#161). Lo de abajo de esta sección es el historial; si discrepa, manda esta.
 > **`main` en `c290ee3`.** Cada PR se mergeó de uno en uno (squash con el commit comprobado), con CI en verde sobre ese commit y «✅ Verificado sobre main» antes del siguiente.
 
 ### Hecho y verificado (2026-11-09 y 2026-11-10)
@@ -37,15 +39,14 @@
 **Staging en `c290ee3`:** sin comprobar todavía (paso 4 de la auditoría, en pausa con los mergeos).
 
 ### En curso
-- **PRs abiertos, en espera por la pausa:**
-  - **#159** (V1, B20-4b, `ask_team`): listo; los 5 checks obligatorios en curso o en verde sobre `f7c7cfd`. El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` (#156) y arregla #160.
-  - **#160** (V1, borrador, sobre #159): el agente ve lo que ya dejó esperando a una persona y no lo pide otra vez. CI en verde sobre su base; falta rebasarlo sobre `main` cuando entre #159.
-  - **#158** (V3, borrador): ADR 0046 en estado «propuesto», solo docs.
-  - **#161** (producto, borrador): auditoría de preproducción, decisiones de producto y `docs/scope.yaml`. Plan nuevo; pasar sus decisiones a MANUAL, STATUS y WORKSTREAMS es de V1 cuando producto lo diga.
-  - **#131** (Dependabot, 8 parches y menores): sin revisar; se rehace sobre `main` como #100 si el lockfile no casa.
-  - **#117** (borrador, STATUS del aviso de `pg`): su contenido ya está en este archivo; se cierra con esta auditoría.
-- **V1:** cuando se levante la pausa, #159, #160 y #158 por este orden, y después B20-4c, la pantalla de las preguntas al equipo (contestar desde `/app/knowledge`), y el botón «volver a indexar».
-- **V2, V3 y V4:** terminado lo que tenían asignado; esperan las decisiones de producto de abajo.
+- **El plan nuevo** (#161): la auditoría de preproducción y `docs/scope.yaml`, y este PR, que lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
+- **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
+  - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
+  - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
+  - **#158** (V3, borrador): ADR 0046 en estado «propuesto». El plan pide revisarlo (reglas de privacidad del personal, permisos y gasto) antes de proponerlo para aceptar con el 0024 y el 0029.
+  - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
+  - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
+- **Sesiones:** hasta cerrar la guarda y la revisión (P-01 y P-02), como mucho dos sesiones abriendo PRs a la vez, más la revisora (decisión de producto #8; `docs/WORKSTREAMS.md`).
 
 ### Bloqueado
 - **WhatsApp real (B19):** falta la cuenta de Meta Business verificada, el número y la plantilla de recordatorio aprobada.
@@ -55,21 +56,44 @@
 - **Cliente piloto:** sin elegir (MANUAL §18 #3).
 - **Datos reales:** ninguno hasta cumplir las condiciones de salida a producción (abajo).
 
-### Próximo
-1. B20-4c: la pantalla de preguntas al equipo y el botón «volver a indexar».
-2. B20, lo que falta: reseñas y documentos (archivos) como fuentes de conocimiento.
-3. Objetivos en la app (`/app/goals`; el esquema ya está, #79).
-4. Tiempo real en la bandeja, cuando producto lo decida, con la prueba de que una sesión cerrada deja de recibir eventos.
-5. Lo que desbloqueen las cuentas de arriba (WhatsApp, Stripe, voz).
+### Próximo: hito M0, seguro para construir rápido
+Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y hallazgos en `docs/scope.yaml` (`m0_findings` y `m0_extra`).
+
+**Puerta de salida (todo se cumple):**
+- un PR de prueba que debilita la guarda no se puede mergear;
+- los ADR de T1 (acceso del worker a los datos), T4 (claves por organización), T6 (proveedores de modelos y residencia), T10 (canales) y del hub de integraciones, aceptados por producto;
+- STATUS se genera a partir del registro de alcance.
+
+**Qué hace cada uno en M0:**
+- **V1:**
+  - la guarda corre desde la rama base (P-01), con la verificación tras el merge sin depender de quien mergea (P-04) y la clave de las evals fuera del alcance del código de un PR (P-05);
+  - los arreglos de diseño del código actual (G-02, G-03, G-04, D-01, D-02, R-08, M-07, M-08);
+  - los ADR de T1, T4, T6, T10 y del hub de integraciones;
+  - el registro de alcance y STATUS generado a partir de él (P-08).
+- **V2:** los arreglos de redirección, alcance y zona horaria.
+- **V3:** honestidad de la web (aviso, `noindex`, afirmaciones), `SECURITY.md` y la lista de paridad de integraciones.
+- **V4:** restaurar el check de seguridad que relajó #156 (`packages/evals/src/conversations/checks.ts:153`), con los contraejemplos como tests (K-02 ya está cerrado por #152).
+- **Revisora:** revisa los PRs que tocan migraciones, RLS, `SECURITY DEFINER`, auth, secretos, la guarda y los workflows, y comprueba la puerta.
+- **Producto:**
+  - la identidad propia del agente en GitHub y las reglas de la rama (P-02);
+  - la sociedad, la marca y la asesoría legal;
+  - empezar la verificación de Meta;
+  - aceptar o revisar los ADR 0023, 0024, 0029 y 0046.
+
+**Abierto y conocido, fuera de M0:** R-02, el worker no vuelve a mirar `conversations.mode` al enviar, así que un turno en curso puede escribir después de que una persona tome el control (V1, en M1 con R-01 a R-07).
 
 ### Decisiones de producto pendientes
-- **Bandeja (V2):** tiempo real o refresco; cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
-- **Coach (V3):** aceptar el ADR 0046 y sus cuatro preguntas abiertas.
+Las del 2026-11-10 ya están tomadas (MANUAL §18.0). Siguen abiertas:
+- **Sesiones:** qué dos sesiones abren PRs mientras la guarda y la revisión no estén arregladas (decisión #8), y quién lleva la revisora.
+- **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres). El tiempo real ya está aceptado (T8).
+- **Coach (V3):** las cuatro preguntas abiertas del ADR 0046 y aceptarlo con el 0024 y el 0029.
 - **Web pública (V3):** los precios de los planes; la región del servicio `site` de Railway (hoy en EE. UU.).
-- **Evals (V4):** el modelo de los agentes (V4 recomienda Opus frente a Haiku, por los resultados del arnés); el presupuesto (≈1,9 € por corrida completa; propuesta, 30 € al mes); y si el check «evals · conversaciones con el modelo real» pasa a obligatorio.
-- **Marca:** el nombre definitivo (`BRAND_NAME`), el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
+- **Evals (V4):** el presupuesto mensual (≈1,9 € por corrida completa; propuesta de V4, 30 € al mes). El modelo de cada turno se elige por eval bajo un techo de coste (decisión #4), y las evals con el modelo real pasan a check obligatorio en M1–M2.
+- **Plataforma de conectores** (M0–M1): Nango, Composio, Pipedream Connect, Paragon, Merge u otra, con residencia UE o autoalojada.
+- **Marca:** la comprobación legal de «Moodly», el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
 
 ### Condiciones de salida a producción (todas antes del primer dato real de un cliente)
+La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y ya anotadas aquí:
 1. Reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (`sensitive-paths.txt`), y que el job `sensitive-paths` lea la lista de la rama base.
 2. Supabase Pro en la UE, con una restauración de copia probada y la caducidad de sesiones de `config.toml` aplicada.
 3. DPAs firmados con cada proveedor que trate datos, y confirmar que el AI Gateway fija proveedor y modelo con procesamiento en la UE o con un DPA válido.
@@ -77,6 +101,7 @@
 5. Claves de servidor de staging rotadas; las de producción las genera una persona en Vercel.
 6. URLs de vuelta de Auth exactas en producción (sin comodines).
 7. Registro público cerrado hasta B5/B6 (método de pago y créditos).
+8. Claves por organización (T4) antes del primer mensaje real, y la revisión por la sesión revisora y por producto (decisión #7) en marcha.
 
 
 ## Hecho y verificado
@@ -168,7 +193,7 @@
 - **Frontend y seguridad del 2026-10-23 (#61–#69), verificado sobre `main`** (`e1b27d5`): CI en verde en los 5 checks y despliegue a staging en verde (run 39924025758). La web de staging sirve ese commit.
 
 ## En curso
-- **Cuatro sesiones en paralelo (decisión de producto, 2026-11-09):** excepción a «una fase no avanza hasta que la anterior está mergeada». Trabajan a la vez:
+- **Cuatro sesiones en paralelo (decisión de producto, 2026-11-09; limitada el 2026-11-10 a dos hasta cerrar la guarda y la revisión, decisión #8):** excepción a «una fase no avanza hasta que la anterior está mergeada». Trabajan a la vez:
   - V1, la sesión líder: B20, todas las migraciones, este archivo y los workflows de staging;
   - V2: la bandeja en vivo con «tomar el control» y los arreglos de la revisión de diseño;
   - V3: el borrador del ADR 0046, `moodlycrm.com` en `apps/site` y la estructura de la página de precios;
@@ -176,12 +201,12 @@
 
   Reglas, carpetas y orden de los mergeos: `docs/WORKSTREAMS.md`. Los mergeos siguen siendo de uno en uno, con CI en verde sobre el commit exacto y `main` comprobado antes del siguiente.
 - **Plan vigente:** `docs/audits/2026-10-23-auditoria-estado.md` (auditoría del 2026-10-23, que actualiza el plan de la re-auditoría del 2026-10-22), con la del frontend (`2026-10-23-auditoria-frontend.md`) y la segunda pasada (`2026-10-23-auditoria-segunda-pasada.md`: R-29…R-36 y orden propuesto para la revisión con producto). Una fase no avanza hasta que la anterior está mergeada, verificada sobre `main` y anotada aquí.
-- **Dirección del producto (decisión de producto, 2026-10-24):** `docs/design/roadmap-enterprise.md` (v4) y `docs/design/design-review.md` orientan el producto, pero no lo limitan: si algo choca con lo construido, se avisa a producto en vez de forzarlo. La referencia visual es el diseño «Moodly Landing Pages» (tokens en su `project/ds/moodly/tokens.json`: los colores coinciden con los de `packages/ui`, la tipografía no); la revisión del diseño dice qué incoherencias corregir. Sin Bedrock, Vertex, Azure, Apigee, LangGraph ni Firestore hasta que lo pida un cliente; ningún agente llama a un proveedor de modelos sin pasar por el enrutador.
+- **Dirección del producto (decisión de producto, 2026-10-24):** `docs/design/roadmap-enterprise.md` (v4) y `docs/design/design-review.md` orientan el producto, pero no lo limitan: si algo choca con lo construido, se avisa a producto en vez de forzarlo. La referencia visual es el diseño «Moodly Landing Pages» (tokens en su `project/ds/moodly/tokens.json`: los colores coinciden con los de `packages/ui`, la tipografía no); la revisión del diseño dice qué incoherencias corregir. **Proveedores de modelos (cambiado por producto el 2026-11-10, MANUAL §18.0):** todos detrás del enrutador (modelos alojados en la UE, Amazon Bedrock, Google Vertex, Azure y el gateway actual), con la UE por defecto y el proveedor y la región a elección del cliente; ningún agente llama a un proveedor de modelos sin pasar por el enrutador.
   - **Decisiones de fase 1 (MANUAL §18):** vertical de estética no médica en Madrid (gimnasios como alternativa; el cliente piloto concreto, pendiente); Vercel AI Gateway; AWS KMS en `eu-central-1`; embeddings elegidos por eval en el conocimiento v0.
-  - **Modelos y región:** cualquier proveedor con DPA firmado y transferencias cubiertas (cláusulas contractuales tipo o Data Privacy Framework). Por defecto, una organización nueva puede usar cualquiera de ellos; «Solo UE» es una opción por organización para el cliente que lo pida, y el enrutador la respeta siempre. Antes de datos reales: confirmar que el gateway fija proveedor y modelo con procesamiento en la UE o con un DPA válido (si no, el enrutador va directo al proveedor) y documentar qué cumple cada proveedor (con el ADR 0033).
+  - **Modelos y región:** cualquier proveedor con DPA firmado y transferencias cubiertas (cláusulas contractuales tipo o Data Privacy Framework). **Cambiado el 2026-11-10 (MANUAL §18.0 #6):** la UE por defecto y EE. UU. si el cliente lo elige; el enrutador lo respeta siempre. Antes de datos reales: confirmar que el gateway fija proveedor y modelo con procesamiento en la UE o con un DPA válido (si no, el enrutador va directo al proveedor) y documentar qué cumple cada proveedor (con el ADR 0033).
   - **Choques con el diseño, anotados y sin forzar:** su demo es una clínica dental con datos de salud (los ejemplos del código y de las evals serán de estética); su barra lateral no tiene Objetivos, que siguen en la app porque son prioridad del producto; sus tarjetas de KPI de colores se sustituyen por grises (revisión §5.9); usa Geist y la app usa Plus Jakarta Sans y Labil Grotesk (ADR 0018), así que cambiar de tipografía pide decisión de producto; usa `moodly.ai`, que no es nuestro dominio.
   - **Idioma (ADR 0041, que cambia el 0023 §3): mergeado (#94, `529a2d3`) y verificado sobre `main` (CI en verde; en local, el 2026-10-30, `pnpm check` 52/52, `db:lint` limpio, pgTAP 647/647, integración de `tenantDb` 3/3 y del worker 10/10, y e2e 123/123) y en staging (2026-10-30: la web sale en inglés y las rutas viejas redirigen).** Inglés por defecto y español como alternativa: la interfaz sale en el idioma que elige la persona; si no ha elegido, en el de su organización activa (`organizations.default_locale`); sin sesión ni organización, en inglés. Una organización nueva nace en inglés; la de demo de staging sigue en español. Rutas en inglés (`/app/inbox`, `/app/settings/locations`…) y las viejas en español redirigen con la query intacta (enlaces de invitación ya compartidos). pgTAP 647/647 (7 nuevos en `21_organization_locale`) y e2e 123/123 (2 nuevos), con mutaciones detectadas en los dos. Pendiente: `users.locale` sigue sin usarse (vale `es-ES` para todos); pasará a admitir «sin elegir» antes de leerlo.
-- **Dominio (decisión de producto, 2026-10-24, sustituye a la del 2026-10-22):** el dominio es `moodlycrm.com` (staging en `staging.moodlycrm.com`). Ni `moodly.ai` ni `moodly.com`, que son de otro proyecto. La marca sigue siendo provisional (`BRAND_NAME`). Hecho: `apps/site` ya dice `moodlycrm.com` (#140, `43412fb`, 2026-11-10).
+- **Dominio (decisión de producto, 2026-10-24, sustituye a la del 2026-10-22):** el dominio es `moodlycrm.com` (staging en `staging.moodlycrm.com`). **Cambiado el 2026-11-10 (MANUAL §18.0 #3):** la marca es **Moodly** y el dominio será `moodly.com`; hasta tenerlo, `moodlycrm.com`, y el dominio va como configuración. `moodly.ai` no es nuestro. Hecho: `apps/site` ya dice `moodlycrm.com` (#140, `43412fb`, 2026-11-10).
 - **Decisiones de producto (2026-11-08):**
   - **Recordatorios de Recepción (4e):** dos por cita, 24 h y 4 h antes. Si se reserva con menos de 24 h, el de 24 h sale al reservar si aún faltan más de 4 h; con menos de 4 h no hay recordatorio. Salen solos, sin aprobación, con un texto fijo por idioma (sin coste de IA). Reservar a través del agente cuenta como permiso para los recordatorios de esa cita por el mismo canal, y el cliente se puede dar de baja contestando.
   - **Lista de espera (4f):** si no hay hueco que le sirva, el agente ofrece apuntarle; cuando se libera un hueco, se ofrece al primero de la lista durante 30 minutos y después al siguiente; si acepta, la reserva va a la bandeja de aprobaciones como cualquier otra.
@@ -191,7 +216,7 @@
 - **Hoja de ruta revisada (producto, 2026-11-09):** MANUAL §17, con heydiga como referencia. La fase 1 son los 4 agentes en el chat web y WhatsApp, con un bucle de aprendizaje v0; después, integraciones del piloto, producción y piloto, bucle de aprendizaje y coach, voz (un canal más, no el núcleo), todas las integraciones (Instagram y Facebook por ManyChat o similar, sin integración propia), autoservicio, cadenas, biblioteca de skills y agentes propios, y marketplace. El nivel empresa (seguridad, fiabilidad, operación, calidad de la IA, cumplimiento) se revisa en cada fase, no en una aparte. Ese mismo día se añadieron 38 propuestas de ingeniería (backend, IA, frontend y UX, seguridad y comercial), cada una en su fase; las más importantes: la bandeja en vivo con toma de control en la fase 1, la comprobación de precios, horarios y fechas contra los datos del negocio, las correcciones que se vuelven memoria, el modo sombra para prompts y las aprobaciones con un toque en el móvil.
 - **Web pública (prototipo) publicada (2026-11-08):** `apps/site` en el servicio `site` del proyecto `moodly-staging` de Railway (https://site-staging-f935.up.railway.app, región de EE. UU. por ahora), que se despliega desde `main` cuando cambian `apps/site/**`, el lockfile o el `package.json` raíz. La home en `/es` y el prototipo navegable de la plataforma en `/plataforma`. Sigue siendo el prototipo visual; desde #140 (`43412fb`) dice `moodlycrm.com`, y desde #157 (`bfbe4af`) `/precios` y `/enterprise` tienen la estructura de MANUAL §15.1 y §15.2, sin importes. Vercel no dejó crear el proyecto: el conector no tiene permiso para crear proyectos en el equipo.
 - **Claves de servidor de staging** (`LOGIN_THROTTLE_KEY` y `LOG_PSEUDONYM_KEY`, *sensitive* en Vercel): las generó el agente solo para staging. **Se rotan antes de cualquier dato real, y las de producción las genera una persona directamente en Vercel.**
-- **Mergeo sin revisión humana (decisión de producto, 2026-10-22):** mientras no haya datos reales de clientes, el agente mergea sus PRs, también los sensibles, con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md → «Mergeo autónomo»). La lista de zonas sensibles completa se guarda en `scripts/merge-guard/sensitive-paths.suspended.txt`.
+- **Mergeo sin revisión humana (decisión de producto, 2026-10-22; cambia con el hito M0):** la decisión #7 del 2026-11-10 pone una sesión revisora independiente en todo y a Diego en migraciones, RLS, auth y la guarda; se aplica con P-01 y P-02 en M0. Hasta entonces: mientras no haya datos reales de clientes, el agente mergea sus PRs, también los sensibles, con CI en verde sobre el commit exacto y sin tests debilitados (AGENTS.md → «Mergeo autónomo»). La lista de zonas sensibles completa se guarda en `scripts/merge-guard/sensitive-paths.suspended.txt`.
   - **Condición de salida a producción (bloqueante):** antes de meter el primer dato real de un cliente, reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (copiar esas líneas a `sensitive-paths.txt`), y hacer que el job `sensitive-paths` lea la lista de la rama base y no de la del PR. (`main` ya está protegida: lo hizo producto el 2026-10-23.)
 - **URLs de vuelta de Auth en staging (decidido por producto el 2026-10-24):** la integración de Supabase en Vercel escribe en el alojado 4 URLs (`moodly-staging-dsv-2b783aef.vercel.app` y `moodly-*-staging-dsv-2b783aef.vercel.app`, con y sin `/**`) y cada despliegue las quitaba (despliegues de las 20:46 y las 23:16 del 2026-10-23). Ahora están en `[remotes.staging.auth] additional_redirect_urls`, así que el despliegue ya no las quita: comprobado en el de las 00:34 del 2026-10-24 (#88), donde `config push` solo deja la diferencia de Twilio que no puede aplicar.
   - Hoy no sirven para nada: la web no usa `redirectTo`, así que los enlaces de Auth van siempre a `site_url`. Tampoco cubren las previews de verdad (`moodly-staging-git-<rama>-dsv-2b783aef.vercel.app`).
@@ -211,7 +236,7 @@
 - Voz: falta la cuenta de ElevenLabs (su clave va en el gestor de secretos, nunca en el chat) y el proveedor de telefonía con número español.
 - Créditos y prueba de 7 días (B5/B6): falta la cuenta de Stripe (la crea producto; en modo de prueba para empezar) y autorizar su conector.
 
-## Próximo
+## Próximo: orden anterior (histórico; sustituido el 2026-11-10 por el hito M0, arriba)
 
 **Orden de trabajo (producto, 2026-10-24).** Cada paso empieza cuando el anterior está mergeado, verificado y anotado aquí:
 1. ~~W2, W3 y el inglés por defecto~~: **hecho y verificado en staging el 2026-10-30** (W2 y W3, ver «Worker con DBOS»; inglés por defecto, #94).
