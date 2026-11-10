@@ -149,9 +149,10 @@ const NEGATION = /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't
 const INTERROGATIVE = /(?<![\p{L}])(?:cuándo|whether|ob|wann)(?![\p{L}])/u;
 // Palabras que pueden abrir una pregunta indirecta («te dirá si») pero también
 // una condición («si estás embarazada, es seguro»): solo cuentan detrás de un
-// verbo que introduce la pregunta (decir, saber, comprobar, avisar…).
+// verbo que introduce la pregunta (decir, saber, comprobar, avisar…), sin un
+// «que» en medio: «te confirmo que si…» es estilo indirecto y afirma.
 const INDIRECT =
-  /(?<![\p{L}])(?:dec\p{L}*|dir\p{L}*|dig\p{L}*|dic\p{L}*|sab\p{L}*|sé|ver|ve[ao]\p{L}*|comprob\p{L}*|comprue\p{L}*|confirm\p{L}*|avis\p{L}*|pregunt\p{L}*|consult\p{L}*|mir\p{L}*|revis\p{L}*|indic\p{L}*|inform\p{L}*|cont[aá]\p{L}*|cuent\p{L}*|tell|let (?:you|them) know|know|check|see|ask|find out|dire|savoir|sait|vérifi\p{L}*|demand\p{L}*|sagen|wissen|prüfen)(?![\p{L}])(?:\s+\p{L}+){0,3}?\s+(?:si|if|when|cuando|quand)(?![\p{L}])/u;
+  /(?<![\p{L}])(?:dec\p{L}*|dir\p{L}*|dig\p{L}*|dic\p{L}*|sab\p{L}*|sé|ver|ve[ao]\p{L}*|comprob\p{L}*|comprue\p{L}*|confirm\p{L}*|avis\p{L}*|pregunt\p{L}*|consult\p{L}*|mir\p{L}*|revis\p{L}*|indic\p{L}*|inform\p{L}*|cont[aá]\p{L}*|cuent\p{L}*|tell|let (?:you|them) know|know|check|see|ask|find out|dire|savoir|sait|vérifi\p{L}*|demand\p{L}*|sagen|wissen|prüfen)(?![\p{L}])(?:\s+(?!(?:que|that|dass)(?![\p{L}]))\p{L}+){0,3}?\s+(?:si|if|when|cuando|quand)(?![\p{L}])/u;
 
 /**
  * Si la frase en la que aparece está negada o es una pregunta indirecta
