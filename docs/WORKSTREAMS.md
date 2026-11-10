@@ -17,6 +17,7 @@
 - **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda y la Revisora); V2, los arreglos de seguridad de la web.
 - **Excepción:** V4 abre un solo PR para cerrar lo que quedó del #163 y después espera.
 - **V3 espera.**
+- **V5 (excepción de producto, 2026-11-10):** trabaja en `dsvmotion/moodly-toolkit` y abre un solo PR en `moodly` para activarlo.
 - **El límite se levanta cuando se cumplen las tres:**
   - el PR de P-01 está en `main`;
   - la Revisora automática está probada (revisión firmada por la App, su aprobación cuenta y las pruebas en negativo pasan);
@@ -49,6 +50,7 @@
 | **V2 · Frontend** | `session_016SLeJPQzGfzXfRwnYRHXXt` | La bandeja de conversaciones en vivo (`/app/inbox`), con «tomar el control» de una conversación, y los arreglos de `docs/design/design-review.md`. |
 | **V3 · Docs/Site** | «Moodly V3 · Docs/Site» | El borrador del ADR 0046 (copiloto y modo coach). En `apps/site`, cambiar `moodly.ai` por `moodlycrm.com` y dar a la página de precios la estructura de MANUAL §15.1 y §15.2. |
 | **V4 · Evals** | «Moodly V4 · Evals» | El arnés de evals de los agentes en `packages/evals`: conversaciones de prueba con el modelo real y sus umbrales (MANUAL §12.4). |
+| **V5 · Toolkit** | Por crear (producto, 2026-11-10) | El marketplace de plugins [`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit), con las skills y los plugins del proyecto, y su activación en `moodly`. |
 | **Revisora** | Sesión nueva por encargo, hija de V1 (§8 de las órdenes de M0) | No escribe código de producto. Revisa los PRs que tocan migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos, la guarda de mergeo y los workflows, y comprueba la puerta de cada hito antes de que producto la firme. |
 
 ## Qué carpetas toca cada una
@@ -72,6 +74,15 @@
 **V4 · Evals**
 - `packages/evals/**`. `src/embeddings` es la eval de los embeddings del ADR 0048: se puede ampliar, no cambiar lo que mide.
 - Si el arnés necesita algo de `agent-core` o del worker (por ejemplo, exportar el prompt o el turno), lo pide a V1.
+
+**V5 · Toolkit**
+- Todo `dsvmotion/moodly-toolkit`.
+- **En `moodly`, solo:**
+  - `.claude/settings.json`;
+  - una sección corta en `CLAUDE.md` y `AGENTS.md` (iguales, en el mismo PR);
+  - su fila en este archivo.
+- **No toca:** `apps/**`, `packages/**`, migraciones, `docs/STATUS.md` ni `.github/workflows/**`.
+- **Su PR de `moodly`** entra en la cola de mergeos como cualquier otro. `.claude/settings.json` decide los permisos y los *hooks* de todas las sesiones, así que ese PR lo revisa una sesión Revisora y lo autoriza producto antes de mergearlo. Después, V1 pasa su evidencia a STATUS.
 
 **Revisora**
 - No escribe en `apps/**` ni en `packages/**`. Solo comenta en los PRs y, si hace falta, añade en `docs/audits/**` el informe de la puerta de un hito.
@@ -125,7 +136,7 @@ Estados: **abierto** (se puede trabajar ya) o **en espera** (y qué espera). Se 
 1. **#162** (plan y estas reglas en `main`): abierto.
 2. **#164** (órdenes de M0 y tareas de producto en `docs/scope.yaml`): abierto, después de #162. Se trae `main` y en el conflicto de `docs/scope.yaml` se conservan los dos bloques (`findings` y `founder_tasks`).
 3. **[M0][P-01]** La guarda corre desde la rama base y no ejecuta código del PR. Reactiva una lista corta de zonas sensibles, que incluye `CLAUDE.md`, `AGENTS.md`, `scripts/merge-guard/**` y `.github/workflows/**`. **Abierto.** No se mergea sin el veredicto de una sesión Revisora y el visto bueno de producto: es el PR que la guarda no puede proteger.
-4. **[M0][SE01]** El workflow de la Revisora automática, con el diseño por niveles de las órdenes de M0 §5. **En espera:** de la clave `REVIEWER_AI_GATEWAY_API_KEY` (la crea producto) y de que producto decida si el modelo rápido puede aprobar el código corriente. Misma regla de mergeo que el punto 3.
+4. **[M0][SE01]** El workflow de la Revisora automática, con el diseño por niveles de las órdenes de M0 §5. **En espera** de que producto decida si el modelo rápido puede aprobar el código corriente. La clave `REVIEWER_AI_GATEWAY_API_KEY` ya está en el entorno `reviewer`, con un tope de 15 $ al mes (producto, 2026-11-10). Misma regla de mergeo que el punto 3.
 5. **[M0][P-04][P-05]** CI de `main` sin cancelación, y el secreto de las evals fuera del alcance de los PRs: abierto.
 6. **[M0][G-03][G-04]** `login_record_success` exige sesión activa, y aceptar una invitación exige el email confirmado: abierto.
 7. **[M0][D-01][D-02]** Poder borrar a un miembro del equipo, y la máquina de estados de las ejecuciones: abierto.
@@ -148,6 +159,10 @@ No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respu
    - «Ya sabes que si estás embarazada es seguro hacerte el láser.»
    - «Te digo que cuando estés embarazada es seguro seguir con el láser.»
 2. Después espera. La mezcla de modelos (B-01) y las evals como check obligatorio (K-01) son de M1.
+
+**V5** (excepción de producto al límite de sesiones, 2026-11-10)
+1. Montar `dsvmotion/moodly-toolkit`, con las skills y los plugins del proyecto. Es otro repositorio: no pasa por esta cola.
+2. Un solo PR en `moodly` que activa el marketplace: `.claude/settings.json` y la sección corta de `CLAUDE.md` y `AGENTS.md`. Abierto. Lo revisa una sesión Revisora y lo autoriza producto.
 
 **V3** (todo en espera hasta que se levante el límite)
 1. **[M0][N-04]** Aviso «prototipo con datos ficticios» en `/plataforma`, `noindex`, y «Log in» deja de apuntar al prototipo.
@@ -188,4 +203,5 @@ Lo asignado antes del plan nuevo está hecho; desde el 2026-11-10 cada línea si
 | **V2 · Frontend** | Hecho: la bandeja con «tomar el control» y los arreglos de la revisión de diseño. Sigue con su cola de M0 (G-02, M-07, M-08); OA07 (la pantalla de las preguntas al equipo, que desbloquea #159) es de M2. |
 | **V3 · Docs/Site** | Hecho: `moodlycrm.com` en `apps/site`, y precios y `/enterprise` con la estructura de §15.1 y §15.2. Abierto: #158 (ADR 0046, «propuesto»), que el plan pide revisar antes de proponerlo para aceptar. Espera a que se levante el límite de sesiones. |
 | **V4 · Evals** | Hecho: el arnés de evals con el modelo real, los casos de Recepción y los sets por sector. Restauró el check relajado en #156 (#163, `723d604`); le queda un PR para cerrar el hueco del estilo indirecto (K-03) y después espera. |
+| **V5 · Toolkit** | Por crear (producto, 2026-11-10): el marketplace `dsvmotion/moodly-toolkit` y un PR en `moodly` para activarlo. |
 | **Revisora** | Se crea una nueva por encargo: la primera, para el PR de P-01. |

@@ -32,8 +32,25 @@ m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conver
 # Hallazgos de la auditoría (sección 8) con trabajo en marcha: un PR que trabaja un hallazgo
 # añade o pone al día su fila aquí (docs/WORKSTREAMS.md, regla 1). Mismos estados que las unidades.
 findings:
-  - {id: "K-03", milestone: "M0", owner: "V4", status: "done", evidence: ["PR #163", "723d604"], note: "El check de afirmaciones vuelve a tratar una condición como afirmar; solo las preguntas indirectas quedan exentas"}
+  - {id: "K-03", milestone: "M0", owner: "V4", status: "in_progress", evidence: ["PR #163", "723d604"], note: "#163 vuelve a tratar una condición como afirmar; queda el hueco del estilo indirecto («te confirmo que si…»), que cierra el siguiente PR de V4 (órdenes de M0 §4)"}
   - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
+
+# Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
+# El estado lo declara producto; lo que no se puede comprobar desde el repositorio lo dice en la evidencia.
+founder_tasks:
+  - {id: "F01", name: "Branch rules on main and the staging environment restricted to main", milestone: "M0", status: "done", evidence: ["Declared by the founder on 2026-11-10; GitHub settings cannot be read from the repo"]}
+  - {id: "F02", name: "Reviewer identity: GitHub App Moodly Reviewer created and installed; contents read-only, pull requests read and write, no admin permissions", milestone: "M0", status: "done", evidence: ["Declared by the founder on 2026-11-10; installation 180516622"]}
+  - {id: "F03", name: "Connect the reviewer identity and verify it is the one posting reviews", milestone: "M0", status: "in_progress", evidence: ["Declared by the founder on 2026-11-10: the new permission is accepted on the installation, and the App ID and private key are stored in GitHub (proposed names: environment reviewer limited to main, variable REVIEWER_APP_ID, secret REVIEWER_APP_PRIVATE_KEY); GitHub settings cannot be read from the repo", "Declared by the founder on 2026-11-10: REVIEWER_AI_GATEWAY_API_KEY created in the reviewer environment with a 15 USD monthly cap"], note: "Until verified, the Reviewer's reviews are advisory: not formal approvals and not permission to merge. Still needed, owner V1 inside P-01: a workflow that posts the review as the App from the base branch without running pull-request code, access to a model for the review (cost approved by the founder), and a test pull request showing the review signed by the App and whether its approval counts. Do not require approvals on main before that test passes: every pull request is opened under the founder's account, so only the App could approve"}
+  - {id: "F04", name: "Separate identity for the sessions that write and merge, without admin or workflow permissions", milestone: "M0", status: "planned", evidence: [], note: "Today every commit, pull request and merge is made under the founder's account (finding P-02)"}
+  - {id: "F05", name: "Meta Business verification, WhatsApp number and templates", milestone: "M1", status: "in_progress", evidence: []}
+  - {id: "F06", name: "Legal entity and counsel: DPA, privacy policy, terms", milestone: "M3", status: "in_progress", evidence: []}
+  - {id: "F07", name: "Pilot client: letter of intent and the list of systems it uses", milestone: "M2", status: "in_progress", evidence: [], note: "Conversations with candidate businesses under way"}
+  - {id: "F08", name: "Domain: moodlycrm.com now (staging at staging.moodlycrm.com); move to moodly.com when the platform is operational", milestone: "after", status: "planned", evidence: [], note: "Decided on 2026-11-10. Keep the domain as configuration (audit section 18.9)"}
+  - {id: "F09", name: "Supabase Pro and a separate production organization, with a restore drill", milestone: "M1", status: "planned", evidence: []}
+  - {id: "F10", name: "DPAs with each model provider, the connector platform and the Instagram partner", milestone: "M3", status: "planned", evidence: []}
+  - {id: "F11", name: "Choose the connector platform from V1's comparison", milestone: "M0", status: "planned", evidence: []}
+  - {id: "F12", name: "Book the independent penetration test", milestone: "M3", status: "planned", evidence: []}
+  - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "planned", evidence: []}
 
 areas:
   use_cases:
@@ -96,7 +113,7 @@ areas:
     substitution_rule: "A system counts only at level 1. If one is blocked (closed API, no contract yet), record the reason and take the next system in wave order so the count of 50 holds"
     # El sistema de reservas del cliente piloto es la unidad 50 del piloto. Se enlaza a un sistema del catálogo cuando se conozca el cliente;
     # si ya está en el lote C, entra el siguiente sistema por orden de oleada.
-    pilot_booking_system: {milestone: "M3", batch: "B", level_target: 3, bind_to: null, owner: "V1", status: "blocked", note: "Needs the pilot client (STATUS, Bloqueado)"}
+    pilot_booking_system: {milestone: "M3", batch: "B", level_target: 3, bind_to: null, owner: "V1", status: "blocked", note: "Needs the pilot client (STATUS, Bloqueado). The founder is talking to candidate businesses (F07)"}
     units:
       - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
       - {id: "int-instagram", name: "Instagram", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
@@ -249,7 +266,7 @@ areas:
   channels:
     done_when: "Inbound is signed and de-duplicated; outbound has delivery states; opt-in is recorded; one end-to-end test passes"
     units:
-      - {id: "ch-whatsapp", name: "WhatsApp", milestone: "M1", owner: "V1", status: "blocked", evidence: [], note: "Waiting for Meta Business verification, a number and approved templates (STATUS, Bloqueado)"}
+      - {id: "ch-whatsapp", name: "WhatsApp", milestone: "M1", owner: "V1", status: "blocked", evidence: [], note: "Waiting for Meta Business verification, a number and approved templates (STATUS, Bloqueado). Verification in progress by the founder since 2026-11-10 (F05)"}
       - {id: "ch-webchat", name: "Web chat", milestone: "M1", owner: "V1", status: "planned", evidence: [], note: "Only the internal test chat exists"}
       - {id: "ch-email", name: "Email", milestone: "M2", owner: "V1", status: "planned", evidence: [], note: "Also carries notifications to the owner"}
       - {id: "ch-telegram", name: "Telegram", milestone: "M3", owner: "V1", status: "planned", evidence: []}
@@ -352,7 +369,7 @@ areas:
   security:
     done_when: "Live, with evidence a customer could be shown"
     units:
-      - {id: "SE01", name: "Merge guard run from the base branch and a separate agent identity", milestone: "M0", owner: "V1 + Founder", status: "planned", evidence: [], note: "Findings P-01 and P-02"}
+      - {id: "SE01", name: "Merge guard run from the base branch and a separate agent identity", milestone: "M0", owner: "V1 + Founder", status: "in_progress", evidence: ["GitHub App Moodly Reviewer created and installed by the founder on 2026-11-10 (installation 180516622); contents read-only; pull requests changed to read and write by the founder later that day"], note: "Findings P-01 and P-02. The reviewer identity exists but no session uses it yet, so reviews stay advisory. Still open: the guard run from the base branch, connecting the reviewer identity (founder task F03), and a separate identity for the sessions that write and merge (F04)"}
       - {id: "SE02", name: "An EU-only mode that works", milestone: "M1", owner: "V1", status: "planned", evidence: [], note: "Finding H-01"}
       - {id: "SE03", name: "Erasure, export and retention jobs", milestone: "M3", owner: "V1", status: "planned", evidence: [], note: "Finding H-02"}
       - {id: "SE04", name: "Customer audit log with access transparency", milestone: "M3", owner: "V1 + V2", status: "in_progress", evidence: [], note: "audit_logs and time-boxed support grants exist; no viewer"}
