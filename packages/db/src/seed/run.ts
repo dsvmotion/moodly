@@ -16,6 +16,7 @@ import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
+  SEED_VOLUME,
   seedApprovals,
   seedCustomAgentTypes,
   seedExtraMemberships,
@@ -176,7 +177,15 @@ async function main(): Promise<void> {
   check("regions", regions.error);
   const locations = await admin
     .from("locations")
-    .upsert(seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })));
+    .upsert(
+      seedLocations.map((l) => ({
+        id: l.id,
+        organization_id: l.organizationId,
+        region_id: l.regionId,
+        name: l.name,
+        timezone: l.timezone ?? "Europe/Madrid",
+      })),
+    );
   check("locations", locations.error);
 
   // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
@@ -482,6 +491,147 @@ async function main(): Promise<void> {
       seedInboxConversations.map((conversation) => conversation.id),
     );
   check("domain_events", quietEvents.error);
+
+  // Volumen de Demo F para los e2e de M-07 (SEED_VOLUME): se borra y se vuelve a
+  // crear todo lo de la organización en cada ejecución.
+  {
+    const org = SEED_VOLUME.organizationId;
+    const skill = await admin
+      .from("agent_skills")
+      .select("agent_id")
+      .eq("organization_id", org)
+      .eq("skill_id", bookSkill.data?.id ?? "")
+      .limit(1)
+      .single();
+    check("agent_skills (F)", skill.error);
+    const agentId = skill.data?.agent_id ?? "";
+    const agent = await admin.from("agents").select("agent_type_id").eq("id", agentId).single();
+    check("agents (F)", agent.error);
+    const type = await admin.from("agent_types").select("key").eq("id", agent.data?.agent_type_id ?? "").single();
+    check("agent_types (F)", type.error);
+
+    check("conversations (F)", (await admin.from("conversations").delete().eq("organization_id", org)).error);
+    check("agent_runs (F)", (await admin.from("agent_runs").delete().eq("organization_id", org)).error);
+
+    const accounts = new Map<string, string>();
+    for (const location of [SEED_VOLUME.f1, SEED_VOLUME.f2]) {
+      const externalId = `seed:whatsapp:${location}`;
+      const upserted = await admin.from("channel_accounts").upsert(
+        { organization_id: org, location_id: location, channel: "whatsapp", external_id: externalId, default_agent_type: type.data?.key ?? "", status: "active" },
+        { onConflict: "channel,external_id", ignoreDuplicates: true },
+      );
+      check("channel_accounts (F)", upserted.error);
+      const row = await admin.from("channel_accounts").select("id").eq("channel", "whatsapp").eq("external_id", externalId).single();
+      check("channel_accounts (F)", row.error);
+      accounts.set(location, row.data?.id ?? "");
+    }
+
+    const f2 = SEED_VOLUME.f2Conversation;
+    const f1 = Array.from({ length: SEED_VOLUME.openInF1 + SEED_VOLUME.closedInF1 }, (_, i) => ({
+      n: i + 1,
+      ...SEED_VOLUME.f1Conversation(i + 1),
+      open: i < SEED_VOLUME.openInF1,
+    }));
+    const contacts = await admin.from("contacts").upsert([
+      { id: f2.contactId, organization_id: org, display_name: f2.contactName },
+      ...f1.map((c) => ({ id: c.contactId, organization_id: org, display_name: `Contacto F1 ${String(c.n).padStart(3, "0")}` })),
+    ]);
+    check("contacts (F)", contacts.error);
+    const conversations = await admin.from("conversations").insert([
+      { id: f2.id, organization_id: org, location_id: SEED_VOLUME.f2, contact_id: f2.contactId, channel_account_id: accounts.get(SEED_VOLUME.f2) ?? "", channel: "whatsapp", agent_id: agentId, mode: "human" },
+      ...f1.map((c) => ({
+        id: c.id,
+        organization_id: org,
+        location_id: SEED_VOLUME.f1,
+        contact_id: c.contactId,
+        channel_account_id: accounts.get(SEED_VOLUME.f1) ?? "",
+        channel: "whatsapp",
+        agent_id: agentId,
+        mode: c.open ? "agent" : "closed",
+      })),
+    ]);
+    check("conversations (F)", conversations.error);
+    // Solo las abiertas de F1 y la de F2 llevan mensaje; las de F1, más recientes que la de F2.
+    const volumeAt = Date.now();
+    const messages = await admin.from("messages").insert([
+      { organization_id: org, conversation_id: f2.id, direction: "in", author: "contact", content: "Hola desde F2", status: "received", created_at: new Date(volumeAt - 1_000 * 60_000).toISOString() },
+      ...f1
+        .filter((c) => c.open)
+        .map((c) => ({
+          organization_id: org,
+          conversation_id: c.id,
+          direction: "in",
+          author: "contact",
+          content: `Hola desde F1 (${c.n})`,
+          status: "received",
+          created_at: new Date(volumeAt - c.n * 60_000).toISOString(),
+        })),
+    ]);
+    check("messages (F)", messages.error);
+    const quiet = await admin
+      .from("domain_events")
+      .update({ published_at: new Date().toISOString() })
+      .eq("organization_id", org)
+      .eq("type", "message.received")
+      .is("published_at", null);
+    check("domain_events (F)", quiet.error);
+
+    // Aprobaciones: las de F1 en una inserción y la de F2 después, en otra: created_at
+    // lo pone la base de datos y no se puede cambiar (guard_approval).
+    const volumeExpiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
+    const pendingApprovals = async (
+      label: string,
+      items: { key: string; location: string; runId: string; executionId: string; approvalId: string; text: string }[],
+    ) => {
+      const runs = await admin.from("agent_runs").insert(
+        items.map((a) => ({ id: a.runId, organization_id: org, location_id: a.location, agent_id: agentId, trigger: "inbound_message", status: "awaiting_approval" })),
+      );
+      check(`agent_runs (${label})`, runs.error);
+      const executions = await admin.from("executions").insert(
+        items.map((a) => ({
+          id: a.executionId,
+          organization_id: org,
+          location_id: a.location,
+          run_id: a.runId,
+          skill_key: "reply",
+          skill_version: 1,
+          effect_class: "external_message",
+          autonomy_applied: "draft",
+          input: { text: a.text },
+          target: { kind: "none" },
+          input_hash: createHash("sha256").update(`seed:${a.key}`).digest("hex"),
+          preview: { summary: `Responder: «${a.text}»` },
+          status: "drafted",
+          idempotency_key: `seed:${a.key}`,
+        })),
+      );
+      check(`executions (${label})`, executions.error);
+      const approvals = await admin.from("approvals").insert(
+        items.map((a) => ({
+          id: a.approvalId,
+          execution_id: a.executionId,
+          organization_id: org,
+          location_id: a.location,
+          effect_class: "external_message",
+          input_hash: createHash("sha256").update(`seed:${a.key}`).digest("hex"),
+          required_role: "staff",
+          reason: `Responder: «${a.text}»`,
+          expires_at: volumeExpiresAt,
+        })),
+      );
+      check(`approvals (${label})`, approvals.error);
+    };
+    await pendingApprovals(
+      "F1",
+      Array.from({ length: SEED_VOLUME.pendingInF1 }, (_, i) => ({
+        key: `f1_${i + 1}`,
+        location: SEED_VOLUME.f1,
+        ...SEED_VOLUME.f1Approval(i + 1),
+        text: `Mensaje pendiente en F1 (${i + 1})`,
+      })),
+    );
+    await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
+  }
 
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {

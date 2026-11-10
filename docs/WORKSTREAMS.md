@@ -84,7 +84,7 @@ Además, sin turno todavía:
 - **Sesiones creadas desde otra sesión:** no reciben los plugins de la cuenta. Las skills del proyecto llegan con `.claude/` del repositorio (P-10).
 - **Primer mensaje de una Revisora:** es literal, el de `docs/audits/2026-11-10-ordenes-m0.md` §8, con el encargo al final.
 
-**Pendiente de V1 fuera de la cola numerada:** los datos del seed para M-07 (más de 100 conversaciones en un local y una más antigua en otro), que V2 necesita para probar el filtro.
+**Fuera de la cola numerada:** los datos del seed para M-07 (Demo F, `SEED_VOLUME` en `packages/db/src/seed/data.ts`), que V2 necesita para probar el filtro, van en su propio PR de V1.
 
 ## Las líneas de trabajo
 
