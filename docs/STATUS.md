@@ -34,6 +34,7 @@
 | #155 | `11e47ef` | Evals: conversaciones largas, otro local y solicitudes pendientes | V4 |
 | #156 | `c290ee3` | Evals: sets por sector (restauración, talleres, salud e inmobiliarias) | V4 |
 | #161 | `38f4afa` | Plan nuevo de producto: auditoría de preproducción, decisiones del 2026-11-10 y registro de alcance (`docs/scope.yaml`) | sesión de auditoría (revisado y mergeado por V1) |
+| #163 | `723d604` | `[M0][K-03]` Evals: una condición no exime de afirmar, solo las preguntas indirectas (restaura el check que relajó #156) | V4 |
 
 **Verificación sobre `main`:** cada PR de la tabla tiene su «✅ Verificado sobre main». El de #161 (`38f4afa`), en el propio PR.
 
@@ -41,7 +42,7 @@
 
 ### En curso
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
-  - **#163** (V4, `[M0][K-03]`): restaura el check de afirmaciones que relajó #156. Va después de #161 con permiso de producto.
+  - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
@@ -74,7 +75,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
   - el registro de alcance y STATUS generado a partir de él (P-08).
 - **V2:** los arreglos de redirección, alcance y zona horaria.
 - **V3:** honestidad de la web (aviso, `noindex`, afirmaciones), `SECURITY.md` y la lista de paridad de integraciones.
-- **V4:** restaurar el check de seguridad que relajó #156 (`packages/evals/src/conversations/checks.ts:153`), con los contraejemplos como tests (K-02 ya está cerrado por #152).
+- **V4:** ~~restaurar el check de seguridad que relajó #156~~, hecho en #163 (`723d604`), con los contraejemplos como tests; K-02 ya estaba cerrado por #152.
 - **Revisora:** revisa los PRs que tocan migraciones, RLS, `SECURITY DEFINER`, auth, secretos, la guarda y los workflows, y comprueba la puerta.
 - **Producto:**
   - la identidad propia del agente en GitHub y las reglas de la rama (P-02);
