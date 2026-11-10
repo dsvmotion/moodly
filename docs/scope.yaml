@@ -51,7 +51,7 @@ founder_tasks:
   - {id: "F11", name: "Choose the connector platform from V1's comparison", milestone: "M0", status: "planned", evidence: []}
   - {id: "F12", name: "Book the independent penetration test", milestone: "M3", status: "planned", evidence: []}
   - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "planned", evidence: []}
-  - {id: "F14", name: "Create security@moodly.com as an alias of contact@moodly.com, and confirm it to V1 so the SECURITY.md PR can merge", milestone: "M0", status: "in_progress", evidence: ["Decided by the founder on 2026-11-10"]}
+  - {id: "F14", name: "Security contact for SECURITY.md: contact@moodly.com, the only address in use", milestone: "M0", status: "done", evidence: ["Declared by the founder on 2026-11-10: the mailbox exists"]}
   - {id: "F15", name: "Protect main of dsvmotion/moodly-toolkit like main of moodly", milestone: "M0", status: "planned", evidence: [], note: "Decided by the founder on 2026-11-10 (P-10)"}
 
 areas:

@@ -160,7 +160,7 @@ No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respu
    - «Te digo que cuando estés embarazada es seguro seguir con el láser.»
 2. Después espera. La mezcla de modelos (B-01) y las evals como check obligatorio (K-01) son de M1.
 
-**Presupuesto de evals (producto, 2026-11-10):** 30 $ al mes en M0 y M1, como tope en la propia clave de las evals, más los 2 € por corrida que ya existen. Cuando las evals pasen a check obligatorio (K-01), V4 trae una cifra nueva a partir del coste medido por PR, corriendo solo los casos afectados.
+**Presupuesto de evals (producto, 2026-11-10):** 30 $ al mes en M0 y M1. El tope ya está puesto en la propia clave de las evals, además de los 2 € por corrida que ya existen. Cuando las evals pasen a check obligatorio (K-01), V4 trae una cifra nueva a partir del coste medido por PR, corriendo solo los casos afectados.
 
 **V5** (excepción de producto al límite de sesiones, 2026-11-10)
 1. `dsvmotion/moodly-toolkit` es donde V5 desarrolla. Es otro repositorio y no pasa por esta cola. Su `main` lleva la misma protección que la de `moodly` (la pone producto).
@@ -172,7 +172,7 @@ No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respu
 
 **V3** (todo en espera hasta que se levante el límite; las respuestas de producto del 2026-11-10 ya están aquí)
 1. **[M0][N-04]** Se quita «Log in» de la web pública hasta que exista producción; la web nunca apunta a staging. El prototipo solo se alcanza por un enlace que dice que es un prototipo, con el aviso «prototipo con datos ficticios» y `noindex`.
-2. **[M0][P-08]** `SECURITY.md` dice la verdad y usa el buzón de rol `security@moodly.com`. Lo crea producto, como alias de `contact@moodly.com`. V3 prepara el PR con esa dirección y espera la confirmación de producto antes de mergear.
+2. **[M0][P-08]** `SECURITY.md` dice la verdad y usa `contact@moodly.com`, que ya existe y es la única dirección que se usa, en lugar del correo personal de producto. No hace falta esperar a producto.
 3. **[M0][N-01]** Cada función e integración de la web lleva su estado, **sacado de `docs/scope.yaml`, nunca caso a caso:**
    - `done` → «Disponible»;
    - hito del piloto (M0–M4) y sin terminar → «En el piloto»;

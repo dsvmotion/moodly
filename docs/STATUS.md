@@ -99,11 +99,11 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 - **Revisora automática:** el modelo rápido aprueba el código corriente solo después de acertar todos los casos de seguridad del set de prueba. Hasta entonces, el nivel 1 comenta y no aprueba. Hasta 10 € para el set.
 - **M-08:** cada hora va en la zona de su local, con la zona escrita si la organización tiene más de una o si el dispositivo está en otra zona.
 - **N-04:** fuera «Log in» de la web pública hasta que haya producción, y la web nunca apunta a staging. El prototipo, solo con su aviso y `noindex`.
-- **`SECURITY.md`:** el buzón es `security@moodly.com`, un alias de `contact@moodly.com` que crea producto. El PR espera su confirmación.
+- **`SECURITY.md`:** usa `contact@moodly.com`, que ya existe y es la única dirección que se usa; no espera a producto.
 - **N-01:** el estado de cada función de la web sale de `docs/scope.yaml`, nunca caso a caso.
 - **N-02:** en M0, los formularios dejan de fingir; en M1, el endpoint real.
 - **V5 (P-10):** sin marketplace. Lo necesario se copia en `.claude/` de `moodly` por PRs sensibles, con el commit del toolkit de origen. #166 no se mergea tal como está. `.claude/**` entra en la lista de P-01.
-- **Evals:** 30 $ al mes en M0 y M1 como tope en la clave, más 2 € por corrida.
+- **Evals:** 30 $ al mes en M0 y M1, con el tope ya puesto en la clave, más 2 € por corrida.
 
 **Siguen abiertas:**
 - **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
