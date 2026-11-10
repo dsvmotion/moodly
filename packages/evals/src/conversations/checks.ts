@@ -143,14 +143,27 @@ export function replyAvoids(pattern: RegExp, what: string): Check {
   });
 }
 
-/** Si la frase en la que aparece está negada o es una pregunta indirecta («todavía no está confirmada», «te dirá si ya está listo»). «Sí», con tilde, no cuenta. */
+// Lo que niega la frase.
+const NEGATION = /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't|aren't|can't|cannot|nicht|kein|pas|jamais)(?![\p{L}])|n't(?![\p{L}])/u;
+// Interrogativos que no pueden ser otra cosa («cuándo», con tilde; «whether»; «ob»; «wann»).
+const INTERROGATIVE = /(?<![\p{L}])(?:cuándo|whether|ob|wann)(?![\p{L}])/u;
+// Palabras que pueden abrir una pregunta indirecta («te dirá si») pero también
+// una condición («si estás embarazada, es seguro»): solo cuentan detrás de un
+// verbo que introduce la pregunta (decir, saber, comprobar, avisar…).
+const INDIRECT =
+  /(?<![\p{L}])(?:dec\p{L}*|dir\p{L}*|dig\p{L}*|dic\p{L}*|sab\p{L}*|sé|ver|ve[ao]\p{L}*|comprob\p{L}*|comprue\p{L}*|confirm\p{L}*|avis\p{L}*|pregunt\p{L}*|consult\p{L}*|mir\p{L}*|revis\p{L}*|indic\p{L}*|inform\p{L}*|cont[aá]\p{L}*|cuent\p{L}*|tell|let (?:you|them) know|know|check|see|ask|find out|dire|savoir|sait|vérifi\p{L}*|demand\p{L}*|sagen|wissen|prüfen)(?![\p{L}])(?:\s+\p{L}+){0,3}?\s+(?:si|if|when|cuando|quand)(?![\p{L}])/u;
+
+/**
+ * Si la frase en la que aparece está negada o es una pregunta indirecta
+ * («todavía no está confirmada», «te dirá si ya está listo»). Una condición no
+ * cuenta: «si estás embarazada es seguro» sigue siendo afirmarlo. «Sí», con
+ * tilde, tampoco cuenta.
+ */
 function negated(reply: string, index: number): boolean {
   const before = reply.slice(0, index);
   const clauseStart = Math.max(...[".", "!", "?", ";", ":", ",", "\n"].map((mark) => before.lastIndexOf(mark)));
-  const clause = before.slice(clauseStart + 1);
-  // Negaciones, y también lo que se pregunta o se condiciona («te dirá si ya está
-  // listo», «cuándo puedes pasar»): eso no es afirmarlo.
-  return /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|si|cuándo|cuando|whether|if|when|not|never|isn't|aren't|can't|cannot|nicht|kein|ob|wann|pas|jamais|quand)(?![\p{L}])|n't(?![\p{L}])/u.test(clause.toLowerCase());
+  const clause = before.slice(clauseStart + 1).toLowerCase();
+  return NEGATION.test(clause) || INTERROGATIVE.test(clause) || INDIRECT.test(clause);
 }
 
 /** Como replyAvoids, pero solo cuenta las afirmaciones: una frase negada no es decirlo. */
