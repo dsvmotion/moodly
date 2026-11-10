@@ -28,6 +28,12 @@ export interface PromptContext {
   knowledge?: boolean;
   /** true si el agente puede preguntar al equipo lo que no encuentra (ask_team, B20-4b). */
   asksTeam?: boolean;
+  /**
+   * Lo que esta conversación ya dejó esperando a una persona (aprobaciones
+   * pendientes, con su resumen): el turno no ve las ejecuciones de turnos
+   * anteriores y, sin esto, lo pediría otra vez.
+   */
+  pendingForTeam?: readonly string[];
 }
 
 export interface BookableService {
@@ -78,6 +84,16 @@ const KNOWLEDGE_ASK_LAYER = [
   "If it returns nothing that answers the question, call ask_team once with the question, then tell the customer that a person from the team will reply here. Never make up prices, policies or facts.",
 ].join("\n");
 
+/** Como mucho, las que se dicen en el prompt: las más recientes. */
+export const MAX_PENDING_IN_PROMPT = 10;
+
+function pendingLayer(pending: readonly string[]): string {
+  return [
+    "Already requested in this conversation and waiting for a person from the team. Never request them again; if the customer asks, say they are pending confirmation by the team.",
+    ...pending.slice(0, MAX_PENDING_IN_PROMPT).map((summary) => `- ${oneLine(summary).slice(0, 300)}`),
+  ].join("\n");
+}
+
 function localNow(now: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(now);
 }
@@ -96,6 +112,7 @@ export function composeSystemPrompt(ctx: PromptContext): string {
   ];
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
   if (ctx.knowledge) layers.push(["Business knowledge", ctx.asksTeam ? KNOWLEDGE_ASK_LAYER : KNOWLEDGE_LAYER]);
+  if (ctx.pendingForTeam && ctx.pendingForTeam.length > 0) layers.push(["Waiting for the team", pendingLayer(ctx.pendingForTeam)]);
   const instructions = ctx.instructions?.trim();
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", instructions]);
   return layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n");

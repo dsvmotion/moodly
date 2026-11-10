@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, MAX_PENDING_IN_PROMPT, REPLY_SKILL_KEY, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -37,7 +37,7 @@ import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
-import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
+import { APPROVAL_TTL_MS, AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
 
@@ -164,6 +164,8 @@ type Prepared =
       /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
       services: BookableService[] | null;
       servicesTruncated: boolean;
+      /** Lo que la conversación ya dejó esperando a una persona: el resumen de cada aprobación pendiente. */
+      pendingForTeam: string[];
       /** La hora del turno, fijada dentro del paso: al reanudar es la misma. */
       now: string;
     };
@@ -171,6 +173,60 @@ type Prepared =
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
   if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
   return result.data;
+}
+
+/**
+ * Las aprobaciones que siguen pendientes de lo que pidió el agente en esta
+ * conversación (hallazgo de las evals con el modelo real: sin ellas, al
+ * preguntar el cliente por su reserva, el agente la pedía otra vez). Un run
+ * nace de un mensaje del contacto (trigger_ref); una aprobación dura un día
+ * (APPROVAL_TTL_MS), así que bastan los mensajes del contacto de ese día.
+ */
+/** Lo que entra en el prompt por una respuesta en borrador pendiente: sin su texto. */
+export const DRAFTED_REPLY_PENDING = "A reply to the customer, drafted and waiting for a person from the team to review it";
+
+async function pendingApprovals(db: TenantDb, conversationId: string, now: Date): Promise<string[]> {
+  const since = new Date(now.getTime() - APPROVAL_TTL_MS).toISOString();
+  const asked = check(
+    await db
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("author", "contact")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    "los mensajes del contacto",
+  );
+  const messageIds = (asked ?? []).map((message) => message.id);
+  if (messageIds.length === 0) return [];
+  const runs = check(
+    await db.from("agent_runs").select("id").eq("trigger", "inbound_message").in("trigger_ref", messageIds).limit(100),
+    "los runs de la conversación",
+  );
+  const runIds = (runs ?? []).map((run) => run.id);
+  if (runIds.length === 0) return [];
+  // tenantDb no admite recursos embebidos: una consulta acotada por tabla.
+  const executions = check(await db.from("executions").select("id, skill_key").in("run_id", runIds).limit(500), "las ejecuciones de la conversación");
+  const skillOf = new Map((executions ?? []).map((execution) => [execution.id, execution.skill_key]));
+  const executionIds = [...skillOf.keys()];
+  if (executionIds.length === 0) return [];
+  const pending = check(
+    await db
+      .from("approvals")
+      .select("execution_id, reason, created_at")
+      .eq("status", "pending")
+      .gt("expires_at", now.toISOString())
+      .in("execution_id", executionIds)
+      .order("created_at", { ascending: false })
+      .limit(MAX_PENDING_IN_PROMPT),
+    "lo pendiente de la conversación",
+  );
+  // Una respuesta en borrador entra como un hecho, nunca con su texto: el
+  // borrador no lo ha visto nadie del equipo y no pasa a ser contexto del agente.
+  return (pending ?? [])
+    .map((approval) => (skillOf.get(approval.execution_id) === REPLY_SKILL_KEY ? DRAFTED_REPLY_PENDING : (approval.reason ?? "")))
+    .filter((reason) => reason.length > 0);
 }
 
 async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
@@ -241,6 +297,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       : [];
   const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
   const now = new Date();
+  const pendingForTeam = await pendingApprovals(db, conversationId, now);
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
   const today = check(await db.from("agent_runs").select("cost_eur").gte("created_at", startOfDay).limit(10_000), "el gasto del día");
 
@@ -254,6 +311,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
+    pendingForTeam,
     now: now.toISOString(),
   };
 }
@@ -523,6 +581,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
           knowledge: searchesKnowledge,
           asksTeam,
+          pendingForTeam: prepared.pendingForTeam,
         }),
         history: prepared.history,
         skills,
