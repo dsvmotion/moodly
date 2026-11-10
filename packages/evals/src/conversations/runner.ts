@@ -1,4 +1,5 @@
 import { PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
 import type { Check, Outcome } from "./checks.js";
@@ -83,7 +84,12 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
  * Corre un caso. Sin transporte, con su guion (modelo falso). El tope de
  * gasto por run es el de la plataforma (PLATFORM_MODEL_POLICY).
  */
-export async function runCase(testCase: ConversationCase, transport?: ModelTransport): Promise<CaseRun> {
+export interface RunOptions {
+  /** La clave de modelo para conversar, si no es la de plataforma (para comparar modelos). */
+  converseModel?: ModelKey;
+}
+
+export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
   const world = createWorld(testCase.agent, testCase.knowledge);
   await testCase.setup?.(world);
   const appointmentsBefore = snapshotAppointments(world);
@@ -95,7 +101,9 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     skills: world.skills,
     settings: world.settings,
     router: createModelRouter([model]),
-    policy: PLATFORM_MODEL_POLICY,
+    policy: options.converseModel
+      ? { ...PLATFORM_MODEL_POLICY, modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse: options.converseModel } }
+      : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0 },
   });
   const outcome: Outcome = {
@@ -131,6 +139,17 @@ export interface Score {
    */
   alwaysFailing: string[];
   ok: boolean;
+}
+
+/**
+ * Si el turno pasó a una persona porque falló la vía del modelo (la red, el
+ * gateway o el tope de gasto de la corrida), el nombre del error; si no, null.
+ * Ese turno no dice nada del agente: no puntúa ni a favor ni en contra, y la
+ * corrida se para (un caso de «no hagas X» pasaría sin que el modelo hablara).
+ */
+export function infrastructureError(run: CaseRun): string | null {
+  const { result } = run.outcome;
+  return result.status === "handed_off" && result.reason === "model_failed" ? (result.error ?? "model_failed") : null;
 }
 
 /** Los casos con al menos un fallo y sin ningún acierto. */

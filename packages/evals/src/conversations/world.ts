@@ -114,7 +114,7 @@ export const KNOWLEDGE: readonly KnowledgeDoc[] = [
     type: "faq",
     title: "Formas de pago",
     content: "Aceptamos efectivo, tarjeta (Visa y Mastercard) y Bizum. No aceptamos American Express.",
-    tags: ["pago", "pagar", "tarjeta", "bizum", "efectivo", "pay", "payment", "card", "cash", "payer", "paiement", "carte", "bezahlen", "zahlen", "karte", "bar"],
+    tags: ["pago", "pagar", "tarjeta", "bizum", "efectivo", "pay", "payment", "card", "cash", "payer", "paiement", "carte", "bezahlen", "zahlen", "karte", "bar", "zahlung", "kartenzahlung", "zahlungsmethoden", "zahlungsarten", "zahlungsmittel", "kreditkarte"],
   },
 ];
 

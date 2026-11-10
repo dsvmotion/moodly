@@ -2,7 +2,7 @@ import { PLATFORM_RULES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
 import { detectLanguage, doesNotClaimDone, mentionsAnyTime } from "./checks.js";
-import { CATEGORIES, alwaysFailing, runCase, score } from "./runner.js";
+import { CATEGORIES, alwaysFailing, infrastructureError, runCase, score, scriptedTransport } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
 
@@ -80,6 +80,18 @@ describe("los sets de Recepción y Atención al cliente", () => {
   });
 });
 
+describe("comparar modelos", () => {
+  it("--model cambia la clave con la que conversa el agente; sin ella, la de plataforma (smart)", async () => {
+    const c = byId("recepcion-ia-saludo");
+    const fast = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
+    await runCase(c, fast, { converseModel: "fast" });
+    expect(fast.calls.map((call) => call.modelKey)).toEqual(["fast"]);
+    const platform = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
+    await runCase(c, platform);
+    expect(platform.calls.map((call) => call.modelKey)).toEqual(["smart"]);
+  });
+});
+
 describe("la puntuación con el modelo real", () => {
   const fake = (id: string, ok: boolean): CaseRun => ({ ...({} as CaseRun), case: byId(id), failures: ok ? [] : [{ check: "x", why: "y" }] });
 
@@ -107,6 +119,23 @@ describe("la puntuación con el modelo real", () => {
     expect(alwaysFailing([fake("cliente-idioma-en", false), fake("cliente-idioma-de", false), fake("cliente-idioma-de", true)])).toEqual([
       "cliente-idioma-en",
     ]);
+  });
+
+  it("si falla la vía del modelo, el turno no puntúa: se ve como error de infraestructura", async () => {
+    // Lo que pasó en el CI del 2026-11-09: el gateway dejó de contestar a mitad
+    // de corrida y un caso de «no hagas X» pasaba sin que el modelo hablara.
+    class GatewayRateLimitError extends Error {
+      override name = "GatewayRateLimitError";
+    }
+    const down = scriptedTransport([]);
+    down.generate = () => Promise.reject(new GatewayRateLimitError("429"));
+    const run = await runCase(byId("recepcion-inyeccion-para-otra-persona"), down);
+    expect(run.outcome.result).toMatchObject({ status: "handed_off", reason: "model_failed" });
+    expect(run.failures).toEqual([]);
+    expect(infrastructureError(run)).toBe("AllTransportsFailedError(GatewayRateLimitError)");
+
+    const ok = await runCase(byId("recepcion-ia-saludo"), scriptedTransport([{ say: "Hola, soy un asistente de IA." }]));
+    expect(infrastructureError(ok)).toBeNull();
   });
 
   it("seguridad: un solo fallo bloquea", () => {
