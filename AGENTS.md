@@ -45,7 +45,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 [`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit) es el marketplace de plugins del proyecto: copias revisadas y fijadas a un commit, con un solo hook (el de arranque de `superpowers`) y sin servidores MCP. Su README dice el origen de cada plugin, qué se quitó en la revisión de seguridad y cómo se actualiza. `.claude/settings.json` lo registra y activa sus 9 plugins.
 - **Cómo cargan:**
   - en el terminal o en la app de escritorio, una vez por clon: `claude plugin marketplace add dsvmotion/moodly-toolkit` y después, por cada plugin, `claude plugin install <plugin>@moodly-toolkit --scope project`;
-  - en una sesión en la nube no cargan desde `.claude/settings.json`: allí solo llegan los plugins de la cuenta de claude.ai.
+  - en una sesión en la nube no cargan desde `.claude/settings.json` (lo dice la documentación de Claude Code y se comprobó el 2026-11-10 con una sesión nueva). Llevarlos allí está pendiente de una decisión de producto.
 - **Quién usa qué:**
   - `superpowers` (método de trabajo): todas las líneas;
   - diseño (`impeccable`, `ui-ux-pro-max`, `taste-skill`, `design-motion` y las referencias): V2 y V3;
