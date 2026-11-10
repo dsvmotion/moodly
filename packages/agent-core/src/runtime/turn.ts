@@ -131,7 +131,7 @@ function toolResult(execution: TurnExecution): string {
       return JSON.stringify({ status: "rejected", reason: execution.rejectReason });
     default:
       // Pendiente de una persona: el modelo lo dice al cliente sin darlo por hecho.
-      return JSON.stringify({ status: "pending_review", note: "Una persona del equipo lo revisará antes de hacerlo." });
+      return JSON.stringify({ status: "pending_review", note: "A person from the team will review it before it is done: tell the customer, in their language, and never say it is done." });
   }
 }
 

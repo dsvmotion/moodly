@@ -58,6 +58,7 @@ function servicesLayer(services: readonly BookableService[], truncated: boolean)
   if (services.length === 0) return "Nothing can be booked here yet: if someone wants an appointment, say that a person from the team will reply.";
   const lines = [
     "What can be booked here. Send the service_id to the tools; never show it to the customer.",
+    "The names are in the business's language: when the customer writes in another language, reply in theirs and translate the names.",
     ...services.map((service) => `- ${oneLine(service.name)} (${service.durationMinutes} min): service_id ${service.id}`),
   ];
   if (truncated) lines.push("This list is incomplete: if someone asks for a service that is not listed, say that a person from the team will reply.");

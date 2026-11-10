@@ -79,7 +79,7 @@ export function createJoinWaitlistSkill({ store }: { store: WaitlistStore }): Jo
     key: JOIN_WAITLIST_SKILL_KEY,
     version: 1,
     description:
-      "Apunta a la persona con la que hablas en la lista de espera de un servicio de este local, en la franja que le viene bien, cuando ningún hueco libre le sirve. Ofréceselo antes y apúntala solo si dice que sí. Si se libera un hueco, se le avisará por esta conversación.",
+      "Adds the person you are talking to to the waitlist for a service at this location, in the time range that suits them, when no free slot works for them. Offer it first and add them only if they say yes. If a slot frees up, they will be told in this conversation.",
     effectClass: "internal_write",
     defaultAutonomy: "execute",
     input,

@@ -129,7 +129,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const listAppointments = defineSkill({
     key: "list_my_appointments",
     version: 1,
-    description: "Lista las próximas citas de la persona con la que hablas.",
+    description: "Lists the upcoming appointments of the person you are talking to.",
     effectClass: "read",
     defaultAutonomy: "autonomous",
     input: z.object({}).strict(),
@@ -144,7 +144,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const bookAppointment = defineSkill({
     key: "book_appointment",
     version: 1,
-    description: "Reserva una cita para la persona con la que hablas, en un hueco que devolvió find_slots.",
+    description: "Books an appointment for the person you are talking to, in a slot that find_slots returned.",
     effectClass: "internal_write",
     defaultAutonomy: "draft",
     input: z.object({ service_id: uuid, resource_id: uuid, starts_at: instant }),
@@ -170,7 +170,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const rescheduleAppointment = defineSkill({
     key: "reschedule_appointment",
     version: 1,
-    description: "Mueve una cita de la persona con la que hablas a otro hueco libre.",
+    description: "Moves an appointment of the person you are talking to to another free slot.",
     effectClass: "internal_write",
     defaultAutonomy: "draft",
     input: z.object({ appointment_id: uuid, starts_at: instant, resource_id: uuid.optional() }),
@@ -200,7 +200,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const cancelAppointment = defineSkill({
     key: "cancel_appointment",
     version: 1,
-    description: "Cancela una cita de la persona con la que hablas.",
+    description: "Cancels an appointment of the person you are talking to.",
     effectClass: "internal_write",
     defaultAutonomy: "draft",
     input: z.object({ appointment_id: uuid }),
