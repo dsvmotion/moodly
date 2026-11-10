@@ -1,22 +1,28 @@
 name: sensitive-paths
 
-# Falla si el PR toca zonas sensibles (scripts/merge-guard/sensitive-paths.txt,
-# los mismos patrones que usa scripts/safe-merge.sh) o debilita tests, salvo
-# que producto le haya puesto la etiqueta "revisado-humano". Desde el
-# 2026-10-22 la lista está vacía hasta el primer dato real de un cliente
-# (docs/STATUS.md): en la práctica, el job solo bloquea tests debilitados. Se vuelve a
-# ejecutar al poner o quitar etiquetas. Los agentes nunca ponen ni quitan esa
+# Falla si el PR toca zonas sensibles (scripts/merge-guard/sensitive-paths.txt)
+# o debilita tests, salvo que producto le haya puesto la etiqueta
+# "revisado-humano" sobre su commit actual. Los agentes nunca ponen ni quitan esa
 # etiqueta (AGENTS.md → "Mergeo autónomo").
+#
+# Corre desde la rama base (hallazgo P-01 de la auditoría de preproducción):
+# - pull_request_target ejecuta este archivo, la lista y los scripts tal como
+#   están en la rama base, no como los trae el PR. Un PR que cambia la guarda no
+#   puede desactivarla para sí mismo.
+# - Nunca hace checkout del código del PR ni lo ejecuta: los archivos y el diff
+#   se leen por la API de GitHub y se tratan como texto. Si la API no los da
+#   (PR enorme), el job falla en cerrado.
+# - Permisos mínimos: el job de la guarda solo lee; solo invalidate-review
+#   escribe, y solo para quitar la etiqueta.
 #
 # La etiqueta aprueba un commit concreto: un commit nuevo (synchronize) o una
 # reapertura (reopened) la invalidan. En ese run cuenta como ausente y el job
 # invalidate-review la quita del PR; hay que volver a revisar y ponerla.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: sensitive-paths-${{ github.event.pull_request.number }}
@@ -27,28 +33,42 @@ jobs:
     name: sensitive-paths
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       remove_label: ${{ steps.gate.outputs.remove_label }}
     steps:
+      # La rama base, nunca el head del PR (pull_request_target la elige por defecto).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
 
-      # Los tests de la propia guarda (safe-merge.sh, check-sensitive.sh y sensitive-gate.sh).
+      # Los tests de la propia guarda, en su versión de la rama base.
       - name: Tests de la guarda de mergeo
         run: bash scripts/merge-guard/tests/run.sh
+
+      - name: Archivos y diff del PR (por la API, sin checkout)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Rutas nuevas y, en los renombrados, también la de antes.
+          gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
+          gh api -H "Accept: application/vnd.github.v3.diff" "repos/$GH_REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/diff.patch"
+          test -s "$RUNNER_TEMP/files.txt"
+          echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
 
       - name: Zonas sensibles y tests debilitados
         id: gate
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           EVENT_ACTION: ${{ github.event.action }}
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'revisado-humano') }}
         run: |
-          git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/files.txt"
-          git diff "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/diff.patch"
-          echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
           result=0
           bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" || result=$?
           # La decisión se escribe siempre (este paso no falla) para que
@@ -66,7 +86,7 @@ jobs:
           if [ "$VERDICT" = "pass" ]; then
             echo "OK: sin zonas sensibles, o con revisión humana vigente para este commit."
           else
-            echo "::error::El PR toca zonas sensibles o debilita tests: necesita revisión humana y la etiqueta revisado-humano sobre este commit (la pone producto, nunca un agente)."
+            echo "::error::El PR toca zonas sensibles o debilita tests: necesita el veredicto de una sesión Revisora y la etiqueta revisado-humano sobre este commit (la pone producto, nunca un agente)."
             exit 1
           fi
 

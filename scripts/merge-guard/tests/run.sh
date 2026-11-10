@@ -11,8 +11,8 @@ root="$(cd "$(dirname "$0")/../../.." && pwd)"
 safe_merge="$root/scripts/safe-merge.sh"
 check_sensitive="$root/scripts/merge-guard/check-sensitive.sh"
 # Los casos de zonas sensibles prueban la lista completa (suspendida desde el
-# 2026-10-22), para que reactivarla sea copiar líneas y nada más. Los casos de
-# la lista activa (vacía) van al final, sin esta variable.
+# 2026-10-22), para que reactivarla entera sea copiar líneas y nada más. Los
+# casos de la lista activa (la corta de M0, P-01) van al final, sin esta variable.
 export SENSITIVE_PATTERNS="$root/scripts/merge-guard/sensitive-paths.suspended.txt"
 sha="0123456789abcdef0123456789abcdef01234567"
 other_sha="fedcba9876543210fedcba9876543210fedcba98"
@@ -195,22 +195,50 @@ for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/rollbac
   check_case "sensible: $path" 1 "$path"
 done
 
-echo "== lista activa (zonas sensibles suspendidas)"
+echo "== lista activa (lista corta de M0, P-01)"
 (
   unset SENSITIVE_PATTERNS
-  printf '%s\n' packages/db/supabase/migrations/1_x.sql apps/web/src/lib/auth/session.ts AGENTS.md docs/MANUAL.md > "$tmp/paths.txt"
-  status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
-  if [[ $status -eq 0 ]]; then echo "✓ con la lista activa vacía, una migración o auth no bloquean → 0"
-  else echo "✗ con la lista activa vacía, una migración bloquea → $status (esperado 0)"; exit 1; fi
+  for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/tests/database/01_x.test.sql \
+    packages/db/supabase/config.toml apps/web/src/proxy.ts apps/web/src/lib/auth/session.ts \
+    apps/web/src/lib/supabase/server.ts apps/web/src/app/login/page.tsx apps/web/.env.example \
+    .github/workflows/ci.yml .github/workflows/sensitive-paths.yml scripts/merge-guard/check-sensitive.sh \
+    scripts/merge-guard/sensitive-paths.txt scripts/safe-merge.sh .claude/settings.json .claude/skills/x/SKILL.md \
+    AGENTS.md CLAUDE.md; do
+    echo "$path" > "$tmp/paths.txt"
+    status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
+    if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
+    else echo "✗ activa, $path → $status (esperado 1)"; exit 1; fi
+  done
+  for path in apps/web/src/app/app/inbox/page.tsx packages/evals/src/conversations/checks.ts docs/STATUS.md \
+    docs/WORKSTREAMS.md docs/scope.yaml apps/worker/src/agents/converse.ts; do
+    echo "$path" > "$tmp/paths.txt"
+    status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
+    if [[ $status -eq 0 ]]; then echo "✓ activa, no sensible: $path → 0"
+    else echo "✗ activa, $path → $status (esperado 0)"; exit 1; fi
+  done
   # La llamada se compone por partes: escrita literal, la propia guarda la
   # detectaría en el diff de cualquier PR que toque este archivo.
   skip_call="test"".skip"
   printf '%s\n' "diff --git a/apps/web/e2e/roles.e2e.ts b/apps/web/e2e/roles.e2e.ts" "+  ${skip_call}(\"x\", async () => {});" > "$tmp/diff.patch"
   echo "apps/web/e2e/roles.e2e.ts" > "$tmp/paths.txt"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
-  if [[ $status -eq 1 ]]; then echo "✓ con la lista activa vacía, un test.skip sigue bloqueando → 1"
-  else echo "✗ con la lista activa vacía, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
-) && passed=$((passed + 2)) || failed=$((failed + 1))
+  if [[ $status -eq 1 ]]; then echo "✓ con la lista activa, un test.skip sigue bloqueando → 1"
+  else echo "✗ con la lista activa, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
+) && passed=$((passed + 24)) || failed=$((failed + 1))
+
+echo "== el workflow de la guarda corre desde la rama base (P-01)"
+workflow="$root/.github/workflows/sensitive-paths.yml"
+wf_case() { # descripción comando
+  local desc="$1"; shift
+  if "$@"; then echo "✓ $desc"; passed=$((passed + 1)); else echo "✗ $desc"; failed=$((failed + 1)); fi
+}
+wf_case "se dispara con pull_request_target" grep -Eq '^  pull_request_target:' "$workflow"
+wf_case "no se dispara con pull_request (correría la versión del PR)" bash -c '! grep -Eq "^  pull_request:" "$1"' _ "$workflow"
+wf_case "nunca hace checkout del head del PR" bash -c '! grep -Eq "pull_request\.head\.(sha|ref)|github\.head_ref|refs/pull/" "$1"' _ "$workflow"
+wf_case "el checkout es el de la rama base" grep -Fq 'ref: ${{ github.event.pull_request.base.ref }}' "$workflow"
+wf_case "el checkout no guarda credenciales" grep -Fq 'persist-credentials: false' "$workflow"
+wf_case "sin permisos por defecto en el workflow" grep -Eq '^permissions: \{\}' "$workflow"
+wf_case "lee los archivos y el diff del PR por la API" grep -Fq 'pulls/$PR_NUMBER/files' "$workflow"
 
 echo "== required-checks.txt"
 for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "sensitive-paths"; do

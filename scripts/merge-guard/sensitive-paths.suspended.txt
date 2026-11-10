@@ -34,3 +34,4 @@
 ^\.nvmrc$	versión de Node
 ^(AGENTS|CLAUDE)\.md$	reglas del repo
 ^docs/MANUAL\.md$	fuente de verdad (MANUAL)
+^\.claude/	skills, agentes, permisos y hooks de las sesiones
