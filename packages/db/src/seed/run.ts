@@ -16,7 +16,6 @@ import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
-  SEED_INBOX_ORG,
   seedApprovals,
   seedCustomAgentTypes,
   seedExtraMemberships,
@@ -96,7 +95,10 @@ async function enrollTotp(local: LocalSupabase, email: string, password: string)
   const enrolled = await client.auth.mfa.enroll({ factorType: "totp", issuer: "Desarrollo local" });
   check("mfa.enroll", enrolled.error);
   if (!enrolled.data) throw new Error(`mfa.enroll no devolvió el factor de ${email}`);
-  const verified = await client.auth.mfa.challengeAndVerify({ factorId: enrolled.data.id, code: totp(enrolled.data.totp.secret) });
+  const verified = await client.auth.mfa.challengeAndVerify({
+    factorId: enrolled.data.id,
+    code: totp(enrolled.data.totp.secret),
+  });
   check("mfa.verify", verified.error);
   // Vacía los fallos del freno de este email (los suyos, como un login con
   // éxito): pasadas de e2e seguidas no deben depender de las anteriores (R-30).
@@ -164,17 +166,17 @@ async function main(): Promise<void> {
   await waitForServices(apiUrl, secretKey);
   const admin = createClient(apiUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  const orgs = await admin.from("organizations").upsert(
-    seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical, default_locale: o.defaultLocale })),
-  );
+  const orgs = await admin
+    .from("organizations")
+    .upsert(seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical, default_locale: o.defaultLocale })));
   check("organizations", orgs.error);
-  const regions = await admin.from("regions").upsert(
-    seedRegions.map((r) => ({ id: r.id, organization_id: r.organizationId, name: r.name })),
-  );
+  const regions = await admin
+    .from("regions")
+    .upsert(seedRegions.map((r) => ({ id: r.id, organization_id: r.organizationId, name: r.name })));
   check("regions", regions.error);
-  const locations = await admin.from("locations").upsert(
-    seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })),
-  );
+  const locations = await admin
+    .from("locations")
+    .upsert(seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })));
   check("locations", locations.error);
 
   // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
@@ -322,7 +324,10 @@ async function main(): Promise<void> {
   const removed = await admin
     .from("agent_runs")
     .delete()
-    .in("id", seedApprovals.map((approval) => approval.runId));
+    .in(
+      "id",
+      seedApprovals.map((approval) => approval.runId),
+    );
   check("agent_runs", removed.error);
   const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
   for (const approval of seedApprovals) {
@@ -367,38 +372,59 @@ async function main(): Promise<void> {
     check("approvals", pending.error);
   }
 
-  // La bandeja de conversaciones de Demo A (V2). Las conversaciones se borran y
-  // se vuelven a crear con sus mensajes (que caen en cascada), así que cada
-  // ejecución deja los mismos modos y el mismo orden. Las lleva el mismo agente
-  // que las aprobaciones, sin escribir aquí la clave de ningún agente.
-  const inboxAgentId = bookingAgent.data?.agent_id ?? "";
-  const inboxAgent = await admin.from("agents").select("agent_type_id").eq("id", inboxAgentId).single();
-  check("agents", inboxAgent.error);
-  const inboxAgentType = await admin
-    .from("agent_types")
-    .select("key")
-    .eq("id", inboxAgent.data?.agent_type_id ?? "")
-    .single();
-  check("agent_types", inboxAgentType.error);
-  const inboxAgentKey: string = inboxAgentType.data?.key ?? "";
+  // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
+  // control. Las conversaciones se borran y se vuelven a crear con sus mensajes
+  // (que caen en cascada), así que cada ejecución deja los mismos modos y el
+  // mismo orden. Las lleva, en cada organización, el agente que reserva (el de
+  // las aprobaciones), sin escribir aquí la clave de ningún agente.
+  const inboxAgents = new Map<string, { id: string; key: string }>();
+  for (const organizationId of new Set(seedInboxConversations.map((conversation) => conversation.organizationId))) {
+    const skill = await admin
+      .from("agent_skills")
+      .select("agent_id")
+      .eq("organization_id", organizationId)
+      .eq("skill_id", bookSkill.data?.id ?? "")
+      .limit(1)
+      .single();
+    check("agent_skills", skill.error);
+    const agent = await admin
+      .from("agents")
+      .select("agent_type_id")
+      .eq("id", skill.data?.agent_id ?? "")
+      .single();
+    check("agents", agent.error);
+    const type = await admin
+      .from("agent_types")
+      .select("key")
+      .eq("id", agent.data?.agent_type_id ?? "")
+      .single();
+    check("agent_types", type.error);
+    inboxAgents.set(organizationId, { id: skill.data?.agent_id ?? "", key: type.data?.key ?? "" });
+  }
   const removedConversations = await admin
     .from("conversations")
     .delete()
-    .in("id", seedInboxConversations.map((conversation) => conversation.id));
+    .in(
+      "id",
+      seedInboxConversations.map((conversation) => conversation.id),
+    );
   check("conversations", removedConversations.error);
   const seededAt = Date.now();
   for (const conversation of seedInboxConversations) {
+    const organizationId = conversation.organizationId;
+    const agent = inboxAgents.get(organizationId) ?? { id: "", key: "" };
     // La cuenta del canal: la de pruebas es la misma que crea send_test_message
     // para ese local; las demás, una por canal y local del seed.
     const place = conversation.locationId ?? "org";
-    const externalId = conversation.channel === "test" ? `test:${SEED_INBOX_ORG}:${place}` : `seed:${conversation.channel}:${place}`;
+    const externalId =
+      conversation.channel === "test" ? `test:${organizationId}:${place}` : `seed:${conversation.channel}:${place}`;
     const account = await admin.from("channel_accounts").upsert(
       {
-        organization_id: SEED_INBOX_ORG,
+        organization_id: organizationId,
         location_id: conversation.locationId,
         channel: conversation.channel,
         external_id: externalId,
-        default_agent_type: inboxAgentKey,
+        default_agent_type: agent.key,
         status: "active",
       },
       { onConflict: "channel,external_id", ignoreDuplicates: true },
@@ -414,23 +440,23 @@ async function main(): Promise<void> {
 
     const contact = await admin
       .from("contacts")
-      .upsert({ id: conversation.contactId, organization_id: SEED_INBOX_ORG, display_name: conversation.contactName });
+      .upsert({ id: conversation.contactId, organization_id: organizationId, display_name: conversation.contactName });
     check("contacts", contact.error);
     const created = await admin.from("conversations").insert({
       id: conversation.id,
-      organization_id: SEED_INBOX_ORG,
+      organization_id: organizationId,
       location_id: conversation.locationId,
       contact_id: conversation.contactId,
       channel_account_id: accountRow.data?.id ?? "",
       // La base de datos lo pone igual al de la cuenta (validate_conversation); el tipo lo pide.
       channel: conversation.channel,
-      agent_id: inboxAgentId,
+      agent_id: agent.id,
       mode: conversation.mode,
     });
     check("conversations", created.error);
     const messages = await admin.from("messages").insert(
       conversation.messages.map((message) => ({
-        organization_id: SEED_INBOX_ORG,
+        organization_id: organizationId,
         conversation_id: conversation.id,
         direction: message.author === "contact" ? "in" : "out",
         author: message.author,
@@ -448,7 +474,7 @@ async function main(): Promise<void> {
   const quietEvents = await admin
     .from("domain_events")
     .update({ published_at: new Date().toISOString() })
-    .eq("organization_id", SEED_INBOX_ORG)
+    .in("organization_id", [...inboxAgents.keys()])
     .eq("type", "message.received")
     .is("published_at", null)
     .in(

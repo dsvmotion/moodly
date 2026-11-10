@@ -96,9 +96,7 @@ export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_E, name: "Demo E", vertical: "demo", defaultLocale: "en" },
 ];
 
-export const seedRegions: readonly SeedRegion[] = [
-  { id: REGION_A_NORTE, organizationId: ORG_A, name: "A Norte" },
-];
+export const seedRegions: readonly SeedRegion[] = [{ id: REGION_A_NORTE, organizationId: ORG_A, name: "A Norte" }];
 
 export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_A1, organizationId: ORG_A, regionId: REGION_A_NORTE, name: "A1 Norte" },
@@ -309,14 +307,15 @@ export const seedApprovals: readonly SeedApproval[] = [
 /** La organización de las aprobaciones del seed. */
 export const SEED_APPROVALS_ORG = ORG_A;
 
-
 /**
  * La bandeja de conversaciones (`/app/inbox`, V2): conversaciones de Demo A con
  * ids fijos, para que los e2e las abran por su id. Una abierta en A1 que lleva
  * el agente, una en A2 que lleva el equipo (con un aviso del sistema y un
  * mensaje que no se pudo enviar), una cerrada en A1, una de toda la
  * organización (solo la ve el org_admin) y una del chat de pruebas en A1, que
- * la bandeja nunca enseña. Los mensajes van con minutos de antigüedad respecto
+ * la bandeja nunca enseña. Y una en C1 que lleva el agente, solo para los e2e
+ * que toman el control, escriben y la devuelven (en otra organización, para no
+ * cambiar lo que ven los de solo lectura). Los mensajes van con minutos de antigüedad respecto
  * a la ejecución del seed: el orden de la bandeja es el de su último mensaje.
  */
 export type SeedInboxChannel = "whatsapp" | "webchat" | "email" | "test";
@@ -331,6 +330,7 @@ export interface SeedInboxMessage {
 export interface SeedInboxConversation {
   key: string;
   id: string;
+  organizationId: string;
   contactId: string;
   contactName: string;
   locationId: string | null;
@@ -339,13 +339,11 @@ export interface SeedInboxConversation {
   messages: readonly SeedInboxMessage[];
 }
 
-/** La organización de la bandeja del seed. */
-export const SEED_INBOX_ORG = ORG_A;
-
 export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_open",
     id: "5eed000b-0000-4000-8000-0000000000b1",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c1",
     contactName: "Lucía Martín",
     locationId: LOC_A1,
@@ -355,7 +353,8 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
       { author: "contact", content: "Hola, ¿tenéis hueco mañana por la tarde para un tratamiento facial?", minutesAgo: 20 },
       {
         author: "agent",
-        content: "Hola Lucía, soy el asistente de IA del centro. Mañana tengo libre a las 17:00 y a las 18:30. ¿Te viene bien alguna?",
+        content:
+          "Hola Lucía, soy el asistente de IA del centro. Mañana tengo libre a las 17:00 y a las 18:30. ¿Te viene bien alguna?",
         status: "sent",
         minutesAgo: 19,
       },
@@ -365,6 +364,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a2_human",
     id: "5eed000b-0000-4000-8000-0000000000b2",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c2",
     contactName: "Jorge Pérez",
     locationId: LOC_A2,
@@ -372,7 +372,12 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
     mode: "human",
     messages: [
       { author: "contact", content: "Quiero hablar con una persona, por favor.", minutesAgo: 120 },
-      { author: "system", content: "El equipo ha tomado el control. El agente queda en pausa en esta conversación.", status: "sent", minutesAgo: 110 },
+      {
+        author: "system",
+        content: "El equipo ha tomado el control. El agente queda en pausa en esta conversación.",
+        status: "sent",
+        minutesAgo: 110,
+      },
       { author: "user", content: "Hola Jorge, soy del equipo del centro A2. Cuéntame.", status: "sent", minutesAgo: 100 },
       { author: "user", content: "Te he enviado el presupuesto por email.", status: "failed", minutesAgo: 90 },
     ],
@@ -380,6 +385,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_closed",
     id: "5eed000b-0000-4000-8000-0000000000b3",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c3",
     contactName: "Marta Ruiz",
     locationId: LOC_A1,
@@ -390,6 +396,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "org_wide",
     id: "5eed000b-0000-4000-8000-0000000000b4",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c4",
     contactName: "Empresa Sol",
     locationId: null,
@@ -400,11 +407,31 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_test_chat",
     id: "5eed000b-0000-4000-8000-0000000000b5",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c5",
     contactName: "Prueba interna",
     locationId: LOC_A1,
     channel: "test",
     mode: "agent",
     messages: [{ author: "contact", content: "Mensaje del chat de pruebas", minutesAgo: 1 }],
+  },
+  {
+    key: "c1_takeover",
+    id: "5eed000b-0000-4000-8000-0000000000b6",
+    organizationId: ORG_C,
+    contactId: "5eed000c-0000-4000-8000-0000000000c6",
+    contactName: "Sara Gil",
+    locationId: LOC_C1,
+    channel: "webchat",
+    mode: "agent",
+    messages: [
+      { author: "contact", content: "Hola, ¿puedo cambiar mi cita del jueves?", minutesAgo: 30 },
+      {
+        author: "agent",
+        content: "Hola Sara, soy el asistente de IA del centro. Claro, ¿qué día te viene mejor?",
+        status: "sent",
+        minutesAgo: 29,
+      },
+    ],
   },
 ];

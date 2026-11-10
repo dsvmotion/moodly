@@ -484,6 +484,21 @@
       "email": "Email",
       "webchat": "Web chat",
       "voice": "Phone"
+    },
+    "takeOver": "Take over",
+    "takeOverTitle": "Take over this conversation?",
+    "takeOverDescription": "The agent will stop replying to {name} until you hand it back. You will write instead. The change is logged.",
+    "takeOverConfirm": "Yes, take over",
+    "cancel": "Cancel",
+    "giveBack": "Hand back to the agent",
+    "composerLabel": "Message to {name}",
+    "composerPlaceholder": "Write to {name}…",
+    "send": "Send",
+    "composerHint": "The agent is handling this conversation. Take over to write yourself: the agent pauses until you hand it back.",
+    "errors": {
+      "invalid": "Write a message before sending it.",
+      "not_allowed": "You can't do this here: the conversation is not in your scope, someone already changed who is handling it, or it is closed.",
+      "failed": "It didn't work. Please try again."
     }
   },
   "testChat": {
