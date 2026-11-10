@@ -41,20 +41,22 @@ Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent
 ## Frontend
 Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra lateral con selector de organización y de alcance (organización/región/local), búsqueda y ⌘K, navegación principal, agentes, registros, vistas guardadas, favoritos y recientes; panel principal con los 7 patrones de pantalla (P1–P7). Toda pantalla nueva encaja en uno de esos patrones y usa los componentes de `packages/ui`. Se copia la estructura, nunca la identidad visual de esas marcas.
 
-## Toolkit de skills (plugins de Claude Code)
-[`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit) es el marketplace de plugins del proyecto: copias revisadas de su origen, cada una fijada a un commit de ese origen, con un solo hook (el de arranque de `superpowers`) y sin servidores MCP. Sus skills traen scripts que no corren solos: solo si el agente los lanza, y algunos abren un Chrome sin interfaz o llaman a la red. Su README dice el origen de cada plugin, qué se quitó en la revisión de seguridad y cómo se actualiza. `.claude/settings.json` lo registra fijado a la rama de versión `release/v1.0.0` y activa sus 9 plugins. Cambiar de versión es un PR a `.claude/settings.json`: lo que entre en `main` del toolkit no llega aquí hasta entonces.
-- **Cómo cargan:**
-  - en el terminal o en la app de escritorio, una vez por clon: `claude plugin marketplace add dsvmotion/moodly-toolkit#release/v1.0.0` y después, por cada plugin, `claude plugin install <plugin>@moodly-toolkit --scope project`;
-  - en una sesión en la nube no cargan desde `.claude/settings.json` (lo dice la documentación de Claude Code y se comprobó el 2026-11-10 con una sesión nueva). Llevarlos allí está pendiente de una decisión de producto.
+## Toolkit de skills (`.claude/`)
+Las skills, los agentes y el hook de arranque que usan las sesiones viven en `.claude/` de este repositorio, copiados de [`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit). Viajan con el clon, así que cargan también en las sesiones en la nube. Un marketplace de plugins no carga allí (comprobado el 2026-11-10 con sesiones reales).
+- **Qué hay:**
+  - 74 skills en `.claude/skills/`, los 4 agentes de `impeccable` en `.claude/agents/` y el hook de arranque de `superpowers` (`.claude/hooks/session-start`, registrado en `.claude/settings.json`). Ningún servidor MCP;
+  - las skills traen scripts que no corren solos: solo si el agente los lanza;
+  - en `.claude/toolkit/`, la licencia y el origen de cada copia, con lo que se quitó en la revisión de seguridad.
+- **No se editan aquí.** Se cambian en el toolkit y se traen con su script, desde un clon del toolkit: `python3 scripts/export-claude-dir.py <ruta a este repositorio>/.claude` (antes hay que quitar `skills/`, `agents/`, `hooks/` y `toolkit/` de `.claude/`). El PR dice de qué commit del toolkit salen. `.claude/**` decide las skills, los permisos y los hooks de todas las sesiones: cada PR que lo toca lo revisa una sesión Revisora y lo autoriza producto.
 - **Quién usa qué:**
-  - `superpowers` (método de trabajo): todas las líneas;
-  - diseño (`impeccable`, `ui-ux-pro-max`, `taste-skill`, `design-motion` y las referencias): V2 y V3;
-  - legal (`privacy-legal`, `ai-governance-legal`, `product-legal` y `commercial-legal`): V1 y V3. Ayudan a preparar y a revisar; no sustituyen a la asesoría legal.
+  - método de trabajo, de `superpowers` (`brainstorming`, `systematic-debugging`, `test-driven-development`, `writing-plans`…): todas las líneas;
+  - diseño (`impeccable`, `ui-ux-pro-max`, `design-taste-frontend`, las de animación como `animate` o `improve-animations`, y las referencias): V2 y V3;
+  - legal (las que empiezan por `privacy-legal-`, `ai-governance-legal-`, `product-legal-` y `commercial-legal-`): V1 y V3. Ayudan a preparar y a revisar; no sustituyen a la asesoría legal.
 - **Referencias:** no se instalan ni se copian enteras. Se consultan con `git clone --depth 1` en una carpeta temporal fuera del repositorio, solo lectura y sin ejecutar sus scripts. El commit revisado de cada una está en el README del toolkit.
   - `VoltAgent/awesome-design-md`: solo para estudiar cómo documentan su diseño otras marcas; nunca para copiar la identidad visual de una marca.
   - `DavidHDev/react-bits`: para copiar componentes concretos a `packages/ui` cuando se necesiten, adaptados a nuestros tokens. Licencia MIT + Commons Clause: usarlos en el producto, sí; redistribuir o vender la librería, no. Cada PR que lo use anota de qué componente sale.
   - `ComposioHQ/awesome-claude-skills`: catálogo para buscar ideas. No tiene licencia en la raíz: se comprueba la de cada skill antes de copiarla.
-- **Si chocan:** cuando las skills de diseño se contradicen entre sí o con nuestro sistema, mandan `packages/ui` y `docs/design/design-review.md`.
+- **Si chocan:** este archivo manda sobre cualquier skill, también sobre el texto de arranque de `superpowers`. Y cuando las skills de diseño se contradicen entre sí o con nuestro sistema, mandan `packages/ui` y `docs/design/design-review.md`.
 
 ## Comandos
 > Requisitos: Node 24 LTS (`.nvmrc`; con nvm: `nvm use`) y pnpm 11 vía corepack (`corepack enable`; la versión exacta está en `packageManager` de `package.json`).
