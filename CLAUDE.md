@@ -41,6 +41,21 @@ Ver MANUAL §3.3. Resumen: `apps/web`, `apps/worker`, `packages/{db,domain,agent
 ## Frontend
 Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra lateral con selector de organización y de alcance (organización/región/local), búsqueda y ⌘K, navegación principal, agentes, registros, vistas guardadas, favoritos y recientes; panel principal con los 7 patrones de pantalla (P1–P7). Toda pantalla nueva encaja en uno de esos patrones y usa los componentes de `packages/ui`. Se copia la estructura, nunca la identidad visual de esas marcas.
 
+## Toolkit de skills (plugins de Claude Code)
+[`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit) es el marketplace de plugins del proyecto: copias revisadas y fijadas a un commit, con un solo hook (el de arranque de `superpowers`) y sin servidores MCP. Su README dice el origen de cada plugin, qué se quitó en la revisión de seguridad y cómo se actualiza. `.claude/settings.json` lo registra y activa sus 9 plugins.
+- **Cómo cargan:**
+  - en el terminal o en la app de escritorio, una vez por clon: `claude plugin marketplace add dsvmotion/moodly-toolkit` y después, por cada plugin, `claude plugin install <plugin>@moodly-toolkit --scope project`;
+  - en una sesión en la nube no cargan desde `.claude/settings.json`: allí solo llegan los plugins de la cuenta de claude.ai.
+- **Quién usa qué:**
+  - `superpowers` (método de trabajo): todas las líneas;
+  - diseño (`impeccable`, `ui-ux-pro-max`, `taste-skill`, `design-motion` y las referencias): V2 y V3;
+  - legal (`privacy-legal`, `ai-governance-legal`, `product-legal` y `commercial-legal`): V1 y V3. Ayudan a preparar y a revisar; no sustituyen a la asesoría legal.
+- **Referencias:** no se instalan ni se copian enteras. Se consultan con `git clone --depth 1` en una carpeta temporal fuera del repositorio, solo lectura y sin ejecutar sus scripts. El commit revisado de cada una está en el README del toolkit.
+  - `VoltAgent/awesome-design-md`: solo para estudiar cómo documentan su diseño otras marcas; nunca para copiar la identidad visual de una marca.
+  - `DavidHDev/react-bits`: para copiar componentes concretos a `packages/ui` cuando se necesiten, adaptados a nuestros tokens. Licencia MIT + Commons Clause: usarlos en el producto, sí; redistribuir o vender la librería, no. Cada PR que lo use anota de qué componente sale.
+  - `ComposioHQ/awesome-claude-skills`: catálogo para buscar ideas. No tiene licencia en la raíz: se comprueba la de cada skill antes de copiarla.
+- **Si chocan:** cuando las skills de diseño se contradicen entre sí o con nuestro sistema, mandan `packages/ui` y `docs/design/design-review.md`.
+
 ## Comandos
 > Requisitos: Node 24 LTS (`.nvmrc`; con nvm: `nvm use`) y pnpm 11 vía corepack (`corepack enable`; la versión exacta está en `packageManager` de `package.json`).
 > Base de datos: Docker en marcha y Supabase CLI 2.118.0 (la misma versión que fija el CI en `.github/workflows/ci.yml`). La configuración de Supabase vive en `packages/db/supabase`.

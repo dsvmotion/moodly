@@ -1,0 +1,21 @@
+{
+  "enabledPlugins": {
+    "superpowers@moodly-toolkit": true,
+    "impeccable@moodly-toolkit": true,
+    "ui-ux-pro-max@moodly-toolkit": true,
+    "taste-skill@moodly-toolkit": true,
+    "design-motion@moodly-toolkit": true,
+    "privacy-legal@moodly-toolkit": true,
+    "ai-governance-legal@moodly-toolkit": true,
+    "product-legal@moodly-toolkit": true,
+    "commercial-legal@moodly-toolkit": true
+  },
+  "extraKnownMarketplaces": {
+    "moodly-toolkit": {
+      "source": {
+        "source": "github",
+        "repo": "dsvmotion/moodly-toolkit"
+      }
+    }
+  }
+}
