@@ -688,6 +688,8 @@ El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`
 
 ### 5.12 Modo coach: capa de inteligencia del negocio **[DECIDIDO el concepto; diseño PROPUESTO]**
 
+> El copiloto y el modo coach están desarrollados en el **ADR 0046 (propuesto, borrador en #158; lo acepta producto)**. Mientras no esté aceptado, manda esta sección.
+
 El coach no es un quinto agente. Es una **capa transversal** que observa el negocio, cruza datos internos con señales externas, detecta mejoras, debilidades, riesgos y oportunidades, y convierte cada propuesta en una tarea para uno de los 4 agentes o para una persona.
 
 **Áreas que revisa**
@@ -726,6 +728,8 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 - **Personas:** no hace perfiles de empleados ni evaluaciones de rendimiento individuales.
 
 ### 5.13 Asistente de la plataforma **[PROPUESTO: ADR 0029]**
+
+> El ADR 0046 (propuesto, borrador en #158) une el asistente y el coach en un solo punto de entrada. Mientras no esté aceptado, manda esta sección.
 
 Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la plataforma por conversación (`/app/asistente`). No es un actor con permisos propios:
 
@@ -908,7 +912,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | Ruta | Patrón | Contenido |
 |---|---|---|
 | `/app` | P1 | Inicio y bandeja del día |
-| `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo |
+| `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo. **Construida (2026-11-10):** lista y conversación, tomar el control y devolverlo (`conversations.mode`) y responder como persona; sin tiempo real todavía (decisión de producto pendiente) |
 | `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
 | `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`) |
 | `/app/contacts` · `/[id]` | P2 · P3 | Clientes finales |
@@ -923,7 +927,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app/agents` · `/[type]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
 | `/app/skills` · `/[id]` | P2 · P3 | Biblioteca de skills: de la plataforma, propias y de integraciones; a qué agentes está añadida cada una (ADR 0030) |
 | `/app/assistant` | P5 | Asistente de la plataforma (§5.13) |
-| `/app/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
+| `/app/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes. **Construida la parte de fuentes (B20-3):** crear, editar, borrar y reintentar la indexación; las preguntas pendientes llegan con B20-4c |
 | `/app/memory` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
 | `/app/rules` · `/app/flows` · `/app/schedules` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
 | `/app/network` | P7 | Red de franquicias (vista del franquiciador) |
@@ -988,7 +992,7 @@ Los componentes se desarrollan con datos reales de la base local (seeds) desde e
 - Atajos de teclado en las acciones frecuentes (navegar, aprobar, rechazar, abrir la paleta).
 - Accesibilidad WCAG 2.2 AA; navegación completa con teclado.
 - i18n desde el inicio (ADR 0041): inglés por defecto y español. La interfaz sale en el idioma que elige cada persona; si no ha elegido, en el de su organización activa (`organizations.default_locale`); sin sesión ni organización, en inglés. Los dos idiomas tienen las mismas claves (test de paridad). Los agentes responden en el idioma del cliente final, no en el de la interfaz.
-- Tiempo real (Supabase Realtime) en bandeja, conversaciones, aprobaciones y ventanas de agente.
+- Tiempo real (Supabase Realtime) en bandeja, conversaciones, aprobaciones y ventanas de agente. **Estado (2026-11-10):** todavía no; la bandeja y el chat de pruebas se refrescan al actuar o por sondeo. Antes de activarlo hay que comprobar que una sesión cerrada deja de recibir eventos (STATUS → «Siempre abiertos», 3d).
 - Responsive: los responsables de local aprueban y responden desde el móvil.
 
 
@@ -1088,6 +1092,12 @@ Langfuse **[PROPUESTO]**: prompt resuelto, herramientas, respuestas, latencia, t
 - Se ejecutan en CI en cada PR que toque prompts, plantillas, skills o el runtime. Una regresión bloquea el merge.
 - Cada incidente real en producción se convierte en un caso nuevo del set.
 
+**Lo construido (2026-11-10, V4):**
+- **Arnés de conversaciones** (`packages/evals/src/conversations`): conversaciones de prueba de Recepción y Atención al cliente contra un mundo simulado (negocio, calendario, conocimiento), con comprobaciones deterministas (qué skill se llamó y con qué, qué no se envió, no inventar precios ni horas, no dar consejo médico, conocimiento solo del alcance del run, «una persona te contestará»). Además del centro de estética de referencia, sets por sector: restauración, talleres, salud e inmobiliarias (negocios inventados).
+- **Dos sets y sus umbrales con el modelo real** (decisión de producto, 2026-11-09): `safety` al 100 % y `behavior` al 90 %; un caso de comportamiento que falla se repite hasta 3 corridas y, si no acierta ninguna, bloquea aunque la tasa pase el umbral. Con el modelo falso corren dentro de `pnpm test` con umbral del 100 %.
+- **Salida:** código 1 si un set queda por debajo de su umbral, si un caso falla en todas sus corridas o si se corta por el tope de gasto; código 2 si falla la vía del modelo (red, gateway): ese turno no puntúa.
+- **En GitHub:** el workflow «Evals · modelo real» (`.github/workflows/evals.yml`) corre en los PRs que tocan `agent-core`, `skills`, `evals`, `config`, el calendario o el conocimiento, y a mano con `case` y `repeat`, con una clave propia del gateway y un tope de 2 € por corrida. **Todavía no es un check obligatorio** (decisión de producto pendiente, con el presupuesto mensual).
+
 ---
 
 ## 13. Estrategia de testing
@@ -1178,6 +1188,8 @@ Para quien necesita trabajo extra para quedar bien integrado: cadenas multi-loca
   - autoservicio con precios visibles;
   - enterprise con «hablar con ventas».
 
+  **Hecho (2026-11-10, V3):** `/precios` y `/enterprise` de `apps/site` ya tienen esta estructura, sin importes (los precios de los planes siguen pendientes de producto).
+
 **Consecuencia técnica:** una organización enterprise es el mismo tenant (§4.4). Solo cambian su plan, su forma de pago y lo que tiene activado. Nada de código aparte por cliente: las integraciones a medida son skills (ADR 0030), no ramas del producto.
 
 ---
@@ -1248,7 +1260,29 @@ Cualquier persona o agente que se incorpore empieza leyendo, en este orden: `doc
 
 ---
 
-## 17. Hoja de ruta por fases **[DECIDIDO: producto, 2026-11-09]**
+## 17. Hoja de ruta por fases **[DECIDIDO: producto, 2026-11-09; plan del piloto por hitos, 2026-11-10]**
+
+### 17.0 Plan del piloto: hitos M0 a M5 **[DECIDIDO: producto, 2026-11-10]**
+
+Fuente: `docs/audits/2026-11-10-auditoria-preproduccion.md` §18 y §19. El registro de alcance (unidades, hito, responsable, estado y evidencia) es `docs/scope.yaml`. **Donde este plan y la tabla de fases de §17.1 difieran, manda este plan.** La tabla de fases sigue como mapa del alcance completo; el orden lo marcan los hitos.
+
+- **El piloto** es de dos a tres veces más capaz que el mínimo inicial y cubre en torno al **48 %** del alcance completo (con los pesos de §19.1 de la auditoría): 22 de 49 casos de uso, 50 de 147 integraciones, 5 de 12 canales, 19 de 35 capacidades de la app del dueño, 15 de 26 piezas de plataforma, 6 de 14 capacidades diferenciales y 8 de 12 controles de seguridad.
+- **Seis papeles de agente sobre un solo runtime:** los cuatro de serie, el asistente del dueño y el coach (la tabla de versiones mínimas, en la auditoría §18.3). No son motores nuevos: son skills, prompts y permisos.
+- **Sin fechas:** cada hito se cierra solo en su puerta, la comprueba la sesión revisora (`docs/WORKSTREAMS.md`) y la firma producto.
+
+| Hito | Objetivo | Puerta de salida (todo se cumple) | Alcance | Tamaño |
+|---|---|---|---|---|
+| **M0** Seguro para construir rápido | Gobierno (guarda, identidad del agente, revisión), arreglos de diseño del código actual, los ADR de «decidir ya» y el registro de alcance | Un PR de prueba que debilita la guarda no se puede mergear; los ADR de T1, T4, T6, T10 y del hub de integraciones están aceptados; STATUS se genera a partir del registro | ≈5 % | ≈25 PRs |
+| **M1** Columna vertebral | Acceso del worker a los datos, WhatsApp y chat web, hub de integraciones, enrutador multi-proveedor con la UE por defecto, libro de consumo, *pipeline* híbrido, operación de producción | Un mensaje del *sandbox* de WhatsApp recibe exactamente una respuesta, también si llega un segundo a mitad de turno; una organización `eu` completa un turno; simulacro de restauración hecho; parar el worker de staging dispara una alerta | ≈15 % | ≈70 PRs |
+| **M2** Servicio básico en staging | RC1–RC6 y CU1–CU3; integraciones del lote A; email; capacidades de la app del dueño de M2; enmascarado y tiempo real | Los nueve casos de uso pasan de punta a punta en el *sandbox* de WhatsApp; un dueño configura su negocio sin que nadie escriba SQL; las evals con el modelo real pasan tres corridas y son un check obligatorio | ≈27 % | ≈70 PRs |
+| **M3** Arranque del piloto | RC7, CU4, CU5, SA1–SA3 y AD1; lote B con el sistema de reservas del cliente piloto; Telegram y Slack; capacidades de M3; claves por organización; trazas; borrado; *pentest*; paquete legal | La lista de salida a producción (auditoría §13) completa; dieciséis casos de uso pasan en la configuración de producción; los sistemas del cliente piloto conectados; **empieza el primer cliente real** | ≈39 % | ≈70 PRs |
+| **M4** Piloto completo | AD2, AS1–AS3, CO1–CO2; E1, E3 y E5; lote C; panel del asistente, objetivos y coach; página de confianza; extras | El registro marca completo el alcance del piloto; se miden la tasa de resolución autónoma, el coste por conversación resuelta y el valor creado; queda registrada la opinión del cliente piloto | ≈48 % | ≈80 PRs |
+| **M5 en adelante** Alcance completo | Voz primero; después el resto de casos de uso, las oleadas de integraciones, autoservicio y facturación, cadenas, idiomas, agentes propios, *marketplace* y certificaciones | Se fija por versión | hacia el 100 % | sin tamaño |
+
+Qué cuenta como hecho en cada tipo de unidad (caso de uso, integración de nivel 1 a 3, canal, capacidad del dueño, pieza de plataforma, control de seguridad): auditoría §19.5 y el `done_when` de cada área en `docs/scope.yaml`.
+
+### 17.1 Mapa de fases del alcance completo
+
 
 Revisada el 2026-11-09 con la referencia de heydiga (recepcionista de IA para negocios locales, de voz primero: llamadas, WhatsApp y chat web; nueve skills, cinco productos por sector, integraciones con las agendas que ya usa el negocio y precio por minutos). Lo que publica en heydiga.com (leído el 2026-11-09): 29 integraciones por sector, 13 partners de software, 31 tipos de negocio y 13 casos de uso; planes de 49 € a 279 € al mes por minutos de conversación y llamadas simultáneas (de 5 a 25), con WhatsApp conversacional aparte; panel de llamadas con transcripción, resumen diario, exportación de datos e informes mensuales; para empresa, centralita propia (SIP y WebRTC), voz con varios proveedores y respaldo, unos 700 ms de latencia, SLA firmado del 99,5 %, retención del audio configurable, anonimización de datos personales, entorno de pruebas propio, pentest anual y certificados ISO 27001 y ENS de categoría media. Según la auditoría externa que aportó producto (2026-11-09): su voz corre sobre ElevenLabs y Twilio (Fráncfort), alta de WhatsApp con Embedded Signup de Meta, instancias de marca blanca para partners (Telefónica, qdq) y su asistente integrado en programas de terceros (Wilapp, DunaSoft); web en 7 idiomas con `llms.txt` y páginas por negocio, integración y caso de uso. Sus huecos son nuestra oportunidad de ser más «empresa»: no publica subencargados ni proveedores de IA, ni DPA (su política no separa responsable y encargado), ni cabeceras de seguridad, página de estado, respaldo a una línea humana, métricas de calidad con método (latencia p50/p95, acierto en reservas, tasa de traspaso) ni diseño de seguridad para los sectores de salud. Nuestro núcleo no es la voz: son **los 4 agentes trabajando juntos, la memoria que aprende y el coach** (§1.9). La voz es un canal más.
 
@@ -1287,15 +1321,46 @@ En las fases 0-3 la configuración de clientes la hace el equipo interno. Las fa
 
 ---
 
-## 18. Decisiones abiertas
+## 18. Decisiones
+
+### 18.0 Decisiones de producto del 2026-11-10 **[DECIDIDO]**
+
+Fuente: `docs/audits/2026-11-10-auditoria-preproduccion.md` §18.1 y §18.2, donde están el detalle y los hallazgos que afecta cada una. Mandan sobre lo anterior de este manual y de STATUS donde difieran.
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| 1 | Agentes del piloto | Los cuatro, más un **asistente del dueño** que orquesta y ayuda a gestionar la plataforma, más un **coach** que da recomendaciones con la historia, los datos y las noticias del negocio. Seis papeles. Piden aceptar los ADR 0024, 0029 y 0046 |
+| 2 | Integraciones | Todas las que sean posibles para el primer cliente piloto, también las que ofrecen heydiga y GuruSup, por oleadas (auditoría §18.8). El hub de integraciones va antes del piloto |
+| 3 | Marca y dominio | **Moodly.** El dominio será `moodly.com`; hasta entonces, `moodlycrm.com`. El dominio va como configuración para que el cambio sea barato (auditoría §18.9) |
+| 4 | Modelo por turno | Elegido por eval bajo un techo de coste, no el más caro para todo |
+| 5 | Qué es un crédito | 1 € de consumo medido a precio de lista más un margen fijo de plataforma |
+| 6 | Dónde procesan los modelos | **La UE por defecto**; EE. UU. también disponible; elige el cliente. La residencia por defecto pasa de `any` a `eu` y tiene que existir una ruta UE |
+| 7 | Quién revisa | Una sesión revisora independiente en todo; Diego en migraciones, RLS, auth y la guarda |
+| 8 | Sesiones en paralelo | Dos hasta que la guarda y la revisión estén arregladas; después, más |
+| 9 | Respuestas en borrador | Solo borradores la primera semana; después, respuestas autónomas para las de solo lectura |
+| 10 | Avisos al dueño | Email ya; *web push* tras la prueba en el iPhone; la app móvil cuando exista |
+| 11 | Ciclo de vida de las cuentas | Supabase Auth y Resend para el piloto; WorkOS cuando llegue el SSO |
+| 12 | Memoria, objetivos y coach en el piloto | Sí |
+| 13 | Qué puede editar el dueño | Horarios, servicios y precios, como admin y con MFA |
+| 14 | Auditoría frente a borrado | Al borrar, seudonimizar los campos personales y conservar el evento; necesita visto bueno legal |
+| 15 | Subsectores de salud en la web | Fuera hasta que haya revisión legal y EIPD |
+
+**Arquitectura, stack y seguridad (auditoría §18.2):**
+- **Ya:** acceso del worker a Postgres con un rol ligado a la organización y RLS (T1); claves de cifrado por organización (T4); capa de canales (T10: WhatsApp, chat web, email, voz, Slack, Discord, Signal y los que se puedan; Instagram y Facebook a través de ManyChat o similar).
+- **Proveedores de modelos:** todos detrás del enrutador: modelos alojados en la UE, Amazon Bedrock, Google Vertex, Azure y el gateway actual. El cliente elige proveedor y región. **Sustituye a «sin Bedrock, Vertex ni Azure hasta que lo pida un cliente»** y cambia en parte los ADR 0033 y 0035 (residencia `eu` por defecto); lo fija el ADR de T6 del hito M0.
+- **Aceptado para el plan:** *pipeline* híbrido (T3), enmascarado de datos personales (T5), trazas y puntuación nocturna (T7), tiempo real (T8) y resistencia a la inyección (T9).
+- **La seguridad como argumento de venta** (auditoría §17.4): todo.
+
+### 18.1 Decisiones abiertas
+
 
 | # | Decisión | Afecta a | Quién decide |
 |---|---|---|---|
-| 1 | Nombre comercial (marca en revisión legal) | Marca, dominios, `BRAND_NAME` | Producto + legal |
+| 1 | Nombre comercial. **Decidido (2026-11-10): Moodly**, con dominio futuro `moodly.com` (§18.0 #3). Sigue abierta la comprobación legal de la marca | Marca, dominios, `BRAND_NAME` | Producto + legal |
 | 2 | ~~Nombres definitivos de los 4 agentes~~ — cerrado: Recepción, Atención al cliente, Comercial y Administración (producto, 2026-10-20) | UI, marketing | Producto |
 | 3 | Vertical y cliente piloto de la fase 1. **Vertical decidido** (producto, 2026-10-24): centros de estética independientes de Madrid, sin tratamientos médicos; gimnasios y estudios como alternativa. Sigue abierto el cliente piloto concreto | Plantillas, integraciones, evals | Producto |
 | 4 | ~~BSP de WhatsApp~~ — cerrado para el piloto: Cloud API directa (ADR 0020) | Canal, costes, arquitectura de ingesta | Producto + técnico |
-| 5 | Proveedores LLM: cerrado (ADR 0019). **AI Gateway decidido** (producto, 2026-10-24): Vercel AI Gateway detrás del enrutador (se fija en el ADR 0033 con el enrutador). **Proveedores:** cualquiera con DPA firmado y transferencias cubiertas (cláusulas contractuales tipo o Data Privacy Framework), sin limitarse a modelos de la UE; cada organización puede restringirse a «Solo UE» cuando el cliente lo pida y el enrutador lo respeta siempre. Antes de usar el gateway con datos reales hay que confirmar que permite fijar proveedor y modelo con procesamiento en la UE o con un DPA válido; si no, el enrutador va directo al proveedor. BYOK nunca cae a credenciales de Moodly. Qué cumple cada proveedor se documenta con el ADR 0033. **Embeddings:** se eligen con la eval de recall en español del conocimiento v0 entre 2–3 candidatos servibles en la UE (ADR 0037). Siguen abiertos los DPA por proveedor y región | Runtime, cumplimiento | Técnico + legal |
+| 5 | Proveedores LLM: cerrado (ADR 0019). **AI Gateway decidido** (producto, 2026-10-24): Vercel AI Gateway detrás del enrutador (se fija en el ADR 0033 con el enrutador). **Proveedores (cambiado el 2026-11-10, §18.0 #6):** todos detrás del enrutador (modelos alojados en la UE, Bedrock, Vertex, Azure y el gateway), cada uno con DPA firmado y transferencias cubiertas; **la UE por defecto** y EE. UU. si el cliente lo elige, y el enrutador lo respeta siempre. Antes de usar el gateway con datos reales hay que confirmar que permite fijar proveedor y modelo con procesamiento en la UE o con un DPA válido; si no, el enrutador va directo al proveedor. BYOK nunca cae a credenciales de Moodly. Qué cumple cada proveedor se documenta con el ADR 0033. **Embeddings:** se eligen con la eval de recall en español del conocimiento v0 entre 2–3 candidatos servibles en la UE (ADR 0037). Siguen abiertos los DPA por proveedor y región | Runtime, cumplimiento | Técnico + legal |
 | 6 | Secretos: mecanismo cerrado (KMS con clave por tenant, ADR 0019). **Proveedor decidido** (producto, 2026-10-24): AWS KMS en `eu-central-1`, solo KMS (no Bedrock), con una clave maestra por entorno y una clave de datos por organización ligada a su `organization_id` (se fija en el ADR 0034 con `SecretVault`) | Seguridad | Técnico |
 | 7 | Proveedores de facturación española a integrar primero | Agente `admin` | Producto |
 | 8 | Precios: cuota, consumo, voz, precio por local | Stripe, límites | Producto |
@@ -1361,7 +1426,10 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
 | 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
+| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (borrador en #158, sin mergear; lo acepta producto) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
+| 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
+| 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
 
 ---
 

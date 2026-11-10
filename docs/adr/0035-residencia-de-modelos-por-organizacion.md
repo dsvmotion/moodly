@@ -1,6 +1,7 @@
 # 0035 — Residencia del procesamiento de modelos por organización
 
 - **Estado:** aceptado (producto, 2026-10-30)
+- **Cambiado en parte (producto, 2026-11-10; auditoría de preproducción §18.1 #6):** la residencia por defecto pasa de `any` a `eu`, con `us` como opción que elige el cliente. Lo fija el ADR de T6 del hito M0 (con su migración); hasta entonces, manda la decisión de producto (MANUAL §18.0).
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §4 (`org_model_settings`), §11, §18 #5
 - **Relación:**
