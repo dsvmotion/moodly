@@ -79,6 +79,10 @@ const ORG_C = "5eed0000-0000-4000-8000-00000000000c";
 // en las dos (seedExtraMemberships).
 const ORG_D = "5eed0000-0000-4000-8000-00000000000d";
 const ORG_E = "5eed0000-0000-4000-8000-00000000000e";
+// F solo la usan los e2e de volumen de la bandeja y las aprobaciones (M-07): muchas
+// conversaciones y aprobaciones en F1 y una en F2, para probar que el filtro de
+// local va antes del límite. Aparte, para no cambiar las listas exactas de Demo A.
+const ORG_F = "5eed0000-0000-4000-8000-00000000000f";
 const REGION_A_NORTE = "5eed0001-0000-4000-8000-0000000000a1";
 const LOC_A1 = "5eed0002-0000-4000-8000-0000000000a1";
 const LOC_A2 = "5eed0002-0000-4000-8000-0000000000a2";
@@ -87,6 +91,8 @@ const LOC_B1 = "5eed0002-0000-4000-8000-0000000000b1";
 const LOC_C1 = "5eed0002-0000-4000-8000-0000000000c1";
 const LOC_D1 = "5eed0002-0000-4000-8000-0000000000d1";
 const LOC_E1 = "5eed0002-0000-4000-8000-0000000000e1";
+const LOC_F1 = "5eed0002-0000-4000-8000-0000000000f1";
+const LOC_F2 = "5eed0002-0000-4000-8000-0000000000f2";
 
 export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_A, name: "Demo A", vertical: "demo", defaultLocale: "es-ES" },
@@ -94,6 +100,7 @@ export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_C, name: "Demo C", vertical: "demo", defaultLocale: "es-ES" },
   { id: ORG_D, name: "Demo D", vertical: "demo", defaultLocale: "es-ES" },
   { id: ORG_E, name: "Demo E", vertical: "demo", defaultLocale: "en" },
+  { id: ORG_F, name: "Demo F", vertical: "demo", defaultLocale: "es-ES" },
 ];
 
 export const seedRegions: readonly SeedRegion[] = [{ id: REGION_A_NORTE, organizationId: ORG_A, name: "A Norte" }];
@@ -106,6 +113,8 @@ export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_C1, organizationId: ORG_C, regionId: null, name: "C1" },
   { id: LOC_D1, organizationId: ORG_D, regionId: null, name: "D1" },
   { id: LOC_E1, organizationId: ORG_E, regionId: null, name: "E1" },
+  { id: LOC_F1, organizationId: ORG_F, regionId: null, name: "F1" },
+  { id: LOC_F2, organizationId: ORG_F, regionId: null, name: "F2" },
 ];
 
 /**
@@ -186,6 +195,15 @@ export const seedUsers: readonly SeedUser[] = [
     role: "staff",
     scopeRegionIds: [],
     scopeLocationIds: [LOC_D1],
+  },
+  {
+    key: "f_org_admin",
+    email: "admin.f@demo.test",
+    fullName: "Admin F",
+    organizationId: ORG_F,
+    role: "org_admin",
+    scopeRegionIds: [],
+    scopeLocationIds: [],
   },
   {
     key: "c_org_admin",
@@ -435,3 +453,37 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
     ],
   },
 ];
+
+/**
+ * Volumen para los e2e de M-07 (el filtro de local va en la consulta, antes del
+ * límite, en la bandeja y en las aprobaciones). Todo en Demo F, con ids fijos:
+ * - en F1, más de 100 conversaciones abiertas (las lleva el agente) con su último
+ *   mensaje más reciente que el de F2, y más de 100 cerradas sin mensajes;
+ * - en F2, una conversación que lleva el equipo, con un contacto de nombre fijo;
+ * - en F1, más de 200 aprobaciones pendientes, y en F2 una, que se crea después
+ *   (otra inserción): es la más reciente.
+ */
+const volumeId = (prefix: string, n: number) => `${prefix}-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
+
+export const SEED_VOLUME = {
+  organizationId: ORG_F,
+  userKey: "f_org_admin",
+  f1: LOC_F1,
+  f2: LOC_F2,
+  openInF1: 105,
+  closedInF1: 105,
+  pendingInF1: 205,
+  f2Conversation: { id: volumeId("5eed00f1", 0), contactId: volumeId("5eed00f2", 0), contactName: "Contacto de F2" },
+  f2Approval: {
+    runId: volumeId("5eed00f3", 0),
+    executionId: volumeId("5eed00f4", 0),
+    approvalId: volumeId("5eed00f5", 0),
+    text: "Mensaje pendiente en F2",
+    reason: "Responder: «Mensaje pendiente en F2»",
+  },
+  /** La conversación n de F1 (n empieza en 1): las abiertas primero, después las cerradas. */
+  f1Conversation: (n: number) => ({ id: volumeId("5eed00f1", n), contactId: volumeId("5eed00f2", n) }),
+  /** La aprobación n de F1 (n empieza en 1). */
+  f1Approval: (n: number) => ({ runId: volumeId("5eed00f3", n), executionId: volumeId("5eed00f4", n), approvalId: volumeId("5eed00f5", n) }),
+} as const;
+
