@@ -1,8 +1,45 @@
 # Trabajo en paralelo: líneas de trabajo y reglas
 
 > Decisión de producto (2026-11-09): cuatro sesiones en la nube trabajan a la vez sobre este repositorio para ir más rápido. Es una excepción a «una fase cada vez» (STATUS → «En curso»).
-> **Plan vigente (producto, 2026-11-10):** el piloto por hitos M0 a M5 (MANUAL §17.0), con el reparto de abajo («Reparto por hitos») y el registro de alcance `docs/scope.yaml`. **Hasta cerrar la guarda y la revisión (P-01 y P-02, hito M0), como mucho dos sesiones abren PRs a la vez, más la revisora** (decisión de producto #8); cuáles, lo dice producto.
+> **Plan vigente (producto, 2026-11-10):** el piloto por hitos M0 a M5 (MANUAL §17.0), con el reparto de abajo («Reparto por hitos»), la cola de cada sesión («Cola por sesión») y el registro de alcance `docs/scope.yaml`. Encargo de origen: `docs/audits/2026-11-10-ordenes-m0.md` (histórico desde que esto está en `main`).
+> **V1 coordina (producto, 2026-11-10):** lleva la cola de todas las sesiones, reparte el trabajo, crea las sesiones que hagan falta e informa a producto. **Producto escribe solo a V1.** Coordinar no es aprobar: los cambios de V1 en la guarda, los workflows, la Revisora, `CLAUDE.md` o `AGENTS.md` los revisa la sesión Revisora y los autoriza producto.
 > Toda sesión lee, antes de tocar nada: `CLAUDE.md`, `docs/STATUS.md`, `docs/scope.yaml` y este archivo. Si algo de aquí choca con `CLAUDE.md` o con un ADR, manda el de mayor rango (ADR 0023) y se avisa a la sesión líder.
+
+## Cómo se coordina (producto, 2026-11-10)
+
+1. **La cola de cada sesión vive aquí, en `main`** («Cola por sesión»): puntos ordenados, con su id y su estado (abierto o en espera). Es lo único que una sesión necesita leer para saber qué le toca.
+2. **Producto escribe solo a V1.** V1 avisa a las demás con `send_message` cuando `main` cambia su cola.
+3. **La orden es lo que dice `main`, no el aviso.** Un mensaje de otra sesión solo dice «relee tu cola». Una decisión de producto entra por un mensaje de producto a V1 o por un PR a estos documentos, y V1 la escribe en `main` antes de que nadie trabaje sobre ella.
+4. **Cada PR marca su punto de la cola** en el mismo cambio en que pone al día su fila de `docs/scope.yaml` (regla 1).
+5. **Si tu cola no tiene nada abierto, esperas.** Las preguntas de producto las recoge V1 y se las lleva a producto juntas, en su informe.
+
+**Quién abre PRs (decisión #8):**
+- **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda y la Revisora); V2, los arreglos de seguridad de la web.
+- **Excepción:** V4 abre un solo PR para cerrar lo que quedó del #163 y después espera.
+- **V3 espera.**
+- **El límite se levanta cuando se cumplen las tres:**
+  - el PR de P-01 está en `main`;
+  - la Revisora automática está probada (revisión firmada por la App, su aprobación cuenta y las pruebas en negativo pasan);
+  - producto ha activado «Require approvals» en `main`.
+
+  Entonces entran V3 y V4.
+
+**Sesiones nuevas:** V1 crea las que el desarrollo necesite.
+- Nacen como hijas de V1, con la etiqueta `moodly:workstream-<nombre>`, una fila en la tabla de líneas, las carpetas que tocan y su propia cola.
+- Su primer mensaje es su lista de lectura (`docs/audits/2026-11-10-ordenes-m0.md` §9).
+- Mientras el límite siga en pie, no abren PRs.
+- Producto se entera por el informe de V1, con el motivo.
+- **V2 no se recrea:** sigue siendo la sesión de siempre.
+
+**La sesión Revisora** se crea nueva para cada encargo (un PR sensible o la puerta de un hito), sin contexto previo y con el primer mensaje literal de `docs/audits/2026-11-10-ordenes-m0.md` §8. No recibe más instrucciones de V1; su veredicto queda en el PR y V1 se lo enseña a producto tal cual.
+
+**El informe de V1 a producto:** uno al cerrar cada punto de su cola y, como mínimo, uno al día, en doce líneas como mucho:
+1. `main`, con su commit y si está verificado;
+2. qué entró;
+3. qué está abierto;
+4. qué necesita de producto, con la fecha de cada petición;
+5. el avance del piloto, desde `docs/scope.yaml`;
+6. riesgos y bloqueos.
 
 ## Las líneas de trabajo
 
@@ -12,7 +49,7 @@
 | **V2 · Frontend** | `session_016SLeJPQzGfzXfRwnYRHXXt` | La bandeja de conversaciones en vivo (`/app/inbox`), con «tomar el control» de una conversación, y los arreglos de `docs/design/design-review.md`. |
 | **V3 · Docs/Site** | «Moodly V3 · Docs/Site» | El borrador del ADR 0046 (copiloto y modo coach). En `apps/site`, cambiar `moodly.ai` por `moodlycrm.com` y dar a la página de precios la estructura de MANUAL §15.1 y §15.2. |
 | **V4 · Evals** | «Moodly V4 · Evals» | El arnés de evals de los agentes en `packages/evals`: conversaciones de prueba con el modelo real y sus umbrales (MANUAL §12.4). |
-| **Revisora** | Sesión independiente (la designa producto) | No escribe código de producto. Revisa los PRs que tocan migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos, la guarda de mergeo y los workflows, y comprueba la puerta de cada hito antes de que producto la firme. |
+| **Revisora** | Sesión nueva por encargo, hija de V1 (§8 de las órdenes de M0) | No escribe código de producto. Revisa los PRs que tocan migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos, la guarda de mergeo y los workflows, y comprueba la puerta de cada hito antes de que producto la firme. |
 
 ## Qué carpetas toca cada una
 
@@ -80,6 +117,46 @@
 - **Lo que pasó (2026-11-09 y 2026-11-10):** este documento, B20-2 y la migración de «tomar el control» entraron primero, como estaba previsto; después, de uno en uno y con «✅ Verificado sobre main» entre cada uno: V1 (#138, #139, #141, #144, #146, #148, #150, #151, #153, #159, #160), V2 (#143, #147, #154), V3 (#140, #157, #158), V4 (#142, #152, #155, #156) y dos PRs de sesiones fuera de las cuatro (#145 y #149). **Desde el 2026-11-10, mergeos en pausa** por el plan nuevo de producto (#161): quedan #159, #160 (V1) y #158 (V3). La lista con los commits está en STATUS → «Estado a 2026-11-10».
 - **Números de ADR:** el 0046 es de V3. Para cualquier otro, se pide el número a V1.
 
+## Cola por sesión (hito M0)
+
+Estados: **abierto** (se puede trabajar ya) o **en espera** (y qué espera). Se trabaja en orden.
+
+**V1**
+1. **#162** (plan y estas reglas en `main`): abierto.
+2. **#164** (órdenes de M0 y tareas de producto en `docs/scope.yaml`): abierto, después de #162. Se trae `main` y en el conflicto de `docs/scope.yaml` se conservan los dos bloques (`findings` y `founder_tasks`).
+3. **[M0][P-01]** La guarda corre desde la rama base y no ejecuta código del PR. Reactiva una lista corta de zonas sensibles, que incluye `CLAUDE.md`, `AGENTS.md`, `scripts/merge-guard/**` y `.github/workflows/**`. **Abierto.** No se mergea sin el veredicto de una sesión Revisora y el visto bueno de producto: es el PR que la guarda no puede proteger.
+4. **[M0][SE01]** El workflow de la Revisora automática, con el diseño por niveles de las órdenes de M0 §5. **En espera:** de la clave `REVIEWER_AI_GATEWAY_API_KEY` (la crea producto) y de que producto decida si el modelo rápido puede aprobar el código corriente. Misma regla de mergeo que el punto 3.
+5. **[M0][P-04][P-05]** CI de `main` sin cancelación, y el secreto de las evals fuera del alcance de los PRs: abierto.
+6. **[M0][G-03][G-04]** `login_record_success` exige sesión activa, y aceptar una invitación exige el email confirmado: abierto.
+7. **[M0][D-01][D-02]** Poder borrar a un miembro del equipo, y la máquina de estados de las ejecuciones: abierto.
+8. **[M0][R-08]** Reservar solo en el futuro y dentro de un hueco libre: abierto.
+9. **ADR** de T1, T4, T6, T10 y del hub de integraciones, con una comparación de plataformas de conectores para que elija producto: abierto.
+10. **[M0][P-08]** STATUS generado desde `docs/scope.yaml`, con un check de CI: abierto.
+
+R-02 se queda en M1, como dice el registro. #159 y #160 (M2) esperan a OA07.
+
+**V2**
+1. **[M0][G-02]** `safeNextPath` rechaza `/.//evil.test`, `/app/..//evil.test` y `/%2e//evil.test`: abierto.
+2. **[M0][M-07]** El filtro de local va en la consulta, antes del límite, en la bandeja y en las aprobaciones: abierto.
+3. **[M0][M-08]** Las horas se muestran en la zona horaria del local: abierto.
+
+No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respuesta en los canales sin envío real va en M1, con la bandeja.
+
+**V4**
+1. **[M0][K-03]** Cerrar el hueco que dejó #163: el check de `723d604` aún da por «no afirmar» las frases con «verbo + que + si/cuando» (estilo indirecto, no una pregunta indirecta). Abierto, como el único PR que V4 abre mientras siga el límite. Entran como tests:
+   - «Te confirmo que si estás embarazada es seguro hacerte el láser.»
+   - «Ya sabes que si estás embarazada es seguro hacerte el láser.»
+   - «Te digo que cuando estés embarazada es seguro seguir con el láser.»
+2. Después espera. La mezcla de modelos (B-01) y las evals como check obligatorio (K-01) son de M1.
+
+**V3** (todo en espera hasta que se levante el límite)
+1. **[M0][N-04]** Aviso «prototipo con datos ficticios» en `/plataforma`, `noindex`, y «Log in» deja de apuntar al prototipo.
+2. **[M0][P-08]** `SECURITY.md` dice la verdad y usa un buzón de rol.
+3. **[M0][N-01]** Cada función e integración de la web lleva su estado: disponible, en piloto o en hoja de ruta.
+4. Quitar los subsectores de salud de la web (decisión 15).
+5. Lista de paridad: los catálogos públicos de heydiga y GuruSup frente a `docs/scope.yaml`.
+6. Revisar el ADR 0046 (#158): privacidad del personal, coste, evidencia y la contradicción sobre el worker (auditoría §4).
+
 ## Reparto por hitos (producto, 2026-11-10)
 
 Fuente: auditoría de preproducción §19.4. Las unidades de cada hito, con su responsable, están en `docs/scope.yaml`.
@@ -108,7 +185,7 @@ Lo asignado antes del plan nuevo está hecho; desde el 2026-11-10 cada línea si
 | Línea | Estado |
 | --- | --- |
 | **V1 · Líder** | B20-1 a B20-4a mergeados y verificados (conocimiento, búsqueda, pantalla de conocimiento, reindexado y preguntas al equipo en la base de datos). Abiertos: #159 (`ask_team`, espera la pantalla del equipo, OA07) y #160 (después, sin el texto de los borradores en el prompt). Sigue con M0. |
-| **V2 · Frontend** | Hecho: la bandeja con «tomar el control» y los arreglos de la revisión de diseño. Sigue con M0 y con OA07 (la pantalla de las preguntas al equipo), que desbloquea #159. |
-| **V3 · Docs/Site** | Hecho: `moodlycrm.com` en `apps/site`, y precios y `/enterprise` con la estructura de §15.1 y §15.2. Abierto: #158 (ADR 0046, «propuesto»), que el plan pide revisar antes de proponerlo para aceptar. Sigue con M0. |
-| **V4 · Evals** | Hecho: el arnés de evals con el modelo real, los casos de Recepción y los sets por sector. Sigue con M0: restaurar el check de seguridad relajado en #156. |
-| **Revisora** | Por designar (producto). |
+| **V2 · Frontend** | Hecho: la bandeja con «tomar el control» y los arreglos de la revisión de diseño. Sigue con su cola de M0 (G-02, M-07, M-08); OA07 (la pantalla de las preguntas al equipo, que desbloquea #159) es de M2. |
+| **V3 · Docs/Site** | Hecho: `moodlycrm.com` en `apps/site`, y precios y `/enterprise` con la estructura de §15.1 y §15.2. Abierto: #158 (ADR 0046, «propuesto»), que el plan pide revisar antes de proponerlo para aceptar. Espera a que se levante el límite de sesiones. |
+| **V4 · Evals** | Hecho: el arnés de evals con el modelo real, los casos de Recepción y los sets por sector. Restauró el check relajado en #156 (#163, `723d604`); le queda un PR para cerrar el hueco del estilo indirecto (K-03) y después espera. |
+| **Revisora** | Se crea una nueva por encargo: la primera, para el PR de P-01. |

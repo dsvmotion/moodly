@@ -47,9 +47,10 @@
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
   - **#158** (V3, borrador): ADR 0046 en estado «propuesto». El plan pide revisarlo (reglas de privacidad del personal, permisos y gasto) antes de proponerlo para aceptar con el 0024 y el 0029.
+  - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
-- **Sesiones:** hasta cerrar la guarda y la revisión (P-01 y P-02), como mucho dos sesiones abriendo PRs a la vez, más la revisora (decisión de producto #8; `docs/WORKSTREAMS.md`).
+- **Coordinación (producto, 2026-11-10):** V1 coordina a las demás sesiones y es la única a la que escribe producto. Encargo: `docs/audits/2026-11-10-ordenes-m0.md` (#164). Ahora abren PRs V1 y V2; V4, solo el de K-03; V3 espera (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 
 ### Bloqueado
 - **WhatsApp real (B19):** falta la cuenta de Meta Business verificada, el número y la plantilla de recordatorio aprobada.
@@ -67,27 +68,35 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 - los ADR de T1 (acceso del worker a los datos), T4 (claves por organización), T6 (proveedores de modelos y residencia), T10 (canales) y del hub de integraciones, aceptados por producto;
 - STATUS se genera a partir del registro de alcance.
 
-**Qué hace cada uno en M0:**
-- **V1:**
-  - la guarda corre desde la rama base (P-01), con la verificación tras el merge sin depender de quien mergea (P-04) y la clave de las evals fuera del alcance del código de un PR (P-05);
-  - los arreglos de diseño del código actual (G-02, G-03, G-04, D-01, D-02, R-08, M-07, M-08);
-  - los ADR de T1, T4, T6, T10 y del hub de integraciones;
-  - el registro de alcance y STATUS generado a partir de él (P-08).
-- **V2:** los arreglos de redirección, alcance y zona horaria.
-- **V3:** honestidad de la web (aviso, `noindex`, afirmaciones), `SECURITY.md` y la lista de paridad de integraciones.
-- **V4:** ~~restaurar el check de seguridad que relajó #156~~, hecho en #163 (`723d604`), con los contraejemplos como tests; K-02 ya estaba cerrado por #152.
-- **Revisora:** revisa los PRs que tocan migraciones, RLS, `SECURITY DEFINER`, auth, secretos, la guarda y los workflows, y comprueba la puerta.
+**Qué hace cada uno en M0:** la cola completa, punto a punto y con su estado, está en `docs/WORKSTREAMS.md` → «Cola por sesión». En resumen:
+- **V1 (coordina):**
+  - #162 y #164;
+  - la guarda desde la rama base (P-01);
+  - el workflow de la Revisora (SE01), que espera la clave y una decisión;
+  - CI de `main` sin cancelación y el secreto de las evals fuera de los PRs (P-04, P-05);
+  - G-03, G-04, D-01, D-02 y R-08;
+  - los ADR de T1, T4, T6, T10 y del hub;
+  - STATUS generado del registro (P-08).
+- **V2:** G-02, M-07 y M-08.
+- **V4:** un PR para cerrar el hueco que dejó #163 (K-03); después espera.
+- **V3:** espera a que se levante el límite de sesiones. Después: N-04, `SECURITY.md`, N-01, quitar los subsectores de salud, la lista de paridad y revisar el ADR 0046.
+- **Revisora:** una sesión nueva por encargo (el primero, el PR de P-01) y la puerta de M0.
 - **Producto:**
-  - la identidad propia del agente en GitHub y las reglas de la rama (P-02);
-  - la sociedad, la marca y la asesoría legal;
-  - empezar la verificación de Meta;
-  - aceptar o revisar los ADR 0023, 0024, 0029 y 0046.
+  - confirmar el encargo (hecho el 2026-11-10);
+  - crear `REVIEWER_AI_GATEWAY_API_KEY` en el entorno `reviewer`;
+  - decidir si el modelo rápido de la Revisora puede aprobar el código corriente;
+  - el visto bueno a los PRs de P-01 y de la Revisora;
+  - activar «Require approvals» en `main` cuando la prueba pase;
+  - aceptar los ADR y elegir la plataforma de conectores;
+  - Meta, la asesoría legal y el cliente piloto (`founder_tasks` en `docs/scope.yaml`).
+
+**Quién abre PRs (decisión #8):** ahora V1 y V2; V4, solo el PR de K-03; V3 espera. El límite se levanta cuando estén las tres: P-01 en `main`, la Revisora probada y «Require approvals» activo en `main` (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 
 **Abierto y conocido, fuera de M0:** R-02, el worker no vuelve a mirar `conversations.mode` al enviar, así que un turno en curso puede escribir después de que una persona tome el control (V1, en M1 con R-01 a R-07).
 
 ### Decisiones de producto pendientes
 Las del 2026-11-10 ya están tomadas (MANUAL §18.0). Siguen abiertas:
-- **Sesiones:** qué dos sesiones abren PRs mientras la guarda y la revisión no estén arregladas (decisión #8), y quién lleva la revisora.
+- **Revisora automática** (órdenes de M0 §5): si el modelo rápido puede aprobar los PRs de código corriente. Si no, el potente en todo el código cuesta ≈75–90 € hasta M4, frente a ≈25–40 € por niveles.
 - **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres). El tiempo real ya está aceptado (T8).
 - **Coach (V3):** las cuatro preguntas abiertas del ADR 0046 y aceptarlo con el 0024 y el 0029.
 - **Web pública (V3):** los precios de los planes; la región del servicio `site` de Railway (hoy en EE. UU.).
