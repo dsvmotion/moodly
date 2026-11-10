@@ -34,6 +34,7 @@ m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conver
 findings:
   - {id: "K-03", milestone: "M0", owner: "V4", status: "done", evidence: ["PR #163", "723d604", "PR #165"], note: "El check de afirmaciones vuelve a tratar una condición como afirmar (#163) y el estilo indirecto, «te confirmo que si…», también (#165); solo las preguntas indirectas quedan exentas"}
   - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
+  - {id: "P-10", milestone: "M0", owner: "V5", status: "in_progress", evidence: ["PR #166"], note: "Las skills del proyecto llegan copiadas en .claude/ desde dsvmotion/moodly-toolkit (74 skills, 4 agentes y el hook de arranque de superpowers), sin marketplace; falta el veredicto de la Revisora, el visto bueno de producto y la comprobación sobre main"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
 # El estado lo declara producto; lo que no se puede comprobar desde el repositorio lo dice en la evidencia.
