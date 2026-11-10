@@ -1,0 +1,360 @@
+# Registro de alcance del proyecto.
+#
+# Fuente: docs/audits/2026-11-10-auditoria-preproduccion.md, secciones 18 y 19 (decisiones de producto del 2026-11-10).
+# Estado de cada unidad a fecha del commit c290ee3 de main.
+#
+# Cómo se usa:
+# - Cada unidad tiene id, hito (M0-M4 = piloto, stretch = opcional en M4, after = después del piloto), responsable, estado y evidencia.
+# - Estados: planned, in_progress, done, blocked. Una unidad pasa a done solo con evidencia (PR, test, corrida de evals)
+#   y cumpliendo el `done_when` de su área.
+# - El porcentaje del piloto y del alcance total se calcula con los pesos de `weights`.
+# - Los nombres de las unidades están en inglés para casar uno a uno con la sección 19.2 de la auditoría.
+# - Añadir, quitar o mover una unidad es decisión de producto.
+version: 1
+as_of_commit: c290ee3
+updated: 2026-11-10
+source: docs/audits/2026-11-10-auditoria-preproduccion.md
+status_values: [planned, in_progress, done, blocked]
+weights: {use_cases: 25, integrations: 15, channels: 10, owner_app: 15, platform: 15, edge: 10, security: 10}
+
+milestones:
+  M0: {name: "Safe to build fast", gate: ["A test PR that weakens the merge guard cannot merge", "ADRs for T1, T4, T6, T10 and the integration hub are accepted", "STATUS is generated from this register"]}
+  M1: {name: "Platform spine", gate: ["A WhatsApp sandbox message gets exactly one reply, including when a second message arrives mid-turn", "An eu organization completes a turn", "A restore drill is done", "Stopping the staging worker raises an alert"]}
+  M2: {name: "Core service in staging", gate: ["RC1-RC6 and CU1-CU3 pass an end-to-end run on the WhatsApp sandbox", "An owner completes business setup without anyone writing SQL", "Real-model evals pass three runs and are a required check"]}
+  M3: {name: "Pilot go-live", gate: ["The production exit checklist (audit section 13) is complete", "Sixteen use cases pass on the production configuration", "The pilot client's systems are connected", "The first real customer starts"]}
+  M4: {name: "Pilot complete", gate: ["Every pilot unit in this register is done", "Autonomous resolution rate, cost per resolved conversation and value created are measured", "The pilot client's review is recorded"]}
+  M5: {name: "Full scope", gate: ["Set per release"]}
+
+# Trabajo de M0 que no es una unidad de alcance: hallazgos de la auditoría (sección 8) a cerrar primero.
+m0_findings: ["P-01", "P-02", "P-04", "P-05", "G-02", "G-03", "G-04", "D-01", "D-02", "R-08", "M-07", "M-08"]
+m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conversations/checks.ts:153), owner V4"]
+
+areas:
+  use_cases:
+    done_when: "Its eval set passes three runs with the real model; an end-to-end test passes on a real channel; the owner can see and correct it in the app"
+    # Responsable: V1 (skills y runtime). Las evals de cada caso son de V4 y sus pantallas de V2.
+    units:
+      - {id: "RC1", role: "reception", name: "Find slots", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC2", role: "reception", name: "Book", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC3", role: "reception", name: "Reschedule", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC4", role: "reception", name: "Cancel", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC5", role: "reception", name: "Reminders with opt-out", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC6", role: "reception", name: "Waitlist and offers", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Works on the internal test channel only; no real channel yet"}
+      - {id: "RC7", role: "reception", name: "Deposit or no-show policy at booking", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "RC8", role: "reception", name: "Rebooking by treatment cadence", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "RC9", role: "reception", name: "Packages and multi-service bookings", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "RC10", role: "reception", name: "Group and recurring bookings", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU1", role: "customer", name: "Answers from knowledge: prices, hours, services, policies", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Text sources only; internal test channel"}
+      - {id: "CU2", role: "customer", name: "Ask the team and learn the answer", milestone: "M2", owner: "V1", status: "in_progress", evidence: [], note: "Table and trigger on main; the skill is in PR #159 and has no team screen yet"}
+      - {id: "CU3", role: "customer", name: "Hand-off to a person, with notification", milestone: "M2", owner: "V1", status: "planned", evidence: [], note: "Today the hand-off happens only on technical failure and notifies nobody"}
+      - {id: "CU4", role: "customer", name: "Send instructions and documents before and after a visit", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU5", role: "customer", name: "Review request after a visit", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU6", role: "customer", name: "Complaint intake and routing", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU7", role: "customer", name: "Replies to public reviews", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU8", role: "customer", name: "Satisfaction survey", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CU9", role: "customer", name: "Status from a connected system", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA1", role: "sales", name: "Capture and qualify a lead", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA2", role: "sales", name: "Follow-up drafts", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA3", role: "sales", name: "Book a consultation from a lead", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA4", role: "sales", name: "CRM sync of leads and contacts", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA5", role: "sales", name: "Quote or proposal", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA6", role: "sales", name: "Upsell at booking", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA7", role: "sales", name: "Reactivation of lapsed clients", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA8", role: "sales", name: "Recovery of abandoned conversations", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SA9", role: "sales", name: "Consented campaigns with templates", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD1", role: "admin", name: "Payment link or deposit", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD2", role: "admin", name: "Invoice draft through the client's invoicing tool", milestone: "M4", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD3", role: "admin", name: "Payment reminders", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD4", role: "admin", name: "Daily summary of bookings and takings", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD5", role: "admin", name: "Refunds and cancellation fees", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD6", role: "admin", name: "Receipt and expense capture", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD7", role: "admin", name: "Staff schedule and absences", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AD8", role: "admin", name: "Export for the accountant", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AS1", role: "assistant", name: "Answers about the business from its own data", milestone: "M4", owner: "V1", status: "planned", evidence: [], note: "Read-only in the pilot; needs ADR 0029 accepted"}
+      - {id: "AS2", role: "assistant", name: "What-needs-me summary", milestone: "M4", owner: "V1", status: "planned", evidence: []}
+      - {id: "AS3", role: "assistant", name: "Explains an agent's decision", milestone: "M4", owner: "V1", status: "planned", evidence: [], note: "Builds on E2"}
+      - {id: "AS4", role: "assistant", name: "Changes settings on request, with confirmation", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AS5", role: "assistant", name: "Drafts knowledge from documents", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AS6", role: "assistant", name: "Configures agents on request", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "AS7", role: "assistant", name: "Guided setup", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CO1", role: "coach", name: "Weekly review against goals", milestone: "M4", owner: "V1", status: "planned", evidence: [], note: "Needs ADR 0046 with rules on staff privacy, permissions and spend"}
+      - {id: "CO2", role: "coach", name: "Recommendations with evidence, accepted or dismissed", milestone: "M4", owner: "V1", status: "planned", evidence: []}
+      - {id: "CO3", role: "coach", name: "Anomaly alerts", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CO4", role: "coach", name: "Comparison across locations", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CO5", role: "coach", name: "Outside news and signals", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "CO6", role: "coach", name: "Goal planning", milestone: "after", owner: "V1", status: "planned", evidence: []}
+
+  integrations:
+    done_when: "Level 1: connect flow in the app, a health check and one read action tested against the provider sandbox. Level 2: plus write actions under the policy engine, drafts first, with an eval. Level 3: plus two-way sync with a conflict rule and a reconciliation test"
+    pilot_target: {count: 50, level_2: 14, level_3: 3}
+    substitution_rule: "A system counts only at level 1. If one is blocked (closed API, no contract yet), record the reason and take the next system in wave order so the count of 50 holds"
+    # El sistema de reservas del cliente piloto es la unidad 50 del piloto. Se enlaza a un sistema del catálogo cuando se conozca el cliente;
+    # si ya está en el lote C, entra el siguiente sistema por orden de oleada.
+    pilot_booking_system: {milestone: "M3", batch: "B", level_target: 3, bind_to: null, owner: "V1", status: "blocked", note: "Needs the pilot client (STATUS, Bloqueado)"}
+    units:
+      - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-instagram", name: "Instagram", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-messenger", name: "Messenger", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-facebook", name: "Facebook", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-telegram", name: "Telegram", category: "mensajeria", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-tiktok", name: "TikTok", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-x", name: "X", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-linkedin", name: "LinkedIn", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-threads", name: "Threads", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-youtube", name: "YouTube", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-pinterest", name: "Pinterest", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-signal", name: "Signal", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-gmail", name: "Gmail", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlecalendar", name: "Google Calendar", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-microsoftoutlook", name: "Outlook", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-microsoftteams", name: "Microsoft Teams", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlemeet", name: "Google Meet", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-zoom", name: "Zoom", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-calendly", name: "Calendly", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-slack", name: "Slack", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-calcom", name: "Cal.com", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-webex", name: "Webex", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googletasks", name: "Google Tasks", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-hubspot", name: "HubSpot", category: "crm", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-salesforce", name: "Salesforce", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-dynamics365", name: "Microsoft Dynamics 365", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-freshsales", name: "Freshsales", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-pipedrive", name: "Pipedrive", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-zoho", name: "Zoho CRM", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-odoo", name: "Odoo", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-mondaydotcom", name: "monday.com", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-mailchimp", name: "Mailchimp", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-typeform", name: "Typeform", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-intercom", name: "Intercom", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-zendesk", name: "Zendesk", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-freshdesk", name: "Freshdesk", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-brevo", name: "Brevo", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-klaviyo", name: "Klaviyo", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-activecampaign", name: "ActiveCampaign", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-quickbooks", name: "QuickBooks", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-xero", name: "Xero", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-sage", name: "Sage", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-stripe", name: "Stripe", category: "facturacion", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-paypal", name: "PayPal", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-square", name: "Square", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-holded", name: "Holded", category: "facturacion", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-pennylane", name: "Pennylane", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-sap", name: "SAP Business One", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-mollie", name: "Mollie", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-gocardless", name: "GoCardless", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-sumup", name: "SumUp", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-revolut", name: "Revolut Business", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-adyen", name: "Adyen", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-klarna", name: "Klarna", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-shopify", name: "Shopify", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-woocommerce", name: "WooCommerce", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-wordpress", name: "WordPress", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-wix", name: "Wix", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-squarespace", name: "Squarespace", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlemaps", name: "Google Maps", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-prestashop", name: "PrestaShop", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-magento", name: "Adobe Commerce", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-bigcommerce", name: "BigCommerce", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-webflow", name: "Webflow", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-framer", name: "Framer", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googledrive", name: "Google Drive", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googledocs", name: "Google Docs", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlesheets", name: "Google Sheets", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-microsoftexcel", name: "Excel", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-microsoftonedrive", name: "OneDrive", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-dropbox", name: "Dropbox", category: "documentos", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-box", name: "Box", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-notion", name: "Notion", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googleslides", name: "Google Slides", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-confluence", name: "Confluence", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-evernote", name: "Evernote", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-obsidian", name: "Obsidian", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-airtable", name: "Airtable", category: "productividad", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-trello", name: "Trello", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-asana", name: "Asana", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-clickup", name: "ClickUp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googleanalytics", name: "Google Analytics", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-jira", name: "Jira", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-linear", name: "Linear", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-basecamp", name: "Basecamp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-todoist", name: "Todoist", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-miro", name: "Miro", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-figma", name: "Figma", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-zapier", name: "Zapier", category: "automatizacion", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-make", name: "Make", category: "automatizacion", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-n8n", name: "n8n", category: "automatizacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-twilio", name: "Twilio", category: "automatizacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-ifttt", name: "IFTTT", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-discord", name: "Discord", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-thefork", name: "TheFork", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-bookingdotcom", name: "Booking.com", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-lightspeed", name: "Lightspeed", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-doctoralia", name: "Doctoralia", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-factorial", name: "Factorial", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-personio", name: "Personio", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-docusign", name: "DocuSign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-dropboxsign", name: "Dropbox Sign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-openai", name: "OpenAI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-anthropic", name: "Anthropic", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlegemini", name: "Google Gemini", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-mistralai", name: "Mistral AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-meta", name: "Meta Llama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-perplexity", name: "Perplexity", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-huggingface", name: "Hugging Face", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-azure", name: "Azure OpenAI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-aws", name: "Amazon Bedrock", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-googlevertex", name: "Vertex AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-ollama", name: "Ollama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-heygen", name: "HeyGen", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-captions", name: "Captions", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-gamma", name: "Gamma", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-notebooklm", name: "NotebookLM", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-elevenlabs", name: "ElevenLabs", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-canva", name: "Canva", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-descript", name: "Descript", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-runway", name: "Runway", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-booksy", name: "Booksy", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-treatwell", name: "Treatwell", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-koibox", name: "Koibox", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-timp", name: "Timp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-wilapp", name: "Wilapp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-fresha", name: "Fresha", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-shore", name: "Shore", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-salonized", name: "Salonized", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-covermanager", name: "CoverManager", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-restoo", name: "Restoo", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-quiter", name: "Quiter", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-tallergp", name: "TallerGP", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-cliniccloud", name: "Clinic Cloud", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-gesden", name: "Gesden", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-dentalink", name: "Dentalink", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-inmovilla", name: "Inmovilla", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-witei", name: "Witei", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-idealista", name: "Idealista", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-fotocasa", name: "Fotocasa", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-gesfincas", name: "Gesfincas", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-avantio", name: "Avantio", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-quipu", name: "Quipu", category: "facturacion", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-verifactu", name: "Verifactu", category: "facturacion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-redsys", name: "Redsys", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-bizum", name: "Bizum", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
+      - {id: "int-google-business-profile", name: "Google Business Profile", category: "general", source: "heydiga", milestone: "M4", batch: "C", level_target: 2, owner: "V1", status: "planned", evidence: []}
+
+  channels:
+    done_when: "Inbound is signed and de-duplicated; outbound has delivery states; opt-in is recorded; one end-to-end test passes"
+    units:
+      - {id: "ch-whatsapp", name: "WhatsApp", milestone: "M1", owner: "V1", status: "blocked", evidence: [], note: "Waiting for Meta Business verification, a number and approved templates (STATUS, Bloqueado)"}
+      - {id: "ch-webchat", name: "Web chat", milestone: "M1", owner: "V1", status: "planned", evidence: [], note: "Only the internal test chat exists"}
+      - {id: "ch-email", name: "Email", milestone: "M2", owner: "V1", status: "planned", evidence: [], note: "Also carries notifications to the owner"}
+      - {id: "ch-telegram", name: "Telegram", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-slack", name: "Slack (team channel for alerts and approvals)", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-instagram", name: "Instagram, through ManyChat or a similar partner", milestone: "stretch", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-messenger", name: "Messenger, through ManyChat or a similar partner", milestone: "stretch", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-discord", name: "Discord (team channel)", milestone: "stretch", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-voice", name: "Voice", milestone: "after", owner: "V1", status: "planned", evidence: [], note: "First item after the pilot"}
+      - {id: "ch-sms", name: "SMS", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "ch-signal", name: "Signal", milestone: "after", owner: "V1", status: "planned", evidence: [], note: "No official business API known; verify before promising"}
+      - {id: "ch-teams", name: "Microsoft Teams (team channel)", milestone: "after", owner: "V1", status: "planned", evidence: []}
+
+  owner_app:
+    done_when: "Works on a phone; has empty, error and no-permission states; has an e2e test per role"
+    units:
+      - {id: "OA01", name: "Inbox with takeover and reply", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "Takeover merged in #154; the worker can still post after a takeover (finding R-02)"}
+      - {id: "OA02", name: "Approvals with detail and edit", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "List with approve and reject exists; no detail, no edit"}
+      - {id: "OA03", name: "Appointments calendar", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA04", name: "Business setup: services, resources, hours, prices", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA05", name: "Agent controls: pause, autonomy, tone", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA06", name: "Knowledge from text and files", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "Text sources only"}
+      - {id: "OA07", name: "Team-answers queue", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA08", name: "Integrations: connect, status, enter a key", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA09", name: "Channels: connect, status", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA10", name: "Notifications: counters and email", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA11", name: "Home page showing what needs the owner", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "Home exists; it does not show pending work"}
+      - {id: "OA12", name: "Decision trace and activity", milestone: "M3", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA13", name: "Outcome card: value against cost", milestone: "M3", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA14", name: "Usage and spend cap", milestone: "M3", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA15", name: "Account lifecycle: invite, reset, recovery, remove a member", milestone: "M3", owner: "V2", status: "in_progress", evidence: [], note: "Copy-paste invitations and MFA exist; no email, reset, recovery codes or member removal"}
+      - {id: "OA16", name: "Audit log with access transparency", milestone: "M3", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA17", name: "Phone layout and installable app", milestone: "M3", owner: "V2", status: "in_progress", evidence: [], note: "Installable; the phone layout is the desktop one reflowed"}
+      - {id: "OA18", name: "Assistant panel", milestone: "M4", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA19", name: "Goals and coach screen", milestone: "M4", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA20", name: "Contacts view", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA21", name: "Memory review", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA22", name: "Analytics dashboards", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA23", name: "Billing and credits purchase", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA24", name: "Model and residency settings", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA25", name: "Privacy and retention settings", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA26", name: "API keys and webhooks", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA27", name: "Onboarding wizard", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA28", name: "Comparison across locations", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA29", name: "Roles editor", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA30", name: "SSO settings", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA31", name: "Templates and skills library", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA32", name: "Custom agents", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA33", name: "Marketplace", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA34", name: "Internal operations panel", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA35", name: "Native mobile app", milestone: "after", owner: "V2", status: "planned", evidence: []}
+
+  platform:
+    done_when: "Runs in the production configuration with a test, and an alert or runbook where relevant"
+    units:
+      - {id: "PL-T1", name: "Worker reads and writes through SQL transactions under an organization-bound role", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T2", name: "Event-driven intake keyed by the provider's message id", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T3", name: "Hybrid pipeline: fast model for routing, deterministic steps, prompt caching", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T4", name: "Per-tenant envelope encryption with keys in KMS", milestone: "M3", owner: "V1", status: "planned", evidence: [], note: "The vault exists with a local key provider and no callers"}
+      - {id: "PL-T5", name: "Personal data masked before the model", milestone: "M2", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T6", name: "All model providers behind the router; EU by default, US on request", milestone: "M1", owner: "V1", status: "in_progress", evidence: [], note: "Router exists with one transport declared as non-EU"}
+      - {id: "PL-T7", name: "AI tracing with redaction and nightly scoring", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T8", name: "Realtime instead of polling, plus a notification service", milestone: "M2", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T9", name: "Injection resistance by design: taint tracking and a link allow-list", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T10", name: "One channel abstraction with delivery states and a template registry", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T11", name: "Analytics on the event log; outcome ledger views", milestone: "M3", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-prod", name: "Production environment with backups and a restore drill", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-health", name: "Health checks and alerts", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-deploy", name: "Ordered deploy pipeline: schema before code, with approval", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-ledger", name: "Usage ledger with spend caps", milestone: "M1", owner: "V1", status: "planned", evidence: [], note: "Per-run cost is recorded; no ledger or balance check"}
+      - {id: "PL-billing", name: "Stripe billing and self-service credits", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-api", name: "Public API and webhooks", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-voice", name: "Voice stack", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-languages", name: "Five languages for the app and the agents", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-ha", name: "Worker high availability with load-tested scaling", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-cells", name: "Dedicated cells", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-sso", name: "SSO and SCIM", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-templates", name: "Sector templates", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-custom-agents", name: "Custom agents and skill builder", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-marketplace", name: "Marketplace", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T12", name: "Portability proof: standalone web image in CI", milestone: "after", owner: "V1", status: "planned", evidence: []}
+
+  edge:
+    done_when: "Live for the pilot client, with its eval or test and a visible result in the app"
+    units:
+      - {id: "E1", name: "Earned autonomy", milestone: "M4", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E2", name: "Decision trace", milestone: "M3", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E3", name: "Corrections become knowledge, with provenance", milestone: "M4", owner: "V1 + V2", status: "in_progress", evidence: [], note: "knowledge_requests table and answer trigger exist; no memory yet"}
+      - {id: "E4", name: "Outcome ledger", milestone: "M3", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E5", name: "Goals that change behaviour", milestone: "M4", owner: "V1 + V2", status: "planned", evidence: [], note: "goals schema exists with no reader"}
+      - {id: "E6", name: "Business facts as data, with a grounding check", milestone: "M3", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E7", name: "Owner approvals inside WhatsApp", milestone: "after", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E8", name: "Structured WhatsApp steps", milestone: "stretch", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E9", name: "Rebooking and recall", milestone: "after", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E10", name: "Deposits and no-show policy", milestone: "after", owner: "V1 + V2", status: "planned", evidence: [], note: "The pilot covers the basic deposit as RC7 and AD1"}
+      - {id: "E11", name: "Release management for agent behaviour", milestone: "after", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E12", name: "Instagram and Facebook messages through a partner", milestone: "after", owner: "V1 + V2", status: "planned", evidence: [], note: "Stretch in M4 as a channel"}
+      - {id: "E13", name: "Booking endpoint for other AI assistants", milestone: "after", owner: "V1 + V2", status: "planned", evidence: []}
+      - {id: "E14", name: "Calendar neutrality", milestone: "after", owner: "V1 + V2", status: "planned", evidence: []}
+
+  security:
+    done_when: "Live, with evidence a customer could be shown"
+    units:
+      - {id: "SE01", name: "Merge guard run from the base branch and a separate agent identity", milestone: "M0", owner: "V1 + Founder", status: "planned", evidence: [], note: "Findings P-01 and P-02"}
+      - {id: "SE02", name: "An EU-only mode that works", milestone: "M1", owner: "V1", status: "planned", evidence: [], note: "Finding H-01"}
+      - {id: "SE03", name: "Erasure, export and retention jobs", milestone: "M3", owner: "V1", status: "planned", evidence: [], note: "Finding H-02"}
+      - {id: "SE04", name: "Customer audit log with access transparency", milestone: "M3", owner: "V1 + V2", status: "in_progress", evidence: [], note: "audit_logs and time-boxed support grants exist; no viewer"}
+      - {id: "SE05", name: "Visible spend caps and rate limits", milestone: "M3", owner: "V1 + V2", status: "planned", evidence: [], note: "Budgets exist in the router; nothing is shown to the customer"}
+      - {id: "SE06", name: "Standing attack set for agents in CI", milestone: "M3", owner: "V4", status: "in_progress", evidence: [], note: "The policy attack set runs in CI; the real-model set is not a required check"}
+      - {id: "SE07", name: "Independent penetration test before real data", milestone: "M3", owner: "Founder", status: "planned", evidence: []}
+      - {id: "SE08", name: "Trust page built from real controls", milestone: "M4", owner: "V3", status: "planned", evidence: []}
+      - {id: "SE09", name: "Passkeys", milestone: "after", owner: "V2", status: "planned", evidence: []}
+      - {id: "SE10", name: "SSO on every plan", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "SE11", name: "AI Act transparency pack", milestone: "after", owner: "V3", status: "planned", evidence: []}
+      - {id: "SE12", name: "Certification path: ISO 27001, ENS, SOC 2", milestone: "after", owner: "Founder", status: "planned", evidence: []}
