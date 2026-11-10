@@ -9,7 +9,7 @@
 | Línea | Sesión | Qué hace |
 | --- | --- | --- |
 | **V1 · Líder** | `session_01WB7xSPrKWSi7cnsCGBbKhW` | B20 (Atención al cliente: conocimiento, paso a persona, solicitudes de conocimiento, reseñas). Además, todas las migraciones, `docs/STATUS.md` y los workflows de staging. |
-| **V2 · Frontend** | `session_016SLeJNZPWnhbVqF81AjXMe` | La bandeja de conversaciones en vivo (`/app/inbox`), con «tomar el control» de una conversación, y los arreglos de `docs/design/design-review.md`. |
+| **V2 · Frontend** | `session_016SLeJPQzGfzXfRwnYRHXXt` | La bandeja de conversaciones en vivo (`/app/inbox`), con «tomar el control» de una conversación, y los arreglos de `docs/design/design-review.md`. |
 | **V3 · Docs/Site** | «Moodly V3 · Docs/Site» | El borrador del ADR 0046 (copiloto y modo coach). En `apps/site`, cambiar `moodly.ai` por `moodlycrm.com` y dar a la página de precios la estructura de MANUAL §15.1 y §15.2. |
 | **V4 · Evals** | «Moodly V4 · Evals» | El arnés de evals de los agentes en `packages/evals`: conversaciones de prueba con el modelo real y sus umbrales (MANUAL §12.4). |
 | **Revisora** | Sesión independiente (la designa producto) | No escribe código de producto. Revisa los PRs que tocan migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos, la guarda de mergeo y los workflows, y comprueba la puerta de cada hito antes de que producto la firme. |
@@ -108,7 +108,7 @@ Lo asignado antes del plan nuevo está hecho; desde el 2026-11-10 cada línea si
 | Línea | Estado |
 | --- | --- |
 | **V1 · Líder** | B20-1 a B20-4a mergeados y verificados (conocimiento, búsqueda, pantalla de conocimiento, reindexado y preguntas al equipo en la base de datos). Abiertos: #159 (`ask_team`, espera la pantalla del equipo, OA07) y #160 (después, sin el texto de los borradores en el prompt). Sigue con M0. |
-| **V2 · Frontend** | Sesión nueva desde el 2026-11-10 (`session_016SLeJNZPWnhbVqF81AjXMe`, hija de V1, por decisión de producto); la anterior la archiva producto. Hecho: la bandeja con «tomar el control» y los arreglos de la revisión de diseño. Sigue con M0 y con OA07 (la pantalla de las preguntas al equipo), que desbloquea #159. |
+| **V2 · Frontend** | Hecho: la bandeja con «tomar el control» y los arreglos de la revisión de diseño. Sigue con M0 y con OA07 (la pantalla de las preguntas al equipo), que desbloquea #159. |
 | **V3 · Docs/Site** | Hecho: `moodlycrm.com` en `apps/site`, y precios y `/enterprise` con la estructura de §15.1 y §15.2. Abierto: #158 (ADR 0046, «propuesto»), que el plan pide revisar antes de proponerlo para aceptar. Sigue con M0. |
 | **V4 · Evals** | Hecho: el arnés de evals con el modelo real, los casos de Recepción y los sets por sector. Sigue con M0: restaurar el check de seguridad relajado en #156. |
 | **Revisora** | Por designar (producto). |
