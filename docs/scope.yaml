@@ -33,7 +33,7 @@ m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conver
 # añade o pone al día su fila aquí (docs/WORKSTREAMS.md, regla 1). Mismos estados que las unidades.
 findings:
   - {id: "K-03", milestone: "M0", owner: "V4", status: "in_progress", evidence: ["PR #163", "723d604"], note: "#163 vuelve a tratar una condición como afirmar; queda el hueco del estilo indirecto («te confirmo que si…»), que cierra el siguiente PR de V4 (órdenes de M0 §4)"}
-  - {id: "P-01", milestone: "M0", owner: "V1", status: "in_progress", evidence: ["PR (este)"], note: "La guarda corre desde la rama base con pull_request_target y lee el PR por la API; lista corta reactivada con .claude/; queda la prueba en negativo tras el merge"}
+  - {id: "P-01", milestone: "M0", owner: "V1", status: "in_progress", evidence: ["PR #168"], note: "La guarda corre desde la rama base con pull_request_target y lee el PR por la API; lista corta reactivada con .claude/; queda la prueba en negativo tras el merge"}
   - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
