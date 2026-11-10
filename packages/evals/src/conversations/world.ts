@@ -22,6 +22,8 @@ import type { FakeConversationSender, ReceptionCatalog, WaitlistEntry, WaitlistS
 
 export const ORG = "e0000000-0000-4000-8000-000000000000";
 export const LOCATION = "e2000000-0000-4000-8000-000000000001";
+/** Otro local de la misma organización (Salamanca): lo suyo nunca llega a una conversación de Chamberí. */
+export const OTHER_LOCATION = "e2000000-0000-4000-8000-000000000002";
 export const RUN = "e9000000-0000-4000-8000-000000000001";
 export const CONVERSATION = "e8000000-0000-4000-8000-000000000001";
 
