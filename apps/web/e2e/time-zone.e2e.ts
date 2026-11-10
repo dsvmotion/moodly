@@ -53,3 +53,34 @@ test.describe("con el dispositivo en otra zona", () => {
     }
   });
 });
+
+// Demo F (seed de volumen, #170): F1 en Europe/Madrid y F2 en Atlantic/Canary.
+// Con dos zonas en la organización, cada hora lleva la suya al lado, aunque el
+// dispositivo esté en la misma zona que el local.
+const F1_CONVERSATION_ID = "5eed00f1-0000-4000-8000-000000000001";
+const F2_CONVERSATION_ID = "5eed00f1-0000-4000-8000-000000000000";
+
+test.describe("en una organización con locales en dos zonas", () => {
+  test.use({ timezoneId: "Atlantic/Canary" });
+
+  test("cada hora va en la zona de su local, con la zona escrita al lado", async ({ page }) => {
+    await signIn(page, "f_org_admin");
+
+    await page.goto(`/app/inbox/${F2_CONVERSATION_ID}`);
+    const canary = await messageTimes(page);
+    expect(canary.length).toBeGreaterThan(0);
+    for (const { iso, text } of canary) {
+      expect(text).toBe(formatLocalTime(iso, { locale: "es", timeZone: "Atlantic/Canary", withZone: true }));
+    }
+    await expect(page.getByTestId("inbox-message-time").first()).toHaveAttribute("title", "Atlantic/Canary");
+
+    await page.goto(`/app/inbox/${F1_CONVERSATION_ID}`);
+    const madrid = await messageTimes(page);
+    expect(madrid.length).toBeGreaterThan(0);
+    for (const { iso, text } of madrid) {
+      expect(text).toBe(formatLocalTime(iso, { locale: "es", timeZone: "Europe/Madrid", withZone: true }));
+      // La misma hora en Canarias es otra: no se pinta en la zona del dispositivo.
+      expect(text).not.toBe(formatLocalTime(iso, { locale: "es", timeZone: "Atlantic/Canary", withZone: true }));
+    }
+  });
+});
