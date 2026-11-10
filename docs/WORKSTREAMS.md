@@ -43,11 +43,11 @@
 
 ## Reglas
 
-1. **Una rama por línea de trabajo, una tarea por PR.** PRs pequeños, rebasados sobre `main` justo antes de abrirlos.
+1. **Una rama por PR abierto, una tarea por PR.** PRs pequeños, rebasados sobre `main` justo antes de abrirlos. Tras un merge (squash), la tarea siguiente empieza en una rama nueva desde `main`; no se reutiliza la rama mergeada.
 2. **Solo V1 crea migraciones.** Si una línea necesita un cambio de esquema, se lo pide a V1 con lo que necesita y para qué. Construye encima cuando la migración esté mergeada. Ejemplo: el estado de «tomar el control» para la bandeja de V2.
 3. **Solo V1 edita `docs/STATUS.md`.** Cada PR lleva su evidencia (tests, capturas, logs); después del merge, V1 la pasa a STATUS.
 4. **Solo V1 lanza los workflows de staging** (Actions → «Staging · …» y el despliegue a mano). Leer su resultado sí puede hacerlo cualquiera.
-5. **Mergeos de uno en uno**, con el procedimiento de `CLAUDE.md` → «Mergeo autónomo»: CI en verde sobre el commit exacto, sin tests debilitados, squash con `expectedHeadSha` y el comentario de evidencia. Además:
+5. **Mergeos de uno en uno**, con el procedimiento de `CLAUDE.md` → «Mergeo autónomo»: CI en verde sobre el commit exacto, sin tests debilitados, squash con `expectedHeadSha` y el comentario de evidencia. **El turno lo da V1:** toda sesión, también una que no sea V1–V4, pide turno a V1 antes de mergear y avisa al terminar. Además:
    - **Antes de mergear:**
      - tu rama contiene el `main` actual; si `main` se movió, rebasa, empuja y espera al CI otra vez;
      - el último PR mergeado en `main` tiene su comentario «✅ Verificado sobre main». Si no lo tiene, espera: alguien está comprobando `main`.
@@ -64,11 +64,7 @@
 - Por orden de llegada, de uno en uno (regla 5), con dos excepciones:
   - las migraciones de V1 van primero cuando otra línea espera por ellas;
   - un PR que deja `main` en rojo se arregla o se revierte antes que nada.
-- **Orden previsto:**
-  1. este documento;
-  2. B20-2 (V1);
-  3. la migración de «tomar el control» (V1), que V2 necesita para la bandeja;
-  4. después, lo que vaya llegando de V2, V3 y V4.
+- **Lo que pasó (2026-11-09 y 2026-11-10):** este documento, B20-2 y la migración de «tomar el control» entraron primero, como estaba previsto; después, de uno en uno y con «✅ Verificado sobre main» entre cada uno: V1 (#138, #139, #141, #144, #146, #148, #150, #151, #153, #159, #160), V2 (#143, #147, #154), V3 (#140, #157, #158), V4 (#142, #152, #155, #156) y dos PRs de sesiones fuera de las cuatro (#145 y #149). **Desde el 2026-11-10, mergeos en pausa** por el plan nuevo de producto (#161): quedan #159, #160 (V1) y #158 (V3). La lista con los commits está en STATUS → «Estado a 2026-11-10».
 - **Números de ADR:** el 0046 es de V3. Para cualquier otro, se pide el número a V1.
 
 ## Qué se le cuenta a V1
@@ -78,3 +74,12 @@ Con `send_message` a `session_01WB7xSPrKWSi7cnsCGBbKhW`, un mensaje corto:
 - **Bloqueo:** qué falta (una migración, una decisión de producto, una credencial) y desde cuándo.
 - **Petición de esquema:** tabla o función, columnas, quién lee y quién escribe, y para qué pantalla o flujo.
 - Nada más: ni avances ni resúmenes intermedios.
+
+## Estado de las líneas (auditoría del 2026-11-10)
+
+| Línea | Estado |
+| --- | --- |
+| **V1 · Líder** | B20-1 a B20-4a mergeados y verificados (conocimiento, búsqueda, pantalla de conocimiento, reindexado y preguntas al equipo en la base de datos). En espera por la pausa: #159 (`ask_team`) y #160. Después, B20-4c (la pantalla de preguntas del equipo). |
+| **V2 · Frontend** | Terminado: la bandeja en vivo con «tomar el control» y los arreglos de la revisión de diseño. Sin PRs abiertos. Sus preguntas de producto, en STATUS. |
+| **V3 · Docs/Site** | Terminado: `moodlycrm.com` en `apps/site`, precios y `/enterprise` con la estructura de §15.1 y §15.2, y el ADR 0046 en estado «propuesto» (#158, en espera por la pausa; lo acepta producto). |
+| **V4 · Evals** | Terminado: el arnés de evals con el modelo real, los casos de Recepción y los sets por sector. Sin PRs abiertos. Sus preguntas de producto (modelo, presupuesto y si el check pasa a obligatorio), en STATUS. |

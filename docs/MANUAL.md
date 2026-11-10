@@ -688,6 +688,8 @@ El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`
 
 ### 5.12 Modo coach: capa de inteligencia del negocio **[DECIDIDO el concepto; diseño PROPUESTO]**
 
+> El copiloto y el modo coach están desarrollados en el **ADR 0046 (propuesto, borrador en #158; lo acepta producto)**. Mientras no esté aceptado, manda esta sección.
+
 El coach no es un quinto agente. Es una **capa transversal** que observa el negocio, cruza datos internos con señales externas, detecta mejoras, debilidades, riesgos y oportunidades, y convierte cada propuesta en una tarea para uno de los 4 agentes o para una persona.
 
 **Áreas que revisa**
@@ -726,6 +728,8 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 - **Personas:** no hace perfiles de empleados ni evaluaciones de rendimiento individuales.
 
 ### 5.13 Asistente de la plataforma **[PROPUESTO: ADR 0029]**
+
+> El ADR 0046 (propuesto, borrador en #158) une el asistente y el coach en un solo punto de entrada. Mientras no esté aceptado, manda esta sección.
 
 Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la plataforma por conversación (`/app/asistente`). No es un actor con permisos propios:
 
@@ -908,7 +912,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | Ruta | Patrón | Contenido |
 |---|---|---|
 | `/app` | P1 | Inicio y bandeja del día |
-| `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo |
+| `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo. **Construida (2026-11-10):** lista y conversación, tomar el control y devolverlo (`conversations.mode`) y responder como persona; sin tiempo real todavía (decisión de producto pendiente) |
 | `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
 | `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`) |
 | `/app/contacts` · `/[id]` | P2 · P3 | Clientes finales |
@@ -923,7 +927,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app/agents` · `/[type]` | P2 · P5 | Agentes (de serie, de plantilla y propios), «Crear agente» y ventana de cada agente |
 | `/app/skills` · `/[id]` | P2 · P3 | Biblioteca de skills: de la plataforma, propias y de integraciones; a qué agentes está añadida cada una (ADR 0030) |
 | `/app/assistant` | P5 | Asistente de la plataforma (§5.13) |
-| `/app/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes |
+| `/app/knowledge` | P2 · P3 | Fuentes de conocimiento y preguntas pendientes. **Construida la parte de fuentes (B20-3):** crear, editar, borrar y reintentar la indexación; las preguntas pendientes llegan con B20-4c |
 | `/app/memory` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
 | `/app/rules` · `/app/flows` · `/app/schedules` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
 | `/app/network` | P7 | Red de franquicias (vista del franquiciador) |
@@ -988,7 +992,7 @@ Los componentes se desarrollan con datos reales de la base local (seeds) desde e
 - Atajos de teclado en las acciones frecuentes (navegar, aprobar, rechazar, abrir la paleta).
 - Accesibilidad WCAG 2.2 AA; navegación completa con teclado.
 - i18n desde el inicio (ADR 0041): inglés por defecto y español. La interfaz sale en el idioma que elige cada persona; si no ha elegido, en el de su organización activa (`organizations.default_locale`); sin sesión ni organización, en inglés. Los dos idiomas tienen las mismas claves (test de paridad). Los agentes responden en el idioma del cliente final, no en el de la interfaz.
-- Tiempo real (Supabase Realtime) en bandeja, conversaciones, aprobaciones y ventanas de agente.
+- Tiempo real (Supabase Realtime) en bandeja, conversaciones, aprobaciones y ventanas de agente. **Estado (2026-11-10):** todavía no; la bandeja y el chat de pruebas se refrescan al actuar o por sondeo. Antes de activarlo hay que comprobar que una sesión cerrada deja de recibir eventos (STATUS → «Siempre abiertos», 3d).
 - Responsive: los responsables de local aprueban y responden desde el móvil.
 
 
@@ -1088,6 +1092,12 @@ Langfuse **[PROPUESTO]**: prompt resuelto, herramientas, respuestas, latencia, t
 - Se ejecutan en CI en cada PR que toque prompts, plantillas, skills o el runtime. Una regresión bloquea el merge.
 - Cada incidente real en producción se convierte en un caso nuevo del set.
 
+**Lo construido (2026-11-10, V4):**
+- **Arnés de conversaciones** (`packages/evals/src/conversations`): conversaciones de prueba de Recepción y Atención al cliente contra un mundo simulado (negocio, calendario, conocimiento), con comprobaciones deterministas (qué skill se llamó y con qué, qué no se envió, no inventar precios ni horas, no dar consejo médico, conocimiento solo del alcance del run, «una persona te contestará»). Además del centro de estética de referencia, sets por sector: restauración, talleres, salud e inmobiliarias (negocios inventados).
+- **Dos sets y sus umbrales con el modelo real** (decisión de producto, 2026-11-09): `safety` al 100 % y `behavior` al 90 %; un caso de comportamiento que falla se repite hasta 3 corridas y, si no acierta ninguna, bloquea aunque la tasa pase el umbral. Con el modelo falso corren dentro de `pnpm test` con umbral del 100 %.
+- **Salida:** código 1 si un set queda por debajo de su umbral, si un caso falla en todas sus corridas o si se corta por el tope de gasto; código 2 si falla la vía del modelo (red, gateway): ese turno no puntúa.
+- **En GitHub:** el workflow «Evals · modelo real» (`.github/workflows/evals.yml`) corre en los PRs que tocan `agent-core`, `skills`, `evals`, `config`, el calendario o el conocimiento, y a mano con `case` y `repeat`, con una clave propia del gateway y un tope de 2 € por corrida. **Todavía no es un check obligatorio** (decisión de producto pendiente, con el presupuesto mensual).
+
 ---
 
 ## 13. Estrategia de testing
@@ -1177,6 +1187,8 @@ Para quien necesita trabajo extra para quedar bien integrado: cadenas multi-loca
 - **En la web [DECIDIDO: producto, 2026-11-08: se rehace ya con esta estructura, sin importes hasta que estén decididos]:** una página de precios y otra de enterprise con la estructura de las de Langdock (langdock.com/pricing y langdock.com/enterprise). Se copia la estructura, nunca la identidad visual (§9):
   - autoservicio con precios visibles;
   - enterprise con «hablar con ventas».
+
+  **Hecho (2026-11-10, V3):** `/precios` y `/enterprise` de `apps/site` ya tienen esta estructura, sin importes (los precios de los planes siguen pendientes de producto).
 
 **Consecuencia técnica:** una organización enterprise es el mismo tenant (§4.4). Solo cambian su plan, su forma de pago y lo que tiene activado. Nada de código aparte por cliente: las integraciones a medida son skills (ADR 0030), no ramas del producto.
 
@@ -1361,7 +1373,11 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
 | 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
+| 0046 | Copiloto y modo coach | propuesto (V3, 2026-11-10; lo acepta producto) |
+| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (borrador en #158, sin mergear; lo acepta producto) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
+| 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
+| 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
 
 ---
 

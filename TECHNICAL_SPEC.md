@@ -1,5 +1,9 @@
 # TECHNICAL_SPEC — Moodly (plataforma B2B de agentes de IA)
 
+> [!WARNING]
+> **Documento histórico (aviso añadido en la auditoría del 2026-11-10).** Describe `main` tal como estaba el **23/10/2026** en el commit **`976bf1f30b461304cfd0bd186af4685216196631`** (#81) y no se ha actualizado desde entonces. Desde esa fecha han llegado, entre otros, el worker con DBOS en Railway, el inglés por defecto con rutas en inglés (ADR 0041), los controles previos a las skills (ADR 0047), las fundaciones del enrutador de modelos, BYOK, MCP y conocimiento (ADR 0033–0037), Recepción con reservas, recordatorios y lista de espera, el conocimiento del negocio con su ingesta (ADR 0048), la bandeja en vivo y el arnés de evals.
+> **El estado real está en `docs/STATUS.md` y la referencia del diseño, en `docs/MANUAL.md` y los ADRs** (rango de las fuentes: ADR 0023). No uses este documento para decidir nada sin contrastarlo con el código de `main`.
+
 > **Documento técnico de arquitectura** del repositorio [`dsvmotion/moodly`](https://github.com/dsvmotion/moodly).
 > Generado leyendo el código, las migraciones SQL, los workflows y la documentación del repo, y comprobando en vivo (solo lectura) GitHub, Supabase, el DNS público y `staging.moodlycrm.com`.
 >
