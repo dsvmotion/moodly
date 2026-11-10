@@ -95,12 +95,20 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 **Abierto y conocido, fuera de M0:** R-02, el worker no vuelve a mirar `conversations.mode` al enviar, así que un turno en curso puede escribir después de que una persona tome el control (V1, en M1 con R-01 a R-07).
 
 ### Decisiones de producto pendientes
-Las del 2026-11-10 ya están tomadas (MANUAL §18.0). Siguen abiertas:
-- **Revisora automática** (órdenes de M0 §5): si el modelo rápido puede aprobar los PRs de código corriente. Si no, el potente en todo el código cuesta ≈75–90 € hasta M4, frente a ≈25–40 € por niveles.
-- **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres). El tiempo real ya está aceptado (T8).
-- **Coach (V3):** las cuatro preguntas abiertas del ADR 0046 y aceptarlo con el 0024 y el 0029.
+**Decididas el 2026-11-10** (respuestas al primer informe de V1; el detalle está en la cola de cada sesión, en `docs/WORKSTREAMS.md`):
+- **Revisora automática:** el modelo rápido aprueba el código corriente solo después de acertar todos los casos de seguridad del set de prueba. Hasta entonces, el nivel 1 comenta y no aprueba. Hasta 10 € para el set.
+- **M-08:** cada hora va en la zona de su local, con la zona escrita si la organización tiene más de una o si el dispositivo está en otra zona.
+- **N-04:** fuera «Log in» de la web pública hasta que haya producción, y la web nunca apunta a staging. El prototipo, solo con su aviso y `noindex`.
+- **`SECURITY.md`:** el buzón es `security@moodly.com`, un alias de `contact@moodly.com` que crea producto. El PR espera su confirmación.
+- **N-01:** el estado de cada función de la web sale de `docs/scope.yaml`, nunca caso a caso.
+- **N-02:** en M0, los formularios dejan de fingir; en M1, el endpoint real.
+- **V5 (P-10):** sin marketplace. Lo necesario se copia en `.claude/` de `moodly` por PRs sensibles, con el commit del toolkit de origen. #166 no se mergea tal como está. `.claude/**` entra en la lista de P-01.
+- **Evals:** 30 $ al mes en M0 y M1 como tope en la clave, más 2 € por corrida.
+
+**Siguen abiertas:**
+- **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
+- **Coach (V3):** las cuatro preguntas abiertas del ADR 0046, y aceptarlo con el 0024 y el 0029.
 - **Web pública (V3):** los precios de los planes; la región del servicio `site` de Railway (hoy en EE. UU.).
-- **Evals (V4):** el presupuesto mensual (≈1,9 € por corrida completa; propuesta de V4, 30 € al mes). El modelo de cada turno se elige por eval bajo un techo de coste (decisión #4), y las evals con el modelo real pasan a check obligatorio en M1–M2.
 - **Plataforma de conectores** (M0–M1): Nango, Composio, Pipedream Connect, Paragon, Merge u otra, con residencia UE o autoalojada.
 - **Marca:** la comprobación legal de «Moodly», el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
 
