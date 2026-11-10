@@ -1373,7 +1373,6 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
 | 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
-| 0046 | Copiloto y modo coach | propuesto (V3, 2026-11-10; lo acepta producto) |
 | 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (borrador en #158, sin mergear; lo acepta producto) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 | 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
