@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // alcance elegido: un layout no recibe los parámetros de la URL.
   const [agents, needsYou] = await Promise.all([
     getOrgAgents(organization?.id ?? null),
-    loadNeedsYouCounts(organization?.id ?? null, { kind: "any" }),
+    loadNeedsYouCounts(organization?.id ?? null, role, { kind: "any" }),
   ]);
 
   return (
