@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261112020000_worker_role.sql: fuera las políticas, los
+-- Vuelta atrás de 20261112040500_worker_role.sql: fuera las políticas, los
 -- privilegios y la función del rol moodly_worker, y el rol (si nadie lo usa;
 -- el worker todavía no se conecta con él).
 

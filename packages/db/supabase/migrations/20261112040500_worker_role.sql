@@ -27,7 +27,7 @@
 -- filtro), no de un worker comprometido, que puede fijar cualquier
 -- organización (ADR 0049, «Consecuencias»).
 --
--- Vuelta atrás: rollbacks/20261112020000_worker_role.down.sql.
+-- Vuelta atrás: rollbacks/20261112040500_worker_role.down.sql.
 
 -- Los roles son del clúster y sobreviven a un `supabase db reset`.
 do $$

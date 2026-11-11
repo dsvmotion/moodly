@@ -1,4 +1,4 @@
--- PL-T1, paso 1 (20261112020000, ADR 0049): el rol moodly_worker. Con la
+-- PL-T1, paso 1 (20261112040500, ADR 0049): el rol moodly_worker. Con la
 -- organización A fijada en la transacción solo ve y escribe lo de A; sin
 -- organización no ve nada; no puede cambiar de rol, saltarse RLS ni tocar auth;
 -- y solo tiene los privilegios del módulo que ya lo usa.
