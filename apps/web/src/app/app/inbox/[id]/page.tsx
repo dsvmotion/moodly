@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { inboxHref } from "@/lib/inbox";
 import { loadInboxThread } from "@/lib/inbox-data";
 import { loadInboxPage, type InboxSearchParams } from "@/lib/inbox-page";
+import { needsZoneLabel, zoneForLocation } from "@/lib/time-zone";
 
 // Una conversación abierta en la bandeja (P3), con la lista al lado. Una
 // conversación que no existe, que la persona no puede ver (RLS), que no entra
@@ -33,13 +34,23 @@ export default async function InboxConversationPage({
     <InboxLayout
       hasSelection
       list={
-        <ConversationList conversations={page.conversations} query={page.query} selectedId={id} agentLabels={page.agentLabels} />
+        <ConversationList
+          conversations={page.conversations}
+          older={page.older}
+          query={page.query}
+          selectedId={id}
+          agentLabels={page.agentLabels}
+        />
       }
       detail={
         <ConversationThread
           thread={thread}
           agentLabel={agentKey ? (page.agentLabels.get(agentKey) ?? null) : null}
           backHref={inboxHref(page.query)}
+          timeZone={{
+            zone: zoneForLocation(thread.conversation.locationId, page.scope, page.context.locations),
+            alwaysShow: needsZoneLabel(page.context.locations),
+          }}
         />
       }
     />

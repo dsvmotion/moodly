@@ -36,6 +36,10 @@
 | #156 | `c290ee3` | Evals: sets por sector (restauración, talleres, salud e inmobiliarias) | V4 |
 | #161 | `38f4afa` | Plan nuevo de producto: auditoría de preproducción, decisiones del 2026-11-10 y registro de alcance (`docs/scope.yaml`) | sesión de auditoría (revisado y mergeado por V1) |
 | #163 | `723d604` | `[M0][K-03]` Evals: una condición no exime de afirmar, solo las preguntas indirectas (restaura el check que relajó #156) | V4 |
+| #162 | `7a8b834` | Plan del piloto en MANUAL, STATUS y WORKSTREAMS; cola por sesión; `scope.yaml` en la lectura inicial | V1 |
+| #164 | `1dc9a29` | Órdenes de M0, tareas de producto en el registro y V5 · Toolkit en WORKSTREAMS | V1 |
+| #165 | `c47e09e` | `[M0][K-03]` Evals: el estilo indirecto («te confirmo que si…») afirma | V4 |
+| #167 | `6e708af` | Decisiones de producto del 2026-11-10, coordinación y recorte de consumo | V1 |
 
 **Verificación sobre `main`:** cada PR de la tabla tiene su «✅ Verificado sobre main». El de #161 (`38f4afa`), en el propio PR.
 

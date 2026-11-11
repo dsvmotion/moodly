@@ -1,9 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { locationsInScope, type Scope } from "@/lib/scope";
+import { locationFilter, locationsInScope, type Scope } from "@/lib/scope";
 import type { ScopeContext } from "@/lib/scope-data";
 import { idSchema } from "@/lib/validation";
 import {
+  encodeCursor,
   ilikePattern,
   inScope,
   isConversationMode,
@@ -11,10 +12,12 @@ import {
   isMessageAuthor,
   latestByConversation,
   modesFor,
+  olderThan,
   TEST_CHANNEL,
   THREAD_LIMIT,
   type ConversationMode,
   type InboxChannel,
+  type InboxCursor,
   type InboxFilter,
   type MessageAuthor,
   type MessagePreview,
@@ -24,9 +27,10 @@ import {
 // persona: RLS (conversations_select y las de contactos y mensajes) solo deja
 // ver las conversaciones de los locales de su alcance, y las de toda la
 // organización a un org_admin. Aquí solo se filtra por el selector de alcance,
-// la pestaña y la búsqueda. La app no escribe nada en estas tablas.
+// la pestaña y la búsqueda, siempre en la consulta: la lista tiene tope y lo
+// que se filtrase después dejaría fuera filas (auditoría de preproducción, M-07).
 
-/** Cuántas conversaciones trae la lista: las más recientes. */
+/** Cuántas conversaciones trae cada página de la lista. */
 export const LIST_LIMIT = 100;
 // Tope de mensajes para sacar el último de cada conversación de la lista.
 const PREVIEW_ROWS_LIMIT = 2000;
@@ -42,6 +46,12 @@ export interface InboxConversation {
   agentKey: string | null;
   lastMessageAt: string | null;
   preview: MessagePreview | null;
+}
+
+export interface InboxList {
+  conversations: InboxConversation[];
+  /** El cursor para pedir las anteriores a esta página (`?before=`), o null si no hay más. */
+  older: string | null;
 }
 
 export interface InboxMessage {
@@ -109,16 +119,24 @@ function scopeFilter(scope: Scope, context: ScopeContext) {
   };
 }
 
-/** Las conversaciones de la pestaña, del alcance elegido, de la más reciente a la más antigua. */
+/**
+ * Una página de las conversaciones de la pestaña, del alcance elegido, de la
+ * más reciente a la más antigua. `before` pide las anteriores a esa posición.
+ */
 export async function loadInboxConversations(input: {
   scope: Scope;
   context: ScopeContext;
   filter: InboxFilter;
   search: string;
-}): Promise<InboxConversation[]> {
+  before: InboxCursor | null;
+}): Promise<InboxList> {
   const organization = input.context.organization;
-  if (!organization) return [];
+  if (!organization) return { conversations: [], older: null };
+  const locations = locationFilter(input.scope, input.context.locations);
+  if (locations.kind === "only" && locations.locationIds.length === 0) return { conversations: [], older: null };
+
   const supabase = await createClient();
+  // Una fila de más: si llega, hay página anterior.
   let query = supabase
     .from("conversations")
     .select(CONVERSATION_COLUMNS)
@@ -127,14 +145,29 @@ export async function loadInboxConversations(input: {
     .in("mode", modesFor(input.filter))
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(LIST_LIMIT);
+    .order("id", { ascending: false })
+    .limit(LIST_LIMIT + 1);
+  if (locations.kind === "only") query = query.in("location_id", locations.locationIds);
   if (input.search) query = query.ilike("contact.display_name", ilikePattern(input.search));
+  if (input.before) {
+    const older = olderThan(input.before);
+    if (older.onlyWithoutMessages) query = query.is("last_message_at", null);
+    query = query.or(older.or);
+  }
   const rows: ConversationRow[] = check(await query, "las conversaciones") ?? [];
 
-  const { accepts, names } = scopeFilter(input.scope, input.context);
-  const visible = rows.filter((row) => accepts(row.location_id));
-  const previews = await loadPreviews(organization.id, visible);
-  return visible.flatMap((row) => toConversation(row, names, previews.get(row.id) ?? null) ?? []);
+  const page = rows.slice(0, LIST_LIMIT);
+  const last = page.at(-1);
+  const older =
+    rows.length > LIST_LIMIT && last
+      ? encodeCursor({ lastMessageAt: last.last_message_at, createdAt: last.created_at, id: last.id })
+      : null;
+  const names = new Map(input.context.locations.map((location) => [location.id, location.name]));
+  const previews = await loadPreviews(organization.id, page);
+  return {
+    conversations: page.flatMap((row) => toConversation(row, names, previews.get(row.id) ?? null) ?? []),
+    older,
+  };
 }
 
 /**
