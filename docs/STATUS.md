@@ -48,6 +48,7 @@
 ### En curso
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
   - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
+  - **#192** (V1, `[M0][D-01][D-02]`): se puede borrar a una persona del equipo que decidió o pidió algo, y la base de datos exige la aprobación antes de ejecutar (también a la service role); test pgTAP 40.
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
