@@ -1,6 +1,6 @@
 # 0053 — Hub de integraciones: gobierno propio para todas las conexiones y una plataforma de conectores para la amplitud
 
-- **Estado:** propuesto. Lleva la única pregunta a producto de este grupo de ADR (abajo, «La pregunta a producto»).
+- **Estado:** aceptado (producto, 2026-11-11: «nango seems good», tras comparar las opciones por seguridad y nivel empresa): Nango autoalojado en la UE. Quedan por confirmar antes de construir la licencia (ELv2, uso interno; asesoría legal) y qué incluye la versión autoalojada gratuita (el proxy).
 - **Fecha:** 2026-11-11
 - **Secciones del MANUAL afectadas:** §3.2, §4 (`integrations`), §7.1, §7.2, §10.4, §18.0 #2
 - **Relación:**
@@ -68,7 +68,7 @@ No evaluadas a fondo: otras API unificadas (Unified.to, Apideck, Kombo) y agrega
 
 **¿Adoptamos Nango autoalojado en nuestra infraestructura de la UE como motor de autenticación de las integraciones (gratis, sin DPA nuevo, tokens en casa, y las acciones de cada sistema las escribimos nosotros), o preferís pagar una plataforma alojada con acciones ya hechas (Composio, Paragon o Pipedream Connect), que da más sistemas antes a cambio de tokens y datos fuera de nuestra infraestructura y un DPA más?**
 
-**Por defecto: Nango autoalojado.** Si producto no contesta antes de que V1 empiece el hub en M1, V1 sigue con esta opción. Es reversible: el hub esconde la plataforma detrás de `platform/transports/`, y cambiar de plataforma no toca las skills.
+**Respuesta de producto (2026-11-11): Nango autoalojado.** Es reversible: el hub esconde la plataforma detrás de `platform/transports/`, y cambiar de plataforma no toca las skills.
 
 ## Consecuencias
 
