@@ -7,7 +7,7 @@ name: Despliegue a staging
 #
 # Orden (PL-deploy): primero el esquema, después el código. Cuando las migraciones
 # y la configuración terminan bien, el job `code` despliega la web (Vercel, por su
-# deploy hook) y el worker (Railway, por su API con el commit exacto) y espera al
+# API) y el worker (Railway, por su API con el commit exacto) y espera al
 # worker. Si las migraciones fallan, el código no se despliega. Para que esto sea
 # el único camino, el despliegue desde git de los dos servicios se apaga (ver
 # CLAUDE.md, «Despliegue ordenado»); mientras los secretos de abajo no existan, el
@@ -19,9 +19,7 @@ name: Despliegue a staging
 # Secretos del entorno `staging` de GitHub (Settings → Environments → staging):
 #   SUPABASE_ACCESS_TOKEN  token personal de Supabase (Account → Access Tokens)
 #   SUPABASE_DB_PASSWORD   contraseña de la base de datos del proyecto de staging
-#   VERCEL_STAGING_DEPLOY_HOOK  URL del deploy hook del proyecto moodly-staging de Vercel
-#                          (Settings → Git → Deploy Hooks, rama main). Es un secreto: quien
-#                          la tiene puede lanzar despliegues.
+#   VERCEL_TOKEN           token de Vercel (equipo DSV) con acceso al proyecto moodly-staging
 #   RAILWAY_TOKEN          token de proyecto de Railway (moodly-staging, entorno staging)
 
 on:
@@ -46,6 +44,9 @@ env:
   # (identificadores, no secretos).
   RAILWAY_SERVICE_ID: f608c7af-ef9e-43d6-9852-97ae42cb73ef
   RAILWAY_ENVIRONMENT_ID: 14a5990a-b326-472d-b27f-84b74d0bcd47
+  # Proyecto moodly-staging de Vercel y su equipo (identificadores, no secretos).
+  VERCEL_PROJECT_ID: prj_gT0mdf6jNbpvPqjohdK3Fk6XS7Z6
+  VERCEL_TEAM_ID: team_GntqBZyHYlk3Dei89qjxRwhK
 
 jobs:
   migrations:
@@ -129,22 +130,45 @@ jobs:
     name: staging · código (web y worker)
     needs: migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     environment: staging
     env:
-      VERCEL_STAGING_DEPLOY_HOOK: ${{ secrets.VERCEL_STAGING_DEPLOY_HOOK }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
+      # El commit exacto, como el worker: un deploy hook despliega la cabeza de main
+      # en el momento del POST, que puede ser otro commit con otro esquema.
       - name: Web (Vercel)
         run: |
-          if [ -z "$VERCEL_STAGING_DEPLOY_HOOK" ]; then
-            echo "::notice::Sin VERCEL_STAGING_DEPLOY_HOOK: la web sigue desplegándose desde git"
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::Sin VERCEL_TOKEN: la web sigue desplegándose desde git"
             exit 0
           fi
-          # El hook despliega la última versión de main (no admite fijar el commit).
-          curl --silent --show-error --fail --max-time 30 --retry 2 -X POST "$VERCEL_STAGING_DEPLOY_HOOK" > /dev/null
-          echo "Despliegue de la web lanzado en Vercel"
+          api() {
+            curl --silent --show-error --fail --max-time 30 --retry 2 -H "Authorization: Bearer $VERCEL_TOKEN" -H 'Content-Type: application/json' "$@"
+          }
+          body=$(jq -n --arg p "$VERCEL_PROJECT_ID" --arg sha "$DEPLOY_SHA" --arg repo "${GITHUB_REPOSITORY#*/}" --arg org "${GITHUB_REPOSITORY%%/*}" \
+            '{name: "moodly-staging", project: $p, target: "production", gitSource: {type: "github", org: $org, repo: $repo, ref: "main", sha: $sha}}')
+          id=$(api -X POST "https://api.vercel.com/v13/deployments?teamId=$VERCEL_TEAM_ID&forceNew=1" --data "$body" | jq -er '.id')
+          echo "Despliegue de la web lanzado en Vercel: $id"
+          errors=0
+          for _ in $(seq 1 60); do
+            sleep 15
+            if ! state=$(api "https://api.vercel.com/v13/deployments/$id?teamId=$VERCEL_TEAM_ID" | jq -er '.readyState'); then
+              errors=$((errors+1)); echo "no se pudo leer el estado ($errors)"
+              [ "$errors" -ge 5 ] && { echo "::error::Vercel no responde"; exit 1; }
+              continue
+            fi
+            errors=0
+            echo "estado: $state"
+            case "$state" in
+              READY) exit 0 ;;
+              ERROR|CANCELED|DELETED) echo "::error::El despliegue de la web terminó en $state"; exit 1 ;;
+            esac
+          done
+          echo "::error::El despliegue de la web no terminó en 15 minutos"
+          exit 1
 
       - name: Worker (Railway)
         run: |
@@ -161,14 +185,21 @@ jobs:
             '{query: "mutation($s:String!,$e:String!,$c:String){serviceInstanceDeployV2(serviceId:$s,environmentId:$e,commitSha:$c)}", variables: {s:$s,e:$e,c:$c}}')
           id=$(api "$query" | jq -er '.data.serviceInstanceDeployV2')
           echo "Despliegue del worker lanzado en Railway: $id"
-          # Espera al resultado: así el workflow dice si el worker nuevo arrancó.
+          # Espera al resultado: así el workflow dice si el worker nuevo arrancó. Un error
+          # suelto de la API (red, GraphQL) se reintenta; cinco seguidos, no.
+          errors=0
           for _ in $(seq 1 60); do
             sleep 15
-            status=$(api "$(jq -n --arg d "$id" '{query: "query($d:String!){deployment(id:$d){status}}", variables:{d:$d}}')" | jq -er '.data.deployment.status')
+            if ! status=$(api "$(jq -n --arg d "$id" '{query: "query($d:String!){deployment(id:$d){status}}", variables:{d:$d}}')" | jq -er '.data.deployment.status'); then
+              errors=$((errors+1)); echo "no se pudo leer el estado ($errors)"
+              [ "$errors" -ge 5 ] && { echo "::error::Railway no responde"; exit 1; }
+              continue
+            fi
+            errors=0
             echo "estado: $status"
             case "$status" in
               SUCCESS) exit 0 ;;
-              FAILED|CRASHED|REMOVED) echo "::error::El despliegue del worker terminó en $status"; exit 1 ;;
+              FAILED|CRASHED|REMOVED|SKIPPED|NEEDS_APPROVAL) echo "::error::El despliegue del worker terminó en $status"; exit 1 ;;
             esac
           done
           echo "::error::El despliegue del worker no terminó en 15 minutos"
