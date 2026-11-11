@@ -16,9 +16,9 @@
 // - Sin recursos embebidos en select ("tabla(...)"): se resuelven por clave
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
-//   filtro. Las excepciones son searchKnowledge, findBookingSlots y
-//   agentTurnContext: funciones con nombre a las que tenantDb les pasa la
-//   organización.
+//   filtro. Las excepciones son searchKnowledge, findBookingSlots,
+//   agentTurnContext y usageSpend: funciones con nombre a las que tenantDb les
+//   pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 
@@ -156,7 +156,36 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return (data ?? null) as AgentTurnContext | null;
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext };
+  /**
+   * Lo gastado desde el comienzo del día y desde el del mes (usage_spend,
+   * PL-ledger), sumado en la base de datos: lo que el enrutador compara con los
+   * topes antes de llamar. Con la organización de este acceso.
+   */
+  async function usageSpend(params: UsageSpendParams): Promise<UsageSpend> {
+    if (!(params.dayStart instanceof Date) || Number.isNaN(params.dayStart.getTime()) || Number.isNaN(params.monthStart.getTime())) {
+      throw new TenantScopeError("tenantDb: dayStart y monthStart tienen que ser fechas");
+    }
+    const { data, error } = await untyped.rpc("usage_spend", {
+      p_organization_id: organizationId,
+      p_day_start: params.dayStart.toISOString(),
+      p_month_start: params.monthStart.toISOString(),
+    });
+    if (error) throw new Error(`usage_spend: ${error.message}`);
+    const row = (data ?? {}) as { day_eur?: number | string; month_eur?: number | string };
+    return { dayEur: Number(row.day_eur ?? 0), monthEur: Number(row.month_eur ?? 0) };
+  }
+
+  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, usageSpend };
+}
+
+export interface UsageSpendParams {
+  dayStart: Date;
+  monthStart: Date;
+}
+
+export interface UsageSpend {
+  dayEur: number;
+  monthEur: number;
 }
 
 /** Tal como lo devuelve agent_turn_context; quien lo usa lo valida antes de fiarse. */

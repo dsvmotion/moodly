@@ -162,7 +162,7 @@ describe("transporte de Vercel AI Gateway", () => {
       router.generate(
         { organizationId: "org-1", runId: "run-1", task: "converse", messages: [{ role: "user", content: "hola" }], maxOutputTokens: 100 },
         { ...PLATFORM_MODEL_POLICY, residency: "eu" },
-        { runEur: 0, dayEur: 0 },
+        { runEur: 0, dayEur: 0, monthEur: 0 },
       ),
     ).rejects.toThrow(/residencia eu/);
   });

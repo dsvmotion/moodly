@@ -157,7 +157,9 @@ type Prepared =
       history: HistoryMessage[];
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
+      /** Lo gastado hoy y este mes (UTC), del libro de consumo: lo compara el enrutador con los topes. */
       dayEur: number;
+      monthEur: number;
       /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
       services: BookableService[] | null;
       servicesTruncated: boolean;
@@ -217,7 +219,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
   const modelSettings = check(
     await db
       .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur")
+      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur")
       .maybeSingle(),
     "la política de modelos",
   );
@@ -238,8 +240,10 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       : [];
   const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
   const now = new Date();
-  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const today = check(await db.from("agent_runs").select("cost_eur").gte("created_at", startOfDay).limit(10_000), "el gasto del día");
+  const spent = await db.usageSpend({
+    dayStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+  });
 
   return {
     kind: "turn",
@@ -248,7 +252,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
     location,
     modelSettings,
-    dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
+    dayEur: spent.dayEur,
+    monthEur: spent.monthEur,
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
     now: now.toISOString(),
@@ -346,7 +351,39 @@ async function recordExecution(
   });
 }
 
-async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult): Promise<void> {
+/**
+ * Cada llamada al modelo del turno, al libro de consumo (PL-ledger). Si el paso
+ * se repite, no se anota dos veces: run, orden y hora de la llamada son únicos
+ * (23505: ya estaban, se insertan todas o ninguna).
+ */
+async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, result: TurnResult): Promise<void> {
+  if (result.usage.calls.length === 0) return;
+  const { error } = await db.from("usage_records").insert(
+    result.usage.calls.map((call) => ({
+      location_id: conversation.location_id,
+      run_id: runId,
+      agent_id: conversation.agent_id,
+      source: "agent_turn",
+      metric: "llm_tokens",
+      quantity: call.tokensIn + call.tokensOut,
+      tokens_in: call.tokensIn,
+      tokens_out: call.tokensOut,
+      cost_eur: call.costEur,
+      provider: call.provider,
+      via: call.via,
+      region: call.region,
+      model: call.model,
+      model_key: call.modelKey,
+      call_index: call.index,
+      occurred_at: call.startedAt,
+    })),
+  );
+  if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
+}
+
+async function finishRun(db: TenantDb, runId: string, conversation: Conversation, result: TurnResult): Promise<void> {
+  await recordUsage(db, runId, conversation, result);
+  const conversationId = conversation.id;
   const status = runStatusFor(result);
   if (status === "handed_off") {
     // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
@@ -526,7 +563,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         settings,
         router,
         policy,
-        spend: { runEur: 0, dayEur: prepared.dayEur },
+        spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
         step: (name, fn) => ctx.step(name, fn),
         record: async (execution) => {
           if (execution.status === "rejected") {
@@ -537,7 +574,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
         },
       });
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
+      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation, result));
       ctx.logger.info(
         { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
         "turno del agente terminado",

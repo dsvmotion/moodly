@@ -63,7 +63,32 @@ export interface TurnResult {
    */
   error?: string;
   executions: TurnExecution[];
-  usage: { tokensIn: number; tokensOut: number; costEur: number; model: string | null };
+  usage: TurnUsage;
+}
+
+/** Una llamada al modelo del turno, tal como la anota el libro de consumo (usage_records, PL-ledger). */
+export interface TurnModelCall {
+  /** El orden de la llamada en el turno (el paso del modelo). */
+  index: number;
+  provider: string;
+  via: string;
+  region: string;
+  model: string;
+  modelKey: string;
+  tokensIn: number;
+  tokensOut: number;
+  costEur: number;
+  /** Cuándo empezó (ISO), del resultado guardado del paso: igual al reanudar. */
+  startedAt: string;
+}
+
+export interface TurnUsage {
+  tokensIn: number;
+  tokensOut: number;
+  costEur: number;
+  model: string | null;
+  /** Cada llamada, también las de un turno que acabó pasando a una persona. */
+  calls: TurnModelCall[];
 }
 
 export type Step = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
@@ -146,7 +171,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
   const step = params.step ?? identityStep;
   const maxSteps = params.maxSteps ?? DEFAULT_MAX_STEPS;
   const executions: TurnExecution[] = [];
-  const usage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null as string | null };
+  const usage: TurnUsage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null, calls: [] };
 
   const tools: ToolSpec[] = [...skills.values()]
     .filter((skill) => skill.key !== REPLY_SKILL_KEY && settings.get(skill.key)?.enabled)
@@ -241,7 +266,11 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           },
           policy,
-          { runEur: params.spend.runEur + usage.costEur, dayEur: params.spend.dayEur + usage.costEur },
+          {
+            runEur: params.spend.runEur + usage.costEur,
+            dayEur: params.spend.dayEur + usage.costEur,
+            monthEur: params.spend.monthEur + usage.costEur,
+          },
         ),
       );
     } catch (error) {
@@ -252,6 +281,18 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     usage.tokensOut += result.tokensOut;
     usage.costEur += result.costEur;
     usage.model = result.model;
+    usage.calls.push({
+      index: stepIndex,
+      provider: result.provider,
+      via: result.via,
+      region: result.region,
+      model: result.model,
+      modelKey: result.modelKey,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      costEur: result.costEur,
+      startedAt: result.startedAt,
+    });
 
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {

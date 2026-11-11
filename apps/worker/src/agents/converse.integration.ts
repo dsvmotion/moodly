@@ -249,6 +249,27 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     expect(Number(run?.tokens_in)).toBe(240);
     expect(Number(run?.cost_eur)).toBeCloseTo(0.0008, 6);
 
+    // El libro de consumo (PL-ledger): una fila por llamada al modelo, de la
+    // organización de la fila, con su orden, vía y coste; sumadas dan lo del run.
+    const { rows: usage } = await admin.query<{
+      organization_id: string;
+      agent_id: string;
+      source: string;
+      call_index: number;
+      provider: string;
+      model: string;
+      tokens_in: number;
+      tokens_out: number;
+      cost_eur: string;
+    }>(
+      "select organization_id, agent_id, source, call_index, provider, model, tokens_in, tokens_out, cost_eur from public.usage_records where run_id = $1 order by call_index",
+      [run?.id],
+    );
+    expect(usage.map((row) => row.call_index)).toEqual([0, 1]);
+    expect(usage.every((row) => row.organization_id === ids.org && row.source === "agent_turn" && row.model === "fake/fast")).toBe(true);
+    expect(usage.reduce((sum, row) => sum + row.tokens_in, 0)).toBe(240);
+    expect(usage.reduce((sum, row) => sum + Number(row.cost_eur), 0)).toBeCloseTo(0.0008, 6);
+
     const executions = await executionsOf(run?.id ?? "");
     expect(executions.map((execution) => [execution.skill_key, execution.status, execution.autonomy_applied])).toEqual([
       ["find_slots", "executed", "autonomous"],

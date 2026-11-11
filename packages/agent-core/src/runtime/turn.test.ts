@@ -124,7 +124,7 @@ function params(transport: ReturnType<typeof scripted>, over: Partial<TurnParams
     settings: settingsWith(),
     router: createModelRouter([transport]),
     policy: PLATFORM_MODEL_POLICY,
-    spend: { runEur: 0, dayEur: 0 },
+    spend: { runEur: 0, dayEur: 0, monthEur: 0 },
     ...over,
   };
 }
@@ -150,7 +150,26 @@ describe("un turno sin herramientas", () => {
         target: { kind: "conversation", conversationId: "conv-1", contactId: "ana" },
       },
     });
-    expect(result.usage).toEqual({ tokensIn: 100, tokensOut: 20, costEur: 0.001, model: "fake/fast" });
+    expect(result.usage).toEqual({
+      tokensIn: 100,
+      tokensOut: 20,
+      costEur: 0.001,
+      model: "fake/fast",
+      calls: [
+        {
+          index: 0,
+          provider: "fake",
+          via: "gateway",
+          region: "eu",
+          model: "fake/fast",
+          modelKey: "smart",
+          tokensIn: 100,
+          tokensOut: 20,
+          costEur: 0.001,
+          startedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        },
+      ],
+    });
   });
 
   it("conversa con el modelo del agente del run en cada paso; lo que elige la organización manda (MANUAL §5.11)", async () => {
@@ -357,12 +376,31 @@ describe("límites del turno", () => {
   });
 
   it("cuenta lo que gasta el propio turno contra el tope del run", async () => {
-    const policy: ModelPolicy = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 0.002, perDayEur: 20 } };
+    const policy: ModelPolicy = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 0.002, perDayEur: 20, perMonthEur: 300 } };
     const transport = scripted([() => tools({ id: "c", name: "find_slots", args: { service_id: "laser", from: "x" } })], { estimateEur: 0.001 });
-    const result = await runAgentTurn(params(transport, { policy, spend: { runEur: 0.0005, dayEur: 0 } }));
+    const result = await runAgentTurn(params(transport, { policy, spend: { runEur: 0.0005, dayEur: 0, monthEur: 0 } }));
     // Ya gastado 0,0005 + 0,001 de la 1.ª llamada: la 2.ª (hasta 0,001 más) superaría 0,002.
     expect(result).toMatchObject({ status: "handed_off", reason: "budget" });
     expect(transport.calls).toHaveLength(1);
+  });
+
+  it("cuenta lo que gasta el turno también contra el tope del mes", async () => {
+    const policy: ModelPolicy = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 5, perDayEur: 20, perMonthEur: 300 } };
+    const transport = scripted([() => tools({ id: "c", name: "find_slots", args: { service_id: "laser", from: "x" } })], { estimateEur: 0.001 });
+    const result = await runAgentTurn(params(transport, { policy, spend: { runEur: 0, dayEur: 0, monthEur: 299.9985 } }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "budget" });
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("anota cada llamada al modelo, con su orden, vía, modelo, tokens y coste, también si pasa a una persona", async () => {
+    const policy: ModelPolicy = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 0.002, perDayEur: 20, perMonthEur: 300 } };
+    const transport = scripted([() => tools({ id: "c", name: "find_slots", args: { service_id: "laser", from: "x" } })], { estimateEur: 0.001 });
+    const result = await runAgentTurn(params(transport, { policy, spend: { runEur: 0.0005, dayEur: 0, monthEur: 0 } }));
+    expect(result.usage.calls).toHaveLength(1);
+    expect(result.usage.calls[0]).toMatchObject({ index: 0, via: expect.any(String), region: expect.any(String), modelKey: "smart" });
+    expect(result.usage.calls[0]?.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(result.usage.calls.reduce((sum, c) => sum + c.costEur, 0)).toBeCloseTo(result.usage.costEur);
+    expect(result.usage.calls.reduce((sum, c) => sum + c.tokensIn + c.tokensOut, 0)).toBe(result.usage.tokensIn + result.usage.tokensOut);
   });
 
   it("si el modelo falla, pasa a una persona", async () => {

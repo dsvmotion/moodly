@@ -109,7 +109,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     policy: options.converseModel
       ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
-    spend: { runEur: 0, dayEur: 0 },
+    spend: { runEur: 0, dayEur: 0, monthEur: 0 },
   });
   const outcome: Outcome = {
     result,
