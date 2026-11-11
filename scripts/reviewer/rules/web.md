@@ -1,0 +1,7 @@
+- El acceso a datos se decide en el servidor: cada página o Server Action protegida llama a `requireUser()`, que usa `getUser()`. Nunca `getSession()` en servidor. El proxy solo redirige.
+- Nunca la service role de Supabase en `apps/web` para datos de usuario: se lee y escribe con la sesión, y decide RLS.
+- Las Server Actions validan su entrada con Zod.
+- El parámetro de vuelta tras el login pasa siempre por `safeNextPath()`.
+- Los filtros de alcance (organización, región, local) van en la consulta, antes del límite de filas, no después.
+- Logs: `logger` y `securityEvent()`, nunca `console.*`; nunca emails, IPs, tokens ni contraseñas en claro. Toda acción que cambie permisos, accesos o datos de una organización emite su evento.
+- El nombre de la marca sale de `BRAND_NAME`.

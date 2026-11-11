@@ -1,0 +1,6 @@
+- El worker accede a los datos de una organización solo con `createServiceDb().forOrganization(orgId)` (`@repo/db/service`). La única lectura entre organizaciones son los metadatos del outbox (`createServiceDb().outbox`), y el tenant de un evento sale de la fila, nunca del payload.
+- Fuera de `packages/db` y `apps/web` nadie importa un cliente de Supabase.
+- Nunca se toman `organization_id`, `location_id` ni destinatarios de los argumentos que genera el LLM: salen del contexto de la ejecución.
+- Los IDs de modelo LLM viven en `packages/config`, nunca en código de negocio.
+- Los efectos externos (enviar un mensaje, reservar) son idempotentes y pasan por el motor de políticas y las aprobaciones cuando su clase lo pide.
+- Los pasos de DBOS son deterministas: nada de `Date.now()` o aleatorios fuera de un paso.
