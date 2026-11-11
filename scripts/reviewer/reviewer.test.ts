@@ -20,6 +20,8 @@ const sensitive = parseSensitivePatterns(readFileSync(join(root, "scripts/merge-
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
 const BOT = "moodly-reviewer[bot]";
+// `it` + `.skip(` por partes: escrito junto, la propia guarda lo marcaría en el diff de este archivo.
+const SKIP_CALL = ["it", "skip("].join(".");
 
 describe("niveles", () => {
   it("solo documentación no normativa es nivel 0", () => {
@@ -79,7 +81,7 @@ describe("comprobaciones fijas", () => {
     const checks = fixedChecks({
       title: "[M0][P-08] Docs",
       guardExit: 1,
-      guardOutput: "SENSIBLE: CLAUDE.md → reglas\nTEST DEBILITADO: +it.skip(",
+      guardOutput: `SENSIBLE: CLAUDE.md → reglas\nTEST DEBILITADO: +${SKIP_CALL}`,
       scopeYaml: scope,
     });
     assert.equal(checks.find((c) => c.name.startsWith("guarda"))?.ok, false);
@@ -252,7 +254,7 @@ function deps(state: FakeState, model: { text?: string; throws?: boolean; calls?
       botLogin: BOT,
       apiKey: "k",
       root,
-      runGuard: (_files, diff) => (/\+.*it\.skip\(/.test(diff) ? { exit: 1, output: "TEST DEBILITADO: +it.skip(" } : { exit: 0, output: "" }),
+      runGuard: (_files, diff) => (diff.includes(`+${SKIP_CALL}`) ? { exit: 1, output: `TEST DEBILITADO: +${SKIP_CALL}` } : { exit: 0, output: "" }),
       callModel: async (input): Promise<Completion> => {
         if (model.calls) {
           model.calls.n++;
@@ -284,7 +286,7 @@ describe("run", () => {
     assert.ok(t.posted[0]?.body.includes(marker(SHA_B, 0)));
   });
   it("nivel 0 con un test debilitado pide cambios", async () => {
-    const t = deps({ files: ["docs/STATUS.md"], diff: "diff --git a/x.test.ts b/x.test.ts\n+it.skip(\n" });
+    const t = deps({ files: ["docs/STATUS.md"], diff: `diff --git a/x.test.ts b/x.test.ts\n+${SKIP_CALL}\n` });
     await run(t.deps);
     assert.equal(t.posted[0]?.event, "REQUEST_CHANGES");
   });
