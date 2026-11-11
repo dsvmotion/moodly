@@ -4,7 +4,7 @@
 -- estado.
 begin;
 \ir _fixtures/tenants.psql
-select plan(28);
+select plan(36);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 
@@ -92,7 +92,41 @@ select ok(not has_table_privilege('anon', 'public.inbound_events', 'select'), 'a
 select ok(not has_table_privilege('service_role', 'public.inbound_events', 'delete'), 'ni el worker lo borra');
 
 -- ===========================================================================
--- 4. Lo que sale solo avanza de estado
+-- 4. Como el worker (service_role), que es quien aplica los avisos del proveedor.
+--    Va antes que nada que ejecute guard_delivery_status como postgres: PL/pgSQL
+--    guarda la expresión ya comprobada durante la transacción, y entonces no se
+--    volvería a comprobar el permiso de ejecutar next_delivery_status.
+-- ===========================================================================
+insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
+values (:org_a, :'conv', 'out', 'agent', 'Desde el worker', 'pending', 'prov-2') returning id as m_worker \gset
+set local role service_role;
+select lives_ok(
+  format($$update public.messages set status = 'sent' where id = %L$$, :'m_worker'),
+  'el worker avanza el estado de lo que sale (pending → sent)');
+select lives_ok(
+  format($$update public.messages set status = 'delivered' where organization_id = %L and external_message_id = 'prov-2'$$, :org_a),
+  'y aplica un aviso por el id del proveedor (sent → delivered)');
+select lives_ok(
+  format($$update public.messages set status = 'sent' where id = %L$$, :'m_worker'),
+  'un aviso atrasado no da error…');
+select is((select status from public.messages where id = :'m_worker'), 'delivered', '…pero no hace retroceder el estado');
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-worker', '{"text": "Hola"}')$$, :org_a, :'ca_a'),
+  'el worker guarda un evento');
+select lives_ok(
+  format($$update public.inbound_events set status = 'processed', conversation_id = %L where provider_event_id = 'evt-worker'$$, :'conv'),
+  'y lo marca como procesado');
+select throws_ok(
+  $$update public.inbound_events set payload = '{}' where provider_event_id = 'evt-worker'$$,
+  '42501', null, 'pero no puede cambiar lo que llegó');
+select throws_ok(
+  $$delete from public.inbound_events where provider_event_id = 'evt-worker'$$,
+  '42501', null, 'ni borrarlo');
+reset role;
+
+-- ===========================================================================
+-- 5. Lo que sale solo avanza de estado
 -- ===========================================================================
 insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
 values (:org_a, :'conv', 'out', 'agent', 'Hola, Ana', 'pending', 'prov-1') returning id as m_out \gset

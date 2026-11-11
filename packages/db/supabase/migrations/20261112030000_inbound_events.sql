@@ -48,7 +48,8 @@ create table public.inbound_events (
   -- no era para nadie (cuenta desactivada, tipo que no se atiende); failed: se
   -- intentó y falló (se puede volver a intentar).
   status text not null default 'received' check (status in ('received', 'processed', 'ignored', 'failed')),
-  -- Lo que creó al procesarse.
+  -- Lo que creó al procesarse. message_id sin clave externa: messages está
+  -- particionada y su clave primaria es (id, created_at).
   conversation_id uuid,
   message_id uuid,
   processed_at timestamptz,
@@ -142,6 +143,9 @@ as $$
   end
 $$;
 revoke all on function private.next_delivery_status(text, text) from public;
+-- La llama guard_delivery_status, que se ejecuta como quien escribe: el worker
+-- (service_role) actualiza los estados. Nadie de la app actualiza messages.status.
+grant execute on function private.next_delivery_status(text, text) to service_role;
 
 -- Lo que sale solo avanza de estado, lo cambie quien lo cambie.
 create function private.guard_delivery_status()
