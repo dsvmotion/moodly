@@ -503,6 +503,9 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
       const result = await runAgentTurn({
+        // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
+        // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
+        agentType: context.agent.type_key,
         scope: {
           organizationId: event.organizationId,
           locationId: conversation.location_id,
