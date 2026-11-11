@@ -104,6 +104,24 @@ describe("la entrada de un webhook (ADR 0052 §2)", () => {
     }
   });
 
+  it("una firma de la cuenta A no vale para un mensaje que nombra a la B: no se resuelve ni se guarda nada", async () => {
+    const { db, resolve, forOrganization } = fakeDb();
+    const startIngest = vi.fn().mockResolvedValue(undefined);
+    const adapters = new Map([["webchat", createFakeAdapter({ secret: SECRET, scope: "account" })]]);
+    const rawBody = JSON.stringify({ messages: [message({ accountExternalId: "widget-B" })] });
+    const result = await receiveWebhook("webchat", { headers: fakeSignature(SECRET, rawBody, "widget-A"), rawBody }, { db, adapters, startIngest, logger });
+    expect(result).toEqual({ status: 200, accepted: 0, duplicates: 0, ignored: 1 });
+    expect(resolve).not.toHaveBeenCalled();
+    expect(forOrganization).not.toHaveBeenCalled();
+    expect(startIngest).not.toHaveBeenCalled();
+
+    // Y la misma firma, para un mensaje de su cuenta, sí.
+    const ownBody = JSON.stringify({ messages: [message({ accountExternalId: "widget-A" })] });
+    const own = await receiveWebhook("webchat", { headers: fakeSignature(SECRET, ownBody, "widget-A"), rawBody: ownBody }, { db, adapters, startIngest, logger });
+    expect(own).toMatchObject({ accepted: 1 });
+    expect(resolve).toHaveBeenCalledWith("webchat", "widget-A");
+  });
+
   it("un mensaje de otro canal dentro del webhook se ignora", async () => {
     const { db, resolve } = fakeDb();
     const { deps: d } = deps(db);

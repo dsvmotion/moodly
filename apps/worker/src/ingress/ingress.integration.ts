@@ -62,9 +62,11 @@ function inbound(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function post(body: object, signWith = secret) {
+/** Firmado como el token del chat web: para la cuenta del primer mensaje, salvo que se diga otra. */
+async function post(body: { messages: { accountExternalId: string }[] }, signWith = secret, signedAccount?: string) {
   const rawBody = JSON.stringify(body);
-  const response = await fetch(`${base}/channels/webchat/webhook`, { method: "POST", body: rawBody, headers: fakeSignature(signWith, rawBody) });
+  const account = signedAccount ?? body.messages[0]?.accountExternalId ?? "";
+  const response = await fetch(`${base}/channels/webchat/webhook`, { method: "POST", body: rawBody, headers: fakeSignature(signWith, rawBody, account) });
   return { status: response.status, body: (await response.json().catch(() => null)) as Record<string, number> | null };
 }
 
@@ -211,10 +213,20 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(await messagesFrom(message.providerMessageId)).toEqual([]);
   });
 
+  it("una firma para una cuenta no vale para un mensaje que nombra otra: no se guarda nada", async () => {
+    // Firmado para la cuenta desactivada; el mensaje nombra la activa.
+    const message = inbound();
+    await expect(post({ messages: [message] }, secret, `${marker}-disabled`)).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 1 } });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(await eventsOf(message.providerEventId)).toEqual([]);
+    expect(await messagesFrom(message.providerMessageId)).toEqual([]);
+  });
+
   it("para una cuenta desactivada o que no existe no se guarda nada", async () => {
     const disabled = inbound({ accountExternalId: `${marker}-disabled` });
     const unknown = inbound({ accountExternalId: `${marker}-no-existe` });
-    await expect(post({ messages: [disabled, unknown] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 2 } });
+    await expect(post({ messages: [disabled] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 1 } });
+    await expect(post({ messages: [unknown] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 1 } });
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(await eventsOf(disabled.providerEventId)).toEqual([]);
     expect(await eventsOf(unknown.providerEventId)).toEqual([]);

@@ -8,7 +8,9 @@ import type { IngestInput } from "./ingest.ts";
 //   1. el canal tiene adaptador; si no, 404;
 //   2. la firma del proveedor es válida (en tiempo constante, con el secreto de
 //      la plataforma); si no, 401 y nada más: sin firma no se resuelve ninguna
-//      cuenta, para que nadie pueda preguntar cuáles existen;
+//      cuenta, para que nadie pueda preguntar cuáles existen. Si la firma es de
+//      una cuenta (el token del chat web), solo valen sus mensajes: los que
+//      nombran otra se ignoran sin resolverla;
 //   3. cada mensaje, por su cuenta del canal: resolve(canal, id externo), la
 //      segunda lectura entre organizaciones (CLAUDE.md); solo una cuenta
 //      activa; de ahí sale la organización, nunca del payload;
@@ -41,7 +43,8 @@ export async function receiveWebhook(channel: string, webhook: RawWebhook, deps:
   const log = deps.logger.child({ component: "ingress", channel });
   const adapter = deps.adapters.get(channel);
   if (!adapter) return { status: 404, ...none };
-  if (!(await adapter.verify(webhook))) {
+  const sender = await adapter.verify(webhook);
+  if (!sender) {
     // Sin el cuerpo ni las cabeceras: pueden llevar datos.
     log.warn({ securityEvent: "ingress.bad_signature" }, "webhook con firma no válida");
     return { status: 401, ...none };
@@ -58,6 +61,13 @@ export async function receiveWebhook(channel: string, webhook: RawWebhook, deps:
     if (message.channel !== channel) {
       result.ignored += 1;
       log.warn({ reason: "channel_mismatch" }, "mensaje de otro canal en el webhook");
+      continue;
+    }
+    // Una firma de una cuenta solo vale para los mensajes de esa cuenta: un
+    // cuerpo firmado para A que nombre a B no se atribuye a B.
+    if (sender.scope === "account" && message.accountExternalId !== sender.accountExternalId) {
+      result.ignored += 1;
+      log.warn({ securityEvent: "ingress.account_mismatch" }, "mensaje para una cuenta distinta de la firmada");
       continue;
     }
     const account = await deps.db.channelAccounts.resolve(channel, message.accountExternalId);

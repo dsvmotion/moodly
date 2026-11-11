@@ -16,7 +16,8 @@ const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const worker = createWorker(config, logger, {
   eventHandlers: [logHandler],
-  channelAdapters: [createFakeAdapter({ channel: "webchat", secret })],
+  // webchat firma por cuenta (como el token del chat web); email, por plataforma (como Meta).
+  channelAdapters: [createFakeAdapter({ channel: "webchat", secret, scope: "account" }), createFakeAdapter({ channel: "email", secret })],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);

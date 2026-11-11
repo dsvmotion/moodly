@@ -1,14 +1,17 @@
 import { ChannelSendError } from "./adapter.js";
-import type { ChannelAdapter, ChannelCapabilities, ParsedWebhook, RawWebhook, SendResult } from "./adapter.js";
+import type { ChannelAdapter, ChannelCapabilities, ParsedWebhook, RawWebhook, SendResult, VerifiedSender } from "./adapter.js";
 import type { Channel, NormalizedOutbound } from "./message.js";
 import { normalizedInboundSchema } from "./message.js";
 import { hmacSha256Hex, verifyHmacSha256 } from "./signature.js";
 
-// Un adaptador de prueba: firma HMAC-SHA256 del cuerpo en una cabecera (como
-// los de verdad, en tiempo constante), cuerpo JSON ya normalizado, y envíos que se apuntan en memoria. Para los
+// Un adaptador de prueba: firma HMAC-SHA256 en una cabecera (como los de
+// verdad, en tiempo constante), cuerpo JSON ya normalizado. Con scope
+// "platform" firma el cuerpo, como Meta; con "account", la cuenta y el cuerpo,
+// con la cuenta en otra cabecera, como el token del chat web, y envíos que se apuntan en memoria. Para los
 // tests de la capa (duplicados, estados, toma de control) sin proveedor real.
 
 export const FAKE_SIGNATURE_HEADER = "x-fake-signature";
+export const FAKE_ACCOUNT_HEADER = "x-fake-account";
 
 export interface FakeAdapter extends ChannelAdapter {
   readonly sent: NormalizedOutbound[];
@@ -16,7 +19,12 @@ export interface FakeAdapter extends ChannelAdapter {
   failNextSend(error: ChannelSendError): void;
 }
 
-export function createFakeAdapter(options: { channel?: Channel; secret: string; capabilities?: Partial<ChannelCapabilities> }): FakeAdapter {
+export function createFakeAdapter(options: {
+  channel?: Channel;
+  secret: string;
+  scope?: "platform" | "account";
+  capabilities?: Partial<ChannelCapabilities>;
+}): FakeAdapter {
   const sent: NormalizedOutbound[] = [];
   const byKey = new Map<string, SendResult>();
   let nextError: ChannelSendError | null = null;
@@ -34,8 +42,14 @@ export function createFakeAdapter(options: { channel?: Channel; secret: string; 
     failNextSend(error) {
       nextError = error;
     },
-    verify(webhook: RawWebhook) {
-      return Promise.resolve(verifyHmacSha256(options.secret, webhook.rawBody, webhook.headers[FAKE_SIGNATURE_HEADER]));
+    verify(webhook: RawWebhook): Promise<VerifiedSender | null> {
+      const signature = webhook.headers[FAKE_SIGNATURE_HEADER];
+      if (options.scope === "account") {
+        const account = webhook.headers[FAKE_ACCOUNT_HEADER];
+        if (!account || !verifyHmacSha256(options.secret, `${account}.${webhook.rawBody}`, signature)) return Promise.resolve(null);
+        return Promise.resolve({ scope: "account", accountExternalId: account });
+      }
+      return Promise.resolve(verifyHmacSha256(options.secret, webhook.rawBody, signature) ? { scope: "platform" } : null);
     },
     parse(webhook: RawWebhook): ParsedWebhook {
       const body = JSON.parse(webhook.rawBody) as { messages?: unknown[]; statuses?: ParsedWebhook["statuses"] };
@@ -60,9 +74,10 @@ export function createFakeAdapter(options: { channel?: Channel; secret: string; 
   };
 }
 
-/** La cabecera de firma que espera el adaptador de prueba para ese cuerpo. */
-export function fakeSignature(secret: string, rawBody: string): Record<string, string> {
-  return { [FAKE_SIGNATURE_HEADER]: hmacSha256Hex(secret, rawBody) };
+/** Las cabeceras de firma que espera el adaptador de prueba: del cuerpo, o de una cuenta y el cuerpo. */
+export function fakeSignature(secret: string, rawBody: string, account?: string): Record<string, string> {
+  if (account === undefined) return { [FAKE_SIGNATURE_HEADER]: hmacSha256Hex(secret, rawBody) };
+  return { [FAKE_SIGNATURE_HEADER]: hmacSha256Hex(secret, `${account}.${rawBody}`), [FAKE_ACCOUNT_HEADER]: account };
 }
 
 export { ChannelSendError };
