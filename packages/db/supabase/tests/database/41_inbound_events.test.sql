@@ -4,7 +4,7 @@
 -- estado.
 begin;
 \ir _fixtures/tenants.psql
-select plan(39);
+select plan(45);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 
@@ -134,6 +134,30 @@ select lives_ok(
   format($$update public.inbound_events set message_id = %L where provider_event_id = 'evt-worker'$$, :'m_in'),
   'sí el que creó en su organización y su conversación');
 select is((select message_id from public.inbound_events where provider_event_id = 'evt-worker'), :'m_in'::uuid, 'y queda apuntado');
+-- Otra conversación de la misma organización: el mensaje no es de ella.
+reset role;
+insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+values (:org_a, :loc_a1, :'c_ana', :'ca_a', :'agent_a') returning id as conv_other \gset
+set local role service_role;
+select throws_ok(
+  format($$update public.inbound_events set conversation_id = %L where provider_event_id = 'evt-worker'$$, :'conv_other'),
+  '23503', null, 'cambiar solo la conversación a una que no es la del mensaje tampoco pasa');
+reset role;
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, message_id)
+           values (%L, %L, 'evt-ins-ajeno', '{}', %L)$$, :org_a, :'ca_a', :'m_b'),
+  '23503', null, 'ni al insertar (ni siquiera como postgres) con el mensaje de otra organización');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, conversation_id, message_id)
+           values (%L, %L, 'evt-ins-otra-conv', '{}', %L, %L)$$, :org_a, :'ca_a', :'conv_other', :'m_in'),
+  '23503', null, 'ni con un mensaje de su organización pero de otra conversación');
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, conversation_id, message_id, status)
+           values (%L, %L, 'evt-ins-bien', '{}', %L, %L, 'processed')$$, :org_a, :'ca_a', :'conv', :'m_in'),
+  'sí con el suyo');
+select isnt((select processed_at from public.inbound_events where provider_event_id = 'evt-ins-bien'), null::timestamptz,
+  'y processed_at lo pone la base de datos también al insertar');
+set local role service_role;
 select throws_ok(
   $$update public.inbound_events set payload = '{}' where provider_event_id = 'evt-worker'$$,
   '42501', null, 'pero no puede cambiar lo que llegó');
@@ -168,6 +192,75 @@ select throws_ok(
   format($$update public.messages set status = 'received' where id = %L$$, :'m_fail'),
   null, null, 'un mensaje que sale no pasa a received');
 
+-- La matriz entera, la misma que delivery.test.ts de packages/channels: el
+-- TypeScript y el SQL dicen lo mismo (también desde 'received', que no debería
+-- darse en un mensaje que sale: gana el aviso).
+select results_eq(
+  $$select c, i, private.next_delivery_status(c, i) from (values
+    ('received', 'pending', 'pending'),
+    ('received', 'sent', 'sent'),
+    ('received', 'delivered', 'delivered'),
+    ('received', 'read', 'read'),
+    ('received', 'failed', 'failed'),
+    ('pending', 'pending', 'pending'),
+    ('pending', 'sent', 'sent'),
+    ('pending', 'delivered', 'delivered'),
+    ('pending', 'read', 'read'),
+    ('pending', 'failed', 'failed'),
+    ('sent', 'pending', 'sent'),
+    ('sent', 'sent', 'sent'),
+    ('sent', 'delivered', 'delivered'),
+    ('sent', 'read', 'read'),
+    ('sent', 'failed', 'failed'),
+    ('delivered', 'pending', 'delivered'),
+    ('delivered', 'sent', 'delivered'),
+    ('delivered', 'delivered', 'delivered'),
+    ('delivered', 'read', 'read'),
+    ('delivered', 'failed', 'delivered'),
+    ('read', 'pending', 'read'),
+    ('read', 'sent', 'read'),
+    ('read', 'delivered', 'read'),
+    ('read', 'read', 'read'),
+    ('read', 'failed', 'read'),
+    ('failed', 'pending', 'failed'),
+    ('failed', 'sent', 'failed'),
+    ('failed', 'delivered', 'failed'),
+    ('failed', 'read', 'failed'),
+    ('failed', 'failed', 'failed')
+  ) as m(c, i, r) order by c, i$$,
+  $$select c, i, r from (values
+    ('received', 'pending', 'pending'),
+    ('received', 'sent', 'sent'),
+    ('received', 'delivered', 'delivered'),
+    ('received', 'read', 'read'),
+    ('received', 'failed', 'failed'),
+    ('pending', 'pending', 'pending'),
+    ('pending', 'sent', 'sent'),
+    ('pending', 'delivered', 'delivered'),
+    ('pending', 'read', 'read'),
+    ('pending', 'failed', 'failed'),
+    ('sent', 'pending', 'sent'),
+    ('sent', 'sent', 'sent'),
+    ('sent', 'delivered', 'delivered'),
+    ('sent', 'read', 'read'),
+    ('sent', 'failed', 'failed'),
+    ('delivered', 'pending', 'delivered'),
+    ('delivered', 'sent', 'delivered'),
+    ('delivered', 'delivered', 'delivered'),
+    ('delivered', 'read', 'read'),
+    ('delivered', 'failed', 'delivered'),
+    ('read', 'pending', 'read'),
+    ('read', 'sent', 'read'),
+    ('read', 'delivered', 'read'),
+    ('read', 'read', 'read'),
+    ('read', 'failed', 'read'),
+    ('failed', 'pending', 'failed'),
+    ('failed', 'sent', 'failed'),
+    ('failed', 'delivered', 'failed'),
+    ('failed', 'read', 'failed'),
+    ('failed', 'failed', 'failed')
+  ) as m(c, i, r) order by c, i$$,
+  'next_delivery_status: la matriz entera, igual que nextDeliveryStatus de packages/channels');
 select is(private.next_delivery_status('pending', 'read'), 'read', 'next_delivery_status: avanza');
 select is(private.next_delivery_status('delivered', 'sent'), 'delivered', 'next_delivery_status: no retrocede');
 select ok(
