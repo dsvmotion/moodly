@@ -1,0 +1,78 @@
+name: revisora
+
+# La Revisora automática (SE01, órdenes de M0 §5). Revisa cada PR que no es
+# borrador: al abrirse listo, al pasar a listo, en cada push y al reabrirse, y
+# cuando producto la lanza a mano (Run workflow con el número del PR).
+#
+# Corre desde la rama base, igual que la guarda (P-01):
+# - pull_request_target ejecuta este archivo y scripts/reviewer/ tal como están
+#   en la rama base. Un PR que cambia la Revisora no puede cambiar su propia
+#   revisión.
+# - Nunca hace checkout del código del PR ni lo ejecuta: los archivos, el diff
+#   y docs/scope.yaml se leen por la API y se tratan como datos.
+# - Permisos mínimos: el GITHUB_TOKEN no tiene ninguno. Escribe la revisión con
+#   el token de la App «Moodly Reviewer», creado en el job con permiso solo de
+#   pull requests (escritura) y contenidos (lectura).
+# - El entorno reviewer está limitado a main: la App y la clave del gateway
+#   solo existen para los PRs contra main.
+#
+# Nivel 0 (solo documentación no normativa): comprobaciones fijas, sin modelo.
+# Nivel 1 (código corriente): modelo rápido; no aprueba hasta que acierte el set
+# de prueba (decisión de producto, 2026-11-10).
+# Nivel 2 (zonas sensibles, ADR, MANUAL): modelo potente; nunca aprueba.
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Número del PR que revisar
+        required: true
+        type: number
+
+permissions: {}
+
+concurrency:
+  group: revisora-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  revisora:
+    name: revisora
+    # Solo PRs contra main (el entorno reviewer no existe para otras ramas) y nunca borradores.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.draft == false && github.event.pull_request.base.ref == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: reviewer
+    permissions: {}
+    steps:
+      - name: Token de la App Moodly Reviewer
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+          permission-contents: read
+
+      # La rama base (o main al lanzarla a mano), nunca el head del PR. Con el token
+      # de la App (contents: read): el job no tiene permisos propios y el repositorio
+      # es privado, así que sin él el checkout no encuentra el repositorio (2026-11-11).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
+          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Revisión
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          REVIEWER_AI_GATEWAY_API_KEY: ${{ secrets.REVIEWER_AI_GATEWAY_API_KEY }}
+        run: node scripts/reviewer/review.ts

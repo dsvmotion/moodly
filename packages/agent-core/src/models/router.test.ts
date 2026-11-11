@@ -6,6 +6,7 @@ import {
   PLATFORM_MODEL_POLICY,
   createModelRouter,
   policyAllows,
+  resolveModelKey,
 } from "./router.js";
 import type { ModelCall, ModelPolicy, Spend } from "./router.js";
 import { createFakeTransport } from "./transports/fake.js";
@@ -32,7 +33,7 @@ describe("modelo por tarea", () => {
     expect(transport.calls.map((request) => request.modelKey)).toEqual(["smart", "fast"]);
   });
 
-  it("conversar usa el modelo capaz, no el rápido (producto, 2026-11-03)", async () => {
+  it("sin agente conocido, conversar usa el por defecto de la tarea: el capaz, no el rápido (producto, 2026-11-03)", async () => {
     const transport = createFakeTransport({ provider: "a" });
     await createModelRouter([transport]).generate(call, policy(), noSpend);
     expect(transport.calls[0]?.modelKey).toBe("smart");
@@ -50,6 +51,49 @@ describe("modelo por tarea", () => {
     const chat = createFakeTransport({ provider: "c", serves: ["fast"] });
     const result = await createModelRouter([onlyEmbeddings, chat]).generate({ ...call, task: "classify" }, policy(), noSpend);
     expect(result.provider).toBe("c");
+  });
+});
+
+describe("modelo por agente para conversar (producto, 2026-11-11: la clave más barata que pasa sus evals)", () => {
+  const converseWith = async (agentPolicy: ModelPolicy, agentType?: string) => {
+    const transport = createFakeTransport({ provider: "a" });
+    const result = await createModelRouter([transport]).generate({ ...call, ...(agentType ? { agentType } : {}) }, agentPolicy, noSpend);
+    return { sent: transport.calls[0]?.modelKey, result };
+  };
+
+  it("Atención al cliente conversa con fast y Recepción con smart", async () => {
+    expect((await converseWith(policy(), "customer")).sent).toBe("fast");
+    expect((await converseWith(policy(), "reception")).sent).toBe("smart");
+  });
+
+  it("el resultado dice con qué clave contestó (lo que se registra por llamada)", async () => {
+    expect((await converseWith(policy(), "customer")).result.modelKey).toBe("fast");
+  });
+
+  it("lo que elige la organización para conversar manda sobre el agente, en los dos sentidos", async () => {
+    const chosen = (converse: "fast" | "smart") =>
+      policy({ modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse }, modelOverrides: { converse } });
+    expect((await converseWith(chosen("smart"), "customer")).sent).toBe("smart");
+    expect((await converseWith(chosen("fast"), "reception")).sent).toBe("fast");
+  });
+
+  it("una elección de la organización para otra tarea no cambia el modelo del agente", async () => {
+    const reasonOnly = policy({ modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, reason: "fast" }, modelOverrides: { reason: "fast" } });
+    expect((await converseWith(reasonOnly, "customer")).sent).toBe("fast");
+    expect((await converseWith(reasonOnly, "reception")).sent).toBe("smart");
+  });
+
+  it("sin agente, o con un tipo de agente sin clave propia (plantilla o propio, ADR 0030), la clave de la tarea en la política", async () => {
+    expect((await converseWith(policy())).sent).toBe("smart");
+    expect((await converseWith(policy(), "mi_agente_propio")).sent).toBe("smart");
+    const fastByTask = policy({ modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse: "fast" } });
+    expect((await converseWith(fastByTask, "mi_agente_propio")).sent).toBe("fast");
+  });
+
+  it("el agente solo cuenta para conversar: razonar o clasificar no cambian", () => {
+    expect(resolveModelKey(policy(), "reason", "customer")).toBe("smart");
+    expect(resolveModelKey(policy(), "classify", "reception")).toBe("fast");
+    expect(resolveModelKey(policy(), "embed", "customer")).toBe("embedding");
   });
 });
 

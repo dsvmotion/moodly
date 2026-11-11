@@ -1,0 +1,5 @@
+- Un workflow con `pull_request_target` nunca hace checkout ni ejecuta el código del PR; lee los archivos y el diff por la API y los trata como datos.
+- Permisos mínimos: `permissions: {}` arriba y solo lo necesario en cada job. Las acciones van fijadas a un commit.
+- Los secretos solo en los jobs que los necesitan y nunca en la salida. Las migraciones de staging y producción solo las aplica el CI.
+- La guarda de mergeo (`scripts/merge-guard/`, `scripts/safe-merge.sh`), la Revisora (`scripts/reviewer/`), `.claude/`, `CLAUDE.md` y `AGENTS.md` son zonas sensibles: un cambio que las afloje es un hallazgo `high`.
+- `CLAUDE.md` y `AGENTS.md` tienen el mismo contenido.

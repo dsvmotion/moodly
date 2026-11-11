@@ -153,6 +153,19 @@ describe("un turno sin herramientas", () => {
     expect(result.usage).toEqual({ tokensIn: 100, tokensOut: 20, costEur: 0.001, model: "fake/fast" });
   });
 
+  it("conversa con el modelo del agente del run en cada paso; lo que elige la organización manda (MANUAL §5.11)", async () => {
+    const keys = async (over: Partial<TurnParams>) => {
+      const transport = scripted([() => tools({ id: "c1", name: "find_slots", args: { service_id: "s", from: "2030-06-03" } }), () => text("Hola")]);
+      await runAgentTurn(params(transport, over));
+      return transport.calls.map((request) => request.modelKey);
+    };
+    expect(await keys({ agentType: "customer" })).toEqual(["fast", "fast"]);
+    expect(await keys({ agentType: "reception" })).toEqual(["smart", "smart"]);
+    expect(await keys({})).toEqual(["smart", "smart"]);
+    const chosen: ModelPolicy = { ...PLATFORM_MODEL_POLICY, modelOverrides: { converse: "smart" } };
+    expect(await keys({ agentType: "customer", policy: chosen })).toEqual(["smart", "smart"]);
+  });
+
   it("el modelo ve las skills activas como herramientas, sin reply ni las desactivadas", async () => {
     const transport = scripted([() => text("Hola")]);
     await runAgentTurn(params(transport));
