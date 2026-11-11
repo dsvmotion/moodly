@@ -1,4 +1,4 @@
--- Aviso de las aprobaciones nuevas (20261111230000, M-02): cada aprobación nueva
+-- Aviso de las aprobaciones nuevas (20261112060000, M-02): cada aprobación nueva
 -- deja un approval.created en el outbox, en la misma transacción; y
 -- approval_notification dice a quién avisar con la misma regla con la que RLS
 -- deja decidirla (private.can_decide_approval y approvals_decide), de una sola
