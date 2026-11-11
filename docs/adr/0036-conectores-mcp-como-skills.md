@@ -8,7 +8,8 @@
   - aplica la revisión de seguridad del 2026-10-20 §7.3 (servidores MCP de terceros);
   - aplica los controles 3.4 y 3.8 del ADR 0047 (destinatarios del runtime; lo que se lee es dato, no instrucción);
   - las credenciales van en `integration_secrets` con el `SecretVault` (ADR 0034);
-  - roadmap enterprise §3.4 (MCP como estándar de conectores).
+  - roadmap enterprise §3.4 (MCP como estándar de conectores);
+  - **modificado por el ADR 0053** (2026-11-11): el hub de integraciones de plataforma es Nango autoalojado en la UE; las skills `mcp` y sus credenciales en `integration_secrets` no cambian.
 
 ## Contexto
 

@@ -54,6 +54,22 @@ Si V1 cambia de sesión, la nueva empieza aquí. Lo vivo está en esta sección;
 | V1·w R-08 | `session_016SLeJSHBYdw8TFknQU4UcW` | Hija de V1 (Sonnet): reservas en el futuro y en hueco libre; se archiva al mergear |
 | V1·w R-02 | `session_016SLeJNYatAF9e8RYt1yVTz` | Hija de V1 (Opus): el agente no escribe en modo persona; se archiva al mergear |
 
+**Equipo de sesiones (2026-11-11):**
+
+| Línea | Área |
+| --- | --- |
+| V1 | Coordina |
+| V2 | Web (frontend) |
+| V3 | Web pública y docs |
+| V4 | Evals |
+| V6 | Base de datos y seguridad |
+| V7 | R-08 (#198) |
+| V8 | Canales (O-01) |
+| V9 | Consumo y costes |
+| V10 | Revisión de código |
+| V11 | Pipeline de modelos (PL-T3) |
+| V12 | Salud de la plataforma y despliegue |
+
 **Cola de mergeos, en orden** (de uno en uno; antes de cada uno, «✅ Verificado sobre main» en el anterior):
 1. #165 (V4, K-03).
 2. #167 (V1, decisiones de producto y esta sección).
