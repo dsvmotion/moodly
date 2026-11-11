@@ -2,6 +2,7 @@
 
 - **Estado:** aceptado (producto, 2026-10-30)
 - **Cambiado en parte (producto, 2026-11-10; auditoría de preproducción §18.1 #6 y §18.2):** todos los proveedores detrás del enrutador (modelos alojados en la UE, Bedrock, Vertex, Azure y el gateway), con la UE por defecto. Lo fija el ADR de T6 del hito M0; hasta entonces, donde este ADR limite los proveedores, manda la decisión de producto (MANUAL §18.0).
+- **Cambiado en parte (producto, 2026-11-11; eval B-01):** conversar ya no usa siempre `smart`: cada agente conversa con la clave más barata que pasa sus evals (MANUAL §5.11, `DEFAULT_CONVERSE_MODEL_BY_AGENT` de `@repo/config`). La llamada lleva el tipo de agente del run (`ModelCall.agentType`) y la política guarda aparte lo que eligió la organización (`ModelPolicy.modelOverrides`), que manda sobre el agente. Ver §7 → Modelos.
 - **Fecha:** 2026-10-30
 - **Secciones del MANUAL afectadas:** §3.2, §5.11, §13, §18 #5
 - **Relación:**
@@ -46,7 +47,7 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
 5. **Herramientas (paso 4d, 2026-10-31).** La llamada lleva las herramientas que puede pedir el modelo (`tools`: nombre, descripción y JSON Schema de la entrada de cada skill activa) y la respuesta, las que pide (`toolCalls`). Los mensajes admiten el resultado de una herramienta (`role: "tool"`). El enrutador solo los pasa al transporte: lo que pide el modelo no se ejecuta sin pasar por `decide()` (ADR 0047), en el bucle del turno (`runtime/turn.ts`, MANUAL §5.1).
 6. **Política por organización en la base de datos:** `org_model_settings` llega con el ADR 0034 (BYOK) y el 0035 (residencia). Hasta entonces, el enrutador usa la política de plataforma por defecto.
 7. **Transporte de Vercel AI Gateway (paso 4d-3, 2026-11-03):** `models/transports/gateway.ts`, con el Vercel AI SDK (`ai`, versión exacta).
-   - **Modelos:** `GATEWAY_MODELS` de `@repo/config` da, por clave lógica, el ID del gateway y el precio por millón de tokens. Producto (2026-11-03): los modelos capaces de hacer el trabajo, no los más baratos. Conversar (`converse`) usa `smart`, como razonar; `fast` queda para clasificar y extraer.
+   - **Modelos:** `GATEWAY_MODELS` de `@repo/config` da, por clave lógica, el ID del gateway y el precio por millón de tokens. Producto (2026-11-03): los modelos capaces de hacer el trabajo, no los más baratos. Conversar (`converse`) usa `smart`, como razonar; `fast` queda para clasificar y extraer. **Cambiado (producto, 2026-11-11):** para conversar, cada agente usa la clave más barata que pasa sus evals (Atención al cliente, `fast`; Recepción, `smart`), salvo que la organización elija otra; `smart` queda como la de la tarea para un agente sin clave propia (MANUAL §5.11).
    - **Ficha:**
      - vía `gateway` y conexión gestionada (la clave de Moodly, `AI_GATEWAY_API_KEY` en el worker, nunca en logs);
      - región `other`: no garantiza que se procese en la UE, así que con «Solo UE» el enrutador no lo usa;

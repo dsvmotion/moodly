@@ -27,6 +27,7 @@ export {
   createModelRouter,
   eligibleTransports,
   policyAllows,
+  resolveModelKey,
 } from "./models/router.js";
 export type {
   ConnectionMode,
