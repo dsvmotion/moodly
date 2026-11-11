@@ -9,9 +9,9 @@ export const COPY = {
     probP: "Moodly reúne en un solo sitio los agentes, las reglas, los datos y el control de todas las sedes.",
     problems: ["Cada sede atiende distinto", "Herramientas de IA sueltas y sin control", "Datos de clientes en chats personales", "Nadie sabe qué hace cada bot", "Costes de IA imposibles de prever", "Poca adopción fuera del equipo central"],
     pillars: [
-      ["Una plataforma para toda la cadena", "Agentes por sede con plantillas y reglas comunes. La central decide qué se hereda y qué puede ajustar cada local."],
-      ["Se conecta con tu sistema", "API REST, webhooks y MCP para tu ERP, CRM, sistema de reservas o herramientas internas. Datos sincronizados en ambos sentidos."],
-      ["Seguro por defecto", "SSO, roles por sede, registro de auditoría, tus claves de IA y despliegue en tu nube si lo necesitas."],
+      ["Una plataforma para toda la cadena", "Agentes, conocimiento y reglas por sede, y la central ve todas las sedes en un solo sitio."],
+      ["Se conecta con tu sistema", "Tu sistema de reservas, CRM y facturación, con una plataforma de conectores. API pública y webhooks, en hoja de ruta."],
+      ["Seguro por defecto", "Roles por sede, segundo factor para administrar y registro de auditoría. SSO y despliegue en tu nube, en hoja de ruta."],
     ],
     deployA: "Opciones de despliegue.", deployB: "Según tus requisitos de seguridad.",
     deploy: [
@@ -35,7 +35,7 @@ export const COPY = {
     buy: [
       ["Implantación a medida", "Presupuesto cerrado por proyecto, como pago único.", ["Integraciones a medida con tus sistemas", "Carga del conocimiento y configuración de agentes, sedes y permisos", "Formación de tu equipo"]],
       ["Contrato con factura", "En lugar del alta con tarjeta.", ["Créditos de IA comprometidos o plan mensual", "Factura en vez de cargo en tarjeta", "La IA siempre con su tope de gasto y sus avisos"]],
-      ["Lo que suma Enterprise", "Sobre todo lo del autoservicio.", ["SSO (y SCIM más adelante)", "DPA y residencia en la UE", "Auditoría consultable", "Soporte con canal dedicado", "Nube dedicada desde cierto tamaño"]],
+      ["Lo que suma Enterprise", "Sobre todo lo del autoservicio.", ["SSO y SCIM, en hoja de ruta", "DPA y residencia en la UE", "Auditoría consultable", "Soporte con canal dedicado", "Nube dedicada, en hoja de ruta"]],
     ],
     buyNote: "Los importes se acuerdan en cada propuesta. Para empezar por tu cuenta, mira los precios de autoservicio.",
     pricingLink: "Ver precios",
@@ -49,9 +49,9 @@ export const COPY = {
     probP: "Moodly brings the agents, rules, data and control of all your locations together in one place.",
     problems: ["Each location serves differently", "Scattered, uncontrolled AI tools", "Customer data in personal chats", "Nobody knows what each bot does", "AI costs impossible to predict", "Low adoption outside the central team"],
     pillars: [
-      ["One platform for the whole chain", "Agents per location with shared templates and rules. HQ decides what's inherited and what each location can adjust."],
-      ["Connects with your system", "REST API, webhooks and MCP for your ERP, CRM, booking system or internal tools. Data synced both ways."],
-      ["Secure by default", "SSO, roles per location, audit log, your own AI keys and deployment in your cloud if you need it."],
+      ["One platform for the whole chain", "Agents, knowledge and rules per location, and HQ sees every location in one place."],
+      ["Connects with your system", "Your booking system, CRM and invoicing, through a connector platform. Public API and webhooks are on the roadmap."],
+      ["Secure by default", "Roles per location, two-factor authentication to administer and an audit log. SSO and deployment in your cloud are on the roadmap."],
     ],
     deployA: "Deployment options.", deployB: "To match your security requirements.",
     deploy: [
@@ -75,7 +75,7 @@ export const COPY = {
     buy: [
       ["Tailored implementation", "A fixed quote per project, paid once.", ["Custom integrations with your systems", "Knowledge loading and setup of agents, locations and permissions", "Training for your team"]],
       ["Invoiced contract", "Instead of signing up with a card.", ["Committed AI credits or a monthly plan", "An invoice instead of a card charge", "AI always with its spending cap and alerts"]],
-      ["What Enterprise adds", "On top of everything in self-service.", ["SSO (and SCIM later)", "DPA and EU data residency", "Searchable audit log", "Support through a dedicated channel", "Dedicated cloud above a certain size"]],
+      ["What Enterprise adds", "On top of everything in self-service.", ["SSO and SCIM, on the roadmap", "DPA and EU data residency", "Searchable audit log", "Support through a dedicated channel", "Dedicated cloud, on the roadmap"]],
     ],
     buyNote: "Amounts are agreed in each proposal. To start on your own, see the self-service pricing.",
     pricingLink: "See pricing",
@@ -89,9 +89,9 @@ export const COPY = {
     probP: "Moodly réunit en un seul endroit les agents, les règles, les données et le contrôle de tous vos sites.",
     problems: ["Chaque site traite différemment", "Des outils d'IA épars et sans contrôle", "Des données clients dans des chats personnels", "Personne ne sait ce que fait chaque bot", "Des coûts d'IA impossibles à prévoir", "Peu d'adoption hors de l'équipe centrale"],
     pillars: [
-      ["Une plateforme pour toute la chaîne", "Des agents par site avec des modèles et règles communs. Le siège décide ce qui est hérité et ce que chaque site peut ajuster."],
-      ["Se connecte à votre système", "API REST, webhooks et MCP pour votre ERP, CRM, système de réservation ou outils internes. Données synchronisées dans les deux sens."],
-      ["Sécurisé par défaut", "SSO, rôles par site, journal d'audit, vos propres clés d'IA et déploiement dans votre cloud si besoin."],
+      ["Une plateforme pour toute la chaîne", "Des agents, des connaissances et des règles par site, et le siège voit tous les sites au même endroit."],
+      ["Se connecte à votre système", "Votre système de réservation, CRM et facturation, via une plateforme de connecteurs. API publique et webhooks sur la feuille de route."],
+      ["Sécurisé par défaut", "Rôles par site, double authentification pour administrer et journal d'audit. SSO et déploiement dans votre cloud sur la feuille de route."],
     ],
     deployA: "Options de déploiement.", deployB: "Selon vos exigences de sécurité.",
     deploy: [
@@ -115,7 +115,7 @@ export const COPY = {
     buy: [
       ["Mise en place sur mesure", "Devis fermé par projet, en paiement unique.", ["Intégrations sur mesure avec vos systèmes", "Chargement des connaissances et configuration des agents, sites et permissions", "Formation de votre équipe"]],
       ["Contrat sur facture", "À la place de l'inscription par carte.", ["Crédits d'IA engagés ou plan mensuel", "Une facture au lieu d'un prélèvement sur carte", "L'IA toujours avec son plafond de dépense et ses alertes"]],
-      ["Ce qu'ajoute Enterprise", "En plus de tout le libre-service.", ["SSO (et SCIM plus tard)", "DPA et hébergement des données dans l'UE", "Journal d'audit consultable", "Support via un canal dédié", "Cloud dédié à partir d'une certaine taille"]],
+      ["Ce qu'ajoute Enterprise", "En plus de tout le libre-service.", ["SSO et SCIM, sur la feuille de route", "DPA et hébergement des données dans l'UE", "Journal d'audit consultable", "Support via un canal dédié", "Cloud dédié, sur la feuille de route"]],
     ],
     buyNote: "Les montants sont fixés dans chaque proposition. Pour démarrer seul, consultez les tarifs en libre-service.",
     pricingLink: "Voir les tarifs",
@@ -129,9 +129,9 @@ export const COPY = {
     probP: "Moodly vereint die Agenten, Regeln, Daten und die Kontrolle aller Standorte an einem Ort.",
     problems: ["Jeder Standort betreut anders", "Verstreute, unkontrollierte KI-Tools", "Kundendaten in privaten Chats", "Niemand weiß, was jeder Bot tut", "KI-Kosten unmöglich vorherzusehen", "Geringe Akzeptanz außerhalb des zentralen Teams"],
     pillars: [
-      ["Eine Plattform für die ganze Kette", "Agenten pro Standort mit gemeinsamen Vorlagen und Regeln. Die Zentrale entscheidet, was vererbt wird und was jeder Standort anpassen darf."],
-      ["Verbindet sich mit deinem System", "REST-API, Webhooks und MCP für dein ERP, CRM, Buchungssystem oder interne Tools. Daten in beide Richtungen synchronisiert."],
-      ["Sicher von Haus aus", "SSO, Rollen pro Standort, Audit-Log, deine eigenen KI-Schlüssel und Bereitstellung in deiner Cloud, falls nötig."],
+      ["Eine Plattform für die ganze Kette", "Agenten, Wissen und Regeln pro Standort – und die Zentrale sieht alle Standorte an einem Ort."],
+      ["Verbindet sich mit deinem System", "Dein Buchungssystem, CRM und deine Rechnungen über eine Konnektorplattform. Öffentliche API und Webhooks stehen auf der Roadmap."],
+      ["Sicher von Haus aus", "Rollen pro Standort, Zwei-Faktor-Anmeldung für die Verwaltung und ein Audit-Log. SSO und Bereitstellung in deiner Cloud stehen auf der Roadmap."],
     ],
     deployA: "Bereitstellungsoptionen.", deployB: "Passend zu deinen Sicherheitsanforderungen.",
     deploy: [
@@ -155,7 +155,7 @@ export const COPY = {
     buy: [
       ["Einrichtung nach Maß", "Festpreisangebot pro Projekt, als Einmalzahlung.", ["Individuelle Integrationen mit deinen Systemen", "Wissen einspielen und Agenten, Standorte und Berechtigungen einrichten", "Schulung deines Teams"]],
       ["Vertrag auf Rechnung", "Statt Anmeldung mit Karte.", ["Zugesagtes KI-Guthaben oder Monatsplan", "Rechnung statt Kartenabbuchung", "KI immer mit Ausgabenlimit und Warnungen"]],
-      ["Was Enterprise dazu bringt", "Zusätzlich zu allem aus dem Self-Service.", ["SSO (und später SCIM)", "AVV und Datenhaltung in der EU", "Durchsuchbares Audit-Log", "Support über einen eigenen Kanal", "Dedizierte Cloud ab einer bestimmten Größe"]],
+      ["Was Enterprise dazu bringt", "Zusätzlich zu allem aus dem Self-Service.", ["SSO und SCIM, auf der Roadmap", "AVV und Datenhaltung in der EU", "Durchsuchbares Audit-Log", "Support über einen eigenen Kanal", "Dedizierte Cloud, auf der Roadmap"]],
     ],
     buyNote: "Die Beträge werden in jedem Angebot vereinbart. Um selbst zu starten, sieh dir die Self-Service-Preise an.",
     pricingLink: "Preise ansehen",
