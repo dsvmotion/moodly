@@ -28,13 +28,17 @@ name: sensitive-paths
 # invalidate-review la quita del PR; hay que volver a revisar y ponerla.
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # edited: un cambio de base vuelve a pasar la guarda.
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 permissions: {}
 
+# Sin cancelar: si un evento de etiqueta cancelase el run de un commit nuevo, el
+# paso que quita revisado-humano no llegaría a correr. Los runs de un PR van en
+# fila y cada uno lee las etiquetas y la base de la API, no del evento.
 concurrency:
   group: sensitive-paths-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   sensitive-paths:
@@ -72,6 +76,14 @@ jobs:
             --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
           gh api -H "Accept: application/vnd.github.v3.diff" "repos/$GH_REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/diff.patch"
           after="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)"
+          # La base y las etiquetas de ahora, no las del evento (que puede ser viejo).
+          base="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .base.ref)"
+          if gh api "repos/$GH_REPO/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qxF revisado-humano; then
+            echo "has_label=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_label=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           test -s "$RUNNER_TEMP/files.txt"
           [[ "$before" =~ ^[0-9a-f]{40}$ ]]
           echo "head=$after" >> "$GITHUB_OUTPUT"
@@ -87,9 +99,19 @@ jobs:
         id: gate
         env:
           EVENT_ACTION: ${{ github.event.action }}
-          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'revisado-humano') }}
+          HAS_LABEL: ${{ steps.pr.outputs.has_label }}
+          BASE: ${{ steps.pr.outputs.base }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           result=0
+          # Solo PRs contra main: con otra base, los archivos y el diff de la API
+          # serían contra esa rama, y el verde serviría después al cambiarla.
+          if [[ "$BASE" != "$DEFAULT_BRANCH" ]]; then
+            echo "BASE: el PR va contra $BASE, no contra $DEFAULT_BRANCH; la guarda solo da por buenos PRs contra $DEFAULT_BRANCH" > "$RUNNER_TEMP/guard.txt"
+            cat "$RUNNER_TEMP/guard.txt"
+            bash scripts/merge-guard/sensitive-gate.sh base "$EVENT_ACTION" "$HAS_LABEL" | tee -a "$GITHUB_OUTPUT" || true
+            exit 0
+          fi
           # Sin tubería: el shell de los pasos no lleva pipefail y el código de salida se perdería.
           bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" > "$RUNNER_TEMP/guard.txt" || result=$?
           cat "$RUNNER_TEMP/guard.txt"

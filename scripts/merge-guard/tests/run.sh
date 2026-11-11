@@ -255,6 +255,12 @@ wf_case "publica el check sensitive-paths en el head del PR (pull_request_target
 wf_case "el job no se llama sensitive-paths (su check quedaría en main)" bash -c '! grep -Eq "^    name: sensitive-paths$" "$1"' _ "$workflow"
 wf_case "el head sale de la API, antes y después de leer el PR" bash -c '[[ $(grep -c "pulls/\$PR_NUMBER\" --jq .head.sha" "$1") -eq 2 ]] && grep -Fq "if: steps.pr.outputs.same_head == '"'"'true'"'"'" "$1"' _ "$workflow"
 wf_case "solo escribe checks; el PR solo lo toca invalidate-review" bash -c '[[ $(grep -c "checks: write" "$1") -eq 1 && $(grep -c "pull-requests: write" "$1") -eq 1 ]]' _ "$workflow"
+wf_case "un cambio de base vuelve a pasar la guarda (edited)" grep -Eq 'types: \[.*edited\]' "$workflow"
+wf_case "los runs no se cancelan (un evento de etiqueta no salta el que quita revisado-humano)" grep -Eq '^  cancel-in-progress: false$' "$workflow"
+wf_case "las etiquetas salen de la API, no del evento" bash -c 'grep -Fq "issues/\$PR_NUMBER/labels" "$1" && ! grep -Fq "github.event.pull_request.labels" "$1"' _ "$workflow"
+wf_case "solo da por buenos PRs contra la rama por defecto" grep -Fq 'if [[ "$BASE" != "$DEFAULT_BRANCH" ]]; then' "$workflow"
+gate_base_status=0; bash "$root/scripts/merge-guard/sensitive-gate.sh" base labeled true > /dev/null || gate_base_status=$?
+wf_case "con otra base, el veredicto es fail aunque lleve la etiqueta" test "$gate_base_status" -eq 1
 wf_case "el resultado de la guarda no pasa por una tubería" bash -c '! grep -Eq "check-sensitive\.sh[^|]*\| *tee" "$1"' _ "$workflow"
 
 echo "== required-checks.txt"
