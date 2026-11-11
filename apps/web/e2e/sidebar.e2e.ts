@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { credentialsFor, openUserMenu, signIn } from "./helpers";
+import { credentialsFor, OTHER_THAN_COUNTED_BADGES, openUserMenu, signIn } from "./helpers";
 
 // Barra lateral del app shell (MANUAL §9.2), con las rutas canónicas del ADR 0023.
 const MAIN = ["Inicio", "Coach", "Aprobaciones", "Bandeja", "Tareas", "Actividad", "Informes"];
@@ -27,8 +27,9 @@ test.describe("barra lateral", () => {
     for (const name of ["Conversaciones", "Recomendaciones", "Locales", "Personas"]) {
       await expect(sidebar.getByRole("link", { name, exact: true })).toHaveCount(0);
     }
-    // Sin datos: ningún contador de pendientes.
-    await expect(sidebar.locator('[data-slot="badge"]')).toHaveCount(0);
+    // Contadores solo donde puede haber algo pendiente (M-02: Aprobaciones y
+    // Bandeja); en el resto de secciones, ninguno inventado.
+    await expect(sidebar.locator(OTHER_THAN_COUNTED_BADGES)).toHaveCount(0);
   });
 
   test("las secciones se pliegan y despliegan", async ({ page }) => {
