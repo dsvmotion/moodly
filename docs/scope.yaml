@@ -122,9 +122,9 @@ areas:
     # si ya está en el lote C, entra el siguiente sistema por orden de oleada.
     pilot_booking_system: {milestone: "M3", batch: "B", level_target: 3, bind_to: null, owner: "V1", status: "blocked", note: "Needs the pilot client (STATUS, Bloqueado). The founder is talking to candidate businesses (F07)"}
     units:
-      - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
-      - {id: "int-instagram", name: "Instagram", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
-      - {id: "int-messenger", name: "Messenger", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "M1", owner: "V1", status: "blocked", evidence: [], note: "Same product as ch-whatsapp, seen from the catalog; follows its milestone and status. Waiting for Meta Business verification (F05)"}
+      - {id: "int-instagram", name: "Instagram", category: "mensajeria", source: "design", milestone: "stretch", owner: "V1", status: "planned", evidence: [], note: "Same product as ch-instagram (through a partner); follows its milestone"}
+      - {id: "int-messenger", name: "Messenger", category: "mensajeria", source: "design", milestone: "stretch", owner: "V1", status: "planned", evidence: [], note: "Same product as ch-messenger (through a partner); follows its milestone"}
       - {id: "int-facebook", name: "Facebook", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
       - {id: "int-telegram", name: "Telegram", category: "mensajeria", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", evidence: []}
       - {id: "int-tiktok", name: "TikTok", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
@@ -215,7 +215,7 @@ areas:
       - {id: "int-n8n", name: "n8n", category: "automatizacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", evidence: []}
       - {id: "int-twilio", name: "Twilio", category: "automatizacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", evidence: []}
       - {id: "int-ifttt", name: "IFTTT", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
-      - {id: "int-discord", name: "Discord", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
+      - {id: "int-discord", name: "Discord", category: "automatizacion", source: "design", milestone: "stretch", owner: "V1", status: "planned", evidence: [], note: "Same product as ch-discord (team channel); follows its milestone"}
       - {id: "int-thefork", name: "TheFork", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
       - {id: "int-bookingdotcom", name: "Booking.com", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
       - {id: "int-lightspeed", name: "Lightspeed", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", evidence: []}
