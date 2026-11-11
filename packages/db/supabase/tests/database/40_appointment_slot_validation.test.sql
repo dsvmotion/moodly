@@ -5,7 +5,7 @@
 -- por esa comprobación. Un hueco ocupado sigue siendo 23P01.
 begin;
 \ir _fixtures/tenants.psql
-select plan(24);
+select plan(27);
 
 update public.locations set timezone = 'Europe/Madrid',
   opening_hours = '{"mon": ["09:00", "14:00"], "tue": ["09:00", "14:00"], "wed": ["09:00", "14:00"]}'
@@ -108,6 +108,26 @@ select lives_ok($$select pg_temp.book('slot:oferta-luis-1', '2030-06-04 10:00+00
 reset role;
 select lives_ok($$select pg_temp.book('slot:plataforma-1', '2020-06-01 01:00+00', 'agent', 'cab1')$$,
   'una conexión directa de plataforma (migraciones, seed) puede escribir una cita de agente a cualquier hora');
+
+-- ===========================================================================
+-- 7. Nadie de la app puede hacerse pasar por un agente para saltarse la comprobación
+-- ===========================================================================
+-- La app solo lee las citas: authenticated no puede escribirlas, ni reservar
+-- con booked_by = 'agent' ni cambiar el origen de una cita existente.
+select ok(not has_table_privilege('authenticated', 'public.appointments', 'insert')
+          and not has_table_privilege('authenticated', 'public.appointments', 'update')
+          and not has_table_privilege('authenticated', 'public.appointments', 'delete'),
+  'authenticated no tiene privilegios de escritura sobre appointments: la comprobación no depende de lo que declare booked_by');
+select pg_temp.login_mfa(:a_admin) as s \gset
+select throws_ok(
+  format($$insert into public.appointments (organization_id, location_id, service_id, resource_id, contact_id, starts_at, idempotency_key, booked_by)
+           values (%L, %L, %L, %L, %L, '2020-06-01 01:00+00', 'slot:app-agente', 'agent')$$, :org_a, :loc_a1, :'svc', :'cab1', :'ana'),
+  '42501', null, 'un org_admin con MFA no reserva a mano como «agent» (ni a las 3:00 ni en el pasado)');
+select throws_ok(
+  format($$insert into public.appointments (organization_id, location_id, service_id, resource_id, contact_id, starts_at, idempotency_key, booked_by)
+           values (%L, %L, %L, %L, %L, '2020-06-01 01:00+00', 'slot:app-user', 'user')$$, :org_a, :loc_a1, :'svc', :'cab1', :'ana'),
+  '42501', null, 'ni como «user»: la app no escribe citas (las escribe el worker)');
+reset role;
 
 select * from finish();
 rollback;
