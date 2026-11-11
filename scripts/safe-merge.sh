@@ -62,12 +62,14 @@ while IFS= read -r check || [[ -n "$check" ]]; do
 done < "$guard/required-checks.txt"
 
 # Los commit statuses (la guarda, que corre desde main y publica en el head del
-# PR). La API los devuelve del más reciente al más antiguo; manda el de id mayor.
+# PR). Solo cuentan los que publica GitHub Actions (github-actions[bot]): un
+# status lo puede publicar cualquiera con permiso de escritura, también una
+# sesión con la cuenta de producto. Manda el de id mayor.
 gh api "repos/$repo/commits/$sha/statuses?per_page=100" > "$workdir/statuses.json"
 while IFS= read -r context || [[ -n "$context" ]]; do
   [[ -z "$context" || "$context" == \#* ]] && continue
   result="$(jq -r --arg c "$context" '
-    [.[] | select(.context == $c)] | sort_by(.id) | last
+    [.[] | select(.context == $c and .creator.login == "github-actions[bot]")] | sort_by(.id) | last
     | if . == null then "AUSENTE" else .state end
   ' "$workdir/statuses.json")"
   [[ "$result" == "success" ]] || fail "status \"$context\": $result"

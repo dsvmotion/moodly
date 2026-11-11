@@ -68,7 +68,7 @@ setup() {
   done < "$root/scripts/merge-guard/required-checks.txt"
   printf '%s\n' "${runs[@]}" | jq -s '{check_runs: .}' > "$FAKE_DIR/check-runs.json"
   # La guarda publica commit statuses (más reciente primero, como la API).
-  jq -n '[{id: 1, context: "sensitive-paths", state: "success"}]' > "$FAKE_DIR/statuses.json"
+  jq -n '[{id: 1, context: "sensitive-paths", state: "success", creator: {login: "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
   printf '%s\n' "packages/ui/src/components/sidebar.tsx" "apps/web/src/app/app/inbox/page.tsx" > "$FAKE_DIR/files.txt"
   printf '%s\n' "diff --git a/packages/ui/src/components/sidebar.tsx b/packages/ui/src/components/sidebar.tsx" "+export const x = 1;" > "$FAKE_DIR/diff.patch"
 }
@@ -131,14 +131,20 @@ expect_refused "job saltado (skipped)"
 setup missing-sensitive; echo '[]' > "$FAKE_DIR/statuses.json"
 expect_refused "status sensitive-paths ausente"
 
-setup red-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "failure"}]' > "$FAKE_DIR/statuses.json"
+setup red-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
 expect_refused "status sensitive-paths en rojo"
 
-setup pending-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "pending"}]' > "$FAKE_DIR/statuses.json"
+setup pending-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "pending", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
 expect_refused "status sensitive-paths pendiente"
 
-setup latest-sensitive; echo '[{"id": 7, "context": "sensitive-paths", "state": "failure"}, {"id": 3, "context": "sensitive-paths", "state": "success"}]' > "$FAKE_DIR/statuses.json"
+setup latest-sensitive; echo '[{"id": 7, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}, {"id": 3, "context": "sensitive-paths", "state": "success", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
 expect_refused "status sensitive-paths: manda el más reciente (en rojo)"
+
+setup user-sensitive; echo '[{"id": 9, "context": "sensitive-paths", "state": "success", "creator": {"login": "dsvmotion"}}, {"id": 4, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "un status en verde publicado por una persona o una sesión no tapa el de la guarda"
+
+setup only-user-sensitive; echo '[{"id": 9, "context": "sensitive-paths", "state": "success", "creator": {"login": "dsvmotion"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "un status en verde que no publica GitHub Actions no cuenta"
 
 setup fake-sensitive-check; echo '[]' > "$FAKE_DIR/statuses.json"
 jq --argjson r "$(run_json "sensitive-paths" completed success "$sha" 50)" '.check_runs += [$r]' "$FAKE_DIR/check-runs.json" > "$FAKE_DIR/r" && mv "$FAKE_DIR/r" "$FAKE_DIR/check-runs.json"
@@ -216,7 +222,7 @@ echo "== lista activa (lista corta de M0, P-01)"
     .github/workflows/ci.yml .github/workflows/sensitive-paths.yml scripts/merge-guard/check-sensitive.sh \
     scripts/merge-guard/sensitive-paths.txt scripts/safe-merge.sh .claude/settings.json .claude/skills/x/SKILL.md \
     AGENTS.md CLAUDE.md apps/web/CLAUDE.md packages/db/AGENTS.md apps/web/.claude/settings.json .mcp.json \
-    package.json apps/web/package.json pnpm-lock.yaml packages/db/src/service.ts scripts/supabase/config-drift.sh; do
+    package.json apps/web/package.json pnpm-lock.yaml packages/db/src/service.ts scripts/supabase/config-drift.sh pnpm-workspace.yaml .npmrc apps/web/.npmrc; do
     echo "$path" > "$tmp/paths.txt"
     status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
     if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
@@ -237,7 +243,7 @@ echo "== lista activa (lista corta de M0, P-01)"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
   if [[ $status -eq 1 ]]; then echo "✓ con la lista activa, un test.skip sigue bloqueando → 1"
   else echo "✗ con la lista activa, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
-) && passed=$((passed + 33)) || failed=$((failed + 1))
+) && passed=$((passed + 36)) || failed=$((failed + 1))
 
 echo "== entradas que no se pueden releer (\`<(…)\`, como en el procedimiento de mergeo)"
 # La guarda lee la lista de rutas una vez por patrón. Con una tubería, solo el
