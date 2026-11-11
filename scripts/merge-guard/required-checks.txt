@@ -4,3 +4,4 @@ typecheck · lint · test · build
 db · migraciones · pgTAP
 e2e · Playwright por rol
 seguridad · dependencias y secretos
+evals · modelo falso
