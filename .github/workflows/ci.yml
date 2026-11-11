@@ -11,9 +11,16 @@ permissions:
 # Las Actions van fijadas al commit exacto (una etiqueta como @v7 puede moverse a
 # otro código). Dependabot (.github/dependabot.yml) propone las actualizaciones.
 
+# P-04: el CI de `main` nunca se cancela y cada commit de `main` tiene su propia
+# corrida completa. Dos detalles: (1) `cancel-in-progress` solo en pull_request;
+# (2) aunque no se cancele, un grupo de concurrencia deja UNA corrida en curso y
+# UNA pendiente, y una pendiente nueva descarta a la anterior, así que dos
+# pushes seguidos a `main` perderían la corrida del primero. Por eso, en `main`
+# el grupo es el sha del commit (un grupo por commit); en PR, la rama, y cada
+# push nuevo al PR cancela el anterior.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -169,3 +176,39 @@ jobs:
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # P-04: avisa cuando `main` queda en rojo. Un solo issue «main en rojo»: se abre
+  # o se actualiza con el enlace de la corrida que falló y se cierra cuando una
+  # corrida de `main` termina en verde. Solo este job puede escribir issues.
+  alerta-main:
+    name: alerta · main en rojo
+    needs: [check, db, e2e, security]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RESULTS: ${{ join(needs.*.result, ' ') }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Abrir, actualizar o cerrar el issue «main en rojo»
+        run: |
+          title="main en rojo"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
+          red=false
+          for r in $RESULTS; do [ "$r" = "success" ] || red=true; done
+          if [ "$red" = true ]; then
+            body="El CI de \`main\` no terminó en verde en el commit \`$SHA\`: $RUN_URL (resultados: $RESULTS)."
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body "$body"
+            else
+              gh issue create --title "$title" --body "$body"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "El CI de \`main\` volvió a verde en \`$SHA\`: $RUN_URL"
+          fi

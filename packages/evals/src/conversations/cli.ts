@@ -24,6 +24,10 @@ import { conversationCases } from "./cases.js";
 import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, infrastructureError, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase } from "./runner.js";
 
+/** Tope duro de una corrida (P-05): ningún argumento puede pasar de aquí, ni siquiera el del workflow. */
+const HARD_MAX_EUR = 2;
+const HARD_MAX_REPEAT = 5;
+
 interface Options {
   cases: string[];
   agent: string | null;
@@ -57,6 +61,8 @@ function parse(argv: readonly string[]): Options {
   }
   if (!Number.isInteger(options.repeat) || options.repeat < 1) throw new Error("--repeat tiene que ser un entero ≥ 1");
   if (!(options.maxEur > 0)) throw new Error("--max-eur tiene que ser > 0");
+  if (options.maxEur > HARD_MAX_EUR) throw new Error(`--max-eur no puede pasar de ${HARD_MAX_EUR} € (tope duro)`);
+  if (options.repeat > HARD_MAX_REPEAT) throw new Error(`--repeat no puede pasar de ${HARD_MAX_REPEAT}`);
   return options;
 }
 
