@@ -27,6 +27,21 @@
 -- canal privado: supabase.channel('inbox:<org>:<location>', { config: { private: true } })
 -- .on('broadcast', { event: 'message' | 'conversation' }, …).
 --
+-- Límites (comprobados contra el Realtime local; ver el PR):
+-- - Solo canales privados. Un canal público con el mismo nombre de tema se
+--   une, pero no recibe estos avisos (van con private = true). En cambio, en
+--   un canal público cualquiera puede emitir y lo reciben los demás suscriptores
+--   públicos de ese nombre: la web nunca se suscribe en público, y el aviso no
+--   lleva nada de lo que el cliente se fíe (solo dispara una relectura).
+--   Desactivar el acceso público de Realtime en el proyecto («Allow public
+--   access») lo cierra del todo; es un ajuste del proyecto, no de la migración.
+-- - Realtime comprueba la política al unirse y la mantiene mientras dura el
+--   canal: quien pierde el local o cierra la sesión sigue recibiendo
+--   identificadores hasta que caduca su JWT. Son solo identificadores; lo que
+--   relee pasa por RLS en ese momento.
+-- - realtime.send no corta la transacción si falla: el aviso puede perderse,
+--   así que la web vuelve a leer también al recuperar la conexión.
+--
 -- Security definer: private.broadcast_inbox_change() lee la conversación de un
 -- mensaje (para saber su local) y escribe una fila en realtime.messages por
 -- cambio (con realtime.send); no escribe en tablas de tenants y solo lleva
