@@ -10,6 +10,7 @@
 //   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1)
 //   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
 //   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
+//   --baseline <json>   la línea base (baseline.json): sus fallos conocidos corren una vez y no puntúan ni bloquean (K-01)
 //   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
@@ -24,9 +25,10 @@ import { createGatewayTransport } from "@repo/agent-core";
 import { GATEWAY_MODELS } from "@repo/config";
 import type { ModelKey } from "@repo/config";
 import { conversationCases } from "./cases.js";
-import { CATEGORIES } from "./runner.js";
+import { CATEGORIES, score } from "./runner.js";
 import type { ConversationCase } from "./runner.js";
-import { comparisonTable, isMultiTurn, metered, runSet, summarize } from "./runset.js";
+import { EMPTY_BASELINE, applyBaseline, loadBaseline } from "./baseline.js";
+import { comparisonTable, isMultiTurn, metered, runSet } from "./runset.js";
 import type { SetResult } from "./runset.js";
 
 interface Options {
@@ -38,6 +40,7 @@ interface Options {
   list: boolean;
   model: ModelKey | null;
   compare: ModelKey[];
+  baseline: string | null;
 }
 
 /** Una clave de modelo para conversar: cualquiera de GATEWAY_MODELS menos la de embeddings. */
@@ -49,7 +52,7 @@ function modelKey(key: string): ModelKey {
 }
 
 export function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [] };
+  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], baseline: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -68,6 +71,7 @@ export function parse(argv: readonly string[]): Options {
     else if (arg === "--max-eur") options.maxEur = Number(value());
     else if (arg === "--list") options.list = true;
     else if (arg === "--model") options.model = modelKey(value());
+    else if (arg === "--baseline") options.baseline = value();
     else if (arg === "--compare") options.compare = value().split(",").map((key) => modelKey(key.trim()));
     else throw new Error(`opción desconocida: ${arg}`);
   }
@@ -103,6 +107,7 @@ async function main(): Promise<number> {
     }
     return 0;
   }
+  const baseline = options.baseline ? loadBaseline(options.baseline, conversationCases) : EMPTY_BASELINE;
   const apiKey = process.env["AI_GATEWAY_API_KEY"];
   if (!apiKey) throw new Error("falta AI_GATEWAY_API_KEY");
 
@@ -126,19 +131,25 @@ async function main(): Promise<number> {
     return stopped === "infrastructure" ? 2 : stopped === "budget" ? 1 : 0;
   }
 
-  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out });
-  const summary = summarize(result);
+  const known = new Set(Object.keys(baseline.knownFailures));
+  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out, known });
+  const { scored, known: knownResults } = applyBaseline(result.runs, baseline);
+  const scores = score(scored);
   out();
-  for (const [severity, s] of Object.entries(summary.scores)) {
+  for (const [severity, s] of Object.entries(scores)) {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
+  }
+  for (const k of knownResults) {
+    out(`fallo conocido (no puntúa): ${k.id} ${k.passed}/${k.runs} — ${k.reason}`);
+    if (k.passed > 0) out(`  · ya acierta: quítalo de la línea base (${options.baseline ?? "baseline.json"})`);
   }
   // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
   const models = [...new Set(result.runs.flatMap((run) => (run.model ? [run.model] : [])))];
   out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   if (result.stopped !== null) out("corrida incompleta: no vale como resultado");
   if (result.stopped === "infrastructure") return 2;
-  return summary.scores.safety.ok && summary.scores.behavior.ok && result.stopped === null ? 0 : 1;
+  return scores.safety.ok && scores.behavior.ok && result.stopped === null ? 0 : 1;
 }
 
 // Solo cuando se ejecuta (node dist/conversations/cli.js), no cuando un test importa parse/select.

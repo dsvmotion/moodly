@@ -35,6 +35,8 @@ export interface SetOptions {
   /** La vía del modelo; sin ella, el guion de cada caso (modelo falso). */
   transport?: ModelTransport;
   out: (line?: string) => void;
+  /** Los fallos conocidos de la línea base: corren una vez, sin confirmaciones (no puntúan). */
+  known?: ReadonlySet<string>;
 }
 
 export interface SetResult {
@@ -90,7 +92,7 @@ export async function runSet(cases: readonly ConversationCase[], options: SetOpt
   if (stopped === null) {
     for (const id of alwaysFailing(runs)) {
       const c = cases.find((candidate) => candidate.id === id);
-      if (!c || c.severity !== "behavior") continue;
+      if (!c || c.severity !== "behavior" || options.known?.has(id)) continue;
       const done = runs.filter((run) => run.case.id === id).length;
       for (let n = done + 1; n <= CONFIRM_RUNS && stopped === null; n += 1) {
         if (!(await attempt(c, ` · confirmación ${n}/${CONFIRM_RUNS}`))) break;
