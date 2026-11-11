@@ -62,7 +62,7 @@ export default async function Producto({ params }) {
           <h2 style={{ ...h2, flex: "1 1 420px" }}>{c.ctaA} <span style={{ opacity: 0.55 }}>{c.ctaB}</span></h2>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <LangLink href="/#demo" style={pillBtn(false)}>{c.demo}</LangLink>
-            <a href="/plataforma" style={{ ...pillBtn(false), background: "transparent", color: "#ffffff", border: "1px solid #ffffff4d" }}>{c.tryDemo}</a>
+            <a href="/plataforma" rel="nofollow" style={{ ...pillBtn(false), background: "transparent", color: "#ffffff", border: "1px solid #ffffff4d" }}>{c.tryDemo}</a>
           </div>
         </div>
       </section>
