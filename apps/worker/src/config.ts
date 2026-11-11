@@ -1,3 +1,4 @@
+import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -23,6 +24,12 @@ export interface WorkerConfig {
    * respuesta (MANUAL §15.1). Nunca va a los logs.
    */
   aiGatewayApiKey: string | null;
+  /**
+   * Enrutado por intención (PL-T3): las intenciones simples conversan con el
+   * modelo barato. INTENT_ROUTING=on|off; por defecto, el de @repo/config
+   * (apagado hasta que lo midan las evals con el modelo real).
+   */
+  intentRouting: boolean;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -79,6 +86,7 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
+  INTENT_ROUTING: z.enum(["on", "off"], { error: "INTENT_ROUTING: on u off" }).optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -100,5 +108,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    intentRouting: parsed.data.INTENT_ROUTING === undefined ? INTENT_ROUTING_DEFAULT_ENABLED : parsed.data.INTENT_ROUTING === "on",
   };
 }

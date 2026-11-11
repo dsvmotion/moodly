@@ -78,6 +78,8 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
+  intentRouting?: boolean;
 }
 
 /** El id del run de un evento: siempre el mismo para la misma entrega (UUID de 128 bits del SHA-256). */
@@ -486,7 +488,7 @@ export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): T
   };
 }
 
-export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
+export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -546,6 +548,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur },
+        intentRouting,
         step: (name, fn) => ctx.step(name, fn),
         record: async (execution) => {
           if (execution.status === "rejected") {
@@ -574,7 +577,16 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       const finished = withSummaryUsage(result, summarized);
       await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, finished));
       ctx.logger.info(
-        { runId, status: finished.status, reason: finished.reason, error: finished.error, executions: finished.executions.length, costEur: finished.usage.costEur, summary: summarized.kind },
+        {
+          runId,
+          status: finished.status,
+          reason: finished.reason,
+          error: finished.error,
+          executions: finished.executions.length,
+          costEur: finished.usage.costEur,
+          summary: summarized.kind,
+          intent: finished.intent?.intent,
+        },
         "turno del agente terminado",
       );
     },

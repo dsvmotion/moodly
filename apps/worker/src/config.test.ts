@@ -22,7 +22,14 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
+      intentRouting: false,
     });
+  });
+
+  it("el enrutado por intención (PL-T3) está apagado salvo INTENT_ROUTING=on", () => {
+    expect(loadConfig({ ...valid, INTENT_ROUTING: "on" }).intentRouting).toBe(true);
+    expect(loadConfig({ ...valid, INTENT_ROUTING: "off" }).intentRouting).toBe(false);
+    expect(() => loadConfig({ ...valid, INTENT_ROUTING: "yes" })).toThrow(/INTENT_ROUTING: on u off/);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

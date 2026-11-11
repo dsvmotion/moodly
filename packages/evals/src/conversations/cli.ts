@@ -8,6 +8,7 @@
 //   --repeat <n>      cada caso n veces (por defecto, 1)
 //   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
 //   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de cada agente (MANUAL §5.11)
+//   --intent-routing  con el enrutado por intención (PL-T3): las intenciones simples conversan con el camino barato
 //   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
@@ -35,10 +36,11 @@ interface Options {
   maxEur: number;
   list: boolean;
   model: ModelKey | null;
+  intentRouting: boolean;
 }
 
 function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, repeat: 1, maxEur: 1, list: false, model: null };
+  const options: Options = { cases: [], agent: null, repeat: 1, maxEur: 1, list: false, model: null, intentRouting: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -52,6 +54,7 @@ function parse(argv: readonly string[]): Options {
     else if (arg === "--repeat") options.repeat = Number(value());
     else if (arg === "--max-eur") options.maxEur = Number(value());
     else if (arg === "--list") options.list = true;
+    else if (arg === "--intent-routing") options.intentRouting = true;
     else if (arg === "--model") {
       const key = value();
       if (!Object.keys(GATEWAY_MODELS).includes(key) || key === "embedding") throw new Error(`modelo no válido: ${key} (${Object.keys(GATEWAY_MODELS).join(", ")})`);
@@ -117,7 +120,10 @@ async function main(): Promise<number> {
    * no cuenta): por el tope de gasto o porque falló la vía del modelo.
    */
   async function attempt(c: ConversationCase, label: string): Promise<boolean> {
-    const run = await runCase(c, transport, options.model ? { converseModel: options.model } : {});
+    const run = await runCase(c, transport, {
+      ...(options.model ? { converseModel: options.model } : {}),
+      ...(options.intentRouting ? { intentRouting: true } : {}),
+    });
     const failure = infrastructureError(run);
     if (failure?.includes("RunBudgetError")) {
       out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
@@ -132,7 +138,8 @@ async function main(): Promise<number> {
     }
     runs.push(run);
     const ok = run.failures.length === 0;
-    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €`);
+    const intent = run.outcome.result.intent ? ` · intención ${run.outcome.result.intent.intent} (${run.outcome.result.intent.by}) · ${run.model ?? "—"}` : "";
+    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €${intent}`);
     out(`    herramientas: ${run.outcome.calls.map((e) => `${e.skillKey}(${e.status})`).join(", ") || "ninguna"}`);
     out(`    respuesta: ${run.outcome.reply === null ? "—" : `«${run.outcome.reply.replace(/\s+/g, " ")}»`}`);
     for (const failure of run.failures) out(`    ✗ ${failure.check}: ${failure.why}`);

@@ -1,4 +1,5 @@
-import { PLATFORM_RULES } from "@repo/agent-core";
+import { INTENT_INSTRUCTIONS, PLATFORM_RULES } from "@repo/agent-core";
+import type { ModelTransport } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
 import { detectLanguage, doesNotClaimDone, mentionsAnyTime, parsePrice } from "./checks.js";
@@ -6,7 +7,7 @@ import { MESA_4, SECTOR_BUSINESSES } from "./businesses.js";
 import { sectorCases } from "./sectors.js";
 import { CATEGORIES, alwaysFailing, infrastructureError, runCase, score, scriptedTransport } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
-import { ANA, CABINA_1, FACIAL, LASER, LUIS } from "./world.js";
+import { ANA, CABINA_1, FACIAL, LASER, LUIS, createWorld } from "./world.js";
 
 // Las conversaciones de prueba con el modelo falso (MANUAL §12.4): el guion de
 // cada caso hace de un modelo que se porta bien y el turno es el de verdad. Si
@@ -50,6 +51,26 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect([scores.safety.rate, scores.behavior.rate]).toEqual([1, 1]);
     expect(scores.safety.runs).toBeGreaterThan(0);
     expect(scores.behavior.runs).toBeGreaterThan(0);
+  });
+
+  it("con el enrutado por intención (PL-T3, --intent-routing): el clasificador va antes, y un hueco conversa con el camino barato y sigue pasando", async () => {
+    const c = byId("recepcion-huecos-hoy");
+    const script = scriptedTransport(c.script(createWorld(c.agent, c.knowledge, c.business)));
+    const seen: string[] = [];
+    // El clasificador contesta «slots»; el resto, el guion del caso.
+    const transport: ModelTransport = {
+      ...script,
+      generate: (request) => {
+        seen.push(request.modelKey);
+        if (request.messages[0]?.content === INTENT_INSTRUCTIONS) return Promise.resolve({ text: "slots", model: "fake/fast", tokensIn: 0, tokensOut: 0, costEur: 0 });
+        return script.generate(request);
+      },
+    };
+    const run = await runCase(c, transport, { intentRouting: true });
+    expect(run.failures).toEqual([]);
+    expect(run.outcome.result.intent).toEqual({ intent: "slots", by: "model" });
+    // Recepción conversa con smart; con el enrutado, este turno va entero por fast.
+    expect(new Set(seen)).toEqual(new Set(["fast"]));
   });
 
   it("el turno es el de verdad: prompt compuesto con las reglas de plataforma y las skills con su autonomía de serie", async () => {
