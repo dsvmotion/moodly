@@ -29,6 +29,12 @@ describe("elegir los casos", () => {
     expect(() => parse(["--compare", "fast,smart", "--model", "fast"])).toThrow(/no van juntos/);
     expect(() => parse(["--turns", "dos"])).toThrow(/single o multi/);
   });
+
+  it("el tope duro de la corrida (P-05) vale también para comparar: nunca más de 2 € ni de 5 corridas", () => {
+    expect(parse(["--compare", "fast,smart", "--max-eur", "2", "--repeat", "5"])).toMatchObject({ maxEur: 2, repeat: 5 });
+    expect(() => parse(["--compare", "fast,smart", "--max-eur", "2.01"])).toThrow(/tope duro/);
+    expect(() => parse(["--repeat", "6"])).toThrow(/no puede pasar de 5/);
+  });
 });
 
 describe("comparar modelos con los mismos casos", () => {

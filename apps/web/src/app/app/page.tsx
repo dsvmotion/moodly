@@ -1,20 +1,23 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@repo/ui/components/empty-state";
-import { CheckIcon, HomeIcon, ShieldIcon, UsersIcon } from "@repo/ui/lib/icons";
+import { CheckIcon, HomeIcon, InboxIcon, ShieldIcon, StampIcon, UsersIcon } from "@repo/ui/lib/icons";
 import { cn } from "@repo/ui/lib/utils";
 import { hasVerifiedFactor, requireUser } from "@/lib/auth/session";
 import { getOrgAgents } from "@/lib/agents-data";
 import { settingsSection } from "@/lib/navigation";
 import { getProfileName } from "@/lib/profile-data";
-import { locationsInScope, withScope } from "@/lib/scope";
+import { needsYouItems } from "@/lib/needs-you";
+import { loadNeedsYouCounts } from "@/lib/needs-you-data";
+import { locationFilter, locationsInScope, withScope } from "@/lib/scope";
 import { resolveScope } from "@/lib/scope-data";
 import { createClient } from "@/lib/supabase/server";
 import { displayName } from "@/lib/user-display";
 
 // Inicio (P1, MANUAL §9.4; auditoría del frontend, F-2): el destino tras el
 // login. Solo con lo que existe de verdad: quién eres y dónde, lo que tienes
-// pendiente (segundo factor, invitaciones), tus agentes y tu alcance. La bandeja
+// pendiente (segundo factor, aprobaciones, conversaciones que lleva el equipo
+// e invitaciones), tus agentes y tu alcance. La bandeja
 // del día llega con los agentes; hasta entonces lo dice.
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
   const user = await requireUser();
@@ -31,7 +34,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const mfa = hasVerifiedFactor(user);
   const isAdmin = context.role === "org_admin";
   const locations = locationsInScope(scope, context.locations);
-  const agents = await getOrgAgents(context.organization?.id ?? null);
+  const [agents, needsYouCounts] = await Promise.all([
+    getOrgAgents(context.organization?.id ?? null),
+    // Lo que espera a la persona en el alcance elegido (M-02).
+    loadNeedsYouCounts(context.organization?.id ?? null, locationFilter(scope, context.locations)),
+  ]);
+  const needsYou = needsYouItems(needsYouCounts, scopeParam);
 
   // Invitaciones pendientes: RLS solo se las enseña a un org_admin.
   let pendingInvitations = 0;
@@ -86,6 +94,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </Link>
             )}
           </li>
+          {needsYou.map((item) => (
+            <li key={item.key} className="flex items-center gap-3 px-4 py-3" data-testid={`home-task-${item.key}`}>
+              <span
+                aria-hidden="true"
+                className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-4"
+              >
+                {item.key === "approvals" ? <StampIcon /> : <InboxIcon />}
+              </span>
+              <span className="min-w-0 flex-1 text-sm font-medium">{t(`needsYou.${item.key}`, { count: item.count })}</span>
+              <Link href={item.href} className="text-sm underline underline-offset-4">
+                {t("needsYouAction")}
+              </Link>
+            </li>
+          ))}
           {pendingInvitations > 0 ? (
             <li className="flex items-center gap-3 px-4 py-3" data-testid="home-task-invitations">
               <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-4">
