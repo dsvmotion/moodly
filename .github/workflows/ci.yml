@@ -107,7 +107,7 @@ jobs:
       - run: pnpm --filter @repo/web env:local
 
       # Navegadores de Playwright en caché por versión: la descarga llegó a tardar
-      # varios minutos. Las dependencias del sistema se instalan siempre.
+      # varios minutos. Las dependencias del sistema se intentan instalar siempre.
       - name: Versión de Playwright
         id: playwright
         run: echo "version=$(pnpm --filter @repo/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
@@ -116,10 +116,25 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # Las dependencias del sistema salen de los mirrors de Ubuntu del runner, que
+      # a veces no resuelven durante horas (2026-11-11: «Temporary failure
+      # resolving azure.archive.ubuntu.com», #175; tres runs seguidos, el último
+      # cancelado por tiempo). La imagen del runner ya trae casi todo lo que
+      # necesita Chromium: si apt falla, se avisa y se sigue. Esto no oculta nada:
+      # si de verdad falta una librería, Chromium no arranca y el e2e falla.
+      # El navegador sale del CDN de Playwright, no de apt.
+      # Dos minutos como mucho (2026-11-11: con los mirrors caídos, los 10 minutos de
+      # antes llevaban el job a su límite de 30 y GitHub lo cancelaba; con las
+      # librerías de la imagen, Chromium arrancó y pasaron los 202 e2e de #175).
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @repo/web exec playwright install --with-deps chromium
+        run: |
+          pnpm --filter @repo/web exec playwright install chromium
+          timeout 120 pnpm --filter @repo/web exec playwright install-deps chromium \
+            || echo "::warning::playwright install-deps falló (mirrors de Ubuntu); se sigue con las librerías de la imagen del runner"
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @repo/web exec playwright install-deps chromium
+        run: |
+          timeout 120 pnpm --filter @repo/web exec playwright install-deps chromium \
+            || echo "::warning::playwright install-deps falló (mirrors de Ubuntu); se sigue con las librerías de la imagen del runner"
       - run: pnpm turbo run build --filter=@repo/web...
       - run: pnpm --filter @repo/web e2e
 
