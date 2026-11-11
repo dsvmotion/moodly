@@ -30,7 +30,7 @@ Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUA
 - [ ] Flujo afectado ejecutado de extremo a extremo, con evidencia en el PR.
 - [ ] Migraciones reversibles o con plan de vuelta atrás.
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
-- [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y su fila de `docs/scope.yaml` está al día (`docs/WORKSTREAMS.md`, regla 1).
+- [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y el cuerpo dice el estado y la evidencia para su fila de `docs/scope.yaml`, que pone al día V1 después del merge: los PRs no tocan ese archivo (`docs/WORKSTREAMS.md`, regla 1).
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
 TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, aceptado; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
