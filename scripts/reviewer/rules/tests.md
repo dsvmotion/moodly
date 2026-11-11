@@ -1,0 +1,3 @@
+- Un test existente no pierde aserciones, casos ni rigor. Quitar o relajar una aserción, borrar un caso o bajar un umbral de evals es un hallazgo `high`, salvo que el PR explique por qué y el comportamiento probado cambie de verdad.
+- Nada de `.skip`, `.only`, `.todo` ni `.fixme` añadidos, ni pgTAP sin plan (con `no_plan`).
+- Un test nuevo comprueba lo que dice su nombre, incluido el caso en negativo cuando es de permisos o de aislamiento.
