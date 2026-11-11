@@ -78,6 +78,12 @@ function errorNames(error: unknown): string {
 
 export interface TurnParams {
   scope: RunScope;
+  /**
+   * La clave del tipo del agente que contesta (agent_types), de su fila en la
+   * base de datos, nunca del LLM: elige con qué modelo conversa (MANUAL §5.11).
+   * Sin ella, o con un tipo sin clave propia, el de la tarea.
+   */
+  agentType?: string;
   /** Reglas de plataforma, instrucciones del agente y configuración, ya compuestas (§5.3). */
   systemPrompt: string;
   history: readonly HistoryMessage[];
@@ -229,6 +235,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             organizationId: scope.organizationId,
             runId: scope.runId,
             task: "converse",
+            ...(params.agentType ? { agentType: params.agentType } : {}),
             messages,
             tools,
             maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
