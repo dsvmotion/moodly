@@ -1,15 +1,12 @@
+import { BRAND_NAME } from "@repo/config";
 import { describe, expect, it } from "vitest";
 import { renderApprovalEmail, type ApprovalEmailInput } from "./approval.js";
 
 // El email de «una aprobación te espera» (auditoría de preproducción, M-02;
 // decisión de producto 10). Función pura: el worker la llama y lo envía.
 
-// La marca llega como dato (el worker pasa BRAND_NAME): aquí, un valor de prueba.
-const BRAND = "Marca de prueba";
-
 const base: ApprovalEmailInput = {
   locale: "es",
-  brandName: BRAND,
   agentName: "Recepción",
   summary: "Responder: «Tenemos hueco el lunes a las 9:00»",
   locationName: "A1 Norte",
@@ -32,7 +29,7 @@ describe("renderApprovalEmail", () => {
     expect(text).toContain("Local: A1 Norte");
     expect(text).toContain("10/11/26, 10:30 CET");
     expect(text).toContain("https://staging.moodlycrm.com/app/approvals?scope=location%3Aa1");
-    expect(text).toContain(BRAND);
+    expect(text).toContain(BRAND_NAME);
   });
 
   it("la hora sale en la zona del local, no en la del servidor", () => {
