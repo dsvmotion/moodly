@@ -1,0 +1,8 @@
+- Toda tabla de tenants lleva `organization_id`, RLS activada y políticas propias; nunca se desactiva RLS.
+- Toda política RLS nueva empieza por `(select private.session_is_active()) AND …`, envuelta en `(select …)`.
+- Toda política de escritura (INSERT/UPDATE/DELETE) que admite a un `org_admin` o al equipo interno exige además `(select private.session_is_aal2())`.
+- Las reglas que RLS no puede expresar por columna viven en triggers `guard_*`, que solo actúan cuando `current_user = 'authenticated'`. Son listas blancas: una columna nueva queda protegida hasta que se decida quién puede cambiarla.
+- Una función `SECURITY DEFINER` se ejecuta como su dueño: dentro no actúan ni RLS ni las guardas. No puede escribir en tablas de tenants sin explicarlo en el PR y sin tests pgTAP en negativo. Lleva `set search_path`.
+- Las migraciones son reversibles o tienen plan de vuelta atrás (`packages/db/supabase/rollbacks/`).
+- Los cambios de datos de tenants llevan tests pgTAP de aislamiento entre organizaciones.
+- `organization_id` es inmutable y nunca falta un `org_admin` en una organización.

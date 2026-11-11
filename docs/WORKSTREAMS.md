@@ -10,11 +10,11 @@
 1. **La cola de cada sesión vive aquí, en `main`** («Cola por sesión»): puntos ordenados, con su id y su estado (abierto o en espera). Es lo único que una sesión necesita leer para saber qué le toca.
 2. **Producto escribe solo a V1.** V1 avisa a las demás con `send_message` cuando `main` cambia su cola.
 3. **La orden es lo que dice `main`, no el aviso.** Un mensaje de otra sesión solo dice «relee tu cola». Una decisión de producto entra por un mensaje de producto a V1 o por un PR a estos documentos, y V1 la escribe en `main` antes de que nadie trabaje sobre ella.
-4. **Cada PR marca su punto de la cola** en el mismo cambio en que pone al día su fila de `docs/scope.yaml` (regla 1).
+4. **Cada PR lleva su id en el título; la fila de `docs/scope.yaml` la pone al día V1 después del merge** (regla 1).
 5. **Si tu cola no tiene nada abierto, esperas.** Las preguntas de producto las recoge V1 y se las lleva a producto juntas, en su informe.
 
 **Quién abre PRs (decisión #8, levantada por producto el 2026-11-11):**
-- **Todas las líneas abren sus PRs** en cuanto están listos (no en borrador), con `[Mx][ID]` en el título y su fila de `docs/scope.yaml` al día. V1 los mergea por orden con el procedimiento de `CLAUDE.md`, y verifica `main` después de cada merge (CI, despliegue a staging y la verificación completa en local, en segundo plano): si `main` se rompe, se para la cola y se arregla o se revierte.
+- **Todas las líneas abren sus PRs** en cuanto están listos (no en borrador), con `[Mx][ID]` en el título (sin tocar `docs/scope.yaml`; regla 1). V1 los mergea por orden con el procedimiento de `CLAUDE.md`, y verifica `main` después de cada merge (CI, despliegue a staging y la verificación completa en local, en segundo plano): si `main` se rompe, se para la cola y se arregla o se revierte.
 - **Sin etiqueta `revisado-humano` ni sesión Revisora** mientras no haya datos reales (#181): la guarda solo bloquea los tests debilitados o borrados.
 - **Mínima intervención humana (producto, 2026-11-11):** las líneas no preguntan a producto. Las dudas van a V1, que decide con el plan y solo lleva a producto lo imprescindible para seguir.
 - **Modelos:** cada agente del producto usa el modelo más barato que pasa sus evals (#182). Para trabajar, V1 elige el modelo de cada sesión o subagente según la complejidad de la tarea.
@@ -138,7 +138,7 @@ Además, sin turno todavía:
 
 ## Reglas
 
-1. **Cada PR lleva en el título el id de su unidad o hallazgo** y pone al día su fila en `docs/scope.yaml`:
+1. **Cada PR lleva en el título el id de su unidad o hallazgo; los PRs no tocan `docs/scope.yaml`** (V1, 2026-11-11: casi todos los PRs editaban el mismo archivo y cada merge dejaba a los demás en conflicto, con otra vuelta de CI de 30 minutos). V1 pone al día las filas de lo mergeado en un PR solo de documentación, en tandas. En el cuerpo del PR va lo que V1 necesita para la fila: el id, el estado propuesto y la evidencia. Las reglas del registro:
    - **el formato:** el hito y después la unidad o el hallazgo, entre corchetes, por ejemplo `[M0][P-01] La guarda corre desde la rama base` o `[M3][RC7] Señal o política de no presentarse al reservar`;
    - **la fila de una unidad:** `status` y `evidence` (PR, test o corrida de evals). Una unidad pasa a `done` solo si cumple el `done_when` de su área y con evidencia;
    - **un hallazgo:** su fila en la sección `findings` del registro (id, estado y evidencia); si no la tiene, la añade;

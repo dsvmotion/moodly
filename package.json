@@ -18,7 +18,8 @@
     "db:lint": "pnpm --filter @repo/db db:lint",
     "test:db": "pnpm --filter @repo/db test:db",
     "db:seed": "pnpm --filter @repo/db db:seed",
-    "db:types": "pnpm --filter @repo/db db:types"
+    "db:types": "pnpm --filter @repo/db db:types",
+    "docs:status": "node packages/config/src/docs-status/cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
