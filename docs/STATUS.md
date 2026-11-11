@@ -56,7 +56,7 @@
   - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
-- **ADR 0049 a 0053** (V1, propuestos, rama `claude/adrs-t1-t4-t6-t10-hub`): T1, T4, T6, T10 y el hub de integraciones; la única pregunta a producto es la plataforma de conectores (ADR 0053; por defecto, Nango autoalojado en la UE).
+- **ADR 0049 a 0053** (V1, #195, mergeado): T1, T4, T6, T10 y el hub de integraciones. El 0053 está **aceptado** (producto, 2026-11-11: Nango autoalojado en la UE; modifica el 0034 y el 0036, ver su nota); el 0049 a 0052 siguen propuestos.
 - **#191** (V1 vía sesión trabajadora, `[M0][G-03][G-04]`): `login_record_success` exige sesión activa (aal2 con factor) y aceptar una invitación exige email confirmado; confirmación de email activada también en local.
 - **Coordinación (producto, 2026-11-10):** V1 coordina a las demás sesiones y es la única a la que escribe producto. Encargo: `docs/audits/2026-11-10-ordenes-m0.md` (#164). Ahora abren PRs V1 y V2; V4, solo el de K-03; V3 espera (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 
@@ -82,7 +82,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
   - la guarda desde la rama base (P-01);
   - el workflow de la Revisora (SE01), que espera la clave y una decisión;
   - CI de `main` sin cancelación y el secreto de las evals fuera de los PRs (P-04, P-05);
-  - G-03, G-04, D-01, D-02 y R-08;
+  - G-03 y G-04 (hechos, #191); D-01 y D-02 (#192, abierto: borrar a una persona del equipo, máquina de estados de las ejecuciones y sin DELETE/TRUNCATE sobre `agent_runs`, `executions` ni `approvals`; no están hechos hasta mergear) y R-08 (#198, abierto);
   - los ADR de T1, T4, T6, T10 y del hub;
   - STATUS generado del registro (P-08).
 - **V2:** G-02, M-07 y M-08.
@@ -133,7 +133,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 
 
 ## Hecho y verificado
-- P-04 y P-05 (rama `claude/p04-p05-ci`, en curso): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. Falta en GitHub (Founder): entorno `evals` con regla de ramas, mover la clave, merge queue o checks estrictos.
+- P-04 (hecho, #186 y #193) y P-05 (**no hecho**: la clave de las evals sigue en un secreto del repositorio hasta que producto la mueva al entorno `evals`): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. Falta en GitHub (Founder): entorno `evals` con regla de ramas, mover la clave, merge queue o checks estrictos.
 - Scaffold del monorepo (Fase 0 · tarea 1): pnpm 11 + Turborepo, 13 workspaces vacíos `@repo/*` (`apps/{web,worker}`, `packages/*`), TypeScript strict, ESLint (typescript-eslint strict), Vitest con un test trivial, CI en GitHub Actions y comandos en `AGENTS.md`/`CLAUDE.md` — verificado con una instalación limpia en local (`pnpm install --frozen-lockfile`, `pnpm typecheck`/`lint`/`test`/`build`: 13/13 tareas OK, 1 test pasando), una prueba negativa de las tres puertas (tsc exit 2, eslint exit 1, vitest exit 1) y el CI en verde en el PR (run 36454243122, Node 24.21.0) — 2026-09-28 — https://github.com/dsvmotion/moodly/pull/1
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3
