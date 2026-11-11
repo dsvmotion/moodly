@@ -43,13 +43,16 @@ let resendUrl = "";
 const ids = {
   orgX: randomUUID(),
   orgY: randomUUID(),
+  orgZ: randomUUID(),
   regionN: randomUUID(),
   regionS: randomUUID(),
   regionY: randomUUID(),
+  regionZ: randomUUID(),
   locX1: randomUUID(),
   locX2: randomUUID(),
   locX3: randomUUID(),
   locY1: randomUUID(),
+  locZ1: randomUUID(),
 };
 // Quién es quién: [clave, organización, rol, regiones, locales].
 const people = {
@@ -62,6 +65,8 @@ const people = {
   xStaff3: ["orgX", "staff", [], ["locX3"]],
   yAdmin: ["orgY", "org_admin", [], []],
   yStaff1: ["orgY", "staff", [], ["locY1"]],
+  zAdmin: ["orgZ", "org_admin", [], []],
+  zStaff1: ["orgZ", "staff", [], ["locZ1"]],
 } as const satisfies Record<string, readonly [keyof typeof ids, string, readonly (keyof typeof ids)[], readonly (keyof typeof ids)[]]>;
 type Person = keyof typeof people;
 const userIds = Object.fromEntries(Object.keys(people).map((key) => [key, randomUUID()])) as Record<Person, string>;
@@ -123,18 +128,27 @@ beforeAll(async () => {
   // test, y el worker tardaría en llegar a las suyas detrás de ellas.
   await admin.query("update public.domain_events set published_at = now() where type = 'approval.created' and published_at is null");
   await admin.query("begin");
-  await admin.query("insert into public.organizations (id, name) values ($1, $2), ($3, $4)", [ids.orgX, `${marker} X`, ids.orgY, `${marker} Y`]);
-  await admin.query("insert into public.regions (id, organization_id, name) values ($1, $2, 'Norte'), ($3, $2, 'Sur'), ($4, $5, 'Centro')", [
+  await admin.query("insert into public.organizations (id, name) values ($1, $2), ($3, $4), ($5, $6)", [
+    ids.orgX,
+    `${marker} X`,
+    ids.orgY,
+    `${marker} Y`,
+    ids.orgZ,
+    `${marker} Z`,
+  ]);
+  await admin.query("insert into public.regions (id, organization_id, name) values ($1, $2, 'Norte'), ($3, $2, 'Sur'), ($4, $5, 'Centro'), ($6, $7, 'Este')", [
     ids.regionN,
     ids.orgX,
     ids.regionS,
     ids.regionY,
     ids.orgY,
+    ids.regionZ,
+    ids.orgZ,
   ]);
   await admin.query(
     `insert into public.locations (id, organization_id, region_id, name) values
-       ($1, $2, $3, 'X1'), ($4, $2, $3, 'X2'), ($5, $2, $6, 'X3'), ($7, $8, $9, 'Y1')`,
-    [ids.locX1, ids.orgX, ids.regionN, ids.locX2, ids.locX3, ids.regionS, ids.locY1, ids.orgY, ids.regionY],
+       ($1, $2, $3, 'X1'), ($4, $2, $3, 'X2'), ($5, $2, $6, 'X3'), ($7, $8, $9, 'Y1'), ($10, $11, $12, 'Z1')`,
+    [ids.locX1, ids.orgX, ids.regionN, ids.locX2, ids.locX3, ids.regionS, ids.locY1, ids.orgY, ids.regionY, ids.locZ1, ids.orgZ, ids.regionZ],
   );
   for (const [person, [org, role, regions, locations]] of Object.entries(people) as [Person, (typeof people)[Person]][]) {
     await admin.query(
@@ -152,7 +166,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
-  await admin.query("delete from public.organizations where id = any($1::uuid[])", [[ids.orgX, ids.orgY]]);
+  await admin.query("delete from public.organizations where id = any($1::uuid[])", [[ids.orgX, ids.orgY, ids.orgZ]]);
   await admin.query("delete from auth.users where id = any($1::uuid[])", [Object.values(userIds)]);
   await admin.end();
   await new Promise((resolve) => server.close(resolve));
@@ -199,11 +213,13 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       FAKE_RESEND_URL: resendUrl,
     });
 
-    // X1: Resend cae para el staff de X1 durante 6 intentos y luego vuelve. Y1: Resend rechaza la clave (401).
+    // X1: Resend cae para el staff de X1 durante 6 intentos y luego vuelve. Y1: todo bien.
+    // Z1: Resend rechaza la clave (401).
     failTimes.set(`:${userIds.xStaff1}`, 6);
-    unauthorizedSuffixes.add(`:${userIds.yAdmin}`).add(`:${userIds.yStaff1}`);
+    unauthorizedSuffixes.add(`:${userIds.zAdmin}`).add(`:${userIds.zStaff1}`);
     const inX1 = await createApproval(ids.orgX, ids.locX1, "staff");
     const inY1 = await createApproval(ids.orgY, ids.locY1, "staff");
+    const inZ1 = await createApproval(ids.orgZ, ids.locZ1, "staff");
 
     const expectedX1: Person[] = ["xAdmin", "xRegionN", "xManager1", "xStaff1"];
     await waitFor(
@@ -211,12 +227,15 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       "los avisos de X1, con los 6 reintentos",
       worker.output,
     );
-    await waitFor(() => worker.output().includes(EMAIL_UNAUTHORIZED_EVENT), "el 401 de Y1, registrado", worker.output);
+    const expectedY1: Person[] = ["yAdmin", "yStaff1"];
+    await waitFor(() => new Set(keysFor(inY1)).size === expectedY1.length, "los avisos de Y1", worker.output);
+    await waitFor(() => worker.output().includes(EMAIL_UNAUTHORIZED_EVENT), "el 401 de Z1, registrado", worker.output);
     // Margen para que un envío de más (o a quien no toca) llegara también.
     await new Promise((resolve) => setTimeout(resolve, 3_000));
 
     const forX1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inX1}:`));
     const forY1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inY1}:`));
+    const forZ1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inZ1}:`));
     // Exactamente a quien puede decidir; ni el region_manager del sur, ni el staff de X2 o X3, ni nadie de la otra organización.
     expect(new Set(forX1.map((r) => r.body.to[0]))).toEqual(new Set(expectedX1.map(emailOf)));
     // Una vez por persona: solo el que falló se repite (6 503 y el 200), siempre con la misma clave.
@@ -225,15 +244,17 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
     for (const person of expectedX1) {
       expect(keysFor(inX1)).toContain(`approval:${inX1}:${userIds[person]}`);
     }
-    // Y1 con un 401: un solo intento, sin reintentos ni nadie más; nadie lo recibe.
-    expect(forY1).toHaveLength(1);
-    expect([emailOf("yAdmin"), emailOf("yStaff1")]).toContain(forY1[0]?.body.to[0]);
+    // Y1: cada uno, una vez; nadie de las otras organizaciones.
+    expect(forY1.map((r) => r.body.to[0]).sort()).toEqual(expectedY1.map(emailOf).sort());
+    // Z1 con un 401: un solo intento, sin reintentos ni nadie más; nadie lo recibe.
+    expect(forZ1).toHaveLength(1);
+    expect([emailOf("zAdmin"), emailOf("zStaff1")]).toContain(forZ1[0]?.body.to[0]);
     const unauthorized = worker
       .output()
       .split("\n")
       .filter((line) => line.includes(EMAIL_UNAUTHORIZED_EVENT))
       .map((line) => JSON.parse(line) as { level: string; approvalId: string; skipped: number });
-    expect(unauthorized).toEqual([expect.objectContaining({ level: "error", approvalId: inY1, skipped: 2 })]);
+    expect(unauthorized).toEqual([expect.objectContaining({ level: "error", approvalId: inZ1, skipped: 2 })]);
 
     // La clave de Resend solo en su cabecera; el remitente, la dirección de avisos; el enlace, a la web con el local.
     for (const request of [...forX1, ...forY1]) {
@@ -245,16 +266,21 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
     expect(forX1.find((r) => r.body.to[0] === emailOf("xAdmin"))?.body.subject).toMatch(/espera tu aprobación/);
     expect(staff?.body.text).toContain(`${WEB}/app/approvals?scope=location%3A${ids.locX1}`);
 
-    // Una sola entrega por evento, y terminada.
+    // Una sola entrega por evento, terminada y por la cola de avisos (no la de eventos de dominio).
     const { rows: events } = await admin.query<{ id: string }>(
       "select id from public.domain_events where type = 'approval.created' and payload->>'approval_id' = any($1::text[])",
-      [[inX1, inY1]],
+      [[inX1, inY1, inZ1]],
     );
-    expect(events).toHaveLength(2);
-    const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = any($1::text[])", [
-      events.map((event) => deliveryWorkflowId(event.id, APPROVAL_EMAIL_HANDLER_KEY)),
+    expect(events).toHaveLength(3);
+    const { rows } = await admin.query<{ status: string; queue_name: string }>(
+      "select status, queue_name from dbos.workflow_status where workflow_uuid = any($1::text[])",
+      [events.map((event) => deliveryWorkflowId(event.id, APPROVAL_EMAIL_HANDLER_KEY))],
+    );
+    expect(rows).toEqual([
+      { status: "SUCCESS", queue_name: "notifications" },
+      { status: "SUCCESS", queue_name: "notifications" },
+      { status: "SUCCESS", queue_name: "notifications" },
     ]);
-    expect(rows.map((row) => row.status)).toEqual(["SUCCESS", "SUCCESS"]);
     // Ningún email en los logs del worker.
     expect(worker.output()).not.toContain("@demo.test");
     expect(worker.output()).not.toContain(RESEND_KEY);

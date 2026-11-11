@@ -2,7 +2,7 @@ import { BRAND_NAME, NOTIFICATION_EMAIL_FROM } from "@repo/config";
 import type { TenantDb } from "@repo/db/service";
 import { EmailSendError, type EmailSender, type SendEmailRequest } from "@repo/integrations";
 import { describe, expect, it } from "vitest";
-import type { DomainEvent, EventContext, StepRetry } from "../events/handlers.ts";
+import { StepRetriesExhaustedError, type DomainEvent, type EventContext, type StepRetry } from "../events/handlers.ts";
 import { createLogger } from "../logger.ts";
 import {
   APPROVAL_EMAIL_HANDLER_KEY,
@@ -85,7 +85,7 @@ function harness(data: unknown, send: (request: SendEmailRequest) => Promise<{ i
         try {
           return await fn();
         } catch (err) {
-          if (attempt >= attempts) throw err;
+          if (attempt >= attempts) throw retry ? new StepRetriesExhaustedError(`agotó ${name}`, { cause: err }) : err;
         }
       }
     },
@@ -155,10 +155,20 @@ describe("buildApprovalEmails", () => {
 });
 
 describe("createApprovalEmailHandler", () => {
-  it("se suscribe solo a approval.created", () => {
+  it("se suscribe solo a approval.created, por la cola de avisos (no frena las respuestas a los clientes)", () => {
     const handler = createApprovalEmailHandler({ sender: null, webAppUrl: null });
     expect(handler.key).toBe(APPROVAL_EMAIL_HANDLER_KEY);
     expect(handler.eventTypes).toEqual(["approval.created"]);
+    expect(handler.queue).toBe("notifications");
+  });
+
+  it("un error que no es agotar los reintentos no se traga: sube", async () => {
+    const h = harness(notification());
+    h.ctx.step = async (name) => {
+      if (name.startsWith("send:")) throw new Error("fallo del motor");
+      return notification() as never;
+    };
+    await expect(createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx)).rejects.toThrow("fallo del motor");
   });
 
   it("envía un email a cada persona que da la base de datos, cada uno en su paso con reintentos", async () => {

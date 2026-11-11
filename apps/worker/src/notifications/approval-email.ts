@@ -1,7 +1,7 @@
 import { BRAND_NAME, NOTIFICATION_EMAIL_FROM } from "@repo/config";
 import { EmailSendError, renderApprovalEmail, type EmailLocale, type EmailSender, type SendEmailRequest } from "@repo/integrations";
 import { z } from "zod";
-import type { DomainEvent, EventContext, EventHandler, StepRetry } from "../events/handlers.ts";
+import { StepRetriesExhaustedError, type DomainEvent, type EventContext, type EventHandler, type StepRetry } from "../events/handlers.ts";
 
 // El aviso por email de una aprobación nueva (auditoría de preproducción, M-02;
 // decisión de producto 10): «una aprobación te espera», a cada persona que
@@ -17,6 +17,8 @@ import type { DomainEvent, EventContext, EventHandler, StepRetry } from "../even
 //   unos minutos de Resend (SEND_RETRY). Si aun así no sale, o Resend rechaza
 //   ese email (una dirección que no vale), se registra y se sigue con los
 //   demás: el fallo de uno no se lleva a los siguientes.
+// - Va por la cola de avisos (notifications), no por la de eventos de dominio:
+//   mientras reintenta, no frena las respuestas a los clientes.
 // - Un 401/403 es configuración (la clave o el dominio), no algo pasajero: no
 //   se reintenta, se registra como error con su evento de seguridad y no se
 //   intenta con nadie más, porque fallaría igual.
@@ -131,6 +133,9 @@ export function createApprovalEmailHandler({ sender, webAppUrl, retry = SEND_RET
   return {
     key: APPROVAL_EMAIL_HANDLER_KEY,
     eventTypes: ["approval.created"],
+    // Su propia cola: con Resend caído, los reintentos (minutos) no ocupan los
+    // huecos de las entregas que contestan a los clientes (message.received).
+    queue: "notifications",
     async handle(event: DomainEvent, ctx: EventContext) {
       const approvalId = String(event.payload["approval_id"]);
       if (!sender || !webAppUrl) {
@@ -178,8 +183,9 @@ export function createApprovalEmailHandler({ sender, webAppUrl, retry = SEND_RET
             },
             retry,
           );
-        } catch {
-          // Agotó los reintentos: este no sale, los demás sí se intentan.
+        } catch (err) {
+          // Solo si agotó los reintentos: este no sale, los demás sí se intentan. Otro error, arriba.
+          if (!(err instanceof StepRetriesExhaustedError)) throw err;
           ctx.logger.error({ approvalId, userId: email.userId }, "aviso de aprobación sin enviar: Resend siguió fallando tras los reintentos");
           failed += 1;
           continue;
