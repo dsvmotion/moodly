@@ -74,7 +74,29 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build --filter=@repo/evals^...
-      - run: pnpm --filter @repo/evals test
+      # Que corran de verdad: sin --passWithNoTests, y con un mínimo de tests y
+      # los dos archivos de los sets. Si un PR cambia la configuración de Vitest
+      # para que encuentre menos (o ninguno), falla aquí aunque no borre nada.
+      # Bajar EVALS_MIN_TESTS es cambiar este workflow, y se ve en el PR.
+      - name: Evals con el modelo falso (y que corren todas)
+        env:
+          EVALS_MIN_TESTS: "119"
+          EVALS_REQUIRED_FILES: "attacks.test.ts conversations.test.ts"
+        run: |
+          report="$RUNNER_TEMP/evals-vitest.json"
+          pnpm --filter @repo/evals exec vitest run --reporter=default --reporter=json --outputFile="$report"
+          total=$(jq '.numTotalTests' "$report")
+          echo "tests de evals: $total (mínimo $EVALS_MIN_TESTS)"
+          if [ "$total" -lt "$EVALS_MIN_TESTS" ]; then
+            echo "::error::corrieron $total tests de evals; el mínimo es $EVALS_MIN_TESTS"
+            exit 1
+          fi
+          for file in $EVALS_REQUIRED_FILES; do
+            if ! jq -e --arg f "$file" '[.testResults[].name | endswith("/" + $f)] | any' "$report" > /dev/null; then
+              echo "::error::no corrió $file"
+              exit 1
+            fi
+          done
 
   db:
     name: db · migraciones · pgTAP
