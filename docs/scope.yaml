@@ -324,7 +324,7 @@ areas:
       - {id: "OA16", name: "Audit log with access transparency", milestone: "M3", owner: "V2", status: "planned", evidence: []}
       - {id: "OA17", name: "Phone layout and installable app", milestone: "M3", owner: "V2", status: "in_progress", evidence: [], note: "Installable; the phone layout is the desktop one reflowed"}
       - {id: "OA18", name: "Assistant panel", milestone: "M4", owner: "V2", status: "planned", evidence: []}
-      - {id: "OA19", name: "Goals and coach screen", milestone: "M4", owner: "V2", status: "done", evidence: ["PR #217 (2f11fbf)"], note: "Pantalla de objetivos: listar, crear, cambiar y borrar por alcance y rol (#217)"}
+      - {id: "OA19", name: "Goals and coach screen", milestone: "M4", owner: "V2", status: "planned", evidence: ["PR #217 (2f11fbf)"], note: "Hecha la parte de objetivos (#217: listar, crear, cambiar y borrar por alcance y rol); falta el modo coach, que es lo que cierra la unidad (M4)"}
       - {id: "OA20", name: "Contacts view", milestone: "after", owner: "V2", status: "planned", evidence: []}
       - {id: "OA21", name: "Memory review", milestone: "after", owner: "V2", status: "planned", evidence: []}
       - {id: "OA22", name: "Analytics dashboards", milestone: "after", owner: "V2", status: "planned", evidence: []}
