@@ -303,7 +303,7 @@ if grep -qxF sensitive-paths "$root/scripts/merge-guard/required-statuses.txt" &
 else
   echo "✗ sensitive-paths tiene que ir en required-statuses.txt y no en required-checks.txt"; failed=$((failed + 1))
 fi
-for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "seguridad · dependencias y secretos"; do
+for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "seguridad · dependencias y secretos" "evals · modelo falso"; do
   if grep -qxF -- "$required" "$root/scripts/merge-guard/required-checks.txt"; then
     echo "✓ exige \"$required\""; passed=$((passed + 1))
   else
