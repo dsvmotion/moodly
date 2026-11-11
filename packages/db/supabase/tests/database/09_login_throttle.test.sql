@@ -1,7 +1,7 @@
 -- Freno a la fuerza bruta en el login (20261021090000_login_throttle.sql).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(33);
 
 -- Clave de servidor de prueba: la registra la plataforma (aquí, superusuario).
 create function pg_temp.k() returns text language sql as $$ select 'clave-de-servidor-de-prueba-0123456789abcdef' $$;
@@ -12,10 +12,29 @@ create function pg_temp.as_anon() returns void language sql as $$
   select set_config('request.jwt.claims', '{"role":"anon"}', true);
   select set_config('role', 'anon', true);
 $$;
-create function pg_temp.as_user(p_email text) returns void language sql as $$
-  select set_config('request.jwt.claims',
-    json_build_object('sub', gen_random_uuid(), 'role', 'authenticated', 'email', p_email)::text, true);
-  select set_config('role', 'authenticated', true);
+-- Con email, el usuario existe en auth.users y la sesión en auth.sessions (de
+-- nivel p_aal): login_record_success exige una sesión viva (G-03). Sin email,
+-- solo el JWT (sin sesión). Se llama como superusuario (reset role antes).
+create function pg_temp.as_user(p_email text, p_aal text default 'aal1') returns void language plpgsql as $$
+declare
+  v_user    uuid := (select id from auth.users where email = p_email);
+  v_session uuid := gen_random_uuid();
+begin
+  if p_email is null then
+    v_user := gen_random_uuid();
+  else
+    if v_user is null then
+      v_user := gen_random_uuid();
+      insert into auth.users (id, email, aud, role) values (v_user, p_email, 'authenticated', 'authenticated');
+    end if;
+    insert into auth.sessions (id, user_id, created_at, updated_at, aal)
+    values (v_session, v_user, now(), now(), p_aal::auth.aal_level);
+  end if;
+  perform set_config('request.jwt.claims', json_build_object(
+    'sub', v_user, 'role', 'authenticated', 'email', p_email,
+    'session_id', v_session, 'aal', p_aal)::text, true);
+  perform set_config('role', 'authenticated', true);
+end;
 $$;
 -- N fallos de golpe (como superusuario, para preparar el escenario).
 create function pg_temp.fail(p_email text, p_ip text, n integer) returns void language sql as $$
@@ -84,6 +103,36 @@ select ok((select count(*)::int from private.login_failures where email_hash = e
 
 select pg_temp.as_user(null);
 select throws_ok('select public.login_record_success()', '42501', null, 'sin email en el token: error');
+
+-- ---------------------------------------------------------------------------
+-- G-03: con un segundo factor verificado, la contraseña sola (aal1) no vacía
+-- el freno; hace falta haber pasado el código (aal2)
+-- ---------------------------------------------------------------------------
+reset role;
+select pg_temp.as_user('eva@demo.test');
+reset role;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+select gen_random_uuid(), id, 'totp eva', 'totp', 'verified', now(), now() from auth.users where email = 'eva@demo.test';
+select pg_temp.fail('eva@demo.test', '203.0.113.4', 3);
+select pg_temp.as_user('eva@demo.test', 'aal1');
+select throws_ok('select public.login_record_success()', '42501', null,
+  'con factor verificado y sesión aal1 (solo contraseña): no borra los fallos');
+reset role;
+select is((select count(*)::int from private.login_failures where email_hash = encode(extensions.digest('eva@demo.test', 'sha256'), 'hex')), 3,
+  'tras el intento con aal1, sus fallos siguen ahí');
+select pg_temp.as_user('eva@demo.test', 'aal2');
+select lives_ok('select public.login_record_success()', 'con factor verificado y sesión aal2: sí los borra');
+reset role;
+select is((select count(*)::int from private.login_failures where email_hash = encode(extensions.digest('eva@demo.test', 'sha256'), 'hex')), 0,
+  'tras pasar el código, sus fallos se borran');
+select pg_temp.fail('fran@demo.test', '203.0.113.5', 2);
+select pg_temp.as_user('fran@demo.test');
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'fran@demo.test'),
+  'role', 'authenticated', 'email', 'fran@demo.test', 'session_id', gen_random_uuid())::text, true);
+select set_config('role', 'authenticated', true);
+select throws_ok('select public.login_record_success()', '42501', null,
+  'con una sesión cerrada (session_id que no existe): error');
 
 -- ---------------------------------------------------------------------------
 -- Entradas absurdas
