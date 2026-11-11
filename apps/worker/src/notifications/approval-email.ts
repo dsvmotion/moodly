@@ -82,7 +82,6 @@ export function buildApprovalEmails(notification: Notification, webAppUrl: strin
     const locale = emailLocale(recipient.locale, notification.organization.default_locale);
     const rendered = renderApprovalEmail({
       locale,
-      brandName: BRAND_NAME,
       agentName: agentName(notification.agent),
       summary: approval.reason ?? "",
       locationName: location?.name ?? null,
