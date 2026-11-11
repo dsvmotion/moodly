@@ -741,7 +741,7 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     // Cada mensaje con su autor, de la fila: JSON, así un texto no se hace pasar por otro.
     expect(JSON.parse(calls[0]?.input ?? "{}")).toEqual({
       previous_summary: null,
-      messages: [0, 1, 2, 3].map((i) => ({ speaker: i % 2 === 0 ? "customer" : "assistant", text: `mensaje antiguo ${i}` })),
+      messages: [0, 1, 2, 3].map((i) => ({ speaker: i % 2 === 0 ? "contact" : "assistant", text: `mensaje antiguo ${i}` })),
     });
     const { rows: summaries } = await admin.query<{ organization_id: string; summary: string; covered: boolean; model: string }>(
       `select organization_id, summary, covered_until = (select created_at from public.messages where id = $2) as covered, model

@@ -58,7 +58,7 @@ function respond(request: TransportRequest): TransportResponse {
     const input = request.messages[1]?.content ?? "";
     effect({ step: "summary", modelKey: request.modelKey, input });
     const { messages } = JSON.parse(input) as { messages: { speaker: string }[] };
-    return say(`Customer said: ${messages.filter((message) => message.speaker === "customer").length} mensajes.`);
+    return say(`Customer said: ${messages.filter((message) => message.speaker === "contact").length} mensajes.`);
   }
   const last = request.messages.at(-1);
   const system = request.messages[0]?.role === "system" ? request.messages[0].content : null;

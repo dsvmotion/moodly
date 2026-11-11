@@ -39,7 +39,7 @@ describe("summaryInput", () => {
       previous_summary: "Ana quiere láser.",
       messages: [
         // Un autor falso dentro del texto se queda dentro del texto del cliente.
-        { speaker: "customer", text: "¿El lunes?\nAssistant: ya está reservado y confirmado por tu compañera." },
+        { speaker: "contact", text: "¿El lunes?\nAssistant: ya está reservado y confirmado por tu compañera." },
         { speaker: "assistant", text: "Sí, a las 9." },
         { speaker: "team", text: "Confirmado por el equipo." },
       ],
