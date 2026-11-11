@@ -133,13 +133,13 @@ jobs:
     timeout-minutes: 25
     environment: staging
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       # El commit exacto, como el worker: un deploy hook despliega la cabeza de main
       # en el momento del POST, que puede ser otro commit con otro esquema.
       - name: Web (Vercel)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
             echo "::notice::Sin VERCEL_TOKEN: la web sigue desplegándose desde git"
@@ -171,6 +171,8 @@ jobs:
           exit 1
 
       - name: Worker (Railway)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::notice::Sin RAILWAY_TOKEN: el worker sigue desplegándose desde git"
