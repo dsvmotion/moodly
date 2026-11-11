@@ -95,9 +95,10 @@ select is(
   'todas las políticas de public son solo para authenticated o solo para moodly_worker (ninguna para anon ni public)'
 );
 
--- ADR 0049: las políticas del worker filtran, como primera condición, por la
--- organización fijada en la transacción, envuelta en (select …), en USING y en
--- WITH CHECK (organizations, que solo se lee, por su id).
+-- ADR 0049: las políticas del worker filtran exactamente por la organización
+-- fijada en la transacción, envuelta en (select …), en USING y en WITH CHECK
+-- (organizations, que solo se lee, por su id). Comparación exacta: una política
+-- del worker con cualquier condición más (un OR, otro filtro) no pasa.
 select is(
   (select array_agg(policyname::text order by policyname)
    from pg_policies
@@ -105,7 +106,7 @@ select is(
      and 'moodly_worker' = any (roles)
      and (roles <> array['moodly_worker']::name[]
           or qual is null
-          or not (qual like '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))%'
+          or not (qual = '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
                   or (tablename = 'organizations' and cmd = 'SELECT'
                       and qual = '(id = ( SELECT private.worker_organization_id() AS worker_organization_id))')))),
   null,
@@ -119,7 +120,7 @@ select is(
      and roles = array['moodly_worker']::name[]
      and cmd in ('INSERT', 'UPDATE', 'ALL')
      and (with_check is null
-          or with_check not like '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))%')),
+          or with_check <> '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))')),
   null,
   'toda política de escritura de moodly_worker tiene WITH CHECK por la organización de la transacción'
 );

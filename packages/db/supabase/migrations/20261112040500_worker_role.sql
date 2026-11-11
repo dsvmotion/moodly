@@ -37,6 +37,19 @@ begin
   end if;
 end
 $$;
+-- Y si ya existía (de un intento anterior o creado a mano), se corrige: sin
+-- heredar, sin login y sin crear roles ni bases. El login se lo vuelven a dar
+-- el seed en local y el workflow «Staging · worker» en staging (paso 2).
+-- SUPERUSER y BYPASSRLS solo los puede quitar un superusuario (en Supabase,
+-- postgres no lo es): si los tuviera, la migración falla en vez de seguir.
+alter role moodly_worker nologin noinherit nocreatedb nocreaterole;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'moodly_worker' and (rolsuper or rolbypassrls)) then
+    raise exception 'moodly_worker existe con SUPERUSER o BYPASSRLS: quítaselos a mano antes de migrar';
+  end if;
+end
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 1. La organización de la transacción

@@ -4,7 +4,7 @@
 -- y solo tiene los privilegios del módulo que ya lo usa.
 begin;
 \ir _fixtures/tenants.psql
-select plan(22);
+select plan(23);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -16,10 +16,17 @@ select results_eq(
   $$select rolsuper, rolbypassrls, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin from pg_roles where rolname = 'moodly_worker'$$,
   $$values (false, false, false, false, false, false)$$,
   'moodly_worker: sin superusuario, sin BYPASSRLS, sin heredar, sin crear roles ni bases, sin login (se lo da cada entorno)');
+-- (En el paso 2, cuando el seed y staging le den login, rolcanlogin de esta
+-- aserción deja de ser false en esos entornos: hay que cambiarla allí.)
 select is(
   (select array_agg(r.rolname::text order by r.rolname) from pg_auth_members m join pg_roles r on r.oid = m.roleid
    where m.member = 'moodly_worker'::regrole),
   null, 'no es miembro de ningún rol (ni authenticated, ni service_role, ni postgres)');
+select results_eq(
+  $$select m.member::regrole::text, m.inherit_option, m.set_option from pg_auth_members m
+    where m.roleid = 'moodly_worker'::regrole order by 1$$,
+  $$values ('postgres', false, false)$$,
+  'nadie puede actuar como moodly_worker ni heredar sus privilegios: solo postgres, que lo creó, y sin INHERIT ni SET');
 select ok(not has_schema_privilege('moodly_worker', 'auth', 'usage'), 'no tiene acceso al esquema auth');
 select ok(not has_schema_privilege('moodly_worker', 'public', 'create'), 'no puede crear tablas en public (sin DDL)');
 select is(
