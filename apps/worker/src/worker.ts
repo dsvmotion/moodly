@@ -1,10 +1,15 @@
+import type { Server } from "node:http";
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
+import type { ChannelAdapter } from "@repo/channels";
 import { createServiceDb, type ServiceDb } from "@repo/db/service";
 import type pg from "pg";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
 import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
 import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
+import { registerIngest, startIngestQueue } from "./ingress/ingest.ts";
+import { receiveWebhook } from "./ingress/receive.ts";
+import { createIngressServer } from "./ingress/server.ts";
 import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
 import { registerSmokeQueue, registerSmokeWorkflow } from "./smoke.ts";
@@ -38,6 +43,12 @@ export interface WorkerOptions {
    * worker: para los que registran workflows propios (los recordatorios).
    */
   eventHandlers: readonly EventHandler[] | ((services: WorkerServices) => readonly EventHandler[]);
+  /**
+   * Los canales que entran por la entrada de canales (ADR 0052 §2), cada uno
+   * con su adaptador y el secreto de la plataforma para comprobar la firma. Sin
+   * ninguno, o sin INGRESS_PORT, no se abre ningún puerto.
+   */
+  channelAdapters?: readonly ChannelAdapter[];
 }
 
 /** Lo que el worker comparte con los consumidores que registran workflows propios. */
@@ -68,7 +79,9 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   const registry = createEventRegistry(handlers);
   let lease: ExecutorLease | undefined;
   let pool: pg.Pool | undefined;
+  let server: Server | undefined;
   let launched = false;
+  const adapters = new Map((options.channelAdapters ?? []).map((adapter) => [adapter.channel as string, adapter]));
   return {
     async start() {
       lease = await acquireExecutorLease({
@@ -80,6 +93,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       });
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
+      const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries });
       // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
       // (system-db-pool.ts). La URL se le sigue pasando: DBOS la usa (sin
       // contraseña) en su log de arranque y en sus mensajes de error.
@@ -114,6 +128,19 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
       await startOutbox(outbox);
+      await startIngestQueue();
+      if (config.ingressPort !== null && adapters.size > 0) {
+        const port = config.ingressPort;
+        server = createIngressServer(
+          (channel, webhook) => receiveWebhook(channel, webhook, { db, adapters, startIngest: ingest.start, logger }),
+          logger,
+        );
+        await new Promise<void>((resolve, reject) => {
+          server?.once("error", reject);
+          server?.listen(port, () => resolve());
+        });
+        logger.info({ port, channels: [...adapters.keys()] }, "entrada de canales abierta");
+      }
       logger.info(
         {
           executorId: config.executorId,
@@ -126,6 +153,8 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
     async stop() {
       // DBOS primero: el lock se suelta cuando ya no queda nada en marcha. Su
       // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
+      // La entrada primero: lo que ya llegó termina de guardarse; lo nuevo, el proveedor lo reintenta.
+      if (server) await new Promise<void>((resolve) => server?.close(() => resolve()));
       if (launched) await DBOS.shutdown();
       await pool?.end();
       await lease?.release();

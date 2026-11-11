@@ -22,7 +22,15 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
+      ingressPort: null,
     });
+  });
+
+  it("el puerto de la entrada de canales es opcional, y solo un puerto válido", () => {
+    expect(loadConfig({ ...valid, INGRESS_PORT: "8080" }).ingressPort).toBe(8080);
+    for (const bad of ["0", "80a", "70000", "-1", "8080 ", ""]) {
+      expect(() => loadConfig({ ...valid, INGRESS_PORT: bad }), bad).toThrow(/INGRESS_PORT/);
+    }
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

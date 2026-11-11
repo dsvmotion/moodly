@@ -1,0 +1,222 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { createServer } from "node:net";
+import { join } from "node:path";
+import { fakeSignature } from "@repo/channels";
+import pg from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { deliveryWorkflowId } from "../events/outbox.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { ingestWorkflowId } from "./ingest.ts";
+
+// La entrada de canales de punta a punta (ADR 0052 §2, O-01): un webhook firmado
+// llega al worker de verdad (HTTP, DBOS y Supabase local) y se convierte en un
+// mensaje de su conversación, una sola vez aunque el proveedor lo repita. Los
+// datos viven en cuentas de canal temporales de Demo A que se borran al terminar.
+const fixture = join(import.meta.dirname, "..", "testing", "ingress-worker.ts");
+const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+const marker = `ingress-${randomUUID().slice(0, 8)}`;
+const secret = `secreto-${randomUUID()}`;
+const ids: Record<string, string> = {};
+let child: ChildProcess | null = null;
+let output = "";
+let base = "";
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => resolve(typeof address === "object" && address ? address.port : 0));
+    });
+  });
+}
+
+async function waitFor(condition: () => Promise<boolean>, what: string, timeoutMs = 45_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!(await condition())) {
+    if (Date.now() > deadline) throw new Error(`no llegó a pasar: ${what}\n${output}`);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function one(sql: string, params: unknown[]): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(sql, params);
+  const id = rows[0]?.id;
+  if (!id) throw new Error(`sin id: ${sql}`);
+  return id;
+}
+
+function inbound(overrides: Record<string, unknown> = {}) {
+  return {
+    channel: "webchat",
+    accountExternalId: `${marker}-active`,
+    providerEventId: `evt-${randomUUID()}`,
+    providerMessageId: `msg-${randomUUID()}`,
+    from: { kind: "webchat", value: `${marker}-visitor` },
+    displayName: "Visitante",
+    receivedAt: new Date().toISOString(),
+    text: "Hola, ¿abrís el sábado?",
+    ...overrides,
+  };
+}
+
+async function post(body: object, signWith = secret) {
+  const rawBody = JSON.stringify(body);
+  const response = await fetch(`${base}/channels/webchat/webhook`, { method: "POST", body: rawBody, headers: fakeSignature(signWith, rawBody) });
+  return { status: response.status, body: (await response.json().catch(() => null)) as Record<string, number> | null };
+}
+
+async function eventsOf(providerEventId: string) {
+  const { rows } = await admin.query<{ id: string; status: string; organization_id: string; conversation_id: string | null; message_id: string | null }>(
+    "select id, status, organization_id, conversation_id, message_id from public.inbound_events where provider_event_id = $1",
+    [providerEventId],
+  );
+  return rows;
+}
+
+async function messagesFrom(providerMessageId: string) {
+  const { rows } = await admin.query<{ id: string; conversation_id: string; organization_id: string; content: string; direction: string; author: string }>(
+    "select id, conversation_id, organization_id, content, direction, author from public.messages where external_message_id = $1",
+    [providerMessageId],
+  );
+  return rows;
+}
+
+async function workflowStatus(workflowId: string): Promise<string | undefined> {
+  const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = $1", [workflowId]);
+  return rows[0]?.status;
+}
+
+beforeAll(async () => {
+  await admin.connect();
+  ids.org = await one("select id from public.organizations where name = 'Demo A'", []);
+  ids.location = await one("select id from public.locations where organization_id = $1 order by created_at limit 1", [ids.org]);
+  ids.agentType = await one(
+    `select t.key as id from public.agents a join public.agent_types t on t.id = a.agent_type_id
+     where a.organization_id = $1 order by t.key limit 1`,
+    [ids.org],
+  );
+  ids.agent = await one(
+    "select a.id from public.agents a join public.agent_types t on t.id = a.agent_type_id where a.organization_id = $1 and t.key = $2",
+    [ids.org, ids.agentType],
+  );
+  ids.active = await one(
+    `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+     values ($1, $2, 'webchat', $3, $4, 'active') returning id`,
+    [ids.org, ids.location, `${marker}-active`, ids.agentType],
+  );
+  ids.disabled = await one(
+    `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+     values ($1, $2, 'webchat', $3, $4, 'disabled') returning id`,
+    [ids.org, ids.location, `${marker}-disabled`, ids.agentType],
+  );
+
+  const port = await freePort();
+  base = `http://127.0.0.1:${port}`;
+  const api = localSupabaseApi();
+  child = spawn(process.execPath, [fixture], {
+    env: {
+      ...process.env,
+      WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_EXECUTOR_ID: `test-${randomUUID().slice(0, 8)}`,
+      WORKER_APP_VERSION: "test-ingress",
+      LOG_LEVEL: "info",
+      SUPABASE_URL: api.url,
+      SUPABASE_SECRET_KEY: api.secretKey,
+      INGRESS_PORT: String(port),
+      INGRESS_TEST_SECRET: secret,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  await waitFor(async () => output.includes("entrada de canales abierta"), "la entrada de canales se abre", 60_000);
+}, 90_000);
+
+afterAll(async () => {
+  child?.kill("SIGKILL");
+  // Las conversaciones (y sus mensajes) y los contactos que creó la entrada, y las cuentas.
+  await admin.query(
+    "delete from public.domain_events where payload->>'conversation_id' in (select id::text from public.conversations where channel_account_id = any($1))",
+    [[ids.active, ids.disabled]],
+  );
+  await admin.query("delete from public.conversations where channel_account_id = any($1)", [[ids.active, ids.disabled]]);
+  await admin.query("delete from public.contacts where id in (select contact_id from public.contact_identities where external_id like $1)", [`${marker}-%`]);
+  await admin.query("delete from public.channel_accounts where id = any($1)", [[ids.active, ids.disabled]]);
+  await admin.end();
+});
+
+describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
+  it("un webhook firmado se convierte en un mensaje del cliente en una conversación nueva, de la organización de la cuenta", async () => {
+    const message = inbound();
+    await expect(post({ messages: [message] })).resolves.toEqual({ status: 200, body: { accepted: 1, duplicates: 0, ignored: 0 } });
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "el evento queda procesado");
+    const [event] = await eventsOf(message.providerEventId);
+    const messages = await messagesFrom(message.providerMessageId);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ organization_id: ids.org, content: message.text, direction: "in", author: "contact" });
+    expect(event).toMatchObject({ organization_id: ids.org, conversation_id: messages[0]?.conversation_id, message_id: messages[0]?.id });
+    // La conversación: de esa cuenta, su local y el agente por defecto de la cuenta, con el contacto de esa identidad.
+    const { rows } = await admin.query<{ channel_account_id: string; location_id: string; agent_id: string; mode: string; display_name: string; kind: string }>(
+      `select c.channel_account_id, c.location_id, c.agent_id, c.mode, k.display_name, i.kind
+       from public.conversations c join public.contacts k on k.id = c.contact_id
+       join public.contact_identities i on i.contact_id = k.id
+       where c.id = $1`,
+      [messages[0]?.conversation_id],
+    );
+    expect(rows).toEqual([{ channel_account_id: ids.active, location_id: ids.location, agent_id: ids.agent, mode: "agent", display_name: "Visitante", kind: "webchat" }]);
+    ids.conversation = messages[0]?.conversation_id ?? "";
+    ids.firstEvent = message.providerEventId;
+    ids.firstMessage = message.providerMessageId;
+  });
+
+  it("el turno arranca sin esperar al publicador: la entrega de message.received ya la encoló la entrada", async () => {
+    const { rows } = await admin.query<{ id: string }>(
+      "select id from public.domain_events where type = 'message.received' and payload->>'message_id' = (select id::text from public.messages where external_message_id = $1)",
+      [ids.firstMessage],
+    );
+    const eventId = rows[0]?.id ?? "";
+    await waitFor(async () => (await workflowStatus(deliveryWorkflowId(eventId, "log"))) === "SUCCESS", "la entrega llega al consumidor");
+    // La encoló el workflow de la entrada (su hijo), no el publicador.
+    const { rows: parents } = await admin.query<{ parent: string | null }>(
+      `select o.child_workflow_id as parent from dbos.operation_outputs o
+       where o.workflow_uuid = $1 and o.child_workflow_id = $2`,
+      [ingestWorkflowId((await eventsOf(ids.firstEvent ?? ""))[0]?.id ?? ""), deliveryWorkflowId(eventId, "log")],
+    );
+    expect(parents).toHaveLength(1);
+  });
+
+  it("el mismo webhook repetido no crea nada nuevo: un evento, un mensaje", async () => {
+    const message = inbound({ providerEventId: ids.firstEvent, providerMessageId: ids.firstMessage });
+    await expect(post({ messages: [message] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 1, ignored: 0 } });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(await eventsOf(ids.firstEvent ?? "")).toHaveLength(1);
+    expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
+  });
+
+  it("el siguiente mensaje del mismo cliente va a la misma conversación", async () => {
+    const message = inbound({ text: "¿Y el domingo?" });
+    await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "el segundo queda procesado");
+    expect((await messagesFrom(message.providerMessageId))[0]?.conversation_id).toBe(ids.conversation);
+  });
+
+  it("con la firma mal, 401 y no se guarda nada", async () => {
+    const message = inbound();
+    await expect(post({ messages: [message] }, "otro-secreto")).resolves.toMatchObject({ status: 401 });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(await eventsOf(message.providerEventId)).toEqual([]);
+    expect(await messagesFrom(message.providerMessageId)).toEqual([]);
+  });
+
+  it("para una cuenta desactivada o que no existe no se guarda nada", async () => {
+    const disabled = inbound({ accountExternalId: `${marker}-disabled` });
+    const unknown = inbound({ accountExternalId: `${marker}-no-existe` });
+    await expect(post({ messages: [disabled, unknown] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 2 } });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(await eventsOf(disabled.providerEventId)).toEqual([]);
+    expect(await eventsOf(unknown.providerEventId)).toEqual([]);
+  });
+});

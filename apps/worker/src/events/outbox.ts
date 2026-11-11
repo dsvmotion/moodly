@@ -118,21 +118,30 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 
   const deliverWorkflow = DBOS.registerWorkflow(deliver, { name: DELIVER_WORKFLOW });
 
+  /**
+   * Encola una entrega por consumidor suscrito, con el id determinista: si ya
+   * estaba encolada (por el publicador o por la entrada de canales), DBOS
+   * devuelve la que existe. Devuelve cuántas.
+   */
+  async function enqueueDeliveries(event: { id: string; organizationId: string; type: string }): Promise<number> {
+    let deliveries = 0;
+    for (const handler of registry.handlersFor(event.type)) {
+      await DBOS.startWorkflow(deliverWorkflow, {
+        workflowID: deliveryWorkflowId(event.id, handler.key),
+        queueName: EVENTS_QUEUE,
+        workflowIDReusePolicy: "return-existing",
+      })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
+      deliveries += 1;
+    }
+    return deliveries;
+  }
+
   // DBOS lo llama con la hora programada y un contexto; no usa ninguno de los dos.
   async function publish(): Promise<void> {
     const pending = await DBOS.runStep(() => db.outbox.pending(BATCH), { name: "pending", ...DB_STEP });
     if (pending.length === 0) return;
     let deliveries = 0;
-    for (const event of pending) {
-      for (const handler of registry.handlersFor(event.type)) {
-        await DBOS.startWorkflow(deliverWorkflow, {
-          workflowID: deliveryWorkflowId(event.id, handler.key),
-          queueName: EVENTS_QUEUE,
-          workflowIDReusePolicy: "return-existing",
-        })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
-        deliveries += 1;
-      }
-    }
+    for (const event of pending) deliveries += await enqueueDeliveries(event);
     const published = await DBOS.runStep(() => db.outbox.markPublished(pending.map((event) => event.id)), {
       name: "mark-published",
       ...DB_STEP,
@@ -170,7 +179,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
   }
 
   const pruneWorkflow = DBOS.registerWorkflow(prune, { name: PRUNE_WORKFLOW });
-  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow };
+  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow, enqueueDeliveries };
 }
 
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */

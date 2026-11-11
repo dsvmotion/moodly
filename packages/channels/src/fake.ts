@@ -2,9 +2,10 @@ import { ChannelSendError } from "./adapter.js";
 import type { ChannelAdapter, ChannelCapabilities, ParsedWebhook, RawWebhook, SendResult } from "./adapter.js";
 import type { Channel, NormalizedOutbound } from "./message.js";
 import { normalizedInboundSchema } from "./message.js";
+import { hmacSha256Hex, verifyHmacSha256 } from "./signature.js";
 
-// Un adaptador de prueba: firma con un secreto compartido en una cabecera,
-// cuerpo JSON ya normalizado, y envíos que se apuntan en memoria. Para los
+// Un adaptador de prueba: firma HMAC-SHA256 del cuerpo en una cabecera (como
+// los de verdad, en tiempo constante), cuerpo JSON ya normalizado, y envíos que se apuntan en memoria. Para los
 // tests de la capa (duplicados, estados, toma de control) sin proveedor real.
 
 export const FAKE_SIGNATURE_HEADER = "x-fake-signature";
@@ -34,7 +35,7 @@ export function createFakeAdapter(options: { channel?: Channel; secret: string; 
       nextError = error;
     },
     verify(webhook: RawWebhook) {
-      return Promise.resolve(webhook.headers[FAKE_SIGNATURE_HEADER] === options.secret);
+      return Promise.resolve(verifyHmacSha256(options.secret, webhook.rawBody, webhook.headers[FAKE_SIGNATURE_HEADER]));
     },
     parse(webhook: RawWebhook): ParsedWebhook {
       const body = JSON.parse(webhook.rawBody) as { messages?: unknown[]; statuses?: ParsedWebhook["statuses"] };
@@ -57,6 +58,11 @@ export function createFakeAdapter(options: { channel?: Channel; secret: string; 
       return Promise.resolve(result);
     },
   };
+}
+
+/** La cabecera de firma que espera el adaptador de prueba para ese cuerpo. */
+export function fakeSignature(secret: string, rawBody: string): Record<string, string> {
+  return { [FAKE_SIGNATURE_HEADER]: hmacSha256Hex(secret, rawBody) };
 }
 
 export { ChannelSendError };

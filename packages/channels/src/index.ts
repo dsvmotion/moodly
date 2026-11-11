@@ -5,5 +5,6 @@ export * from "./delivery.js";
 export * from "./templates.js";
 export * from "./adapter.js";
 export * from "./outbound.js";
-export { createFakeAdapter, FAKE_SIGNATURE_HEADER } from "./fake.js";
+export * from "./signature.js";
+export { createFakeAdapter, fakeSignature, FAKE_SIGNATURE_HEADER } from "./fake.js";
 export type { FakeAdapter } from "./fake.js";

@@ -61,6 +61,18 @@ describe("acceso de plataforma acotado a una organización (3.2)", () => {
     expect(index).not.toMatch(/service|tenant-db|createClient/);
   });
 
+  it("las lecturas entre organizaciones son exactamente dos: el outbox y la cuenta de un canal (ADR 0009, ADR 0052 §2)", () => {
+    const service = readFileSync(join(ROOT, "packages", "db", "src", "service.ts"), "utf8");
+    const surface = /export interface ServiceDb \{([\s\S]*?)\n\}/.exec(service)?.[1] ?? "";
+    const members = [...surface.matchAll(/^\s{2}(\w+)[(:]/gm)].map((match) => match[1]).sort();
+    expect(members).toEqual(["channelAccounts", "forOrganization", "outbox"]);
+    // La cuenta de un canal: una sola tabla, solo id, organización y estado, por igualdad exacta.
+    const resolver = readFileSync(join(ROOT, "packages", "db", "src", "channel-accounts.ts"), "utf8");
+    expect([...resolver.matchAll(/\.from\("(\w+)"\)/g)].map((match) => match[1])).toEqual(["channel_accounts"]);
+    expect([...resolver.matchAll(/\.select\("([^"]*)"\)/g)].map((match) => match[1])).toEqual(["id, organization_id, status"]);
+    expect(resolver).not.toMatch(/\.(update|insert|delete|upsert|rpc|ilike|like|in|or)\(/);
+  });
+
   it("apps/web no importa @repo/db/service", () => {
     const offenders = read(sourceFiles(join(ROOT, "apps", "web", "src")))
       .filter(({ text }) => /["']@repo\/db\/service["']/.test(text))

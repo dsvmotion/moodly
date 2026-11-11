@@ -22,6 +22,7 @@
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.3.0",
     "@repo/agent-core": "workspace:*",
+    "@repo/channels": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/integrations": "workspace:*",
     "@repo/knowledge": "workspace:*",

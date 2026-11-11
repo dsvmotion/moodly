@@ -23,6 +23,11 @@ export interface WorkerConfig {
    * respuesta (MANUAL §15.1). Nunca va a los logs.
    */
   aiGatewayApiKey: string | null;
+  /**
+   * El puerto de la entrada de canales (ADR 0052 §2). Sin él, o sin ningún
+   * canal configurado, el worker no abre ningún puerto.
+   */
+  ingressPort: number | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -79,6 +84,11 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
+  INGRESS_PORT: z
+    .string()
+    .regex(/^[1-9][0-9]{1,4}$/, "INGRESS_PORT: un puerto de 10 a 65535")
+    .refine((value) => Number(value) <= 65535, "INGRESS_PORT: un puerto de 10 a 65535")
+    .optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -100,5 +110,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    ingressPort: parsed.data.INGRESS_PORT ? Number(parsed.data.INGRESS_PORT) : null,
   };
 }

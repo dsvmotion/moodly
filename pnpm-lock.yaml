@@ -138,6 +138,9 @@ importers:
       '@repo/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@repo/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db

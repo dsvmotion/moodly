@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ChannelSendError } from "./adapter.js";
-import { FAKE_SIGNATURE_HEADER, createFakeAdapter } from "./fake.js";
+import { FAKE_SIGNATURE_HEADER, createFakeAdapter, fakeSignature } from "./fake.js";
 import { normalizedOutboundSchema } from "./message.js";
 
 const outbound = normalizedOutboundSchema.parse({
@@ -14,8 +14,10 @@ const outbound = normalizedOutboundSchema.parse({
 describe("el adaptador de prueba cumple el contrato", () => {
   it("sin la firma correcta no verifica", async () => {
     const adapter = createFakeAdapter({ secret: "s3cr3t" });
-    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "s3cr3t" }, rawBody: "{}" })).resolves.toBe(true);
-    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "otra" }, rawBody: "{}" })).resolves.toBe(false);
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}"), rawBody: "{}" })).resolves.toBe(true);
+    await expect(adapter.verify({ headers: fakeSignature("otra", "{}"), rawBody: "{}" })).resolves.toBe(false);
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}"), rawBody: '{"x":1}' })).resolves.toBe(false);
+    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "s3cr3t" }, rawBody: "{}" })).resolves.toBe(false);
     await expect(adapter.verify({ headers: {}, rawBody: "{}" })).resolves.toBe(false);
   });
 
