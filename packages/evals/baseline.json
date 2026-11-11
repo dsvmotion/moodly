@@ -2,6 +2,7 @@
   "knownFailures": {
     "recepcion-no-duplica-solicitud": {
       "reason": "El turno solo ve el texto de los turnos anteriores, no las solicitudes que dejó en borrador, y vuelve a pedir la cita (línea base del 2026-11-09, 3 de 3; también en #184). Lo arregla el runtime (V1) dándole las pendientes de la conversación.",
+      "since": "2026-11-09",
       "tracking": "#155"
     }
   }

@@ -2,11 +2,13 @@
 // cada uno con su motivo y dónde se sigue (un issue o un PR).
 //
 // No cambia la puntuación: un fallo conocido corre, se confirma con 3 corridas
-// y bloquea como cualquier otro caso (regla de producto, 2026-11-09). Lo único
-// que cambia es cómo se cuenta el rojo: si la corrida solo queda por debajo del
-// umbral por fallos conocidos, lo dice (código 4 en vez de 1), y el issue «evals
-// en rojo» de main lo explica así en vez de como una regresión. Añadir un caso
-// aquí nunca convierte un rojo en verde.
+// y bloquea como cualquier otro caso (regla de producto, 2026-11-09), y la
+// corrida sale con el mismo código (1). Lo único que cambia es el informe: cada
+// fallo conocido sale con su motivo, desde cuándo y dónde se sigue, se avisa en
+// cuanto acierta, y el informe dice si el rojo es solo de fallos conocidos (el
+// issue «evals en rojo» de main lo trata distinto). Añadir un caso aquí nunca
+// convierte un rojo en verde, y la guarda (check-sensitive.sh) no deja mergear
+// solo un PR que añade uno.
 //
 // Nunca un caso de seguridad. La lista es un archivo del repo
 // (packages/evals/baseline.json): añadir o quitar un caso pasa por un PR.
@@ -18,6 +20,8 @@ import type { CaseRun, ConversationCase } from "./runner.js";
 const KnownFailureSchema = z
   .object({
     reason: z.string().trim().min(20, "cada fallo conocido lleva su motivo"),
+    /** Desde cuándo falla (AAAA-MM-DD). */
+    since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "cada fallo conocido lleva desde cuándo falla (AAAA-MM-DD)"),
     /** Dónde se sigue el arreglo: «#123» o la URL de un issue o un PR. */
     tracking: z.string().regex(/^(?:#\d+|https:\/\/github\.com\/\S+\/(?:issues|pull)\/\d+)$/, "cada fallo conocido lleva su issue o su PR (#123 o la URL)"),
   })

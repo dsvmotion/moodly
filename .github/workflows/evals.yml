@@ -8,13 +8,14 @@ name: Evals · modelo real
 # 2026-11-09). Todavía no es un check obligatorio.
 #
 # K-01: corre con la línea base (packages/evals/baseline.json), que no cambia
-# la puntuación: solo dice si el rojo es de fallos conocidos. Tras un push a
-# main, si queda por debajo del umbral, abre o actualiza el issue «evals en
-# rojo» (código 1: hay algo nuevo; 4: solo fallos conocidos); si vuelve a pasar
-# (0), lo cierra. Si falla la vía del modelo (2: red, gateway, saldo) o se
-# corta por el tope de gasto (3), el job falla y no toca el issue: la corrida no
-# dice nada de los agentes. Las evals de un PR las corre V4 desde su sesión,
-# nunca este workflow (P-05).
+# la puntuación ni el código: solo etiqueta los fallos conocidos y dice en el
+# informe si el rojo es solo suyo. Tras un push a main, con código 1 abre o
+# comenta el issue «evals en rojo»; si el rojo es solo de fallos conocidos, solo
+# comenta en el issue que ya esté abierto (cada fallo conocido ya se sigue en su
+# issue o PR). Con 0 lo cierra. Si falla la vía del modelo (2: red, gateway,
+# saldo) o se corta por el tope de gasto (3), el job falla y no toca el issue:
+# la corrida no dice nada de los agentes. Las evals de un PR las corre V4 desde
+# su sesión, nunca este workflow (P-05).
 #
 # P-05: la clave no se entrega a código de un PR. El workflow NO corre en
 # pull_request: solo en push a main (ya mergeado) y a mano desde main, y el job
@@ -63,6 +64,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       code: ${{ steps.evals.outputs.code }}
+      only_known: ${{ steps.evals.outputs.only_known }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -87,7 +89,8 @@ jobs:
           CASE: ${{ inputs.case }}
           REPEAT: ${{ inputs.repeat }}
         run: |
-          args=(--max-eur 2 --baseline baseline.json)
+          report="$RUNNER_TEMP/evals-report.json"
+          args=(--max-eur 2 --baseline baseline.json --report "$report")
           if [ -n "${CASE:-}" ]; then
             if [[ ! "$CASE" =~ ^[a-z0-9-]{1,80}$ ]]; then echo "case no válido" >&2; exit 2; fi
             args+=(--case "$CASE")
@@ -100,7 +103,10 @@ jobs:
           pnpm --filter @repo/evals eval:agents "${args[@]}"
           code=$?
           set -e
+          only_known=false
+          if [ -f "$report" ] && [ "$(jq -r '.onlyKnown' "$report")" = true ]; then only_known=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "only_known=$only_known" >> "$GITHUB_OUTPUT"
           exit "$code"
 
   alerta-evals:
@@ -117,6 +123,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       CODE: ${{ needs.evals.outputs.code }}
+      ONLY_KNOWN: ${{ needs.evals.outputs.only_known }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       SHA: ${{ github.sha }}
     steps:
@@ -125,17 +132,21 @@ jobs:
           title="evals en rojo"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           case "$CODE" in
-            1|4)
-              if [ "$CODE" = 1 ]; then
-                what="quedaron por debajo del umbral por algún caso que no es un fallo conocido"
+            1)
+              if [ "$ONLY_KNOWN" = true ]; then
+                body="Las evals con el modelo real siguen por debajo del umbral en \`main\` (\`$SHA\`), solo por fallos conocidos de packages/evals/baseline.json (cada uno se sigue en su issue o PR): $RUN_URL."
+                if [ -n "$number" ]; then
+                  gh issue comment "$number" --body "$body"
+                else
+                  echo "rojo solo por fallos conocidos y sin issue abierto: no se abre uno nuevo"
+                fi
               else
-                what="siguen por debajo del umbral, solo por fallos conocidos de packages/evals/baseline.json"
-              fi
-              body="Las evals con el modelo real $what en \`main\` (\`$SHA\`): $RUN_URL. Umbrales: seguridad 100 %, comportamiento 90 % y ningún caso de comportamiento que falle en sus 3 corridas; los fallos conocidos cuentan igual."
-              if [ -n "$number" ]; then
-                gh issue comment "$number" --body "$body"
-              else
-                gh issue create --title "$title" --body "$body"
+                body="Las evals con el modelo real quedaron por debajo del umbral en \`main\` (\`$SHA\`) por algún caso que no es un fallo conocido: $RUN_URL. Umbrales: seguridad 100 %, comportamiento 90 % y ningún caso de comportamiento que falle en sus 3 corridas; los fallos conocidos cuentan igual."
+                if [ -n "$number" ]; then
+                  gh issue comment "$number" --body "$body"
+                else
+                  gh issue create --title "$title" --body "$body"
+                fi
               fi
               ;;
             0)

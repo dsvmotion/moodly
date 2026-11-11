@@ -109,7 +109,7 @@ Las skills, los agentes y el hook de arranque que usan las sesiones viven en `.c
 
 Solo se mergea si se cumple **todo** lo siguiente. Si algo falla o hay dudas, **no mergees**: para y avisa a producto.
 1. **CI en verde sobre el head commit actual:** cada check de `scripts/merge-guard/required-checks.txt` existe y su ejecución más reciente sobre ese commit exacto está en `SUCCESS`, y el commit status más reciente de cada contexto de `required-statuses.txt` (la guarda, `sensitive-paths`) publicado por `github-actions[bot]` está en `success`.
-2. **Ningún test debilitado:** sin `.skip`/`.only`/`.todo`/`.fixme` añadidos, sin pgTAP sin plan y sin tests borrados (`scripts/merge-guard/check-sensitive.sh` sobre los archivos y el diff del PR; el job `sensitive-paths` del CI lo comprueba en cada PR).
+2. **Ningún test debilitado:** sin `.skip`/`.only`/`.todo`/`.fixme` añadidos, sin pgTAP sin plan, sin tests borrados y sin fallos conocidos nuevos en la línea base de las evals (`packages/evals/baseline.json`, K-01) (`scripts/merge-guard/check-sensitive.sh` sobre los archivos y el diff del PR; el job `sensitive-paths` del CI lo comprueba en cada PR).
 3. **Merge fijando el commit comprobado** (squash).
 
 Cómo:
