@@ -52,7 +52,7 @@ findings:
   - {id: "R-08", milestone: "M0", owner: "V7", status: "in_progress", evidence: ["PR #198 (abierto)"], note: "Validar en SQL que la hora de una cita de un agente es un hueco libre; pasa a done al mergear #198 con su evidencia pgTAP"}
   - {id: "R-02", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["PR #197 (abierto)"], note: "El agente solo escribe en una conversación que lleva él; pasa a done al mergear #197 con su evidencia pgTAP"}
   - {id: "O-01", milestone: "M1", owner: "V8", status: "in_progress", evidence: [], note: "Capa de canales (WhatsApp, web chat, email); línea V8. Sin PR todavía"}
-  - {id: "O-02", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["PR #195 (ADR 0053, aceptado)"], note: "Marco de integraciones: la plataforma de conectores es Nango autoalojado en la UE (ADR 0053); falta construirlo"}
+  - {id: "O-02", milestone: "M1", owner: "V1", status: "planned", evidence: ["PR #195 (ADR 0053, aceptado)"], note: "Marco de integraciones: la plataforma de conectores es Nango autoalojado en la UE (ADR 0053); decidido, sin construir todavía (nadie trabaja en ello)"}
   - {id: "M-10", milestone: "M1", owner: "V6", status: "in_progress", evidence: ["PR #216 (abierto)"], note: "Tiempo real de la bandeja: Broadcast from Database (solo ids, tema privado inbox:<org>:<local|org>, RLS en realtime.messages; Postgres Changes no sirve con particiones). V6 la base, V2 el cliente"}
   - {id: "K-01", milestone: "M1", owner: "V4", status: "in_progress", evidence: ["PR #205 (mergeado, d878c0b)", "PR #209 (abierto)", "PR #213 (abierto)"], note: "Parte 1 (#205, mergeado): las evals con el modelo falso como check obligatorio propio. Falta añadirlo a la regla de main (producto)"}
 
