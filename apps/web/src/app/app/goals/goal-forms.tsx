@@ -9,6 +9,7 @@ import {
   GOAL_DIRECTIONS,
   GOAL_METRICS,
   GOAL_PERIODS,
+  goalMetricOptions,
   GOAL_STATUSES,
   goalMetric,
   targetValue,
@@ -75,11 +76,14 @@ function GoalFields({ values, disabled }: { values?: GoalFieldValues; disabled: 
           className={fieldClass}
           data-testid="goal-metric"
         >
-          {GOAL_METRICS.map((metric) => (
-            <option key={metric.key} value={metric.key}>
-              {t(`metrics.${metric.id}`)}
-            </option>
-          ))}
+          {goalMetricOptions(values?.metricKey ?? null).map((key) => {
+            const metric = goalMetric(key);
+            return (
+              <option key={key} value={key}>
+                {metric.id ? t(`metrics.${metric.id}`) : t("otherMetric", { key })}
+              </option>
+            );
+          })}
         </select>
       </label>
       <div className="grid gap-3 sm:grid-cols-2">

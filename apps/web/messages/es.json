@@ -631,6 +631,7 @@
       "firstReplyMinutes": "Tiempo hasta la primera respuesta",
       "outstandingInvoices": "Facturación pendiente de cobro"
     },
+    "otherMetric": "Otra: {key}",
     "directions": {
       "at_least": "Al menos",
       "at_most": "Como mucho"

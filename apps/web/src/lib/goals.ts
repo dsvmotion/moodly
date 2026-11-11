@@ -51,6 +51,18 @@ export function goalMetric(key: string): GoalMetricInfo {
   return metric ? { ...metric, known: true } : { key, id: null, unit: "count", direction: "at_least", known: false };
 }
 
+/** La forma de goals.metric_key (su CHECK). */
+export const METRIC_KEY_PATTERN = /^[a-z][a-z0-9_]{0,62}(\.[a-z][a-z0-9_]{0,62}){0,2}$/;
+
+/**
+ * Las métricas que ofrece el selector. Si el objetivo ya tiene una que la app
+ * no conoce (la puso la plataforma u otra versión), sale la primera: cambiar
+ * otro campo no la reescribe con la primera del catálogo.
+ */
+export function goalMetricOptions(current: string | null): string[] {
+  return current !== null && !goalMetric(current).known ? [current, ...GOAL_METRIC_KEYS] : [...GOAL_METRIC_KEYS];
+}
+
 export interface GoalScopeRef {
   scope: GoalScope;
   scopeId: string;

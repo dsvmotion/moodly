@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GOAL_DIRECTIONS, GOAL_METRIC_KEYS, GOAL_PERIODS, GOAL_STATUSES, goalMetric, parseTargetValue } from "../../../lib/goals";
+import { GOAL_DIRECTIONS, GOAL_METRIC_KEYS, GOAL_PERIODS, GOAL_STATUSES, goalMetric, METRIC_KEY_PATTERN, parseTargetValue } from "../../../lib/goals";
 
 // Formas de entrada de la pantalla de objetivos (OA19, MANUAL §6.3). Solo
 // validan la forma: quién puede escribir lo decide la base de datos (RLS de
@@ -64,8 +64,18 @@ export const createGoalSchema = z
   .superRefine(checkGoal)
   .transform(dueDateFor);
 
+/**
+ * Al cambiar, la métrica puede ser una fuera del catálogo con la forma de
+ * metric_key: la que el objetivo ya tenía. Que sea esa (y no otra cualquiera)
+ * lo comprueba la acción con la fila guardada.
+ */
 export const updateGoalSchema = z
-  .object({ id: z.uuid(), ...fields, status: z.enum(GOAL_STATUSES) })
+  .object({
+    id: z.uuid(),
+    ...fields,
+    metricKey: z.union([z.enum(GOAL_METRIC_KEYS), z.string().regex(METRIC_KEY_PATTERN)]),
+    status: z.enum(GOAL_STATUSES),
+  })
   .superRefine(checkGoal)
   .transform(dueDateFor);
 

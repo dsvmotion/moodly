@@ -631,6 +631,7 @@
       "firstReplyMinutes": "Time to first reply",
       "outstandingInvoices": "Outstanding invoices"
     },
+    "otherMetric": "Other: {key}",
     "directions": {
       "at_least": "At least",
       "at_most": "At most"

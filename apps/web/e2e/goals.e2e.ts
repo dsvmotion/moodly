@@ -15,7 +15,9 @@ const ORG_GOAL = `Citas de Demo A ${RUN}`;
 const ORG_GOAL_EDITED = `Citas de toda Demo A ${RUN}`;
 const A1_GOAL = `Respuesta en A1 ${RUN}`;
 const NORTE_GOAL = `Leads de A Norte ${RUN}`;
-const ALL_TITLES = [ORG_GOAL, ORG_GOAL_EDITED, A1_GOAL, NORTE_GOAL];
+const OTHER_METRIC_GOAL = `Métrica de la plataforma ${RUN}`;
+const FORBIDDEN_GOAL = `No debería existir ${RUN}`;
+const ALL_TITLES = [ORG_GOAL, ORG_GOAL_EDITED, A1_GOAL, NORTE_GOAL, OTHER_METRIC_GOAL, FORBIDDEN_GOAL];
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 // Ids fijos del seed (packages/db/src/seed/data.ts).
@@ -157,6 +159,47 @@ test("un valor que no vale no se guarda y el formulario lo dice", async ({ page,
   expect(await goals(request, "a_org_admin", A1_GOAL)).toEqual([]);
 });
 
+test("cambiar un objetivo con una métrica que la app no conoce la conserva", async ({ page, request }) => {
+  // Lo crea la API con la sesión del org_admin, como lo haría otra versión o la plataforma.
+  const token = await apiToken(request, "a_org_admin");
+  const { url, publishableKey } = supabasePublicEnv();
+  const created = await request.post(`${url}/rest/v1/goals`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}`, Prefer: "return=minimal" },
+    data: {
+      organization_id: ORG_A,
+      scope: "organization",
+      scope_id: ORG_A,
+      title: OTHER_METRIC_GOAL,
+      metric_key: "platform.custom_metric",
+      target_value: 10,
+      period: "month",
+    },
+  });
+  expect(created.status()).toBe(201);
+
+  await signIn(page, "a_org_admin");
+  await page.goto("/app/goals");
+  await row(page, OTHER_METRIC_GOAL).click();
+  const form = page.getByTestId("goal-edit-form");
+  await expect(form.getByTestId("goal-metric")).toHaveValue("platform.custom_metric");
+  await expect(form.getByTestId("goal-metric").locator("option:checked")).toHaveText("Otra: platform.custom_metric");
+  await form.getByTestId("goal-target-value").fill("12");
+  await form.getByTestId("goal-save").click();
+  await expect(form.getByTestId("goal-saved")).toHaveText("Guardado.");
+  const [saved] = await goals(request, "a_org_admin", OTHER_METRIC_GOAL);
+  expect(saved).toMatchObject({ metric_key: "platform.custom_metric", target_value: 12 });
+
+  // Otra métrica fuera del catálogo (no la que tenía) no se acepta, aunque llegue a la acción.
+  await form.getByTestId("goal-metric").evaluate((select: HTMLSelectElement) => {
+    const option = select.options[0];
+    if (option) option.value = "platform.other_metric";
+  });
+  await form.getByTestId("goal-save").click();
+  await expect(form.getByTestId("goal-error")).toContainText("Revisa los campos");
+  const [unchanged] = await goals(request, "a_org_admin", OTHER_METRIC_GOAL);
+  expect(unchanged).toMatchObject({ metric_key: "platform.custom_metric" });
+});
+
 test("el location_manager crea objetivos solo en su local y lee los de la organización", async ({ page, request }) => {
   await signIn(page, "a_location_manager");
   await page.goto("/app/goals");
@@ -206,6 +249,40 @@ test("el region_manager gestiona su región y sus locales, no la organización",
   await page.keyboard.press("Escape");
   await row(page, ORG_GOAL_EDITED).click();
   await expect(page.getByTestId("goal-read-only")).toBeVisible();
+});
+
+test("la acción de crear niega un alcance que el rol no gestiona, aunque el formulario se manipule", async ({ page, request }) => {
+  // El location_manager cambia el alcance del formulario a toda la organización.
+  await signIn(page, "a_location_manager");
+  await page.goto("/app/goals");
+  const form = await openCreate(page);
+  await form.getByTestId("goal-target").evaluate((select: HTMLSelectElement, value: string) => {
+    const option = select.options[0];
+    if (option) option.value = value;
+  }, `organization:${ORG_A}`);
+  await fillGoal(page, { title: FORBIDDEN_GOAL, value: "1" });
+  await form.getByTestId("goal-create").click();
+  await expect(form.getByTestId("goal-error")).toHaveText("No puedes gestionar objetivos en ese alcance.");
+  expect(await goals(request, "a_org_admin", FORBIDDEN_GOAL)).toEqual([]);
+});
+
+test("la acción de cambiar niega un objetivo de un alcance que el rol no gestiona", async ({ page, request }) => {
+  // El region_manager manda a la acción de cambiar el id del objetivo de toda la organización.
+  const [orgGoal] = await goals(request, "a_org_admin", ORG_GOAL_EDITED);
+  expect(orgGoal).toBeDefined();
+  await signIn(page, "a_region_manager");
+  await page.goto("/app/goals");
+  await row(page, NORTE_GOAL).click();
+  const edit = page.getByTestId("goal-edit-form");
+  await edit.locator('input[name="id"]').evaluate((input: HTMLInputElement, id: string) => {
+    input.value = id;
+  }, orgGoal?.id ?? "");
+  await edit.getByTestId("goal-title").fill(FORBIDDEN_GOAL);
+  await edit.getByTestId("goal-save").click();
+  await expect(edit.getByTestId("goal-error")).toHaveText("No puedes gestionar objetivos en ese alcance.");
+  const [still] = await goals(request, "a_org_admin", ORG_GOAL_EDITED);
+  expect(still).toMatchObject({ id: orgGoal?.id, title: ORG_GOAL_EDITED, status: "paused" });
+  expect(await goals(request, "a_org_admin", FORBIDDEN_GOAL)).toEqual([]);
 });
 
 test("el staff lee los objetivos que se le aplican y no puede crear", async ({ page }) => {

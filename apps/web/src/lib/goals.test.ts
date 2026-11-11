@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canManageGoal,
+  GOAL_METRIC_KEYS,
   goalMetric,
+  goalMetricOptions,
   goalsInScope,
   manageableTargets,
   parseTargetValue,
@@ -138,5 +140,19 @@ describe("parseTargetValue", () => {
 
   it.each(["", "all", "region:", "planeta:x", `region:${NORTE}:extra`, 42, null])("%j no es un alcance", (value) => {
     expect(parseTargetValue(value)).toBeNull();
+  });
+});
+
+// Revisión de V10 (#217): cambiar un objetivo con una métrica que la app no
+// conoce (la puso la plataforma u otra versión) no puede reescribirla en
+// silencio con la primera del catálogo.
+describe("goalMetricOptions", () => {
+  it("con una métrica del catálogo, el catálogo", () => {
+    expect(goalMetricOptions("leads.qualified")).toEqual(GOAL_METRIC_KEYS);
+    expect(goalMetricOptions(null)).toEqual(GOAL_METRIC_KEYS);
+  });
+
+  it("con una que no conoce, la suya primero y después el catálogo", () => {
+    expect(goalMetricOptions("custom.metric")).toEqual(["custom.metric", ...GOAL_METRIC_KEYS]);
   });
 });

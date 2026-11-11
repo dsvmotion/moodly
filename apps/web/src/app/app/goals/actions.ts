@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
 import { securityEvent } from "@/lib/observability/logger";
 import { getScopeContext } from "@/lib/scope-data";
+import { goalMetric } from "@/lib/goals";
 import { createClient } from "@/lib/supabase/server";
 import { createGoalSchema, deleteGoalSchema, updateGoalSchema, type GoalFormState } from "./schema";
 
@@ -87,6 +88,13 @@ export async function updateGoal(_prev: GoalFormState, formData: FormData): Prom
   const { id, title, metricKey, direction, targetValue, period, dueDate, status } = parsed.data;
 
   const supabase = await createClient();
+  // Una métrica fuera del catálogo solo vale si es la que el objetivo ya tenía
+  // (no se cambia; se conserva). Se lee con la sesión: sin fila, no se puede.
+  if (!goalMetric(metricKey).known) {
+    const { data: current } = await supabase.from("goals").select("metric_key").eq("id", id).maybeSingle();
+    if (!current) return { error: "not_allowed", savedAt: null };
+    if (current.metric_key !== metricKey) return { error: "invalid", savedAt: null };
+  }
   const { data, error } = await supabase
     .from("goals")
     .update({ title, metric_key: metricKey, direction, target_value: targetValue, period, due_date: dueDate, status })

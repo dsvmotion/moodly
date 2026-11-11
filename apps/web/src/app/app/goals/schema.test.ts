@@ -82,7 +82,11 @@ describe("updateGoalSchema", () => {
     expect(updateGoalSchema.parse({ ...update, target: `region:${REGION}` })).not.toHaveProperty("target");
   });
 
-  it.each([{ status: "deleted" }, { id: "no-es-un-uuid" }])("rechaza %j", (change) => {
+  it("deja pasar una métrica fuera del catálogo con la forma de metric_key (la acción comprueba que es la que ya tenía)", () => {
+    expect(updateGoalSchema.parse({ ...update, metricKey: "custom.metric" }).metricKey).toBe("custom.metric");
+  });
+
+  it.each([{ status: "deleted" }, { id: "no-es-un-uuid" }, { metricKey: "Custom Metric" }, { metricKey: "" }])("rechaza %j", (change) => {
     expect(updateGoalSchema.safeParse({ ...update, ...change }).success).toBe(false);
   });
 });
