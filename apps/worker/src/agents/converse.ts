@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPromptParts, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -502,6 +502,15 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
       const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      const prompt = composeSystemPromptParts({
+        agentName: context.agent.display_name ?? context.agent.type_name,
+        businessName: context.organization.name,
+        locationName: prepared.location?.name ?? null,
+        timezone: prepared.location?.timezone ?? "UTC",
+        now: new Date(prepared.now),
+        ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+        knowledge: searchesKnowledge,
+      });
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -512,15 +521,9 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           runId,
           conversation: { id: conversation.id, contactId: conversation.contact_id },
         },
-        systemPrompt: composeSystemPrompt({
-          agentName: context.agent.display_name ?? context.agent.type_name,
-          businessName: context.organization.name,
-          locationName: prepared.location?.name ?? null,
-          timezone: prepared.location?.timezone ?? "UTC",
-          now: new Date(prepared.now),
-          ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
-          knowledge: searchesKnowledge,
-        }),
+        // El prompt estable va a la caché de prompt; la hora, aparte (PL-T3).
+        systemPrompt: prompt.stable,
+        systemContext: prompt.volatile,
         history: prepared.history,
         skills,
         settings,

@@ -98,7 +98,8 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPrompt,
+    systemPrompt: world.systemPromptParts.stable,
+    systemContext: world.systemPromptParts.volatile,
     history: testCase.history,
     skills: world.skills,
     settings: world.settings,
