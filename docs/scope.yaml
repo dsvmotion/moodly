@@ -40,6 +40,7 @@ findings:
   - {id: "M-08", milestone: "M0", owner: "V2", status: "done", evidence: ["PR #172", "apps/web/src/lib/time-zone.test.ts", "apps/web/e2e/time-zone.e2e.ts"], note: "Las horas del hilo van en la zona de su local; la zona se escribe al lado si la organización tiene más de una (Demo F: Madrid y Canarias) o si el dispositivo está en otra. Con el servidor en UTC"}
   - {id: "G-03", milestone: "M0", owner: "V1", status: "in_progress", evidence: ["PR #191", "packages/db/supabase/tests/database/09_login_throttle.test.sql"], note: "login_record_success exige session_is_active(): con factor verificado, solo aal2 vacía el freno; migración 20261111190000_auth_hardening"}
   - {id: "G-04", milestone: "M0", owner: "V1", status: "in_progress", evidence: ["PR #191", "packages/db/supabase/tests/database/10_invitations.test.sql"], note: "accept_invitation exige auth.users.email_confirmed_at (mismo error genérico); enable_confirmations = true también en la base de config.toml"}
+  - {id: "O-02", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["branch claude/adrs-t1-t4-t6-t10-hub", "docs/adr/0053-hub-de-integraciones-y-plataforma-de-conectores.md"], note: "ADR 0053 propuesto (M0): el hub y la comparación de plataformas de conectores (pregunta F11); el hub se construye en M1"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
 # El estado lo declara producto; lo que no se puede comprobar desde el repositorio lo dice en la evidencia.
@@ -54,9 +55,9 @@ founder_tasks:
   - {id: "F08", name: "Domain: moodlycrm.com now (staging at staging.moodlycrm.com); move to moodly.com when the platform is operational", milestone: "after", status: "planned", evidence: [], note: "Decided on 2026-11-10. Keep the domain as configuration (audit section 18.9)"}
   - {id: "F09", name: "Supabase Pro and a separate production organization, with a restore drill", milestone: "M1", status: "planned", evidence: []}
   - {id: "F10", name: "DPAs with each model provider, the connector platform and the Instagram partner", milestone: "M3", status: "planned", evidence: []}
-  - {id: "F11", name: "Choose the connector platform from V1's comparison", milestone: "M0", status: "planned", evidence: []}
+  - {id: "F11", name: "Choose the connector platform from V1's comparison", milestone: "M0", status: "planned", evidence: [], note: "La comparación y la pregunta están en el ADR 0053 (propuesto). Si producto no contesta, vale el valor por defecto: Nango autoalojado en la UE"}
   - {id: "F12", name: "Book the independent penetration test", milestone: "M3", status: "planned", evidence: []}
-  - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "planned", evidence: []}
+  - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "planned", evidence: [], note: "Los de T1, T4, T6, T10 y el hub son los ADR 0049 a 0053, propuestos en la rama claude/adrs-t1-t4-t6-t10-hub"}
   - {id: "F14", name: "Security contact for SECURITY.md: contact@moodly.com, the only address in use", milestone: "M0", status: "done", evidence: ["Declared by the founder on 2026-11-10: the mailbox exists"]}
   - {id: "F15", name: "Protect main of dsvmotion/moodly-toolkit like main of moodly", milestone: "M0", status: "planned", evidence: [], note: "Decided by the founder on 2026-11-10 (P-10)"}
 
@@ -329,16 +330,16 @@ areas:
   platform:
     done_when: "Runs in the production configuration with a test, and an alert or runbook where relevant"
     units:
-      - {id: "PL-T1", name: "Worker reads and writes through SQL transactions under an organization-bound role", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T1", name: "Worker reads and writes through SQL transactions under an organization-bound role", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["branch claude/adrs-t1-t4-t6-t10-hub", "docs/adr/0049-worker-rol-ligado-a-la-organizacion.md"], note: "ADR 0049 propuesto (M0): rol moodly_worker sin BYPASSRLS y la organización fijada en cada transacción; falta que producto lo acepte y el spike"}
       - {id: "PL-T2", name: "Event-driven intake keyed by the provider's message id", milestone: "M1", owner: "V1", status: "planned", evidence: []}
       - {id: "PL-T3", name: "Hybrid pipeline: fast model for routing, deterministic steps, prompt caching", milestone: "M1", owner: "V1", status: "planned", evidence: []}
-      - {id: "PL-T4", name: "Per-tenant envelope encryption with keys in KMS", milestone: "M3", owner: "V1", status: "planned", evidence: [], note: "The vault exists with a local key provider and no callers"}
+      - {id: "PL-T4", name: "Per-tenant envelope encryption with keys in KMS", milestone: "M3", owner: "V1", status: "in_progress", evidence: ["branch claude/adrs-t1-t4-t6-t10-hub", "docs/adr/0050-claves-por-organizacion-y-cifrado-de-contenido.md"], note: "The vault exists with a local key provider and no callers. ADR 0050 propuesto (M0): una clave de KMS por organización; falta que producto lo acepte, la cuenta de AWS y el spike"}
       - {id: "PL-T5", name: "Personal data masked before the model", milestone: "M2", owner: "V1", status: "planned", evidence: []}
-      - {id: "PL-T6", name: "All model providers behind the router; EU by default, US on request", milestone: "M1", owner: "V1", status: "in_progress", evidence: [], note: "Router exists with one transport declared as non-EU"}
+      - {id: "PL-T6", name: "All model providers behind the router; EU by default, US on request", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["branch claude/adrs-t1-t4-t6-t10-hub", "docs/adr/0051-proveedores-de-modelos-y-residencia-ue.md"], note: "Router exists with one transport declared as non-EU. ADR 0051 propuesto (M0): Bedrock en la UE primero, Vertex en la UE de respaldo y el gateway para us y any"}
       - {id: "PL-T7", name: "AI tracing with redaction and nightly scoring", milestone: "M3", owner: "V1", status: "planned", evidence: []}
       - {id: "PL-T8", name: "Realtime instead of polling, plus a notification service", milestone: "M2", owner: "V1", status: "planned", evidence: []}
       - {id: "PL-T9", name: "Injection resistance by design: taint tracking and a link allow-list", milestone: "M3", owner: "V1", status: "planned", evidence: []}
-      - {id: "PL-T10", name: "One channel abstraction with delivery states and a template registry", milestone: "M1", owner: "V1", status: "planned", evidence: []}
+      - {id: "PL-T10", name: "One channel abstraction with delivery states and a template registry", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["branch claude/adrs-t1-t4-t6-t10-hub", "docs/adr/0052-capa-de-canales.md"], note: "ADR 0052 propuesto (M0); falta que producto lo acepte"}
       - {id: "PL-T11", name: "Analytics on the event log; outcome ledger views", milestone: "M3", owner: "V1", status: "planned", evidence: []}
       - {id: "PL-prod", name: "Production environment with backups and a restore drill", milestone: "M1", owner: "V1", status: "planned", evidence: []}
       - {id: "PL-health", name: "Health checks and alerts", milestone: "M1", owner: "V1", status: "planned", evidence: []}
