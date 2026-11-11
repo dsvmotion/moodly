@@ -72,13 +72,6 @@ async function fillGoal(page: Page, goal: NewGoal) {
   return form;
 }
 
-async function addGoal(page: Page, goal: NewGoal) {
-  await openCreate(page);
-  const form = await fillGoal(page, goal);
-  await form.getByTestId("goal-create").click();
-  await expect(page.getByTestId("goal-create-sheet")).toBeHidden();
-}
-
 const row = (page: Page, title: string) => page.getByTestId("goals-table-row").filter({ hasText: title });
 
 async function targetOptions(page: Page): Promise<string[]> {
