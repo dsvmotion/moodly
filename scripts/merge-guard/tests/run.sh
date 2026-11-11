@@ -213,7 +213,7 @@ for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/rollbac
   check_case "sensible: $path" 1 "$path"
 done
 
-echo "== lista activa (lista corta de M0, P-01)"
+echo "== lista activa: vacía (decisión de producto, 2026-11-11)"
 (
   unset SENSITIVE_PATTERNS
   for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/tests/database/01_x.test.sql \
@@ -225,8 +225,8 @@ echo "== lista activa (lista corta de M0, P-01)"
     package.json apps/web/package.json pnpm-lock.yaml packages/db/src/service.ts scripts/supabase/config-drift.sh pnpm-workspace.yaml .npmrc apps/web/.npmrc; do
     echo "$path" > "$tmp/paths.txt"
     status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
-    if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
-    else echo "✗ activa, $path → $status (esperado 1)"; exit 1; fi
+    if [[ $status -eq 0 ]]; then echo "✓ activa vacía, no sensible: $path → 0"
+    else echo "✗ activa vacía, $path → $status (esperado 0)"; exit 1; fi
   done
   for path in apps/web/src/app/app/inbox/page.tsx packages/evals/src/conversations/checks.ts docs/STATUS.md \
     docs/WORKSTREAMS.md docs/scope.yaml apps/worker/src/agents/converse.ts; do

@@ -114,8 +114,10 @@ $$;
 \set p_operator    '''e3000000-0000-4000-8000-000000000002'''
 \set p_revoked     '''e3000000-0000-4000-8000-000000000003'''
 
-insert into auth.users (id, email, aud, role)
-select id::uuid, email, 'authenticated', 'authenticated'
+-- Emails confirmados, como los crea el seed (email_confirm): accept_invitation
+-- solo acepta un email confirmado (20261111190000_auth_hardening, G-04).
+insert into auth.users (id, email, aud, role, email_confirmed_at)
+select id::uuid, email, 'authenticated', 'authenticated', now()
 from (values
   (:a_admin,      'a_admin@test.local'),
   (:a_region_mgr, 'a_region_mgr@test.local'),
