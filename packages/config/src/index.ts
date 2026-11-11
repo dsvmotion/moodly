@@ -101,6 +101,13 @@ export interface GatewayModel {
   /** Precio en USD por millón de tokens, para estimar antes de llamar (el coste real lo da el gateway). */
   inputUsdPerMTok: number;
   outputUsdPerMTok: number;
+  /**
+   * Caché de prompt (PL-T3): leer de la caché y escribir en ella, en USD por
+   * millón de tokens. Sin ellos, el transporte cobra la entrada entera a precio
+   * normal (nunca se queda corto).
+   */
+  cacheReadUsdPerMTok?: number;
+  cacheWriteUsdPerMTok?: number;
 }
 
 /**
@@ -108,8 +115,9 @@ export interface GatewayModel {
  * modelo es cambiar esta tabla, nunca el código de negocio.
  */
 export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> = {
-  fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5 },
-  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20 },
+  // Caché de Anthropic: leer cuesta el 10 % de la entrada y escribir (5 minutos), el 125 %.
+  fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5, cacheReadUsdPerMTok: 0.01, cacheWriteUsdPerMTok: 0.125 },
+  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20, cacheReadUsdPerMTok: 0.4, cacheWriteUsdPerMTok: 5 },
 };
 
 export interface GatewayEmbeddingModel {

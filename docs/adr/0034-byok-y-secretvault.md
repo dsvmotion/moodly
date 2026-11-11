@@ -7,7 +7,8 @@
   - concreta el ADR 0019 §3–§4 (tres modos de conexión; cifrado de sobre con una clave por tenant en un KMS);
   - fija la decisión de producto del 2026-10-24 (AWS KMS en `eu-central-1`, con una clave maestra por entorno y una clave de datos ligada a cada `organization_id`);
   - el ADR 0033 (enrutador) lee el modo de conexión que guarda este;
-  - el ADR 0035 (residencia) usa la misma tabla.
+  - el ADR 0035 (residencia) usa la misma tabla;
+  - **modificado por el ADR 0053** (2026-11-11): los tokens OAuth de las integraciones de plataforma viven en Nango autoalojado (clave de instancia); `integration_secrets` y el `SecretVault` siguen para BYOK, `mcp` y las integraciones nativas.
 
 ## Contexto
 
