@@ -1,0 +1,6 @@
+# Política completa: SECURITY.md del repositorio de Moodly.
+# Estamos en preproducción: no hay datos reales de clientes.
+Contact: mailto:contact@moodly.com
+Expires: 2027-11-11T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://moodlycrm.com/.well-known/security.txt
