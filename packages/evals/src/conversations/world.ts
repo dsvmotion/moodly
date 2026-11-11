@@ -1,4 +1,5 @@
-import { composeSystemPrompt } from "@repo/agent-core";
+import { composeSystemPromptParts } from "@repo/agent-core";
+import type { SystemPromptParts } from "@repo/agent-core";
 import type { BookableService, RunScope, SkillDefinition, SkillSettings } from "@repo/agent-core";
 import { createFakeBookingProvider } from "@repo/integrations";
 import type { FakeBookingProvider } from "@repo/integrations";
@@ -235,7 +236,10 @@ export interface World {
   knowledge: FakeKnowledge;
   skills: Map<string, SkillDefinition<unknown>>;
   settings: Map<string, SkillSettings>;
+  /** El prompt entero, para comprobar qué lleva. */
   systemPrompt: string;
+  /** El mismo prompt partido como lo manda el worker: lo estable a la caché, la hora aparte (PL-T3). */
+  systemPromptParts: SystemPromptParts;
   /** Lo que preparó el caso (p. ej. el id de la cita de Ana). */
   seeded: Record<string, string>;
 }
@@ -261,6 +265,15 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
   const keys: readonly string[] = AGENTS[agent].skills;
   const mine = all.filter((skill) => keys.includes(skill.key));
   const books = keys.includes("find_slots");
+  const parts = composeSystemPromptParts({
+    agentName: AGENTS[agent].name,
+    businessName: business.name,
+    locationName: business.locationName,
+    timezone: TIMEZONE,
+    now: NOW,
+    ...(books ? { services: business.services } : {}),
+    knowledge: keys.includes("search_knowledge"),
+  });
   return {
     agent,
     business,
@@ -272,15 +285,8 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
     skills: new Map(mine.map((skill) => [skill.key, skill])),
     // Como nace el agente: cada skill activa con su autonomía por defecto.
     settings: new Map(mine.map((skill) => [skill.key, { enabled: true, autonomy: skill.defaultAutonomy }])),
-    systemPrompt: composeSystemPrompt({
-      agentName: AGENTS[agent].name,
-      businessName: business.name,
-      locationName: business.locationName,
-      timezone: TIMEZONE,
-      now: NOW,
-      ...(books ? { services: business.services } : {}),
-      knowledge: keys.includes("search_knowledge"),
-    }),
+    systemPromptParts: parts,
+    systemPrompt: `${parts.stable}\n\n${parts.volatile}`,
     seeded: {},
   };
 }

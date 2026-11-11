@@ -4,6 +4,7 @@ import {
   AppointmentNotFoundError,
   InvalidBookingError,
   SlotTakenError,
+  SlotUnavailableError,
 } from "./types.js";
 import type { Appointment, BookingProvider, BookingSlot } from "./types.js";
 
@@ -43,6 +44,16 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
     appointments.some(
       (a) => a.status === "booked" && a.resourceId === resourceId && a.id !== ignoreId && a.startsAt < end && start < a.endsAt,
     );
+  // Como la base de datos (R-08): una hora que elige el modelo es un hueco que
+  // find_slots podría haber dado: futura, dentro del horario y en la cuadrícula.
+  const assertBookable = (startsAt: Date, durationMs: number) => {
+    const dayStart = Date.UTC(startsAt.getUTCFullYear(), startsAt.getUTCMonth(), startsAt.getUTCDate());
+    const offset = startsAt.getTime() - dayStart;
+    const onGrid = (offset - openHour * 3_600_000) % STEP_MS === 0;
+    if (startsAt <= now() || !onGrid || offset < openHour * 3_600_000 || offset + durationMs > closeHour * 3_600_000) {
+      throw new SlotUnavailableError("esa hora no es un hueco libre");
+    }
+  };
   const ownedBy = (appointmentId: string, contactId: string) => {
     const appointment = appointments.find((a) => a.id === appointmentId && a.contactId === contactId);
     if (!appointment) throw new AppointmentNotFoundError("no hay ninguna cita así para este contacto");
@@ -78,6 +89,11 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
         return Promise.reject(new InvalidBookingError("el servicio no se ofrece en ese local o el recurso no lo hace"));
       }
       const endsAt = new Date(startsAt.getTime() + service.durationMinutes * 60_000);
+      try {
+        assertBookable(startsAt, service.durationMinutes * 60_000);
+      } catch (error) {
+        return Promise.reject(error as Error);
+      }
       if (overlaps(resourceId, startsAt, endsAt)) return Promise.reject(new SlotTakenError("ese hueco ya está ocupado"));
       const appointment: Appointment = {
         id: randomUUID(),
@@ -104,6 +120,7 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
           throw new InvalidBookingError("ese recurso no hace este servicio en este local");
         }
         const endsAt = new Date(startsAt.getTime() + service.durationMinutes * 60_000);
+        assertBookable(startsAt, service.durationMinutes * 60_000);
         if (overlaps(target, startsAt, endsAt, appointment.id)) throw new SlotTakenError("ese hueco ya está ocupado");
         Object.assign(appointment, { startsAt, endsAt, resourceId: target });
         return Promise.resolve(appointment);
