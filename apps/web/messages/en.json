@@ -407,6 +407,7 @@
     "description": "What the agent proposes and is waiting for a person. Approving sends the reply or makes the booking; rejecting does nothing.",
     "emptyTitle": "Nothing pending",
     "empty": "When the agent leaves a reply or an appointment as a draft, it will show up here.",
+    "truncated": "Showing the {count} oldest. The next ones appear as you decide these.",
     "approve": "Approve",
     "reject": "Reject",
     "wholeOrganization": "Whole organization",
@@ -439,6 +440,8 @@
     },
     "searchLabel": "Search conversations",
     "searchPlaceholder": "Search by customer name",
+    "older": "Show older conversations",
+    "newest": "Back to the most recent",
     "search": "Search",
     "emptyTitle": {
       "open": "No open conversations",

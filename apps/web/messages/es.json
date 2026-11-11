@@ -407,6 +407,7 @@
     "description": "Lo que el agente propone y espera a una persona. Aprobar envía la respuesta o hace la reserva; rechazar no hace nada.",
     "emptyTitle": "Nada pendiente",
     "empty": "Cuando el agente deje una respuesta o una cita en borrador, aparecerá aquí.",
+    "truncated": "Se muestran las {count} más antiguas. Al decidirlas aparecen las siguientes.",
     "approve": "Aprobar",
     "reject": "Rechazar",
     "wholeOrganization": "Toda la organización",
@@ -439,6 +440,8 @@
     },
     "searchLabel": "Buscar conversaciones",
     "searchPlaceholder": "Buscar por nombre del cliente",
+    "older": "Ver conversaciones anteriores",
+    "newest": "Volver a las más recientes",
     "search": "Buscar",
     "emptyTitle": {
       "open": "No hay conversaciones abiertas",

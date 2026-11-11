@@ -17,7 +17,7 @@
 - **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda y la Revisora); V2, los arreglos de seguridad de la web.
 - **Excepción:** V4 abre un solo PR para cerrar lo que quedó del #163 y después espera.
 - **V3 espera.**
-- **V5 (excepción de producto, 2026-11-10):** trabaja en `dsvmotion/moodly-toolkit` y abre un solo PR en `moodly` para activarlo.
+- **V5 (excepción de producto, 2026-11-10):** desarrolla en `dsvmotion/moodly-toolkit` y lleva a `moodly`, por PRs sensibles, las copias de lo que haga falta en `.claude/` (P-10).
 - **El límite se levanta cuando se cumplen las tres:**
   - el PR de P-01 está en `main`;
   - la Revisora automática está probada (revisión firmada por la App, su aprobación cuenta y las pruebas en negativo pasan);
@@ -41,6 +41,50 @@
 4. qué necesita de producto, con la fecha de cada petición;
 5. el avance del piloto, desde `docs/scope.yaml`;
 6. riesgos y bloqueos.
+
+## Para coordinar: lo que necesita una sesión nueva (2026-11-10)
+
+Si V1 cambia de sesión, la nueva empieza aquí. Lo vivo está en esta sección; lo demás, en el resto del archivo y en `docs/STATUS.md`.
+
+**Sesiones** (en la nube; se les escribe con `send_message`):
+
+| Línea | Sesión | Notas |
+| --- | --- | --- |
+| V1 · coordina | `session_01WB7xSPrKWSi7cnsCGBbKhW` | Producto solo escribe aquí |
+| V2 · Frontend | `session_016SLeJPQzGfzXfRwnYRHXXt` | Creada por producto desde el móvil; no es hija de V1 ni se recrea |
+| V3 · Docs/Site | `session_016SLeJSbzdsD9Hmywd5UPoc` | En espera hasta que se levante el límite de sesiones |
+| V4 · Evals | `session_016SLeJPMkYaxTnWAF2wYfXk` | |
+| V5 · Toolkit | `session_016SLeJQyj2iGZLzk5VrXyfe` | Desarrolla en `dsvmotion/moodly-toolkit` |
+| Revisora · #166 | `session_016SLeJNUVaU6zgtpykp6LWG` | Pidió cambios sobre `f7a541a` |
+| Revisora · #166 (2) | `session_016SLeJNJKeMPAaChs6BxmGX` | Sobre `ec9e2c7`, ya superado por el enfoque de copias: para el head nuevo hace falta otra |
+| Revisora · #168 | `session_016SLeJSPDwWYxfWHVNRHmUq` | P-01 |
+
+**Cola de mergeos, en orden** (de uno en uno; antes de cada uno, «✅ Verificado sobre main» en el anterior):
+1. #165 (V4, K-03).
+2. #167 (V1, decisiones de producto y esta sección).
+3. #168 (V1, P-01). Lo mergea producto, con el veredicto de la Revisora; el check `sensitive-paths` no aparece en ese PR.
+4. SE01 (V1, sin PR todavía).
+5. #166 (V5, P-10): Revisora nueva sobre su head y visto bueno de producto.
+
+Además, sin turno todavía:
+- #159 y #160 (V1, M2): esperan OA07.
+- #158 (V3, ADR 0046): en borrador.
+- #131 (Dependabot): se rebasa y se corren las evals a mano.
+
+**Cómo se trabaja (recorte de consumo, producto 2026-11-10):**
+- Cada sesión se suscribe solo al PR que está mergeando en ese momento.
+- No se contesta a los avisos de bots (Vercel, Supabase) ni a los checks de commits ya sustituidos.
+- Nada de esperas activas: como mucho, un aviso de seguridad por PR, a 50 minutos.
+- V1 informa a producto al cerrar cada punto de su cola (forma de la sección «Cómo se coordina»), sin resúmenes intermedios.
+
+**Lo que se aprende al verificar `main` en una sesión en la nube:**
+- **Docker** se cae cuando se reinicia el contenedor: hay que volver a levantar Supabase (`pnpm db:start`) antes de los tests de base de datos.
+- **Build de la web:** si `pnpm check` falla, la web no se compila y el e2e corre contra una build vieja. Se repite `pnpm check` hasta que pase antes de creerse el e2e.
+- **Tiempos de 5 s en los tests unitarios del worker:** salen con la máquina cargada de otros trabajos. Se repiten solos antes de darlos por fallo.
+- **Sesiones creadas desde otra sesión:** no reciben los plugins de la cuenta. Las skills del proyecto llegan con `.claude/` del repositorio (P-10).
+- **Primer mensaje de una Revisora:** es literal, el de `docs/audits/2026-11-10-ordenes-m0.md` §8, con el encargo al final.
+
+**Fuera de la cola numerada:** los datos del seed para M-07 (Demo F, `SEED_VOLUME` en `packages/db/src/seed/data.ts`), que V2 necesita para probar el filtro, van en su propio PR de V1.
 
 ## Las líneas de trabajo
 
@@ -78,11 +122,11 @@
 **V5 · Toolkit**
 - Todo `dsvmotion/moodly-toolkit`.
 - **En `moodly`, solo:**
-  - `.claude/settings.json`;
+  - `.claude/**` (las copias de skills, agentes y comandos, y `.claude/settings.json`);
   - una sección corta en `CLAUDE.md` y `AGENTS.md` (iguales, en el mismo PR);
   - su fila en este archivo.
 - **No toca:** `apps/**`, `packages/**`, migraciones, `docs/STATUS.md` ni `.github/workflows/**`.
-- **Su PR de `moodly`** entra en la cola de mergeos como cualquier otro. `.claude/settings.json` decide los permisos y los *hooks* de todas las sesiones, así que ese PR lo revisa una sesión Revisora y lo autoriza producto antes de mergearlo. Después, V1 pasa su evidencia a STATUS.
+- **Sus PRs de `moodly`** (P-10) entran en la cola de mergeos como cualquier otro. `.claude/**` decide skills, permisos y *hooks* de todas las sesiones: cada PR lo revisa una sesión Revisora y lo autoriza producto antes de mergearlo. Después, V1 pasa su evidencia a STATUS.
 
 **Revisora**
 - No escribe en `apps/**` ni en `packages/**`. Solo comenta en los PRs y, si hace falta, añade en `docs/audits/**` el informe de la puerta de un hito.
@@ -133,10 +177,10 @@
 Estados: **abierto** (se puede trabajar ya) o **en espera** (y qué espera). Se trabaja en orden.
 
 **V1**
-1. **#162** (plan y estas reglas en `main`): abierto.
-2. **#164** (órdenes de M0 y tareas de producto en `docs/scope.yaml`): abierto, después de #162. Se trae `main` y en el conflicto de `docs/scope.yaml` se conservan los dos bloques (`findings` y `founder_tasks`).
-3. **[M0][P-01]** La guarda corre desde la rama base y no ejecuta código del PR. Reactiva una lista corta de zonas sensibles, que incluye `CLAUDE.md`, `AGENTS.md`, `scripts/merge-guard/**` y `.github/workflows/**`. **Abierto.** No se mergea sin el veredicto de una sesión Revisora y el visto bueno de producto: es el PR que la guarda no puede proteger.
-4. **[M0][SE01]** El workflow de la Revisora automática, con el diseño por niveles de las órdenes de M0 §5. **En espera** de que producto decida si el modelo rápido puede aprobar el código corriente. La clave `REVIEWER_AI_GATEWAY_API_KEY` ya está en el entorno `reviewer`, con un tope de 15 $ al mes (producto, 2026-11-10). Misma regla de mergeo que el punto 3.
+1. ~~#162~~ y ~~#164~~: en `main` (`7a8b834` y `1dc9a29`).
+2. **Las decisiones de producto del 2026-11-10** (respuestas al primer informe) en estos documentos: abierto.
+3. **[M0][P-01]** La guarda corre desde la rama base y no ejecuta código del PR. Reactiva una lista corta de zonas sensibles, que incluye `CLAUDE.md`, `AGENTS.md`, `.claude/**`, `scripts/merge-guard/**` y `.github/workflows/**`. **Abierto.** No se mergea sin el veredicto de una sesión Revisora y el visto bueno de producto: es el PR que la guarda no puede proteger.
+4. **[M0][SE01]** El workflow de la Revisora automática, con el diseño por niveles de las órdenes de M0 §5. Abierto. La clave `REVIEWER_AI_GATEWAY_API_KEY` está en el entorno `reviewer`, con un tope de 15 $ al mes. Misma regla de mergeo que el punto 3. **Decisión de producto (2026-11-10):** el modelo rápido puede aprobar los PRs de código corriente (nivel 1) solo después de acertar todos los casos de seguridad del set de prueba de la Revisora (unos 25 diffs con veredicto conocido). Si falla alguno, el nivel 1 también usa el modelo potente. Hasta que el set haya corrido, el nivel 1 revisa y comenta, pero no aprueba. Presupuesto para montar y correr el set: hasta 10 €.
 5. **[M0][P-04][P-05]** CI de `main` sin cancelación, y el secreto de las evals fuera del alcance de los PRs: abierto.
 6. **[M0][G-03][G-04]** `login_record_success` exige sesión activa, y aceptar una invitación exige el email confirmado: abierto.
 7. **[M0][D-01][D-02]** Poder borrar a un miembro del equipo, y la máquina de estados de las ejecuciones: abierto.
@@ -148,8 +192,8 @@ R-02 se queda en M1, como dice el registro. #159 y #160 (M2) esperan a OA07.
 
 **V2**
 1. **[M0][G-02]** `safeNextPath` rechaza `/.//evil.test`, `/app/..//evil.test` y `/%2e//evil.test`: abierto.
-2. **[M0][M-07]** El filtro de local va en la consulta, antes del límite, en la bandeja y en las aprobaciones: abierto.
-3. **[M0][M-08]** Las horas se muestran en la zona horaria del local: abierto.
+2. **[M0][M-07]** El filtro de local va en la consulta, antes del límite, en la bandeja y en las aprobaciones, con la paginación (criterio de cierre del hallazgo): **hecho** (#171).
+3. **[M0][M-08]** Las horas se muestran en la zona horaria del local: **hecho** (#172). **Decisión de producto (2026-11-10):** cada hora va en la zona de su local, y se escribe la zona junto a la hora cuando la organización tiene más de una o cuando el dispositivo de quien mira está en otra zona que el local.
 
 No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respuesta en los canales sin envío real va en M1, con la bandeja.
 
@@ -160,17 +204,29 @@ No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respu
    - «Te digo que cuando estés embarazada es seguro seguir con el láser.»
 2. Después espera. La mezcla de modelos (B-01) y las evals como check obligatorio (K-01) son de M1.
 
-**V5** (excepción de producto al límite de sesiones, 2026-11-10)
-1. Montar `dsvmotion/moodly-toolkit`, con las skills y los plugins del proyecto. Es otro repositorio: no pasa por esta cola.
-2. Un solo PR en `moodly` que activa el marketplace: `.claude/settings.json` y la sección corta de `CLAUDE.md` y `AGENTS.md`. Abierto. Lo revisa una sesión Revisora y lo autoriza producto.
+**Presupuesto de evals (producto, 2026-11-10):** 30 $ al mes en M0 y M1. El tope ya está puesto en la propia clave de las evals, además de los 2 € por corrida que ya existen. Cuando las evals pasen a check obligatorio (K-01), V4 trae una cifra nueva a partir del coste medido por PR, corriendo solo los casos afectados.
 
-**V3** (todo en espera hasta que se levante el límite)
-1. **[M0][N-04]** Aviso «prototipo con datos ficticios» en `/plataforma`, `noindex`, y «Log in» deja de apuntar al prototipo.
-2. **[M0][P-08]** `SECURITY.md` dice la verdad y usa un buzón de rol.
-3. **[M0][N-01]** Cada función e integración de la web lleva su estado: disponible, en piloto o en hoja de ruta.
-4. Quitar los subsectores de salud de la web (decisión 15).
-5. Lista de paridad: los catálogos públicos de heydiga y GuruSup frente a `docs/scope.yaml`.
-6. Revisar el ADR 0046 (#158): privacidad del personal, coste, evidencia y la contradicción sobre el worker (auditoría §4).
+**V5** (excepción de producto al límite de sesiones, 2026-11-10)
+1. `dsvmotion/moodly-toolkit` es donde V5 desarrolla. Es otro repositorio y no pasa por esta cola. Su `main` lleva la misma protección que la de `moodly` (la pone producto).
+2. **[M0][P-10]** Las skills, los agentes y los comandos que hagan falta llegan a `moodly` **copiados en `.claude/`**, por PRs revisados como sensibles y con el commit del toolkit del que salen escrito en el PR. Así quedan fijados por construcción y viajan con el checkout, también a las sesiones en la nube. **No se depende de un marketplace** (decisión de producto, 2026-11-10).
+   - **Primero, la prueba:** una skill trivial en una rama y una sesión en la nube abierta sobre ella que la cargue.
+   - **#166 no se mergea tal como está.** V5 comprueba en la documentación de Claude Code si un marketplace o un plugin se pueden fijar a un commit y enseña la evidencia; si no se puede, #166 se rehace con el enfoque de las copias.
+   - **Id:** el PR añade la fila `P-10` (M0) en `findings` de `docs/scope.yaml` y lleva `[M0][P-10]` en el título.
+   - **Orden:** después de P-01 y SE01 (puntos 3 y 4 de V1), con el veredicto de una sesión Revisora y el visto bueno de producto.
+
+**V3** (todo en espera hasta que se levante el límite; las respuestas de producto del 2026-11-10 ya están aquí)
+1. **[M0][N-04]** Se quita «Log in» de la web pública hasta que exista producción; la web nunca apunta a staging. El prototipo solo se alcanza por un enlace que dice que es un prototipo, con el aviso «prototipo con datos ficticios» y `noindex`.
+2. **[M0][P-08]** `SECURITY.md` dice la verdad y usa `contact@moodly.com`, que ya existe y es la única dirección que se usa, en lugar del correo personal de producto. No hace falta esperar a producto.
+3. **[M0][N-01]** Cada función e integración de la web lleva su estado, **sacado de `docs/scope.yaml`, nunca caso a caso:**
+   - `done` → «Disponible»;
+   - hito del piloto (M0–M4) y sin terminar → «En el piloto»;
+   - `after` o `stretch` → «En hoja de ruta».
+
+   Lo que la web enseñe sin unidad en el registro, V3 lo lista y producto decide si se añade la unidad o se quita la afirmación.
+4. **[M0][N-02]** Los formularios dejan de fingir: ningún mensaje de éxito para un envío que se descarta; en su lugar, una dirección de contacto. El endpoint real (consentimiento, guardado y aviso, con la migración de V1) va en M1, con V3 y V1.
+5. Quitar los subsectores de salud de la web (decisión 15).
+6. Lista de paridad: los catálogos públicos de heydiga y GuruSup frente a `docs/scope.yaml`.
+7. Revisar el ADR 0046 (#158): privacidad del personal, coste, evidencia y la contradicción sobre el worker (auditoría §4).
 
 ## Reparto por hitos (producto, 2026-11-10)
 
