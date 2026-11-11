@@ -12,8 +12,16 @@ name: sensitive-paths
 # - Nunca hace checkout del código del PR ni lo ejecuta: los archivos y el diff
 #   se leen por la API de GitHub y se tratan como texto. Si la API no los da
 #   (PR enorme), el job falla en cerrado.
-# - Permisos mínimos: el job de la guarda solo lee; solo invalidate-review
-#   escribe, y solo para quitar la etiqueta.
+# - Permisos mínimos: el job de la guarda lee el PR y solo escribe su check;
+#   solo invalidate-review toca el PR, y solo para quitar la etiqueta.
+#
+# Desde diciembre de 2025, pull_request_target corre siempre el workflow de la
+# rama por defecto y su GITHUB_SHA es el último commit de main, no el del PR: el
+# check de un job quedaría en main y nunca en el head del PR. Por eso el job se
+# llama «guarda» y publica el check «sensitive-paths» en el head del PR con la
+# API de checks; ese es el que exigen safe-merge.sh y la protección de main. El
+# head se lee de la API antes y después de leer los archivos y el diff: si llegó
+# un commit nuevo entre medias, no publica nada (lo hace el run de ese commit).
 #
 # La etiqueta aprueba un commit concreto: un commit nuevo (synchronize) o una
 # reapertura (reopened) la invalidan. En ese run cuenta como ausente y el job
@@ -30,12 +38,13 @@ concurrency:
 
 jobs:
   sensitive-paths:
-    name: sensitive-paths
+    name: guarda
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
+      checks: write
     outputs:
       remove_label: ${{ steps.gate.outputs.remove_label }}
     steps:
@@ -50,18 +59,29 @@ jobs:
         run: bash scripts/merge-guard/tests/run.sh
 
       - name: Archivos y diff del PR (por la API, sin checkout)
+        id: pr
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          before="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)"
           # Rutas nuevas y, en los renombrados, también la de antes.
           gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/files" \
             --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
           gh api -H "Accept: application/vnd.github.v3.diff" "repos/$GH_REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/diff.patch"
+          after="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)"
           test -s "$RUNNER_TEMP/files.txt"
-          echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
+          [[ "$before" =~ ^[0-9a-f]{40}$ ]]
+          echo "head=$after" >> "$GITHUB_OUTPUT"
+          if [[ "$before" != "$after" ]]; then
+            echo "same_head=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Llegó un commit nuevo mientras se leía el PR: lo revisa el run de ese commit."
+          else
+            echo "same_head=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Head del PR: $after"; echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
 
       - name: Zonas sensibles y tests debilitados
         id: gate
@@ -70,25 +90,36 @@ jobs:
           HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'revisado-humano') }}
         run: |
           result=0
-          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" || result=$?
+          # Sin tubería: el shell de los pasos no lleva pipefail y el código de salida se perdería.
+          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" > "$RUNNER_TEMP/guard.txt" || result=$?
+          cat "$RUNNER_TEMP/guard.txt"
           # La decisión se escribe siempre (este paso no falla) para que
           # invalidate-review pueda leerla aunque el veredicto sea "fail".
           bash scripts/merge-guard/sensitive-gate.sh "$result" "$EVENT_ACTION" "$HAS_LABEL" | tee -a "$GITHUB_OUTPUT" || true
 
-      - name: Veredicto
+      - name: Check sensitive-paths en el head del PR
+        if: steps.pr.outputs.same_head == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
           VERDICT: ${{ steps.gate.outputs.verdict }}
           REMOVE_LABEL: ${{ steps.gate.outputs.remove_label }}
         run: |
-          if [ "$REMOVE_LABEL" = "true" ]; then
-            echo "::warning::Commit nuevo o reapertura: la etiqueta revisado-humano ya no vale para este commit y se quita del PR."
-          fi
-          if [ "$VERDICT" = "pass" ]; then
-            echo "OK: sin zonas sensibles, o con revisión humana vigente para este commit."
+          set -euo pipefail
+          if [[ "$VERDICT" == "pass" ]]; then
+            conclusion=success
+            title="Sin zonas sensibles, o con revisión humana vigente para este commit"
           else
-            echo "::error::El PR toca zonas sensibles o debilita tests: necesita el veredicto de una sesión Revisora y la etiqueta revisado-humano sobre este commit (la pone producto, nunca un agente)."
-            exit 1
+            conclusion=failure
+            title="Zonas sensibles o tests debilitados: hace falta la Revisora y la etiqueta revisado-humano de producto"
           fi
+          summary="$(head -c 60000 "$RUNNER_TEMP/guard.txt")"
+          [[ "$REMOVE_LABEL" == "true" ]] && summary="Commit nuevo o reapertura: la etiqueta revisado-humano ya no vale para este commit y se quita del PR."$'\n\n'"$summary"
+          gh api "repos/$GH_REPO/check-runs" -X POST \
+            -f name=sensitive-paths -f head_sha="$HEAD_SHA" -f status=completed -f conclusion="$conclusion" \
+            -f "output[title]=$title" -f "output[summary]=${summary:-Nada sensible.}" > /dev/null
+          echo "sensitive-paths → $conclusion en $HEAD_SHA"
 
   invalidate-review:
     name: invalidate-review

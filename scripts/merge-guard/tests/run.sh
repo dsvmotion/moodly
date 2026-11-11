@@ -203,7 +203,7 @@ echo "== lista activa (lista corta de M0, P-01)"
     apps/web/src/lib/supabase/server.ts apps/web/src/app/login/page.tsx apps/web/.env.example \
     .github/workflows/ci.yml .github/workflows/sensitive-paths.yml scripts/merge-guard/check-sensitive.sh \
     scripts/merge-guard/sensitive-paths.txt scripts/safe-merge.sh .claude/settings.json .claude/skills/x/SKILL.md \
-    AGENTS.md CLAUDE.md; do
+    AGENTS.md CLAUDE.md apps/web/CLAUDE.md packages/db/AGENTS.md apps/web/.claude/settings.json .mcp.json; do
     echo "$path" > "$tmp/paths.txt"
     status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
     if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
@@ -224,7 +224,7 @@ echo "== lista activa (lista corta de M0, P-01)"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
   if [[ $status -eq 1 ]]; then echo "✓ con la lista activa, un test.skip sigue bloqueando → 1"
   else echo "✗ con la lista activa, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
-) && passed=$((passed + 24)) || failed=$((failed + 1))
+) && passed=$((passed + 28)) || failed=$((failed + 1))
 
 echo "== entradas que no se pueden releer (\`<(…)\`, como en el procedimiento de mergeo)"
 # La guarda lee la lista de rutas una vez por patrón. Con una tubería, solo el
@@ -251,6 +251,11 @@ wf_case "el checkout es el de la rama base" grep -Fq 'ref: ${{ github.event.pull
 wf_case "el checkout no guarda credenciales" grep -Fq 'persist-credentials: false' "$workflow"
 wf_case "sin permisos por defecto en el workflow" grep -Eq '^permissions: \{\}' "$workflow"
 wf_case "lee los archivos y el diff del PR por la API" grep -Fq 'pulls/$PR_NUMBER/files' "$workflow"
+wf_case "publica el check sensitive-paths en el head del PR (pull_request_target corre en main)" bash -c 'grep -Fq "repos/\$GH_REPO/check-runs" "$1" && grep -Fq "name=sensitive-paths -f head_sha=\"\$HEAD_SHA\"" "$1"' _ "$workflow"
+wf_case "el job no se llama sensitive-paths (su check quedaría en main)" bash -c '! grep -Eq "^    name: sensitive-paths$" "$1"' _ "$workflow"
+wf_case "el head sale de la API, antes y después de leer el PR" bash -c '[[ $(grep -c "pulls/\$PR_NUMBER\" --jq .head.sha" "$1") -eq 2 ]] && grep -Fq "if: steps.pr.outputs.same_head == '"'"'true'"'"'" "$1"' _ "$workflow"
+wf_case "solo escribe checks; el PR solo lo toca invalidate-review" bash -c '[[ $(grep -c "checks: write" "$1") -eq 1 && $(grep -c "pull-requests: write" "$1") -eq 1 ]]' _ "$workflow"
+wf_case "el resultado de la guarda no pasa por una tubería" bash -c '! grep -Eq "check-sensitive\.sh[^|]*\| *tee" "$1"' _ "$workflow"
 
 echo "== required-checks.txt"
 for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "sensitive-paths"; do
