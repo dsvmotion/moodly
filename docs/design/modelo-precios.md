@@ -1,45 +1,62 @@
-# Modelo de precios: fijo + variable
+# Modelo de precios: plan mensual + uso
 
-Fecha: 2026-10-07 · Estado: **PROPUESTO**. Los costes de proveedores salen de sus webs
-oficiales, consultadas el 7 oct 2026. Nuestros precios son una propuesta a validar con
-el coste medido en 2 o 3 pilotos.
+Fecha: 2026-10-07 · Revisado: 2026-11-11 · Estado: **PROPUESTO**. Los costes de proveedores
+salen de sus webs oficiales, consultadas el 7 oct 2026. Nuestros precios son una propuesta
+a validar con el coste medido en 2 o 3 pilotos.
 
-Fuente única de las cifras en la web: `apps/site/src/components/pricing.js`.
+La web pública no muestra importes de planes: `apps/site/src/components/pricing.js` solo
+lleva lo decidido (la prueba). Cuando producto cierre estos importes, van allí.
 
-> **Actualización (producto, 2026-11-03):** manda lo decidido en MANUAL §15.1 y §15.2, y deja atrás parte de esta propuesta:
-> - **La prueba es otra:** sin método de pago no hay IA; al añadirlo, 7 días con 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
+> **Actualización (producto, 2026-11-11):** cambian la unidad y el posicionamiento.
+> - **Posicionamiento: servicio premium.** No competimos por precio. Competimos por hacer el trabajo completo, con seguridad, control y rapidez. Los precios tienen que dejar margen.
+> - **La unidad pasa del agente a la empresa.** Tres planes (Esencial, Equipo y Empresa) sustituyen a los 49 € por agente. Los cuatro agentes de serie van en todos los planes.
+> - **Nivel de precio alto.** Producto eligió el 2026-11-11 los importes de §2 (149 €, 399 € y 200 € por sede) frente a una primera propuesta de 98 €, 298 € y 150 €, que dejaba un 52 %, 48 % y 70 % de margen. Se validan con el coste medido en el piloto (§4).
+
+> **Actualización (producto, 2026-11-03):** manda lo decidido en MANUAL §15.1 y §15.2:
+> - **La prueba:** sin método de pago no hay IA; al añadirlo, 7 días con 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
 > - **La implantación solo es para enterprise y a medida,** con presupuesto cerrado.
->
-> Las cifras de abajo siguen siendo **PROPUESTO**.
 
 Tipo de cambio usado: **1 € = 1,1177 $** (referencia del BCE, 7 oct 2026), es decir,
 1 $ ≈ 0,895 €.
 
-## 1. Por qué fijo + variable
+## 1. Por qué plan mensual + uso
 
-El modelo anterior era una implantación de 1.000 a 5.000 € más 50–100 €/mes.
-- La implantación frenaba la entrada.
-- La cuota no tenía relación con el coste real, que depende del volumen.
+La propuesta de octubre cobraba 49 € al mes por agente. Se deja por tres motivos:
+- **El producto es el equipo, no el agente suelto.** Cobrar por agente empuja al cliente a
+  activar menos agentes, justo lo contrario de lo que le da valor (MANUAL §5.12).
+- **No dejaba margen.** Con el coste medido en staging, una organización con dos agentes
+  pagaba 98 € frente a unos 85 € de coste (13 % de margen); con uno, margen negativo
+  (auditoría del 2026-11-10, §11).
+- **No encaja con un servicio premium.** El precio de entrada tiene que cubrir los cuatro
+  agentes, la memoria, las aprobaciones y la traza.
 
-Langdock separa una base por usuario de unos complementos y uso variable (§4). Lo
-adaptamos con el **agente** como unidad.
+Los planes de abajo son la opción «plan mensual con créditos» de MANUAL §15.1. El consumo
+bajo demanda con tope y los paquetes de créditos siguen existiendo; sus importes salen de la
+definición de crédito (decisión de producto n.º 5 del 2026-11-10: 1 € de consumo medido a
+precio de lista más un margen fijo de plataforma).
 
 ## 2. Precios propuestos (Moodly)
 
-| Concepto | Precio |
-|---|---|
-| Prueba | 7 días con 5 € de crédito de IA, con método de pago y sin cobro hasta que la organización elija cómo seguir (MANUAL §15.1, producto 2026-11-03) |
-| Fijo por agente | **49 €/mes**, con 250 conversaciones incluidas, usuarios ilimitados, app e integraciones estándar |
-| Sede adicional | 29 €/mes |
-| Conversación extra | **0,10 €** |
-| Minuto de voz | **0,20 €** |
-| BYOK (tus claves de IA) | 0,03 € por conversación extra · 0,06 € por minuto (telefonía + plataforma) |
-| Plantillas de WhatsApp | A precio de Meta, sin margen |
-| Implantación a medida | Opcional, presupuesto cerrado |
-| Enterprise | A medida, desde 3 sedes o 5.000 conversaciones al mes |
+| Concepto | Precio | Incluye |
+|---|---|---|
+| Prueba | 7 días con 5 € de crédito de IA | Con método de pago y sin cobro hasta que la organización elija cómo seguir (MANUAL §15.1) |
+| **Esencial** · autoservicio | **149 €/mes** | Los 4 agentes de serie, 1 sede, 300 conversaciones, usuarios ilimitados, integraciones estándar |
+| **Equipo** · autoservicio | **399 €/mes** | Lo anterior, agentes propios, hasta 3 sedes, 1.000 conversaciones, más integraciones |
+| **Empresa** · contrato anual | **200 €/mes por sede** | 300 conversaciones por sede, agentes y skills a medida, soporte y seguridad dedicados |
+| Implantación (solo Empresa) | Desde 5.000 €, presupuesto cerrado | Integraciones propias y puesta en marcha (MANUAL §15.2) |
+| Conversación extra | **0,35 €** | Antes 0,10 €, que no cubría el coste medido (§4) |
+| Minuto de voz | **0,20 €** | Cuando exista el canal de voz |
+| BYOK (tus claves de IA) | 0,03 € por conversación extra · 0,06 € por minuto | Telefonía y plataforma |
+| Plantillas de WhatsApp | A precio de Meta, sin margen | |
 
 Protección del cliente: límite de gasto mensual. Aviso al 80 %; al 100 %, los agentes
 pasan las conversaciones al equipo.
+
+**Referencias de mercado** (noviembre de 2026; HeyDiga y Fin, contrastados en su web; el resto, de
+resultados de búsqueda sin contrastar): HeyDiga 49–279 €/mes por minutos de voz, con WhatsApp conversacional aparte a 39 €/mes (visto en su web el 2026-11-11); Fin (antes
+Intercom) 0,99 $ por resolución con un mínimo de 49 $/mes (visto en su web el 2026-11-11); Treatwell AI Receptionist desde 69 £/mes;
+Fresha AI Concierge 29,95–99,95 $ por sede y mes. Esencial y Equipo quedan por encima de
+HeyDiga y cubren cuatro agentes en lugar de un canal.
 
 ## 3. Costes oficiales de proveedores (7 oct 2026)
 
@@ -82,15 +99,21 @@ Notas oficiales:
 
 **Fuente oficial:** [developers.facebook.com/…/whatsapp/pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing).
 
-Reglas vigentes:
-- Cobro por mensaje de plantilla entregado (desde el 1 jul 2025).
+Reglas vigentes (leídas en la página oficial el 2026-11-11):
+- Cobro por mensaje entregado, por categoría y mercado (desde el 1 jul 2025). Los mensajes
+  del usuario a la empresa no se cobran.
+- **Desde el 1 oct 2026 los mensajes de servicio vuelven a cobrarse** (eran gratis desde el
+  1 nov 2024). Son las respuestas sin plantilla dentro de la ventana de 24 h, es decir,
+  casi todo lo que escribe un agente.
 - Gratis:
-  - mensajes sin plantilla dentro de la ventana de 24 h;
-  - conversaciones de servicio;
-  - plantillas de utilidad dentro de la ventana;
-  - 72 h tras un anuncio Click-to-WhatsApp.
-- Los cambios del 1 oct 2026 **no** empiezan a cobrar estos mensajes. Algunos artículos
-  de terceros dicen lo contrario y se equivocan.
+  - los primeros **1.000 mensajes de servicio al mes por número de teléfono** (no se
+    acumulan);
+  - todo lo enviado en la ventana de punto de entrada gratuito (hasta 7 días tras un
+    anuncio Click-to-WhatsApp).
+- Sin método de pago en la cuenta, Meta deja de entregar los mensajes de servicio.
+
+> **Corrección (2026-11-11):** la versión anterior de este documento decía que los cambios
+> del 1 oct 2026 no cobraban estos mensajes. Era falso y afecta al coste por cliente (§4).
 
 Tarifas para España:
 - Marketing: **0,0509 €** por mensaje.
@@ -134,11 +157,68 @@ minutos**. Es el peor caso realista.
 
 **Mezcla típica** (85 % rápido, 15 % avanzado): **≈ 0,02 €** por conversación.
 
-- Con 0,10 € por conversación extra, el margen es de unas 5 veces sobre la mezcla, pero
-  solo de 1 vez si todo fuera modelo avanzado.
+- Estas cifras son el suelo teórico. El coste medido y el plan para acercarse a él están
+  en el apartado siguiente.
 - **Regla para el enrutador (MANUAL §5.11):** modelo rápido por defecto, modelo avanzado
   solo en tareas marcadas y con tope por organización. Usar la caché de 1 h para las
   instrucciones del agente cuando haya varios mensajes seguidos.
+
+### Coste medido y plan para bajarlo (2026-11-11)
+
+La tabla de arriba es teórica (8.000 tokens por turno y modelo avanzado de precio medio). Lo
+medido en staging es más caro porque hoy **todos los turnos usan el modelo `smart`** de
+`packages/config` ($4 / $20 por millón de tokens): una reserva de 6 turnos cuesta
+**0,24 €** (auditoría del 2026-11-10, §11).
+
+El plan tiene tres etapas. Solo la primera está medida.
+
+| Etapa | Qué cambia | Coste por conversación | Qué hace falta | Cómo se comprueba |
+|---|---|---|---|---|
+| **0. Hoy** | Todo con el modelo `smart` | **0,24–0,25 €** (medido) | Nada | `usage_records` de staging |
+| **1. Enrutado por turno** | El 70 % de los turnos va al modelo `fast`, 40 veces más barato | **≈ 0,08 €** (estimado) | El enrutador de modelos (unidad PL-T6 del registro, hito M1); clasificar el turno (saludo, pregunta frecuente y lectura van a `fast`; reservar, cobrar y los turnos ambiguos se quedan en `smart`) | Evals por tipo de turno con los umbrales de siempre (seguridad 100 %, comportamiento 90 %). Un tipo de turno que no los pasa en `fast` se queda en `smart` |
+| **2. Caché y recorte** | El 85 % en `fast`; caché de 1 h para las instrucciones y los esquemas de herramientas (unos 3.000 de los 3.300 tokens de entrada son fijos y la lectura de caché cuesta el 10 %); menos historial que los 20 mensajes de hoy; textos fijos sin modelo | **≈ 0,02 €** (objetivo) | Medir en el piloto qué parte del tráfico llega dentro de la ventana de caché | Coste por conversación resuelta, que se mide al cerrar el hito M4 |
+
+Reglas que no cambian con el coste:
+- El modelo de cada turno lo decide la eval bajo un techo de coste, no el precio (decisión
+  de producto n.º 4 del 2026-11-10).
+- No se bajan umbrales de evals para abaratar.
+- Cada organización tiene un tope de gasto.
+
+**Coste de servir a un cliente tipo** (300 conversaciones y 150 citas al mes; supuesto de la
+auditoría):
+
+| Concepto | Etapa 0 | Etapa 1 | Etapa 2 |
+|---|---|---|---|
+| IA | 75 € | 24 € | 6 € |
+| WhatsApp: 300 recordatorios y unas 800 respuestas de pago (1.800 menos las 1.000 gratis), a 0,0166 € | 18 € | 18 € | 18 € |
+| Infraestructura (sin medir; 500 €/mes entre 100 clientes) | 5 € | 5 € | 5 € |
+| **Total** | **98 €** | **47 €** | **29 €** |
+| Margen bruto con Esencial (149 €) | 34 % | 68 % | 81 % |
+
+La tarifa española de los mensajes de servicio no está contrastada: se usa la de utilidad
+(0,0166 €) y seis respuestas por conversación. Confirmarla en el CSV de tarifas de Meta.
+
+**Margen por plan en la etapa 1** (0,08 € por conversación; los volúmenes son supuestos):
+
+| Plan | Ingreso al mes | Coste de servirlo | Margen bruto |
+|---|---|---|---|
+| Esencial, 300 conversaciones | 149 € | 47 € | 68 % |
+| Equipo, 1.000 conversaciones y 3 sedes | 399 € | ≈ 155 € | 61 % |
+| Empresa, 20 sedes y 6.000 conversaciones | 4.000 € | ≈ 900 € | 78 % |
+
+En la etapa 2, los mismos planes quedan en el 81 %, el 76 % y el 87 %.
+
+**Para planificar se usa un margen más bajo que el de este modelo** (producto, 2026-11-11: «mejor ser
+precavido»): 35–45 % en los dos primeros años y 55–60 % a escala. Las tablas de arriba son el modelo de
+costes propio, con las etapas 1 y 2 sin construir; el margen que declaran las empresas de IA es menor
+(45 % de media en 2025 según ICONIQ, en torno al 60 % las eficientes según Bessemer, 49,9 % Twilio por el
+coste de la mensajería). Esas referencias se leyeron en resúmenes de los informes, no en el original. La
+tarifa de WhatsApp para España sigue sin verificar en la tabla de Meta: los 0,0166 € por respuesta son la
+tarifa de utilidad usada como aproximación.
+
+La conversación extra a 0,35 € deja un 49 % de margen en la etapa 1 (0,08 € de IA más unos 0,10 € de WhatsApp fuera del tramo gratuito: seis respuestas a 0,0166 €) y es deficitaria en la
+etapa 0 (0,24–0,25 € de IA más el WhatsApp): hasta que el enrutado esté en producción, el tope de gasto
+por organización es lo que limita la exposición.
 
 ### Minuto de voz
 
@@ -158,19 +238,23 @@ proveedor de voz es la decisión que más afecta al margen.
 
 ## 5. Ejemplos con los precios propuestos
 
-| Negocio | Configuración | Fijo | Variable | Total/mes |
+| Negocio | Plan y uso | Fijo | Variable | Total/mes |
 |---|---|---|---|---|
-| Clínica dental pequeña | Recepción + Atención, 400 conversaciones | 98 € | 0 € | **98 €** |
-| Restaurante | Recepción, 600 conversaciones, 200 min de voz | 49 € | 35 € + 40 € | **124 €** |
-| Inmobiliaria de 2 oficinas | 3 agentes, 1.500 conversaciones | 147 € + 29 € | 75 € | **251 €** |
-| Taller, sobre todo por teléfono | Recepción, 100 conversaciones, 400 min | 49 € | 80 € | **129 €** |
+| Clínica dental pequeña | Esencial, 400 conversaciones | 149 € | 100 × 0,35 € = 35 € | **184 €** |
+| Restaurante | Esencial, 600 conversaciones, 200 min de voz | 149 € | 105 € + 40 € | **294 €** |
+| Inmobiliaria de 2 oficinas | Equipo, 1.500 conversaciones | 399 € | 500 × 0,35 € = 175 € | **574 €** |
+| Cadena de 20 sedes | Empresa, dentro de lo incluido | 4.000 € | 0 € | **4.000 €** (más 15.000 € de implantación el primer año) |
 
 ## 6. Decisiones abiertas
 
-1. Confirmar las cifras de Mistral y las tarifas de WhatsApp en las fuentes oficiales
+1. **Nivel de precio: decidido** (producto, 2026-11-11). Queda por comprobar en el piloto
+   que no frena la captación.
+2. Conversaciones incluidas en cada plan (300 y 1.000 son supuestos).
+3. Confirmar las cifras de Mistral y las tarifas de WhatsApp en las fuentes oficiales
    (Mistral Studio y CSV de Meta).
-2. Proveedor de voz: ElevenLabs (calidad) o Gemini/OpenAI realtime (coste).
-3. Definición de «conversación» para el cliente. Propuesta: un tema por cliente en 24 h.
-4. Descuento anual (Langdock: −20 %). No se muestra hasta decidirlo.
-5. Umbral de Enterprise.
-6. Precios en otras divisas cuando la web esté traducida.
+4. Proveedor de voz: ElevenLabs (calidad) o Gemini/OpenAI realtime (coste).
+5. Definición de «conversación» para el cliente. Propuesta: un tema por cliente en 24 h.
+6. Descuento anual (Langdock: −20 %). No se muestra hasta decidirlo.
+7. Importes del consumo bajo demanda y de los paquetes de créditos (MANUAL §15.1).
+8. Precios en otras divisas cuando la web esté traducida.
+9. Contrastar las referencias de mercado de §2 en la web de cada empresa.
