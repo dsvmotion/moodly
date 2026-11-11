@@ -53,7 +53,7 @@ findings:
   - {id: "R-02", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["PR #197 (abierto)"], note: "El agente solo escribe en una conversación que lleva él; pasa a done al mergear #197 con su evidencia pgTAP"}
   - {id: "O-01", milestone: "M1", owner: "V8", status: "in_progress", evidence: [], note: "Capa de canales (WhatsApp, web chat, email); línea V8. Sin PR todavía"}
   - {id: "O-02", milestone: "M1", owner: "V1", status: "in_progress", evidence: ["PR #195 (ADR 0053, aceptado)"], note: "Marco de integraciones: la plataforma de conectores es Nango autoalojado en la UE (ADR 0053); falta construirlo"}
-  - {id: "M-10", milestone: "M1", owner: "V2", status: "planned", evidence: [], note: "El sondeo vuelve a pintar rutas enteras, sin estados de carga ni toast montado (auditoría); sin PR todavía"}
+  - {id: "M-10", milestone: "M1", owner: "V6", status: "planned", evidence: [], note: "Tiempo real de la bandeja: Broadcast from Database (solo ids, tema privado inbox:<org>:<local|org>, RLS en realtime.messages; Postgres Changes no sirve con particiones). V6 la base, V2 el cliente; sin PR todavía"}
   - {id: "K-01", milestone: "M1", owner: "V4", status: "in_progress", evidence: ["PR #205 (abierto)"], note: "Parte 1 (#205): las evals con el modelo falso como check obligatorio propio. Falta añadirlo a la regla de main (producto)"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
