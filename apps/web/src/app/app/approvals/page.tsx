@@ -16,7 +16,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const t = await getTranslations("approvalsPage");
   const format = await getFormatter();
   const { scope, context } = await resolveScope((await searchParams).scope);
-  const rows = await loadPendingApprovals(scope, context);
+  const { rows, truncated } = await loadPendingApprovals(scope, context);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -46,6 +46,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           ))}
         </ul>
       )}
+      {truncated ? (
+        <p className="text-muted-foreground text-sm" data-testid="approvals-truncated">
+          {t("truncated", { count: rows.length })}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Badge } from "@repo/ui/components/badge";
 import { cn } from "@repo/ui/lib/utils";
 import { messageSide, THREAD_LIMIT } from "@/lib/inbox";
 import type { InboxMessage, InboxThread } from "@/lib/inbox-data";
+import { LocalTime } from "../local-time";
 import { ConversationControls } from "./conversation-controls";
 import { StaffComposer } from "./staff-composer";
 
@@ -17,13 +18,15 @@ export async function ConversationThread({
   thread,
   agentLabel,
   backHref,
+  timeZone,
 }: {
   thread: InboxThread;
   agentLabel: string | null;
   backHref: string;
+  /** La zona de las horas del hilo (la de su local) y si se escribe siempre (la organización tiene más de una). */
+  timeZone: { zone: string; alwaysShow: boolean };
 }) {
   const t = await getTranslations("inboxPage");
-  const format = await getFormatter();
   const { conversation, messages } = thread;
   const contactName = conversation.contactName ?? t("unknownContact");
 
@@ -78,10 +81,7 @@ export async function ConversationThread({
               key={message.id}
               message={message}
               agentLabel={agentLabel}
-              time={format.dateTime(new Date(message.createdAt), {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
+              timeZone={timeZone}
             />
           ))}
         </ol>
@@ -98,7 +98,15 @@ export async function ConversationThread({
   );
 }
 
-async function Message({ message, agentLabel, time }: { message: InboxMessage; agentLabel: string | null; time: string }) {
+async function Message({
+  message,
+  agentLabel,
+  timeZone,
+}: {
+  message: InboxMessage;
+  agentLabel: string | null;
+  timeZone: { zone: string; alwaysShow: boolean };
+}) {
   const t = await getTranslations("inboxPage");
   const side = messageSide(message.author);
   if (side === "center") {
@@ -119,7 +127,13 @@ async function Message({ message, agentLabel, time }: { message: InboxMessage; a
       data-author={message.author}
     >
       <span className="text-muted-foreground text-xs">
-        {who} · {time}
+        {who} ·{" "}
+        <LocalTime
+          iso={message.createdAt}
+          timeZone={timeZone.zone}
+          alwaysShowZone={timeZone.alwaysShow}
+          data-testid="inbox-message-time"
+        />
       </span>
       <p
         className={cn(
