@@ -18,8 +18,11 @@ name: sensitive-paths
 # Desde diciembre de 2025, pull_request_target corre siempre el workflow de la
 # rama por defecto y su GITHUB_SHA es el último commit de main, no el del PR: el
 # check de un job quedaría en main y nunca en el head del PR. Por eso el job se
-# llama «guarda» y publica el check «sensitive-paths» en el head del PR con la
-# API de checks; ese es el que exigen safe-merge.sh y la protección de main. El
+# llama «guarda» y publica «sensitive-paths» en el head del PR como commit status
+# (API de statuses). Un check run creado por la API no lo cuenta la regla de main
+# («Required status check "sensitive-paths" is expected», #173, 2026-11-11); un
+# commit status sí es un status check. Es el que exigen safe-merge.sh
+# (required-statuses.txt) y la protección de main. El
 # head se lee de la API antes y después de leer los archivos y el diff: si llegó
 # un commit nuevo entre medias, no publica nada (lo hace el run de ese commit).
 #
@@ -48,7 +51,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-      checks: write
+      statuses: write
     outputs:
       remove_label: ${{ steps.gate.outputs.remove_label }}
     steps:
@@ -119,7 +122,7 @@ jobs:
           # invalidate-review pueda leerla aunque el veredicto sea "fail".
           bash scripts/merge-guard/sensitive-gate.sh "$result" "$EVENT_ACTION" "$HAS_LABEL" | tee -a "$GITHUB_OUTPUT" || true
 
-      - name: Check sensitive-paths en el head del PR
+      - name: Status sensitive-paths en el head del PR
         if: steps.pr.outputs.same_head == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -130,18 +133,21 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$VERDICT" == "pass" ]]; then
-            conclusion=success
-            title="Sin zonas sensibles, o con revisión humana vigente para este commit"
+            state=success
+            description="Sin zonas sensibles, o con revisión de producto vigente para este commit"
           else
-            conclusion=failure
-            title="Zonas sensibles o tests debilitados: hace falta la Revisora y la etiqueta revisado-humano de producto"
+            state=failure
+            description="Zonas sensibles o tests debilitados: falta la Revisora y la etiqueta revisado-humano"
           fi
-          summary="$(head -c 60000 "$RUNNER_TEMP/guard.txt")"
-          [[ "$REMOVE_LABEL" == "true" ]] && summary="Commit nuevo o reapertura: la etiqueta revisado-humano ya no vale para este commit y se quita del PR."$'\n\n'"$summary"
-          gh api "repos/$GH_REPO/check-runs" -X POST \
-            -f name=sensitive-paths -f head_sha="$HEAD_SHA" -f status=completed -f conclusion="$conclusion" \
-            -f "output[title]=$title" -f "output[summary]=${summary:-Nada sensible.}" > /dev/null
-          echo "sensitive-paths → $conclusion en $HEAD_SHA"
+          {
+            echo "### Guarda: sensitive-paths → $state en \`$HEAD_SHA\`"
+            [[ "$REMOVE_LABEL" == "true" ]] && echo "Commit nuevo o reapertura: la etiqueta revisado-humano ya no vale para este commit y se quita del PR."
+            echo '```'; head -c 60000 "$RUNNER_TEMP/guard.txt"; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -X POST \
+            -f state="$state" -f context=sensitive-paths -f description="$description" \
+            -f target_url="$GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          echo "sensitive-paths → $state en $HEAD_SHA"
 
   invalidate-review:
     name: invalidate-review
