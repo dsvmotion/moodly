@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFakeBookingProvider } from "./fake.js";
-import { AppointmentNotChangeableError, AppointmentNotFoundError, InvalidBookingError, SlotTakenError } from "./types.js";
+import { AppointmentNotChangeableError, AppointmentNotFoundError, InvalidBookingError, SlotTakenError, SlotUnavailableError } from "./types.js";
 
 // El calendario falso tiene que comportarse como el de Moodly: si no, los tests
 // de las skills probarían otra cosa.
@@ -50,6 +50,18 @@ describe("createFakeBookingProvider", () => {
     ).rejects.toThrow(SlotTakenError);
     const slots = await calendar.findSlots({ locationId: LOC, serviceId: "laser", ...day, limit: 50 });
     expect(slots).toHaveLength(36);
+  });
+
+  it("rechaza una hora pasada, fuera de horario o fuera de la cuadrícula (como la base de datos)", async () => {
+    const calendar = setup();
+    for (const [i, startsAt] of ["2030-05-01T09:00:00Z", "2030-06-03T03:00:00Z", "2030-06-03T09:10:00Z", "2030-06-03T13:45:00Z", "2030-06-03T08:59:00Z"].entries()) {
+      await expect(
+        calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at(startsAt), idempotencyKey: `k-${i}` }),
+      ).rejects.toThrow(SlotUnavailableError);
+    }
+    expect(calendar.appointments).toHaveLength(0);
+    const ok = await calendar.book({ locationId: LOC, serviceId: "laser", resourceId: "cab1", contactId: "ana", conversationId: null, startsAt: at("2030-06-03T13:30:00Z"), idempotencyKey: "k-ok" });
+    await expect(calendar.reschedule({ appointmentId: ok.id, contactId: "ana", startsAt: at("2030-06-03T03:00:00Z") })).rejects.toThrow(SlotUnavailableError);
   });
 
   it("rechaza un recurso que no hace el servicio", async () => {

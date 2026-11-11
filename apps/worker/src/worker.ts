@@ -6,6 +6,7 @@ import type pg from "pg";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
 import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
+import type { WorkerProbe, WorkerPhase } from "./health.ts";
 import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
 import { registerIngest, startIngestQueue } from "./ingress/ingest.ts";
 import { receiveWebhook } from "./ingress/receive.ts";
@@ -26,6 +27,8 @@ export interface Worker {
   start(): Promise<void>;
   /** Para de aceptar trabajo y cierra las conexiones. Lo que quede a medias se reanuda al volver. */
   stop(): Promise<void>;
+  /** Lo que mira el endpoint de salud (health.ts). */
+  probe: WorkerProbe;
 }
 
 export interface WorkerOptions {
@@ -82,7 +85,16 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let server: Server | undefined;
   let launched = false;
   const adapters = new Map((options.channelAdapters ?? []).map((adapter) => [adapter.channel as string, adapter]));
+  let phase: WorkerPhase = "waiting-lease";
   return {
+    probe: {
+      phase: () => phase,
+      async pingDatabase() {
+        if (!pool) throw new Error("sin conexión a la base de datos de sistema");
+        await pool.query("select 1");
+      },
+      oldestPendingEventAt: () => db.outbox.oldestPendingAt(),
+    },
     async start() {
       lease = await acquireExecutorLease({
         connectionString: config.systemDatabaseUrl,
@@ -91,6 +103,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
         onLost: options.onLeaseLost,
         ...(options.signal ? { signal: options.signal } : {}),
       });
+      phase = "launching";
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
       const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries });
@@ -141,6 +154,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
         });
         logger.info({ port, channels: [...adapters.keys()] }, "entrada de canales abierta");
       }
+      phase = "running";
       logger.info(
         {
           executorId: config.executorId,
@@ -151,6 +165,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       );
     },
     async stop() {
+      phase = "stopping";
       // DBOS primero: el lock se suelta cuando ya no queda nada en marcha. Su
       // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
       // La entrada primero: lo que ya llegó termina de guardarse; lo nuevo, el proveedor lo reintenta.

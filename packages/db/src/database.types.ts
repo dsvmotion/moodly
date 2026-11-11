@@ -1100,7 +1100,7 @@ isOneToOne: false
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
                            },
 "find_booking_slots":
-{ Args: { "p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
+{ Args: { "p_exclude_appointment"?: string,"p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
               "ends_at": string,"resource_id": string,"starts_at": string
             }[]
                            },

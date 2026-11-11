@@ -4,7 +4,7 @@
 // lo que se prueba es la entrada, no el turno del agente.
 //
 //   INGRESS_PORT=… INGRESS_TEST_SECRET=… node ingress-worker.ts
-import { createFakeAdapter } from "@repo/channels";
+import { createFakeAdapter } from "@repo/channels/testing";
 import { loadConfig } from "../config.ts";
 import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";

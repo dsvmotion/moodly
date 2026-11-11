@@ -23,6 +23,7 @@ describe("loadConfig", () => {
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
       ingressPort: null,
+      healthPort: 8080,
     });
   });
 
@@ -31,6 +32,11 @@ describe("loadConfig", () => {
     for (const bad of ["0", "80a", "70000", "-1", "8080 ", ""]) {
       expect(() => loadConfig({ ...valid, INGRESS_PORT: bad }), bad).toThrow(/INGRESS_PORT/);
     }
+  });
+
+  it("el puerto de salud sale de PORT (Railway) y se valida", () => {
+    expect(loadConfig({ ...valid, PORT: "3001" }).healthPort).toBe(3001);
+    for (const port of ["0", "70000", "abc", "80 80"]) expect(() => loadConfig({ ...valid, PORT: port })).toThrow(WorkerConfigError);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

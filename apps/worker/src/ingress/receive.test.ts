@@ -1,4 +1,4 @@
-import { createFakeAdapter, fakeSignature } from "@repo/channels";
+import { createFakeAdapter, fakeSignature } from "@repo/channels/testing";
 import type { ServiceDb } from "@repo/db/service";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
