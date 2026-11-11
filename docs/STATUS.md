@@ -56,6 +56,7 @@
   - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
+- **ADR 0049 a 0053** (V1, propuestos, rama `claude/adrs-t1-t4-t6-t10-hub`): T1, T4, T6, T10 y el hub de integraciones; la única pregunta a producto es la plataforma de conectores (ADR 0053; por defecto, Nango autoalojado en la UE).
 - **#191** (V1 vía sesión trabajadora, `[M0][G-03][G-04]`): `login_record_success` exige sesión activa (aal2 con factor) y aceptar una invitación exige email confirmado; confirmación de email activada también en local.
 - **Coordinación (producto, 2026-11-10):** V1 coordina a las demás sesiones y es la única a la que escribe producto. Encargo: `docs/audits/2026-11-10-ordenes-m0.md` (#164). Ahora abren PRs V1 y V2; V4, solo el de K-03; V3 espera (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 
