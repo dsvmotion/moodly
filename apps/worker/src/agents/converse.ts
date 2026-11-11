@@ -34,8 +34,8 @@ import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
-import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
-import { createConversationSender } from "./conversation-sender.ts";
+import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
+import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
@@ -51,6 +51,10 @@ import { createReceptionCatalog } from "./reception-catalog.ts";
 //   publicarlo. En pausa, nunca.
 // - El run tiene un id que sale del evento: si la entrega se reanuda, es el
 //   mismo run y las mismas claves de idempotencia.
+// - Si una persona toma el control a mitad del turno, el agente ya no escribe
+//   (R-02): la base de datos rechaza su mensaje (conversation-sender.ts), y un
+//   mensaje que iba a esperar aprobación no la pide (nadie la aprobaría para
+//   que el agente hable en una conversación de una persona).
 // - Cada ejecución decidida se guarda en executions en cuanto se decide; las
 //   rechazadas por el motor no tienen hash ni entrada válida y van al log (sin
 //   sus argumentos, que son lo que dijo el modelo).
@@ -302,6 +306,16 @@ async function startRun(db: TenantDb, runId: string, conversation: Conversation,
   if (error && error.code !== "23505") throw new Error(`no se pudo crear el run (${error.code})`);
 }
 
+/**
+ * Un mensaje del agente a su conversación (external_message con destino la
+ * conversación) que iba a esperar aprobación, con la conversación ya en manos
+ * de una persona: no la pide.
+ */
+export function holdsForPerson(effectClass: string, target: Target | undefined, mode: string | null): boolean {
+  return effectClass === "external_message" && target?.kind === "conversation" && mode !== "agent";
+}
+
+/** Guarda la ejecución y, si espera a una persona, pide su aprobación. Devuelve si se retuvo (R-02). */
 async function recordExecution(
   db: TenantDb,
   runId: string,
@@ -309,8 +323,8 @@ async function recordExecution(
   skill: SkillDefinition<unknown>,
   execution: TurnExecution,
   now: Date,
-): Promise<void> {
-  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return;
+): Promise<boolean> {
+  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
   const { data, error } = await db.from("executions").insert({
     run_id: runId,
     location_id: locationId,
@@ -328,13 +342,31 @@ async function recordExecution(
   }).select("id").single();
   // 23505: ya guardada (la entrega se reanudó después de guardarla).
   if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
-  if (!AWAITING_PERSON.has(execution.status)) return;
+  if (!AWAITING_PERSON.has(execution.status)) return false;
   // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
   let executionId = data?.id;
   if (!executionId) {
     const existing = await db.from("executions").select("id").eq("idempotency_key", execution.idempotencyKey).maybeSingle();
     if (existing.error || !existing.data) throw new Error(`no se encontró la ejecución guardada (${existing.error?.code ?? "sin fila"})`);
     executionId = existing.data.id;
+  }
+  // Si la conversación ya la lleva una persona, el mensaje del agente no pide
+  // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
+  // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
+  if (execution.target?.kind === "conversation") {
+    const conversation = check(
+      await db.from("conversations").select("mode").eq("id", execution.target.conversationId).maybeSingle(),
+      "la conversación de la ejecución",
+    );
+    if (holdsForPerson(skill.effectClass, execution.target, conversation?.mode ?? null)) {
+      const held = await db
+        .from("executions")
+        .update({ status: "failed", output: { held: HELD_NOT_AGENT_MODE } })
+        .eq("id", executionId)
+        .in("status", [...AWAITING_PERSON]);
+      if (held.error) throw new Error(`no se pudo retener la ejecución (${held.error.code})`);
+      return true;
+    }
   }
   await requestApproval(db, {
     executionId,
@@ -344,10 +376,30 @@ async function recordExecution(
     summary: execution.preview?.summary ?? null,
     now,
   });
+  return false;
 }
 
-async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult): Promise<void> {
+/**
+ * Cómo queda el run, también si algo se retuvo (R-02): si lo que iba a esperar
+ * a una persona no espera nada porque la conversación ya la lleva una persona,
+ * el run no queda esperando aprobación para siempre: queda en sus manos.
+ */
+export function finalRunStatus(result: TurnResult, heldAny: boolean, stillAwaiting: boolean): ReturnType<typeof runStatusFor> {
   const status = runStatusFor(result);
+  if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
+  return status;
+}
+
+async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult, heldAny: boolean): Promise<void> {
+  let stillAwaiting = false;
+  if (heldAny) {
+    const pending = check(
+      await db.from("executions").select("id").eq("run_id", runId).in("status", [...AWAITING_PERSON]).limit(1),
+      "lo que queda del run",
+    );
+    stillAwaiting = (pending ?? []).length > 0;
+  }
+  const status = finalRunStatus(result, heldAny, stillAwaiting);
   if (status === "handed_off") {
     // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
     // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
@@ -459,9 +511,17 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
     await ctx.step("waitlist-accept:hold", () => holdOffer(ctx.db, found.entryId, found.expiresAt, holdUntil(new Date(), new Date(found.startsAt))));
   }
   const text = acceptanceText(outcome, { ...found.text, startsAt: new Date(found.startsAt) });
-  await ctx.step("waitlist-accept:reply", () =>
-    createConversationSender(ctx.db).send({ conversationId: conversation.id, text, idempotencyKey: `${key}:reply` }),
-  );
+  // Si una persona tomó el control entretanto, la respuesta no sale (R-02); la reserva ya está hecha o esperando.
+  const replied = await ctx.step("waitlist-accept:reply", async () => {
+    try {
+      await createConversationSender(ctx.db).send({ conversationId: conversation.id, text, idempotencyKey: `${key}:reply` });
+      return true;
+    } catch (error) {
+      if (isNotAgentMode(error)) return false;
+      throw error;
+    }
+  });
+  if (!replied) ctx.logger.info({ conversationId, entryId: found.entryId, reason: HELD_NOT_AGENT_MODE }, "la respuesta a la oferta no sale: la conversación la lleva una persona");
   await ctx.step("run:finish", async () => {
     const runStatus = outcome === "booked" ? "completed" : outcome === "pending" ? "awaiting_approval" : "failed";
     const { error } = await ctx.db.from("agent_runs").update({ status: runStatus }).eq("id", runId).eq("status", "running");
@@ -502,6 +562,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
       const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      let heldAny = false;
       const result = await runAgentTurn({
         scope: {
           organizationId: event.organizationId,
@@ -531,12 +592,28 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
             return;
           }
           const skill = skills.get(execution.skillKey);
-          if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
+          if (!skill) return;
+          const held = await ctx.step(`record:${execution.idempotencyKey}`, () =>
+            recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()),
+          );
+          if (held) {
+            heldAny = true;
+            ctx.logger.info({ runId, skillKey: execution.skillKey, reason: HELD_NOT_AGENT_MODE }, "la conversación la lleva una persona: el mensaje del agente no pide aprobación");
+          }
         },
       });
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
+      // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
+      const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
+      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result, heldAny));
       ctx.logger.info(
-        { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
+        {
+          runId,
+          status: result.status,
+          reason: notAgentMode ? HELD_NOT_AGENT_MODE : result.reason,
+          error: result.error,
+          executions: result.executions.length,
+          costEur: result.usage.costEur,
+        },
         "turno del agente terminado",
       );
     },
