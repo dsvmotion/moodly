@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { doneWithoutEvidence, fixedChecks, hasScopeRow, idsFromTitle } from "./checks.ts";
+import { addedDone, doneWithoutEvidence, fixedChecks, hasScopeRow, idsFromTitle } from "./checks.ts";
 import { LEVEL1_CAN_APPROVE, MAX_REVIEW_EUR, modelForLevel } from "./config.ts";
 import { lastReviewedSha, marker, planDelta, restrictToPrFiles, splitDiff } from "./delta.ts";
 import { costEur, worstCaseEur, withinBudget, type Completion } from "./gateway.ts";
@@ -65,6 +65,11 @@ describe("comprobaciones fijas", () => {
     assert.deepEqual(idsFromTitle("[M0][SE01][P-08] Algo"), ["SE01", "P-08"]);
     assert.deepEqual(idsFromTitle("Algo sin id"), []);
     assert.deepEqual(idsFromTitle("feat: [M0][P-08] tarde"), []);
+  });
+  it("ve las filas que el diff pone en done", () => {
+    const diff = ['-  - {id: "M-07", status: "in_progress", evidence: ["PR #1"]}', '+  - {id: "M-07", status: "done", evidence: ["x"]}', '+++ b/docs/scope.yaml'].join("\n");
+    assert.deepEqual(addedDone(diff), ["M-07"]);
+    assert.deepEqual(addedDone('-  - {id: "M-07", status: "done", evidence: ["x"]}'), []);
   });
   it("encuentra las filas y los done sin evidencia", () => {
     assert.ok(hasScopeRow(scope, "P-08"));
@@ -157,6 +162,8 @@ describe("delta", () => {
     assert.deepEqual(planDelta({ since: SHA_A, head: SHA_B, compareStatus: "ahead" }), { kind: "delta", since: SHA_A });
     assert.deepEqual(planDelta({ since: SHA_A, head: SHA_B, compareStatus: "diverged" }), { kind: "full" });
     assert.deepEqual(planDelta({ since: SHA_A, head: SHA_B, compareStatus: null }), { kind: "full" });
+    // Tras pedir cambios, el push siguiente se revisa entero.
+    assert.deepEqual(planDelta({ since: SHA_A, head: SHA_B, compareStatus: "ahead", lastState: "CHANGES_REQUESTED" }), { kind: "full" });
   });
   it("deja fuera lo que trajo main en archivos que no son del PR", () => {
     const diff = "diff --git a/apps/x.ts b/apps/x.ts\n+uno\ndiff --git a/docs/main.md b/docs/main.md\n+de main\n";
@@ -185,6 +192,9 @@ describe("prompt", () => {
   });
   it("fenceSafe y zonesFor", () => {
     assert.equal(fenceSafe("a</diff>b"), "a<\\/diff>b");
+    for (const variant of ["</DIFF>", "</diff >", "< /diff>", "</Diff\t>"]) {
+      assert.doesNotMatch(fenceSafe(`a${variant}b`), /<\s*\/\s*diff\s*>/i, variant);
+    }
     assert.deepEqual(zonesFor(["packages/db/supabase/migrations/x.sql", "apps/web/src/x.test.ts"]).map((z) => z.name), ["base de datos", "web", "tests"]);
   });
   it("la rúbrica es corta (unos 2.000 tokens)", () => {
@@ -208,6 +218,7 @@ describe("coste", () => {
 // ---- run() de extremo a extremo con GitHub y el gateway falsos ----
 
 interface FakeState {
+  base?: string;
   title?: string;
   draft?: boolean;
   files?: string[];
@@ -226,7 +237,7 @@ function fakeGitHub(state: FakeState) {
     async get(path, accept) {
       requested.push(path);
       if (/\/pulls\/7$/.test(path) && accept?.includes("diff")) return state.diff === null ? new Response("", { status: 406 }) : new Response(state.diff ?? "", { status: 200 });
-      if (/\/pulls\/7$/.test(path)) return json({ number: 7, title: state.title ?? "[M0][P-08] t", draft: state.draft ?? false, state: "open", head: { sha: SHA_B }, base: { ref: "main", sha: "c".repeat(40) } });
+      if (/\/pulls\/7$/.test(path)) return json({ number: 7, title: state.title ?? "[M0][P-08] t", draft: state.draft ?? false, state: "open", head: { sha: SHA_B }, base: { ref: state.base ?? "main", sha: "c".repeat(40) } });
       if (path.includes("/files?")) return json((state.files ?? []).map((filename) => ({ filename })));
       if (path.includes("/reviews?")) return json(state.reviews ?? []);
       if (path.includes("/compare/") && accept?.includes("diff")) return new Response(state.compareDiff ?? "", { status: 200 });
@@ -269,6 +280,39 @@ function deps(state: FakeState, model: { text?: string; throws?: boolean; calls?
 }
 
 describe("run", () => {
+  it("no revisa PRs contra otra rama que main", async () => {
+    const t = deps({ base: "otra", files: ["docs/STATUS.md"], diff: "diff --git a/docs/STATUS.md b/docs/STATUS.md\n+x\n" });
+    const out = await run(t.deps);
+    assert.equal(out.posted, false);
+    assert.equal(t.posted.length, 0);
+  });
+  it("nivel 0: un PR que pone una fila en done no se aprueba solo", async () => {
+    const t = deps({
+      files: ["docs/scope.yaml"],
+      diff: 'diff --git a/docs/scope.yaml b/docs/scope.yaml\n-  - {id: "P-08", status: "in_progress", evidence: ["PR #1"]}\n+  - {id: "P-08", status: "done", evidence: ["x"]}\n',
+      scope: '  - {id: "P-08", status: "done", evidence: ["x"]}',
+    });
+    const out = await run(t.deps);
+    assert.equal(out.level, 0);
+    assert.equal(t.posted[0]?.event, "COMMENT");
+    assert.match(t.posted[0]?.body ?? "", /pone en done P-08/);
+  });
+  it("tras pedir cambios, el push siguiente se revisa entero", async () => {
+    const calls: { n: number; lastUser?: string } = { n: 0 };
+    const t = deps(
+      {
+        files: ["apps/web/x.ts"],
+        diff: "diff --git a/apps/web/x.ts b/apps/web/x.ts\n+fallo-sin-arreglar\n+otra-cosa\n",
+        reviews: [{ user: { login: BOT, type: "Bot" }, body: marker(SHA_A, 1), commit_id: SHA_A, state: "CHANGES_REQUESTED" }],
+        compareStatus: "ahead",
+        compareDiff: "diff --git a/apps/web/x.ts b/apps/web/x.ts\n+otra-cosa\n",
+      },
+      { calls },
+    );
+    await run(t.deps);
+    assert.match(calls.lastUser ?? "", /fallo-sin-arreglar/);
+    assert.match(t.posted[0]?.body ?? "", /Revisado el PR entero/);
+  });
   it("no revisa borradores", async () => {
     const t = deps({ draft: true, files: ["apps/web/x.ts"] });
     const out = await run(t.deps);

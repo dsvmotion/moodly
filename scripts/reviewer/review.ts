@@ -9,9 +9,9 @@ import { appendFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fixedChecks, type CheckResult } from "./checks.ts";
+import { addedDone, fixedChecks, type CheckResult } from "./checks.ts";
 import { LEVEL1_CAN_APPROVE, MAX_DIFF_CHARS, modelForLevel, type Level } from "./config.ts";
-import { lastReviewedSha, marker, planDelta, restrictToPrFiles } from "./delta.ts";
+import { lastReview, marker, planDelta, restrictToPrFiles, splitDiff } from "./delta.ts";
 import { complete, costEur, withinBudget, type Usage } from "./gateway.ts";
 import * as github from "./github.ts";
 import { classify, parseSensitivePatterns } from "./levels.ts";
@@ -79,13 +79,15 @@ export async function run(deps: Deps): Promise<Outcome> {
   const pull = await github.getPull(deps.gh, deps.repo, deps.pr);
   if (pull.state !== "open") return none("el PR no está abierto");
   if (pull.draft) return none("el PR es un borrador: la Revisora no revisa borradores");
+  if (pull.base.ref !== "main") return none(`el PR va contra ${pull.base.ref}: la Revisora solo revisa PRs contra main`);
   const head = pull.head.sha;
 
   // Si ya revisó este mismo commit, no repite.
   const reviews = await github.getReviews(deps.gh, deps.repo, deps.pr);
-  const since = lastReviewedSha(reviews, deps.botLogin);
+  const last = lastReview(reviews, deps.botLogin);
+  const since = last?.sha ?? null;
   const compareStatus = since && since !== head ? await github.getCompareStatus(deps.gh, deps.repo, since, head) : null;
-  const plan = planDelta({ since, head, compareStatus });
+  const plan = planDelta({ since, head, compareStatus, lastState: last?.state ?? null });
   if (plan.kind === "nothing-new") return none(`nada nuevo desde ${head.slice(0, 7)}`);
 
   const notes: string[] = [];
@@ -146,7 +148,8 @@ export async function run(deps: Deps): Promise<Outcome> {
     }
   }
 
-  const decision = decide({ level, checks, model: modelOutput, level1CanApprove: LEVEL1_CAN_APPROVE });
+  const newDone = fullDiff === null ? [] : addedDone(splitDiff(fullDiff).get("docs/scope.yaml") ?? "");
+  const decision = decide({ level, checks, model: modelOutput, level1CanApprove: LEVEL1_CAN_APPROVE, newDone });
   const body = renderBody({ level, decision, checks, model: modelOutput, modelId, since: reviewedSince, notes, head });
   await github.postReview(deps.gh, deps.repo, deps.pr, { commitId: head, event: decision.event, body });
   deps.log(`nivel ${level} (${classification.reasons.slice(0, 5).join(", ")}): ${decision.event}`);

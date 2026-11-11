@@ -39,9 +39,9 @@ export interface ChatMessage {
   content: string;
 }
 
-/** Quita lo que podría cerrar el delimitador del diff antes de tiempo. */
+/** Quita lo que podría cerrar el delimitador del diff antes de tiempo (`</diff>`, `</DIFF>`, `</ diff >`…). */
 export function fenceSafe(diff: string): string {
-  return diff.replaceAll("</diff>", "<\\/diff>");
+  return diff.replace(/<\s*\/\s*diff\s*>/gi, "<\\/diff>");
 }
 
 export function buildMessages(input: PromptInput): ChatMessage[] {

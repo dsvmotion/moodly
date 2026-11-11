@@ -29,6 +29,15 @@ export function doneWithoutEvidence(scopeYaml: string): string[] {
     .map((line) => /id:\s*"([^"]+)"/.exec(line)?.[1] ?? line.trim().slice(0, 60));
 }
 
+/** Las filas de `docs/scope.yaml` que el diff añade o cambia con `status: "done"`. */
+export function addedDone(scopeDiff: string): string[] {
+  return scopeDiff
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .filter((line) => /status:\s*"?done"?/.test(line))
+    .map((line) => /id:\s*"([^"]+)"/.exec(line)?.[1] ?? line.slice(1).trim().slice(0, 60));
+}
+
 export function hasScopeRow(scopeYaml: string, id: string): boolean {
   const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`id:\\s*"${escaped}"`).test(scopeYaml);

@@ -68,8 +68,21 @@ export function decide(input: {
   /** La salida del modelo; null en el nivel 0 o si no se pudo obtener una válida. */
   model: ModelOutput | null;
   level1CanApprove: boolean;
+  /** Filas de docs/scope.yaml que el PR pone en `done`: eso no lo aprueba la Revisora sola. */
+  newDone?: readonly string[];
 }): Decision {
   const failed = input.checks.filter((check) => !check.ok);
+  const decision = decideWithoutDone(input, failed);
+  if (decision.event === "APPROVE" && input.newDone && input.newDone.length > 0) {
+    return { event: "COMMENT", why: `el PR pone en done ${input.newDone.join(", ")}: lo confirma una sesión Revisora o producto, no la Revisora automática` };
+  }
+  return decision;
+}
+
+function decideWithoutDone(
+  input: { level: Level; model: ModelOutput | null; level1CanApprove: boolean },
+  failed: readonly CheckResult[],
+): Decision {
   if (input.level === 2) {
     return { event: "COMMENT", why: "zona sensible: la Revisora deja su análisis y no aprueba; revisa producto" };
   }

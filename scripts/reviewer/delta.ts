@@ -12,6 +12,13 @@ export interface PastReview {
   user: { login: string; type: string } | null;
   body: string | null;
   commit_id: string | null;
+  /** APPROVED, CHANGES_REQUESTED, COMMENTED… */
+  state?: string;
+}
+
+export interface LastReview {
+  sha: string;
+  state: string | null;
 }
 
 /**
@@ -19,15 +26,19 @@ export interface PastReview {
  * marca. Solo cuentan las revisiones de su propia App (`botLogin`): cualquiera
  * con permiso de escritura podría pegar una marca en otro comentario.
  */
-export function lastReviewedSha(reviews: readonly PastReview[], botLogin: string): string | null {
+export function lastReview(reviews: readonly PastReview[], botLogin: string): LastReview | null {
   const re = new RegExp(`<!-- ${REVIEW_MARKER}=([0-9a-f]{40}) level=\\d -->`);
   for (let i = reviews.length - 1; i >= 0; i--) {
     const review = reviews[i];
     if (!review?.user || review.user.type !== "Bot" || review.user.login !== botLogin) continue;
     const sha = re.exec(review.body ?? "")?.[1];
-    if (sha) return sha;
+    if (sha) return { sha, state: review.state ?? null };
   }
   return null;
+}
+
+export function lastReviewedSha(reviews: readonly PastReview[], botLogin: string): string | null {
+  return lastReview(reviews, botLogin)?.sha ?? null;
 }
 
 /** Trozos de un diff unificado, uno por archivo (la ruta nueva). */
@@ -63,9 +74,18 @@ export type DeltaPlan =
  * `compare/{since}...{head}`: `ahead` si el head desciende del último revisado,
  * `identical` si es el mismo, `diverged` o `behind` si se reescribió la historia.
  */
-export function planDelta(input: { since: string | null; head: string; compareStatus: string | null }): DeltaPlan {
+export function planDelta(input: {
+  since: string | null;
+  head: string;
+  compareStatus: string | null;
+  /** El estado de la última revisión de la Revisora. */
+  lastState?: string | null;
+}): DeltaPlan {
   if (!input.since) return { kind: "full" };
   if (input.since === input.head || input.compareStatus === "identical") return { kind: "nothing-new" };
+  // Si pidió cambios, el siguiente push se revisa entero: revisando solo lo
+  // nuevo, un approve podría tapar unos cambios pedidos que siguen sin hacerse.
+  if (input.lastState === "CHANGES_REQUESTED") return { kind: "full" };
   if (input.compareStatus === "ahead") return { kind: "delta", since: input.since };
   return { kind: "full" };
 }
