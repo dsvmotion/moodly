@@ -8,7 +8,8 @@
 #
 # a. Espera los checks (gh pr checks --watch) y confirma con la API que todos
 #    los de required-checks.txt existen y están en SUCCESS sobre el head
-#    commit actual, que no ha cambiado durante la espera.
+#    commit actual, que no ha cambiado durante la espera, y que los commit
+#    statuses de required-statuses.txt (la guarda) están en success.
 # b. Compara los archivos del PR con sensitive-paths.txt y busca tests
 #    debilitados (merge-guard/check-sensitive.sh, el mismo que usa el CI).
 # c. Solo entonces: gh pr merge --squash --delete-branch --match-head-commit.
@@ -59,6 +60,19 @@ while IFS= read -r check || [[ -n "$check" ]]; do
   [[ "$result" == "completed/success" ]] || fail "check \"$check\": $result"
   echo "safe-merge: ✓ $check"
 done < "$guard/required-checks.txt"
+
+# Los commit statuses (la guarda, que corre desde main y publica en el head del
+# PR). La API los devuelve del más reciente al más antiguo; manda el de id mayor.
+gh api "repos/$repo/commits/$sha/statuses?per_page=100" > "$workdir/statuses.json"
+while IFS= read -r context || [[ -n "$context" ]]; do
+  [[ -z "$context" || "$context" == \#* ]] && continue
+  result="$(jq -r --arg c "$context" '
+    [.[] | select(.context == $c)] | sort_by(.id) | last
+    | if . == null then "AUSENTE" else .state end
+  ' "$workdir/statuses.json")"
+  [[ "$result" == "success" ]] || fail "status \"$context\": $result"
+  echo "safe-merge: ✓ $context (status)"
+done < "$guard/required-statuses.txt"
 
 # --- b. Zonas sensibles y tests debilitados ----------------------------------
 gh pr diff "$pr" --name-only > "$workdir/files.txt"

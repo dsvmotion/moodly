@@ -1,0 +1,6 @@
+# Commit statuses que deben estar en success sobre el head commit antes de
+# mergear (scripts/safe-merge.sh). La guarda (sensitive-paths.yml) corre desde
+# main con pull_request_target y publica su veredicto como commit status en el
+# head del PR. Se leen solo como status: un job del PR que se llame igual crea
+# un check run, no un status, y no cuenta.
+sensitive-paths

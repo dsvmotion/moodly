@@ -17,6 +17,10 @@
 ^apps/web/src/lib/supabase/	auth: clientes de Supabase
 ^apps/web/src/app/login/	auth: login
 (^|/)\.env	secretos y variables de entorno
+(^|/)package\.json$	dependencias y scripts de instalación (corren en workflows con secretos de staging)
+^pnpm-lock\.yaml$	dependencias (lockfile)
+^packages/db/src/service\.ts$	acceso del worker a los datos de cada organización (forOrganization, outbox)
+^scripts/supabase/	despliegue y configuración de staging
 ^\.github/	CI, workflows y configuración de GitHub
 ^scripts/merge-guard/	la guarda de mergeo
 ^scripts/safe-merge\.sh$	la guarda de mergeo
