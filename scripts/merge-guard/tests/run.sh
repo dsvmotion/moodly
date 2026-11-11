@@ -40,7 +40,7 @@ case "$1 ${2:-}" in
   "repo view") echo '{"nameWithOwner":"acme/moodly"}' ;;
   "api "*)
     [[ -f "$f/api-fail" ]] && { echo "HTTP 502" >&2; exit 1; }
-    cat "$f/check-runs.json" ;;
+    if [[ "$2" == *"/statuses"* ]]; then cat "$f/statuses.json"; else cat "$f/check-runs.json"; fi ;;
   "pr diff")
     if [[ "$*" == *"--name-only"* ]]; then cat "$f/files.txt"; else cat "$f/diff.patch"; fi ;;
   "pr merge") echo "$*" > "$f/merged" ;;
@@ -67,6 +67,8 @@ setup() {
     runs+=("$(run_json "$check" completed success "$sha" "$id")"); id=$((id + 1))
   done < "$root/scripts/merge-guard/required-checks.txt"
   printf '%s\n' "${runs[@]}" | jq -s '{check_runs: .}' > "$FAKE_DIR/check-runs.json"
+  # La guarda publica commit statuses (más reciente primero, como la API).
+  jq -n '[{id: 1, context: "sensitive-paths", state: "success", creator: {login: "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
   printf '%s\n' "packages/ui/src/components/sidebar.tsx" "apps/web/src/app/app/inbox/page.tsx" > "$FAKE_DIR/files.txt"
   printf '%s\n' "diff --git a/packages/ui/src/components/sidebar.tsx b/packages/ui/src/components/sidebar.tsx" "+export const x = 1;" > "$FAKE_DIR/diff.patch"
 }
@@ -123,14 +125,30 @@ expect_refused "check pendiente (gh pr checks devuelve 8)"
 setup missing; jq '.check_runs |= map(select(.name != "e2e · Playwright por rol"))' "$FAKE_DIR/check-runs.json" > "$FAKE_DIR/r" && mv "$FAKE_DIR/r" "$FAKE_DIR/check-runs.json"
 expect_refused "job ausente (falta e2e)"
 
-setup skipped; set_run "sensitive-paths" completed skipped
+setup skipped; set_run "db · migraciones · pgTAP" completed skipped
 expect_refused "job saltado (skipped)"
 
-setup missing-sensitive; jq '.check_runs |= map(select(.name != "sensitive-paths"))' "$FAKE_DIR/check-runs.json" > "$FAKE_DIR/r" && mv "$FAKE_DIR/r" "$FAKE_DIR/check-runs.json"
-expect_refused "job sensitive-paths ausente"
+setup missing-sensitive; echo '[]' > "$FAKE_DIR/statuses.json"
+expect_refused "status sensitive-paths ausente"
 
-setup red-sensitive; set_run "sensitive-paths" completed failure
-expect_refused "job sensitive-paths en rojo"
+setup red-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "status sensitive-paths en rojo"
+
+setup pending-sensitive; echo '[{"id": 1, "context": "sensitive-paths", "state": "pending", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "status sensitive-paths pendiente"
+
+setup latest-sensitive; echo '[{"id": 7, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}, {"id": 3, "context": "sensitive-paths", "state": "success", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "status sensitive-paths: manda el más reciente (en rojo)"
+
+setup user-sensitive; echo '[{"id": 9, "context": "sensitive-paths", "state": "success", "creator": {"login": "dsvmotion"}}, {"id": 4, "context": "sensitive-paths", "state": "failure", "creator": {"login": "github-actions[bot]"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "un status en verde publicado por una persona o una sesión no tapa el de la guarda"
+
+setup only-user-sensitive; echo '[{"id": 9, "context": "sensitive-paths", "state": "success", "creator": {"login": "dsvmotion"}}]' > "$FAKE_DIR/statuses.json"
+expect_refused "un status en verde que no publica GitHub Actions no cuenta"
+
+setup fake-sensitive-check; echo '[]' > "$FAKE_DIR/statuses.json"
+jq --argjson r "$(run_json "sensitive-paths" completed success "$sha" 50)" '.check_runs += [$r]' "$FAKE_DIR/check-runs.json" > "$FAKE_DIR/r" && mv "$FAKE_DIR/r" "$FAKE_DIR/check-runs.json"
+expect_refused "un check run llamado sensitive-paths (un job del PR) no sustituye al status"
 
 setup old-commit; set_run "typecheck · lint · test · build" completed success "$other_sha"
 expect_refused "check en verde pero de otro commit"
@@ -203,7 +221,8 @@ echo "== lista activa (lista corta de M0, P-01)"
     apps/web/src/lib/supabase/server.ts apps/web/src/app/login/page.tsx apps/web/.env.example \
     .github/workflows/ci.yml .github/workflows/sensitive-paths.yml scripts/merge-guard/check-sensitive.sh \
     scripts/merge-guard/sensitive-paths.txt scripts/safe-merge.sh .claude/settings.json .claude/skills/x/SKILL.md \
-    AGENTS.md CLAUDE.md apps/web/CLAUDE.md packages/db/AGENTS.md apps/web/.claude/settings.json .mcp.json; do
+    AGENTS.md CLAUDE.md apps/web/CLAUDE.md packages/db/AGENTS.md apps/web/.claude/settings.json .mcp.json \
+    package.json apps/web/package.json pnpm-lock.yaml packages/db/src/service.ts scripts/supabase/config-drift.sh pnpm-workspace.yaml .npmrc apps/web/.npmrc; do
     echo "$path" > "$tmp/paths.txt"
     status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
     if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
@@ -224,7 +243,7 @@ echo "== lista activa (lista corta de M0, P-01)"
   status=0; bash "$check_sensitive" "$tmp/paths.txt" "$tmp/diff.patch" > /dev/null || status=$?
   if [[ $status -eq 1 ]]; then echo "✓ con la lista activa, un test.skip sigue bloqueando → 1"
   else echo "✗ con la lista activa, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
-) && passed=$((passed + 28)) || failed=$((failed + 1))
+) && passed=$((passed + 36)) || failed=$((failed + 1))
 
 echo "== entradas que no se pueden releer (\`<(…)\`, como en el procedimiento de mergeo)"
 # La guarda lee la lista de rutas una vez por patrón. Con una tubería, solo el
@@ -251,10 +270,10 @@ wf_case "el checkout es el de la rama base" grep -Fq 'ref: ${{ github.event.pull
 wf_case "el checkout no guarda credenciales" grep -Fq 'persist-credentials: false' "$workflow"
 wf_case "sin permisos por defecto en el workflow" grep -Eq '^permissions: \{\}' "$workflow"
 wf_case "lee los archivos y el diff del PR por la API" grep -Fq 'pulls/$PR_NUMBER/files' "$workflow"
-wf_case "publica el check sensitive-paths en el head del PR (pull_request_target corre en main)" bash -c 'grep -Fq "repos/\$GH_REPO/check-runs" "$1" && grep -Fq "name=sensitive-paths -f head_sha=\"\$HEAD_SHA\"" "$1"' _ "$workflow"
+wf_case "publica sensitive-paths como commit status en el head del PR (pull_request_target corre en main)" bash -c 'grep -Fq "repos/\$GH_REPO/statuses/\$HEAD_SHA" "$1" && grep -Fq "context=sensitive-paths" "$1" && ! grep -Fq "/check-runs" "$1"' _ "$workflow"
 wf_case "el job no se llama sensitive-paths (su check quedaría en main)" bash -c '! grep -Eq "^    name: sensitive-paths$" "$1"' _ "$workflow"
 wf_case "el head sale de la API, antes y después de leer el PR" bash -c '[[ $(grep -c "pulls/\$PR_NUMBER\" --jq .head.sha" "$1") -eq 2 ]] && grep -Fq "if: steps.pr.outputs.same_head == '"'"'true'"'"'" "$1"' _ "$workflow"
-wf_case "solo escribe checks; el PR solo lo toca invalidate-review" bash -c '[[ $(grep -c "checks: write" "$1") -eq 1 && $(grep -c "pull-requests: write" "$1") -eq 1 ]]' _ "$workflow"
+wf_case "solo escribe statuses; el PR solo lo toca invalidate-review" bash -c '[[ $(grep -c "statuses: write" "$1") -eq 1 && $(grep -c "pull-requests: write" "$1") -eq 1 && $(grep -cE "^ +[a-z-]+: write" "$1") -eq 2 ]]' _ "$workflow"
 wf_case "un cambio de base vuelve a pasar la guarda (edited)" grep -Eq 'types: \[.*edited\]' "$workflow"
 wf_case "los runs no se cancelan (un evento de etiqueta no salta el que quita revisado-humano)" grep -Eq '^  cancel-in-progress: false$' "$workflow"
 wf_case "las etiquetas salen de la API, no del evento" bash -c 'grep -Fq "issues/\$PR_NUMBER/labels" "$1" && ! grep -Fq "github.event.pull_request.labels" "$1"' _ "$workflow"
@@ -263,8 +282,13 @@ gate_base_status=0; bash "$root/scripts/merge-guard/sensitive-gate.sh" base labe
 wf_case "con otra base, el veredicto es fail aunque lleve la etiqueta" test "$gate_base_status" -eq 1
 wf_case "el resultado de la guarda no pasa por una tubería" bash -c '! grep -Eq "check-sensitive\.sh[^|]*\| *tee" "$1"' _ "$workflow"
 
-echo "== required-checks.txt"
-for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "sensitive-paths"; do
+echo "== required-checks.txt y required-statuses.txt"
+if grep -qxF sensitive-paths "$root/scripts/merge-guard/required-statuses.txt" && ! grep -qxF sensitive-paths "$root/scripts/merge-guard/required-checks.txt"; then
+  echo "✓ sensitive-paths se exige como status, no como check"; passed=$((passed + 1))
+else
+  echo "✗ sensitive-paths tiene que ir en required-statuses.txt y no en required-checks.txt"; failed=$((failed + 1))
+fi
+for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "seguridad · dependencias y secretos"; do
   if grep -qxF -- "$required" "$root/scripts/merge-guard/required-checks.txt"; then
     echo "✓ exige \"$required\""; passed=$((passed + 1))
   else
