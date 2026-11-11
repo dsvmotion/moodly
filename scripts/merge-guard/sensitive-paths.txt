@@ -1,31 +1,12 @@
 # Zonas sensibles activas (AGENTS.md → "Mergeo autónomo"). Fuente única: la leen
 # scripts/safe-merge.sh y el job de CI "sensitive-paths", que la lee SIEMPRE de la
-# rama base (pull_request_target): un PR no puede vaciarla para sí mismo.
+# rama base (pull_request_target): un PR no puede cambiarla para sí mismo.
 # Formato: <expresión regular extendida (grep -E) sobre la ruta><TAB><motivo>.
 #
-# Lista corta reactivada en el hito M0 (P-01, producto 2026-11-10): lo que revisan
-# la sesión Revisora y producto (decisión #7). Un PR que toca alguna de estas rutas
-# necesita la etiqueta revisado-humano sobre su commit actual, que pone producto.
-# La lista completa de antes sigue en sensitive-paths.suspended.txt y se reactiva
-# entera antes del primer dato real de un cliente (docs/STATUS.md).
-^packages/db/supabase/migrations/	migraciones
-^packages/db/supabase/rollbacks/	rollbacks
-\.sql$	SQL (políticas RLS, funciones, SECURITY DEFINER)
-^packages/db/supabase/config\.toml$	config.toml de Supabase (auth)
-^apps/web/src/proxy\.ts$	auth: proxy
-^apps/web/src/lib/auth/	auth: DAL, sesión y redirecciones
-^apps/web/src/lib/supabase/	auth: clientes de Supabase
-^apps/web/src/app/login/	auth: login
-(^|/)\.env	secretos y variables de entorno
-(^|/)package\.json$	dependencias y scripts de instalación (corren en workflows con secretos de staging)
-^pnpm-lock\.yaml$	dependencias (lockfile)
-^pnpm-workspace\.yaml$	dependencias: overrides y qué paquetes ejecutan scripts de instalación
-(^|/)\.npmrc$	registro y configuración de npm/pnpm
-^packages/db/src/service\.ts$	acceso del worker a los datos de cada organización (forOrganization, outbox)
-^scripts/supabase/	despliegue y configuración de staging
-^\.github/	CI, workflows y configuración de GitHub
-^scripts/merge-guard/	la guarda de mergeo
-^scripts/safe-merge\.sh$	la guarda de mergeo
-(^|/)\.claude/	skills, agentes, permisos y hooks de las sesiones (también en subcarpetas)
-(^|/)\.mcp\.json$	servidores MCP que cargan las sesiones
-(^|/)(AGENTS|CLAUDE)\.md$	reglas del repo (también en subcarpetas: las sesiones las cargan)
+# VACÍA por decisión de producto (2026-11-11: «sigue sin sensitive-paths, no
+# quiero tener que hacer esto todo el rato»): mientras no haya datos reales de
+# clientes, ningún PR necesita la etiqueta revisado-humano ni una sesión
+# Revisora. La guarda sigue corriendo en cada PR y sigue bloqueando los tests
+# debilitados o borrados. La lista corta de M0 (P-01, 2026-11-10) está en el
+# historial de git (aef3d84); la completa sigue en sensitive-paths.suspended.txt
+# y se reactiva entera antes del primer dato real de un cliente (docs/STATUS.md).
