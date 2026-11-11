@@ -57,12 +57,33 @@ const externalNextValues = [
   "/\n/evil.test/robar",
   "/\r/evil.test/robar",
   "javascript:alert(1)",
+  // Auditoría de preproducción, G-02: el segmento de punto (también "%2e")
+  // desaparece al resolver la URL y lo que queda es "//evil.test".
+  "/.//evil.test/robar",
+  "/app/..//evil.test/robar",
+  "/%2e//evil.test/robar",
 ];
 
 for (const next of externalNextValues) {
   test(`next=${JSON.stringify(next)} no redirige fuera de la app`, async ({ page }) => {
     await signIn(page, "a_org_admin", next);
     // Cae a Inicio, dentro de la app: mismo origen y ruta exacta.
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app$/);
+  });
+
+  // Quien ya tiene sesión no pasa por el formulario: /login lo redirige
+  // directamente a `next`. Por el formulario el destino se limpia dos veces (al
+  // pintarlo y al enviarlo); aquí, una sola: por este camino salía G-02.
+  test(`con sesión, /login?next=${JSON.stringify(next)} no redirige fuera de la app`, async ({ page }) => {
+    await signIn(page, "a_staff");
+    const target = `/login?next=${encodeURIComponent(next)}`;
+    // Primero la respuesta de /login sin seguirla: a dónde manda al navegador.
+    const response = await page.request.get(target, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    const location = new URL(response.headers()["location"] ?? "", page.url());
+    expect(`${location.origin}${location.pathname}`).toBe("http://127.0.0.1:3000/app");
+    // Y en el navegador: acaba en Inicio.
+    await page.goto(target);
     await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3000\/app$/);
   });
 }
