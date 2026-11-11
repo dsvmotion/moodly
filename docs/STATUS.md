@@ -114,7 +114,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 **Siguen abiertas:**
 - **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
 - **Coach (V3):** las cuatro preguntas abiertas del ADR 0046, y aceptarlo con el 0024 y el 0029.
-- **Web pública (V3):** los precios de los planes (propuesta revisada el 2026-11-11 en `docs/design/modelo-precios.md`: posicionamiento premium y tres planes por empresa, Esencial 98 €, Equipo 298 € y Empresa 150 € por sede, en lugar de 49 € por agente; con el plan de tres etapas para bajar el coste por conversación de 0,24 € a 0,02 €; los importes siguen sin cerrar y la web no los muestra); la región del servicio `site` de Railway (hoy en EE. UU.).
+- **Web pública (V3):** los precios de los planes (propuesta revisada el 2026-11-11 en `docs/design/modelo-precios.md`: posicionamiento premium y tres planes por empresa, Esencial 149 €, Equipo 399 € y Empresa 200 € por sede, en lugar de 49 € por agente; con el plan de tres etapas para bajar el coste por conversación de 0,24 € a 0,02 €; los importes siguen sin cerrar y la web no los muestra); la región del servicio `site` de Railway (hoy en EE. UU.).
 - **Plataforma de conectores** (M0–M1): Nango, Composio, Pipedream Connect, Paragon, Merge u otra, con residencia UE o autoalojada.
 - **Marca:** la comprobación legal de «Moodly», el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
 

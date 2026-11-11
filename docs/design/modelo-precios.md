@@ -10,7 +10,7 @@ lleva lo decidido (la prueba). Cuando producto cierre estos importes, van allí.
 > **Actualización (producto, 2026-11-11):** cambian la unidad y el posicionamiento.
 > - **Posicionamiento: servicio premium.** No competimos por precio. Competimos por hacer el trabajo completo, con seguridad, control y rapidez. Los precios tienen que dejar margen.
 > - **La unidad pasa del agente a la empresa.** Tres planes (Esencial, Equipo y Empresa) sustituyen a los 49 € por agente. Los cuatro agentes de serie van en todos los planes.
-> - **Los importes son una propuesta de partida.** Se validan con el coste medido en el piloto (§4).
+> - **Nivel de precio alto.** Producto eligió el 2026-11-11 los importes de §2 (149 €, 399 € y 200 € por sede) frente a una primera propuesta de 98 €, 298 € y 150 €, que dejaba un 52 %, 48 % y 70 % de margen. Se validan con el coste medido en el piloto (§4).
 
 > **Actualización (producto, 2026-11-03):** manda lo decidido en MANUAL §15.1 y §15.2:
 > - **La prueba:** sin método de pago no hay IA; al añadirlo, 7 días con 5 € de crédito. Nada se cobra ni se renueva sin que la organización elija cómo seguir: consumo bajo demanda con tope, paquete de créditos o plan mensual con créditos.
@@ -40,11 +40,11 @@ precio de lista más un margen fijo de plataforma).
 | Concepto | Precio | Incluye |
 |---|---|---|
 | Prueba | 7 días con 5 € de crédito de IA | Con método de pago y sin cobro hasta que la organización elija cómo seguir (MANUAL §15.1) |
-| **Esencial** · autoservicio | **98 €/mes** | Los 4 agentes de serie, 1 sede, 300 conversaciones, usuarios ilimitados, integraciones estándar |
-| **Equipo** · autoservicio | **298 €/mes** | Lo anterior, agentes propios, hasta 3 sedes, 1.000 conversaciones, más integraciones |
-| **Empresa** · contrato anual | **150 €/mes por sede** | 300 conversaciones por sede, agentes y skills a medida, soporte y seguridad dedicados |
+| **Esencial** · autoservicio | **149 €/mes** | Los 4 agentes de serie, 1 sede, 300 conversaciones, usuarios ilimitados, integraciones estándar |
+| **Equipo** · autoservicio | **399 €/mes** | Lo anterior, agentes propios, hasta 3 sedes, 1.000 conversaciones, más integraciones |
+| **Empresa** · contrato anual | **200 €/mes por sede** | 300 conversaciones por sede, agentes y skills a medida, soporte y seguridad dedicados |
 | Implantación (solo Empresa) | Desde 5.000 €, presupuesto cerrado | Integraciones propias y puesta en marcha (MANUAL §15.2) |
-| Conversación extra | **0,25 €** | Antes 0,10 €, que no cubría el coste medido (§4) |
+| Conversación extra | **0,35 €** | Antes 0,10 €, que no cubría el coste medido (§4) |
 | Minuto de voz | **0,20 €** | Cuando exista el canal de voz |
 | BYOK (tus claves de IA) | 0,03 € por conversación extra · 0,06 € por minuto | Telefonía y plataforma |
 | Plantillas de WhatsApp | A precio de Meta, sin margen | |
@@ -55,8 +55,8 @@ pasan las conversaciones al equipo.
 **Referencias de mercado** (noviembre de 2026; HeyDiga y Fin, contrastados en su web; el resto, de
 resultados de búsqueda sin contrastar): HeyDiga 49–279 €/mes por minutos de voz, con WhatsApp conversacional aparte a 39 €/mes (visto en su web el 2026-11-11); Fin (antes
 Intercom) 0,99 $ por resolución con un mínimo de 49 $/mes (visto en su web el 2026-11-11); Treatwell AI Receptionist desde 69 £/mes;
-Fresha AI Concierge 29,95–99,95 $ por sede y mes. Esencial y Equipo quedan en la franja de
-HeyDiga cubriendo cuatro agentes en lugar de un canal.
+Fresha AI Concierge 29,95–99,95 $ por sede y mes. Esencial y Equipo quedan por encima de
+HeyDiga y cubren cuatro agentes en lugar de un canal.
 
 ## 3. Costes oficiales de proveedores (7 oct 2026)
 
@@ -193,7 +193,7 @@ auditoría):
 | WhatsApp: 300 recordatorios y unas 800 respuestas de pago (1.800 menos las 1.000 gratis), a 0,0166 € | 18 € | 18 € | 18 € |
 | Infraestructura (sin medir; 500 €/mes entre 100 clientes) | 5 € | 5 € | 5 € |
 | **Total** | **98 €** | **47 €** | **29 €** |
-| Margen bruto con Esencial (98 €) | 0 % | 52 % | 70 % |
+| Margen bruto con Esencial (149 €) | 34 % | 68 % | 81 % |
 
 La tarifa española de los mensajes de servicio no está contrastada: se usa la de utilidad
 (0,0166 €) y seis respuestas por conversación. Confirmarla en el CSV de tarifas de Meta.
@@ -202,14 +202,14 @@ La tarifa española de los mensajes de servicio no está contrastada: se usa la 
 
 | Plan | Ingreso al mes | Coste de servirlo | Margen bruto |
 |---|---|---|---|
-| Esencial, 300 conversaciones | 98 € | 47 € | 52 % |
-| Equipo, 1.000 conversaciones y 3 sedes | 298 € | ≈ 155 € | 48 % |
-| Empresa, 20 sedes y 6.000 conversaciones | 3.000 € | ≈ 900 € | 70 % |
+| Esencial, 300 conversaciones | 149 € | 47 € | 68 % |
+| Equipo, 1.000 conversaciones y 3 sedes | 399 € | ≈ 155 € | 61 % |
+| Empresa, 20 sedes y 6.000 conversaciones | 4.000 € | ≈ 900 € | 78 % |
 
-En la etapa 2, los mismos planes quedan en el 70 %, el 68 % y el 82 %.
+En la etapa 2, los mismos planes quedan en el 81 %, el 76 % y el 87 %.
 
-La conversación extra a 0,25 € deja un 28 % de margen en la etapa 1 (0,08 € de IA más unos 0,10 € de WhatsApp fuera del tramo gratuito: seis respuestas a 0,0166 €) y es deficitaria en la
-etapa 0 (0,24–0,25 € de coste): hasta que el enrutado esté en producción, el tope de gasto
+La conversación extra a 0,35 € deja un 49 % de margen en la etapa 1 (0,08 € de IA más unos 0,10 € de WhatsApp fuera del tramo gratuito: seis respuestas a 0,0166 €) y es deficitaria en la
+etapa 0 (0,24–0,25 € de IA más el WhatsApp): hasta que el enrutado esté en producción, el tope de gasto
 por organización es lo que limita la exposición.
 
 ### Minuto de voz
@@ -232,17 +232,15 @@ proveedor de voz es la decisión que más afecta al margen.
 
 | Negocio | Plan y uso | Fijo | Variable | Total/mes |
 |---|---|---|---|---|
-| Clínica dental pequeña | Esencial, 400 conversaciones | 98 € | 100 × 0,25 € = 25 € | **123 €** |
-| Restaurante | Esencial, 600 conversaciones, 200 min de voz | 98 € | 75 € + 40 € | **213 €** |
-| Inmobiliaria de 2 oficinas | Equipo, 1.500 conversaciones | 298 € | 500 × 0,25 € = 125 € | **423 €** |
-| Cadena de 20 sedes | Empresa, dentro de lo incluido | 3.000 € | 0 € | **3.000 €** (más 15.000 € de implantación el primer año) |
+| Clínica dental pequeña | Esencial, 400 conversaciones | 149 € | 100 × 0,35 € = 35 € | **184 €** |
+| Restaurante | Esencial, 600 conversaciones, 200 min de voz | 149 € | 105 € + 40 € | **294 €** |
+| Inmobiliaria de 2 oficinas | Equipo, 1.500 conversaciones | 399 € | 500 × 0,35 € = 175 € | **574 €** |
+| Cadena de 20 sedes | Empresa, dentro de lo incluido | 4.000 € | 0 € | **4.000 €** (más 15.000 € de implantación el primer año) |
 
 ## 6. Decisiones abiertas
 
-1. **Nivel de precio.** Los importes de §2 quedan a la altura de HeyDiga. Si el
-   posicionamiento premium pide estar por encima, la alternativa a estudiar es Esencial
-   149 €, Equipo 399 € y Empresa 200 € por sede (con los mismos costes, 68 %, 61 % y 78 % de
-   margen en la etapa 1, frente al 52 %, 48 % y 70 % de los importes de §2). Decide producto con los primeros pilotos.
+1. **Nivel de precio: decidido** (producto, 2026-11-11). Queda por comprobar en el piloto
+   que no frena la captación.
 2. Conversaciones incluidas en cada plan (300 y 1.000 son supuestos).
 3. Confirmar las cifras de Mistral y las tarifas de WhatsApp en las fuentes oficiales
    (Mistral Studio y CSV de Meta).
