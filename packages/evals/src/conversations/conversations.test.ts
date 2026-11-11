@@ -134,7 +134,7 @@ describe("los sectores", () => {
 });
 
 describe("comparar modelos", () => {
-  it("--model cambia la clave con la que conversa el agente; sin ella, la de plataforma (smart)", async () => {
+  it("--model cambia la clave con la que conversa el agente; sin ella, la de su agente (Recepción: smart)", async () => {
     const c = byId("recepcion-ia-saludo");
     const fast = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
     await runCase(c, fast, { converseModel: "fast" });
@@ -142,6 +142,17 @@ describe("comparar modelos", () => {
     const platform = scriptedTransport([{ say: "Hola, soy un asistente de IA." }]);
     await runCase(c, platform);
     expect(platform.calls.map((call) => call.modelKey)).toEqual(["smart"]);
+  });
+
+  it("Atención al cliente conversa con fast (producto, 2026-11-11); --model smart la sube para comparar", async () => {
+    const c = byId("cliente-ia-persona-o-maquina");
+    expect(c.agent).toBe("customer");
+    const own = scriptedTransport([{ say: "Soy un asistente de IA." }]);
+    await runCase(c, own);
+    expect(own.calls.map((call) => call.modelKey)).toEqual(["fast"]);
+    const smart = scriptedTransport([{ say: "Soy un asistente de IA." }]);
+    await runCase(c, smart, { converseModel: "smart" });
+    expect(smart.calls.map((call) => call.modelKey)).toEqual(["smart"]);
   });
 });
 
