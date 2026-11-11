@@ -84,8 +84,13 @@ export interface TurnParams {
    * Sin ella, o con un tipo sin clave propia, el de la tarea.
    */
   agentType?: string;
-  /** Reglas de plataforma, instrucciones del agente y configuración, ya compuestas (§5.3). */
+  /**
+   * Reglas de plataforma, instrucciones del agente y configuración, ya compuestas
+   * (§5.3). Es el prefijo estable: el transporte lo guarda en caché (PL-T3).
+   */
   systemPrompt: string;
+  /** Lo del sistema que cambia en cada turno (la hora): va después y fuera de la caché. */
+  systemContext?: string;
   history: readonly HistoryMessage[];
   /** Las skills activas del agente, con la de responder (REPLY_SKILL_KEY). */
   skills: ReadonlyMap<string, SkillDefinition<unknown>>;
@@ -157,7 +162,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     }));
 
   const messages: ModelMessage[] = [
-    { role: "system", content: params.systemPrompt },
+    { role: "system", content: params.systemPrompt, cacheable: true },
+    ...(params.systemContext ? [{ role: "system" as const, content: params.systemContext }] : []),
     ...params.history.flatMap((message) => {
       const converted = toModelMessage(message);
       return converted ? [converted] : [];
