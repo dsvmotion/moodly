@@ -5,6 +5,7 @@ import SiteFooter from "@/components/site-footer";
 import DemoForm from "@/components/demo-form";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { availability, AvailabilityBadge } from "@/components/availability";
 
 // Logos: Simple Icons (CC0) e Iconify (svg-logos, vscode-icons, devicon), en /public/logos.
 // Las marcas pertenecen a sus dueños; se usan solo para indicar compatibilidad.
@@ -169,6 +170,9 @@ export default function Integraciones() {
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
   const total = CATEGORIES.reduce((n, c) => n + c.items.length, 0);
+  // Estado de cada una desde docs/scope.yaml (N-01): la unidad es «int-» + el nombre del logo.
+  const unitId = (logo) => "int-" + logo.split(".")[0];
+  const byStatus = CATEGORIES.flatMap((c) => c.items).reduce((acc, [logo]) => { acc[availability(unitId(logo))] += 1; return acc; }, { available: 0, pilot: 0, roadmap: 0 });
   const visible = useMemo(() => CATEGORIES
     .filter((c) => cat === "all" || cat === "eu" || c.id === cat)
     .map((c) => ({ ...c, items: c.items.filter(([, name, use]) => (cat !== "eu" || EU.has(name)) && (name + " " + useText(name, use)).toLowerCase().includes(q.trim().toLowerCase())) }))
@@ -182,6 +186,7 @@ export default function Integraciones() {
         <span style={{ padding: "6px 12px", borderRadius: "800px", background: "#ffffff", border: "1px solid #0000000f", fontSize: "14px", lineHeight: "14px", color: "#5f5f63" }}>{t.count(total)}</span>
         <h1 style={{ margin: 0, fontSize: "clamp(36px, 4.6vw, 52px)", lineHeight: 1.08, fontWeight: 100, letterSpacing: "-0.03em", maxWidth: "760px" }}>{t.h1}</h1>
         <p style={{ margin: 0, fontSize: "18px", lineHeight: "27px", fontWeight: 300, maxWidth: "540px" }}>{t.sub}</p>
+        <p data-availability-summary="" style={{ margin: 0, fontSize: "14px", lineHeight: "21px", color: "#5f5f63", maxWidth: "620px" }}>{t.statusNote(byStatus)}</p>
       </section>
 
       <section style={{ padding: "0 clamp(16px, 4vw, 40px)" }}>
@@ -207,6 +212,7 @@ export default function Integraciones() {
                     </span>
                     <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                       <span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{name}</span>
+                      <AvailabilityBadge id={unitId(logo)} lang={lang} />
                       <span style={{ fontSize: "14px", lineHeight: "20px", color: "#5f5f63" }}>{useText(name, use)}</span>
                     </span>
                   </div>
