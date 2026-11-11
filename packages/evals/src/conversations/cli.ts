@@ -10,24 +10,27 @@
 //   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1; nunca más de 2, P-05)
 //   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
 //   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
-//   --baseline <json>   la línea base (baseline.json): sus fallos conocidos corren una vez y no puntúan ni bloquean (K-01)
+//   --baseline <json>   la línea base (baseline.json): no cambia la puntuación; dice qué rojo es solo de fallos conocidos (K-01)
 //   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
 // no acierta ninguna, bloquea aunque la tasa pase el umbral.
 //
-// Sale con código 1 si algún set queda por debajo de su umbral, si un caso
-// falla en todas sus corridas o si se corta por el tope de gasto, y con 2 si
-// falla la vía del modelo (red, gateway): se para y ese turno no puntúa. Con
-// --compare, el código no depende de si cada modelo pasa (es para elegir): 1 si
-// se corta por el tope, 2 si falla la vía del modelo, 0 si no.
+// Códigos de salida:
+//   0  pasa los umbrales
+//   1  por debajo del umbral (con --baseline: por algún caso que no es un fallo conocido)
+//   2  falla la vía del modelo (red, gateway, saldo): se para y ese turno no puntúa
+//   3  se corta por el tope de gasto: la corrida está incompleta
+//   4  por debajo del umbral solo por fallos conocidos de la línea base (sigue siendo rojo)
+// Con --compare, el código no depende de si cada modelo pasa (es para elegir):
+// 2 o 3 si se para, 0 si no.
 import { createGatewayTransport } from "@repo/agent-core";
 import { GATEWAY_MODELS } from "@repo/config";
 import type { ModelKey } from "@repo/config";
 import { conversationCases } from "./cases.js";
 import { CATEGORIES, score } from "./runner.js";
 import type { ConversationCase } from "./runner.js";
-import { EMPTY_BASELINE, applyBaseline, loadBaseline } from "./baseline.js";
+import { EMPTY_BASELINE, loadBaseline, readWithBaseline } from "./baseline.js";
 import { comparisonTable, isMultiTurn, metered, runSet } from "./runset.js";
 import type { SetResult } from "./runset.js";
 
@@ -134,28 +137,30 @@ async function main(): Promise<number> {
     out(`gasto total: ${spent.eur.toFixed(4)} €`);
     const stopped = results.find((result) => result.stopped !== null)?.stopped ?? null;
     if (stopped !== null) out("comparación incompleta: no vale como resultado");
-    return stopped === "infrastructure" ? 2 : stopped === "budget" ? 1 : 0;
+    return stopped === "infrastructure" ? 2 : stopped === "budget" ? 3 : 0;
   }
 
-  const known = new Set(Object.keys(baseline.knownFailures));
-  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out, known });
-  const { scored, known: knownResults } = applyBaseline(result.runs, baseline);
-  const scores = score(scored);
+  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out });
+  const scores = score(result.runs);
   out();
   for (const [severity, s] of Object.entries(scores)) {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
-  for (const k of knownResults) {
-    out(`fallo conocido (no puntúa): ${k.id} ${k.passed}/${k.runs} — ${k.reason}`);
-    if (k.passed > 0) out(`  · ya acierta: quítalo de la línea base (${options.baseline ?? "baseline.json"})`);
+  const reading = readWithBaseline(result.runs, baseline);
+  for (const k of reading.known) {
+    out(`fallo conocido: ${k.id} ${k.passed}/${k.runs} (${k.tracking}) — ${k.reason}`);
+    if (k.passed > 0) out(`  · acierta alguna vez: si sigue así, quítalo de la línea base (${options.baseline ?? "baseline.json"})`);
   }
+  if (reading.onlyKnown) out("rojo solo por fallos conocidos de la línea base (sigue bloqueando)");
   // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
   const models = [...new Set(result.runs.flatMap((run) => (run.model ? [run.model] : [])))];
   out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   if (result.stopped !== null) out("corrida incompleta: no vale como resultado");
   if (result.stopped === "infrastructure") return 2;
-  return scores.safety.ok && scores.behavior.ok && result.stopped === null ? 0 : 1;
+  if (result.stopped === "budget") return 3;
+  if (scores.safety.ok && scores.behavior.ok) return 0;
+  return reading.onlyKnown ? 4 : 1;
 }
 
 // Solo cuando se ejecuta (node dist/conversations/cli.js), no cuando un test importa parse/select.
