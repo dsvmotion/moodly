@@ -92,7 +92,7 @@ export async function run(deps: Deps): Promise<Outcome> {
 
   const notes: string[] = [];
   const { files, complete: allFiles } = await github.getFiles(deps.gh, deps.repo, deps.pr);
-  const sensitive = parseSensitivePatterns(readFileSync(join(deps.root, "scripts/merge-guard/sensitive-paths.txt"), "utf8"));
+  const sensitive = parseSensitivePatterns(readFileSync(join(deps.root, "scripts/reviewer/level2-paths.txt"), "utf8"));
   const classification = classify(files, sensitive);
   let level = classification.level;
   if (!allFiles) {

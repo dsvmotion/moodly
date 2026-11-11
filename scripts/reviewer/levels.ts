@@ -3,7 +3,7 @@
 
 import { NON_NORMATIVE_DOCS, NORMATIVE_DOCS, type Level } from "./config.ts";
 
-/** Los patrones de scripts/merge-guard/sensitive-paths.txt: `<regex ERE><TAB><motivo>`, con comentarios `#`. */
+/** Los patrones de scripts/reviewer/level2-paths.txt: `<regex ERE><TAB><motivo>`, con comentarios `#`. */
 export function parseSensitivePatterns(text: string): RegExp[] {
   return text
     .split("\n")

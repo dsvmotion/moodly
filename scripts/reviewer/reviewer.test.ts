@@ -16,7 +16,7 @@ import { run, type Deps } from "./review.ts";
 import { decide, parseModelOutput } from "./verdict.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const sensitive = parseSensitivePatterns(readFileSync(join(root, "scripts/merge-guard/sensitive-paths.txt"), "utf8"));
+const sensitive = parseSensitivePatterns(readFileSync(join(root, "scripts/reviewer/level2-paths.txt"), "utf8"));
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
 const BOT = "moodly-reviewer[bot]";

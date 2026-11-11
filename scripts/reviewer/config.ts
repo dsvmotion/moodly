@@ -2,7 +2,7 @@
 //
 // Corre siempre desde la rama base (pull_request_target): un PR no puede
 // cambiar estas reglas para sí mismo. Cambiarlas es un PR sensible
-// (scripts/reviewer/ está en scripts/merge-guard/sensitive-paths.txt).
+// (scripts/reviewer/ está en scripts/reviewer/level2-paths.txt).
 
 import { GATEWAY_MODELS, USD_TO_EUR, type ModelKey } from "../../packages/config/src/index.ts";
 
