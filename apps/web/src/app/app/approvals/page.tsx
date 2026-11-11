@@ -16,12 +16,19 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const t = await getTranslations("approvalsPage");
   const format = await getFormatter();
   const { scope, context } = await resolveScope((await searchParams).scope);
-  const { rows, truncated } = await loadPendingApprovals(scope, context);
+  const { rows, truncated, total } = await loadPendingApprovals(scope, context);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
+          {total > 0 ? (
+            <span className="text-muted-foreground text-sm" data-testid="approvals-count">
+              {t("count", { count: total })}
+            </span>
+          ) : null}
+        </div>
         <p className="text-muted-foreground text-sm">{t("description")}</p>
       </div>
       {rows.length === 0 ? (
