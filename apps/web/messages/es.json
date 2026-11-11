@@ -89,6 +89,10 @@
       "admin": "Administración"
     }
   },
+  "navCounts": {
+    "approvals": "{count, plural, one {# aprobación pendiente} other {# aprobaciones pendientes}}",
+    "inbox": "{count, plural, one {# conversación la lleva el equipo} other {# conversaciones las lleva el equipo}}"
+  },
   "sidebarEmpty": {
     "savedViews": "Aún no hay vistas guardadas.",
     "favorites": "Aún no hay favoritos.",
@@ -110,7 +114,12 @@
     "locations": "{count, plural, =0 {Ninguna sede en tu alcance} one {# sede en tu alcance} other {# sedes en tu alcance}}",
     "locationsAction": "Ver sedes",
     "inbox": "Bandeja del día",
-    "inboxEmpty": "Aún no hay nada en la bandeja"
+    "inboxEmpty": "Aún no hay nada en la bandeja",
+    "needsYou": {
+      "approvals": "{count, plural, one {# aprobación espera tu decisión} other {# aprobaciones esperan tu decisión}}",
+      "humanConversations": "{count, plural, one {# conversación la lleva el equipo} other {# conversaciones las lleva el equipo}}"
+    },
+    "needsYouAction": "Ver"
   },
   "sections": {
     "home": {
@@ -427,7 +436,8 @@
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
       "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
-    }
+    },
+    "count": "{count, plural, one {# pendiente} other {# pendientes}}"
   },
   "inboxPage": {
     "title": "Bandeja",

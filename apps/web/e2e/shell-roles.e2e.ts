@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { signIn } from "./helpers";
+import { OTHER_THAN_COUNTED_BADGES, signIn } from "./helpers";
 
 // App shell por rol (tarea 4): qué ve cada usuario del seed en la barra
 // lateral, en el selector de alcance y en las tablas de Registros, en tema
@@ -77,7 +77,8 @@ for (const theme of ["light", "dark"] as const) {
       for (const name of SIDEBAR_LINKS) {
         await expect(sidebar.getByRole("link", { name, exact: true })).toBeVisible();
       }
-      await expect(sidebar.locator('[data-slot="badge"]')).toHaveCount(0);
+      // Contadores solo en Aprobaciones y Bandeja (M-02), según lo que tenga pendiente cada rol.
+      await expect(sidebar.locator(OTHER_THAN_COUNTED_BADGES)).toHaveCount(0);
 
       // Selector de alcance: exactamente lo que ve.
       await page.getByTestId("scope-switcher").click();
