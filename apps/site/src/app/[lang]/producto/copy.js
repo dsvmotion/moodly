@@ -9,7 +9,7 @@ export const COPY = {
     startA: "Así empiezas.", startB: "El onboarding estándar, paso a paso.",
     steps: [["Diagnóstico", "Una llamada para entender tu negocio, tus canales y qué quieres que hagan los agentes."], ["Conecta tus canales", "WhatsApp, email, calendario y, si los usas, tu CRM y tu facturación."], ["Elige sector y agentes", "Partes de la plantilla de tu sector y activas los agentes que necesitas."], ["Carga tu conocimiento y tus reglas", "Servicios, precios, horarios, normas y qué necesita tu aprobación."], ["Prueba y lanza", "Pruebas con tu equipo, ajustamos lo necesario y los agentes empiezan a atender."]],
     duration: "La duración depende de la escala de la implantación.", pricing: "Ver precios", onbAlt: "Primer paso del onboarding: elegir el sector del negocio",
-    ctaA: "¿La vemos con tu negocio?", ctaB: "En 30 minutos te enseñamos los agentes configurados para tu sector.", tryDemo: "Probar la demo interactiva",
+    ctaA: "¿La vemos con tu negocio?", ctaB: "En 30 minutos te enseñamos los agentes configurados para tu sector.", tryDemo: "Ver el prototipo (datos ficticios)",
   },
   en: {
     meta: "The platform · Moodly AI", eyebrow: "The platform", title: "Your business, handled from one dashboard",
@@ -20,7 +20,7 @@ export const COPY = {
     startA: "How you get started.", startB: "Standard onboarding, step by step.",
     steps: [["Discovery call", "A call to understand your business, your channels and what you want the agents to do."], ["Connect your channels", "WhatsApp, email, calendar and, if you use them, your CRM and invoicing."], ["Pick your industry and agents", "Start from your industry template and switch on the agents you need."], ["Add your knowledge and rules", "Services, prices, opening hours, policies and what needs your approval."], ["Test and go live", "Test with your team, we fine-tune what's needed and the agents start working."]],
     duration: "Timing depends on the scale of the implementation.", pricing: "See pricing", onbAlt: "First onboarding step: choosing the business type",
-    ctaA: "Shall we look at it for your business?", ctaB: "In 30 minutes we'll show you the agents set up for your industry.", tryDemo: "Try the interactive demo",
+    ctaA: "Shall we look at it for your business?", ctaB: "In 30 minutes we'll show you the agents set up for your industry.", tryDemo: "See the prototype (fictional data)",
   },
   fr: {
     meta: "La plateforme · Moodly AI", eyebrow: "La plateforme", title: "Toute votre activité gérée depuis un seul tableau de bord",
@@ -31,7 +31,7 @@ export const COPY = {
     startA: "Comment démarrer.", startB: "L'onboarding standard, étape par étape.",
     steps: [["Diagnostic", "Un appel pour comprendre votre activité, vos canaux et ce que vous attendez des agents."], ["Connectez vos canaux", "WhatsApp, e-mail, agenda et, si vous les utilisez, votre CRM et votre facturation."], ["Choisissez secteur et agents", "Vous partez du modèle de votre secteur et activez les agents dont vous avez besoin."], ["Ajoutez vos connaissances et vos règles", "Services, tarifs, horaires, règles et ce qui doit passer par vous."], ["Testez et lancez", "Vous testez avec votre équipe, nous ajustons et les agents commencent à répondre."]],
     duration: "La durée dépend de l'ampleur de la mise en place.", pricing: "Voir les tarifs", onbAlt: "Première étape de l'onboarding : choisir le secteur",
-    ctaA: "On la regarde pour votre activité ?", ctaB: "En 30 minutes, nous vous montrons les agents configurés pour votre secteur.", tryDemo: "Essayer la démo interactive",
+    ctaA: "On la regarde pour votre activité ?", ctaB: "En 30 minutes, nous vous montrons les agents configurés pour votre secteur.", tryDemo: "Voir le prototype (données fictives)",
   },
   de: {
     meta: "Die Plattform · Moodly AI", eyebrow: "Die Plattform", title: "Dein ganzer Betrieb in einem Dashboard",
@@ -42,6 +42,6 @@ export const COPY = {
     startA: "So startest du.", startB: "Das Standard-Onboarding, Schritt für Schritt.",
     steps: [["Erstgespräch", "Ein Gespräch, um deinen Betrieb, deine Kanäle und deine Ziele für die Agenten zu verstehen."], ["Kanäle verbinden", "WhatsApp, E-Mail, Kalender und, falls vorhanden, CRM und Rechnungsprogramm."], ["Branche und Agenten wählen", "Du startest mit der Vorlage deiner Branche und aktivierst die Agenten, die du brauchst."], ["Wissen und Regeln hinterlegen", "Leistungen, Preise, Öffnungszeiten, Regeln und was deine Freigabe braucht."], ["Testen und starten", "Du testest mit deinem Team, wir justieren nach und die Agenten legen los."]],
     duration: "Die Dauer hängt vom Umfang der Einführung ab.", pricing: "Preise ansehen", onbAlt: "Erster Onboarding-Schritt: Branche wählen",
-    ctaA: "Sollen wir sie uns für deinen Betrieb ansehen?", ctaB: "In 30 Minuten zeigen wir dir die Agenten, eingerichtet für deine Branche.", tryDemo: "Interaktive Demo testen",
+    ctaA: "Sollen wir sie uns für deinen Betrieb ansehen?", ctaB: "In 30 Minuten zeigen wir dir die Agenten, eingerichtet für deine Branche.", tryDemo: "Prototyp ansehen (fiktive Daten)",
   },
 };
