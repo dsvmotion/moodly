@@ -14,9 +14,10 @@
 5. **Si tu cola no tiene nada abierto, esperas.** Las preguntas de producto las recoge V1 y se las lleva a producto juntas, en su informe.
 
 **Quién abre PRs (decisión #8):**
-- **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda y la Revisora); V2, los arreglos de seguridad de la web.
+- **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda, en `main` desde #168, y la Revisora); V2, los arreglos de seguridad de la web.
 - **Excepción:** V4 abre un solo PR para cerrar lo que quedó del #163 y después espera.
-- **V3 espera.**
+- **V3 (excepción de producto, 2026-11-11):** abre PRs para N-04, `SECURITY.md` (P-08), N-01 y N-02, la parte de M0 de su cola. Solo toca `apps/site/**` y `SECURITY.md`: sin código de la app, datos ni migraciones. Se mergean con el procedimiento de siempre, de uno en uno y en la cola de V1. El resto de su cola espera al límite.
+- **V4:** su cola de M1 (B-01 y K-01) espera a que se levante el límite. Medir B-01 en local, sin PR, solo con el «go B-01» de producto.
 - **V5 (excepción de producto, 2026-11-10):** desarrolla en `dsvmotion/moodly-toolkit` y lleva a `moodly`, por PRs sensibles, las copias de lo que haga falta en `.claude/` (P-10).
 - **El límite se levanta cuando se cumplen las tres:**
   - el PR de P-01 está en `main`;
