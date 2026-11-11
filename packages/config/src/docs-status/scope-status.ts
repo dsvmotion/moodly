@@ -275,7 +275,6 @@ const clip = (s: string, n: number): string => {
   return one.length <= n ? one : `${one.slice(0, n - 1).trimEnd()}…`;
 };
 
-export const GENERATED_PATH = "docs/STATUS.generated.md";
 export const COMMAND = "pnpm docs:status";
 const OPEN_LIMIT = 12;
 
@@ -283,10 +282,9 @@ const OPEN_LIMIT = 12;
 export function renderStatus(scope: Scope): string {
   const count = (m: string, s: Status) => scope.items.filter((i) => i.milestone === m && i.status === s).length;
   const out: string[] = [
-    "<!-- Generado por `pnpm docs:status` desde docs/scope.yaml. No editar a mano. -->",
-    "# Estado por hito (generado)",
+    "# Estado por hito (generado desde docs/scope.yaml)",
     "",
-    `Fuente: \`docs/scope.yaml\` (registro a ${scope.updated}, commit ${scope.asOfCommit}). Regenerar: \`${COMMAND}\`.`,
+    `Fuente: \`docs/scope.yaml\` (registro a ${scope.updated}, commit ${scope.asOfCommit}). Se imprime con \`${COMMAND}\`; no se commitea.`,
     "El historial y el detalle viven en `docs/STATUS.md`; esto es solo el resumen del registro.",
     "",
     "| Hito | Nombre | Total | done | in_progress | blocked | planned |",

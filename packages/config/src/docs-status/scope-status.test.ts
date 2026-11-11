@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { checkStatus, REPO_ROOT } from "./check.ts";
+import { summary, validateScope } from "./check.ts";
 import { findProblems, parseFlowValue, parseScope, renderStatus, ScopeParseError } from "./scope-status.ts";
 
 const SAMPLE = `version: 1
@@ -100,14 +98,13 @@ describe("findProblems y renderStatus", () => {
   });
 });
 
-describe("docs/STATUS.generated.md (check de CI, P-08)", () => {
-  it("está al día con docs/scope.yaml, sin unidades done sin evidencia", () => {
-    const result = checkStatus();
+describe("docs/scope.yaml (validación de CI, P-08)", () => {
+  it("se lee entera, sin ids repetidos, y ninguna unidad done sin evidencia", () => {
+    const result = validateScope();
     expect(result.messages).toEqual([]);
     expect(result.ok).toBe(true);
   });
-  it("el resumen real cabe en unas 80 líneas", () => {
-    const text = readFileSync(join(REPO_ROOT, "docs/STATUS.generated.md"), "utf8");
-    expect(text.split("\n").length).toBeLessThanOrEqual(80);
+  it("el resumen del registro real cabe en unas 80 líneas", () => {
+    expect(summary().split("\n").length).toBeLessThanOrEqual(80);
   });
 });

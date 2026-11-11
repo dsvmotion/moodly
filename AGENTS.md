@@ -60,7 +60,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Typecheck: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
-- Resumen de estado generado desde `docs/scope.yaml` (P-08): `pnpm docs:status` reescribe `docs/STATUS.generated.md` (hay que lanzarlo y commitear el resultado en todo PR que toque `docs/scope.yaml`); `pnpm docs:status --check` solo comprueba. `pnpm test` ya lo comprueba (`packages/config/src/docs-status`) y falla si está desactualizado o si una unidad `done` no tiene evidencia.
+- Registro de alcance (P-08): `pnpm test` valida `docs/scope.yaml` (`packages/config/src/docs-status`): todas las filas se leen, sin ids repetidos, estados e hitos válidos y ninguna unidad `done` sin evidencia. `pnpm docs:status` imprime por stdout el resumen por hito M0–M5 (conteos y lo abierto); `--out <archivo>` lo escribe y `--check` solo valida. El resumen no se commitea.
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
 - Tests de integración (con Supabase levantado y el seed aplicado): `tenantDb` con `pnpm --filter @repo/db test:integration`; el worker (reanudación tras SIGKILL y outbox, ADR 0009) con `pnpm turbo run build --filter=@repo/worker^...` y `pnpm --filter @repo/worker test:integration`
 - Subir de versión DBOS: en el mismo PR, la versión exacta de `@dbos-inc/dbos-sdk` en `apps/worker`, una migración nueva con el SQL de `pnpm --filter @repo/worker exec dbos schema --print-migrations <primera migración nueva>` y la versión del esquema que comprueba `19_dbos_schema.test.sql`
