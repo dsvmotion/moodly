@@ -1,6 +1,6 @@
 import { decide } from "@repo/agent-core";
 import type { RunScope, SkillContext, SkillDefinition, SkillSettings } from "@repo/agent-core";
-import { AppointmentNotFoundError, SlotTakenError, createFakeBookingProvider } from "@repo/integrations";
+import { AppointmentNotFoundError, SlotTakenError, SlotUnavailableError, createFakeBookingProvider } from "@repo/integrations";
 import { describe, expect, it } from "vitest";
 import { ReceptionScopeError, createReceptionSkills } from "./skills.js";
 import type { ReceptionCatalog } from "./skills.js";
@@ -18,10 +18,11 @@ const catalog: ReceptionCatalog = {
     Promise.resolve(serviceId === LASER ? { service: "Láser", resource: resourceId === CAB1 ? "Cabina 1" : null, timezone: "Europe/Madrid" } : null),
 };
 
-function setup() {
+function setup(hours: { openHour?: number; closeHour?: number } = {}) {
   const booking = createFakeBookingProvider({
     services: [{ id: LASER, durationMinutes: 30, locationId: null }],
     resources: [{ id: CAB1, locationId: LOC, serviceIds: [LASER] }],
+    ...hours,
     now: () => new Date("2030-06-01T00:00:00Z"),
   });
   const skills = createReceptionSkills({ booking, catalog });
@@ -192,6 +193,35 @@ describe("ejecutar las skills de Recepción", () => {
     expect(booking.appointments.map((appointment) => appointment.conversationId)).toEqual(["conv-1", null]);
   });
 
+  it("no reserva en el pasado, de madrugada ni fuera de la cuadrícula: SlotUnavailableError, y no deja cita", async () => {
+    const { booking, skills } = setup();
+    for (const [i, starts_at] of ["2030-05-31T09:00:00Z", "2030-06-03T03:00:00Z", "2030-06-03T09:10:00Z", "2030-06-03T13:45:00Z"].entries()) {
+      await expect(
+        skills.bookAppointment.execute(ctx({ idempotencyKey: `k-${i}` }), { service_id: LASER, resource_id: CAB1, starts_at }),
+      ).rejects.toThrow(SlotUnavailableError);
+    }
+    expect(booking.appointments).toHaveLength(0);
+  });
+
+  it("al mover una cita, la nueva hora también es un hueco libre", async () => {
+    const { skills } = setup();
+    const { appointment } = await skills.bookAppointment.execute(ctx(), { service_id: LASER, resource_id: CAB1, starts_at: "2030-06-03T09:00:00Z" });
+    for (const starts_at of ["2030-05-31T09:00:00Z", "2030-06-03T03:00:00Z", "2030-06-03T09:10:00Z"]) {
+      await expect(skills.rescheduleAppointment.execute(ctx(), { appointment_id: appointment.id, starts_at })).rejects.toThrow(SlotUnavailableError);
+    }
+    const moved = await skills.rescheduleAppointment.execute(ctx(), { appointment_id: appointment.id, starts_at: "2030-06-03T09:15:00Z" });
+    expect(moved.appointment.starts_at).toBe("2030-06-03T09:15:00.000Z");
+  });
+
+  it("la skill rechaza el pasado aunque el calendario no lo comprobara", async () => {
+    const { booking } = setup();
+    const permissive = { ...booking, book: () => Promise.reject(new Error("no debería llegar")) };
+    const skills = createReceptionSkills({ booking: permissive, catalog, now: () => new Date("2030-06-01T00:00:00Z") });
+    await expect(
+      skills.bookAppointment.execute(ctx(), { service_id: LASER, resource_id: CAB1, starts_at: "2030-05-01T09:00:00Z" }),
+    ).rejects.toThrow(SlotUnavailableError);
+  });
+
   it("otra ejecución en el mismo hueco no pisa la cita", async () => {
     const { skills } = setup();
     const input = { service_id: LASER, resource_id: CAB1, starts_at: "2030-06-03T09:00:00Z" };
@@ -237,7 +267,8 @@ describe("ejecutar las skills de Recepción", () => {
   });
 
   it("y la de cancelar, la cita de esa persona", async () => {
-    const { skills } = setup();
+    // 9:00 en Madrid (UTC+2) = 7:00 UTC: el local abre de 7 a 12 UTC.
+    const { skills } = setup({ openHour: 7, closeHour: 12 });
     const { appointment } = await skills.bookAppointment.execute(ctx(), { service_id: LASER, resource_id: CAB1, starts_at: "2030-06-03T07:00:00Z" });
     expect((await skills.cancelAppointment.preview(ctx(), { appointment_id: appointment.id })).summary).toBe(
       "Cancelar la cita del lunes, 3 de junio de 2030, 9:00",

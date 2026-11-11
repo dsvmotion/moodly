@@ -46,6 +46,7 @@
 **Staging en `c290ee3`:** sin comprobar todavía (paso 4 de la auditoría, en pausa con los mergeos).
 
 ### En curso
+- **[M0][R-08]** (PR #TBD): la hora de una cita de un agente se valida en SQL (futuro, horario, cuadrícula, recurso libre); pgTAP 40 y tests de skills en verde.
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
   - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**

@@ -23,6 +23,7 @@ export {
   AppointmentNotFoundError,
   InvalidBookingError,
   SlotTakenError,
+  SlotUnavailableError,
 } from "./booking/types.js";
 export type {
   Appointment,
