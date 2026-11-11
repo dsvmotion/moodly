@@ -20,14 +20,18 @@ import type { ModelMessage, ModelTransport, ToolCall, ToolSpec, TransportRequest
 //   persona en vez de mandarle al cliente media respuesta.
 // - El coste real es el que devuelve el gateway; si no viene, se calcula con la
 //   tabla de precios de @repo/config, con la caché de prompt aparte.
-// - Caché de prompt (PL-T3): marcas explícitas de Anthropic (cacheControl) en
-//   tres sitios, de lo más estable a lo que crece: la última herramienta (las
-//   herramientas van primero en la petición), el último mensaje de sistema
-//   estable (el que no cambia entre turnos) y el último mensaje de la
-//   conversación, para que cada paso de un turno lea de la caché lo que mandó
-//   el anterior. Anthropic admite hasta 4 marcas; otros proveedores ignoran
-//   las opciones de `anthropic`. Se marca a mano y no con `caching: "auto"`
-//   del gateway porque solo aquí se sabe qué parte del sistema es estable.
+// - Caché de prompt (PL-T3): marcas explícitas de Anthropic (cacheControl),
+//   solo donde lo escrito se va a leer después (escribir cuesta un 25 % más):
+//   - el último mensaje de sistema estable: herramientas y reglas, iguales en
+//     cada paso y en cada turno de la misma configuración. La hora y la
+//     historia van después y no entran;
+//   - sin sistema estable, la última herramienta (las herramientas van primero);
+//   - el último mensaje, solo si el turno ya sigue tras una herramienta: el
+//     paso siguiente leerá ese prefijo. En el primer paso no se marca, porque
+//     en un turno de un solo paso nadie lo leería.
+//   Anthropic admite hasta 4 marcas; otros proveedores ignoran las opciones de
+//   `anthropic`. A mano y no con `caching: "auto"` del gateway porque solo
+//   aquí se sabe qué parte del sistema es estable.
 
 export class ModelRefusalError extends Error {
   override name = "ModelRefusalError";
@@ -139,21 +143,25 @@ export function toSdkMessages(messages: readonly ModelMessage[]): { system: Syst
   }
   const stable = system[stableSystem];
   if (stable) system[stableSystem] = { ...stable, providerOptions: CACHE_BREAKPOINT };
-  // Lo que devolvió el proveedor no se toca; el último mensaje de una petición es del cliente o un resultado.
+  // Solo si el turno ya va por un paso con herramientas: el siguiente leerá este prefijo.
+  // Lo que devolvió el proveedor no se toca; el último mensaje de un paso así es un resultado.
   const last = out.at(-1);
-  if (last && (last.role === "user" || last.role === "tool")) out[out.length - 1] = { ...last, providerOptions: CACHE_BREAKPOINT };
+  if (last?.role === "tool") out[out.length - 1] = { ...last, providerOptions: CACHE_BREAKPOINT };
   return { system, messages: out };
 }
 
-/** Las herramientas, con la marca de caché en la última: así se guardan todas. */
-export function toSdkTools(specs: readonly ToolSpec[]): ToolSet {
+/**
+ * Las herramientas. Con `mark`, la marca de caché en la última (así se guardan
+ * todas); solo hace falta si no hay sistema estable, cuya marca ya las cubre.
+ */
+export function toSdkTools(specs: readonly ToolSpec[], mark = true): ToolSet {
   return Object.fromEntries(
     specs.map((spec, index) => [
       spec.name,
       tool({
         description: spec.description,
         inputSchema: jsonSchema(spec.inputSchema),
-        ...(index === specs.length - 1 ? { providerOptions: CACHE_BREAKPOINT } : {}),
+        ...(mark && index === specs.length - 1 ? { providerOptions: CACHE_BREAKPOINT } : {}),
       }),
     ]),
   );
@@ -192,7 +200,7 @@ export function createGatewayTransport(options: GatewayTransportOptions): ModelT
         model: languageModel(model.id),
         ...(system.length > 0 ? { system } : {}),
         messages,
-        ...(request.tools && request.tools.length > 0 ? { tools: toSdkTools(request.tools) } : {}),
+        ...(request.tools && request.tools.length > 0 ? { tools: toSdkTools(request.tools, !request.messages.some((message) => message.role === "system" && message.cacheable)) } : {}),
         maxOutputTokens: request.maxOutputTokens,
         // El enrutador ya tiene respaldo: aquí, un solo reintento por fallos de red.
         maxRetries: 1,

@@ -158,13 +158,45 @@ describe("transporte de Vercel AI Gateway", () => {
     expect(estimate).toBeLessThan(0.081);
   });
 
-  it("caché de prompt: la petición lleva las marcas en la última herramienta, el sistema estable y el último mensaje", async () => {
-    const { transport, mocks } = transportWith({
-      content: [{ type: "text", text: "Sí." }],
-      finishReason: { unified: "stop", raw: "end_turn" },
-      usage: usage(10, 2),
-      warnings: [],
+  const twoTools = [
+    { name: "find_slots", description: "Busca huecos.", inputSchema: { type: "object" } },
+    { name: "book_appointment", description: "Reserva.", inputSchema: { type: "object" } },
+  ];
+  const marks = (sent: MockLanguageModelV4["doGenerateCalls"][number] | undefined) => ({
+    prompt: sent?.prompt.map((message) => [message.role, message.providerOptions === undefined ? null : "cache"]),
+    tools: sent?.tools?.map((tool) => [tool.name, "providerOptions" in tool && tool.providerOptions !== undefined ? "cache" : null]),
+  });
+  const answered = { content: [{ type: "text" as const, text: "Sí." }], finishReason: { unified: "stop" as const, raw: "end_turn" }, usage: usage(10, 2), warnings: [] };
+
+  it("caché de prompt, primer paso: solo el sistema estable lleva la marca; la hora y la historia van después y sin ella", async () => {
+    const { transport, mocks } = transportWith(answered);
+    await transport.generate(
+      request({
+        messages: [
+          { role: "system", content: "Reglas y negocio (estable).", cacheable: true },
+          { role: "system", content: "Hora: lunes 09:30." },
+          { role: "user", content: "Hola" },
+          { role: "assistant", content: "¿En qué te ayudo?" },
+          { role: "user", content: "¿Hay hueco?" },
+        ],
+        tools: twoTools,
+      }),
+    );
+    const sent = mocks[0]?.doGenerateCalls[0];
+    expect(sent?.prompt.slice(0, 2)).toEqual([
+      { role: "system", content: "Reglas y negocio (estable).", providerOptions: CACHE_BREAKPOINT },
+      { role: "system", content: "Hora: lunes 09:30." },
+    ]);
+    // En un turno de un solo paso nadie leería lo escrito tras la hora: no se marca (escribir cuesta un 25 % más).
+    // Las herramientas van antes del sistema: la marca del sistema ya las guarda.
+    expect(marks(sent)).toEqual({
+      prompt: [["system", "cache"], ["system", null], ["user", null], ["assistant", null], ["user", null]],
+      tools: [["find_slots", null], ["book_appointment", null]],
     });
+  });
+
+  it("caché de prompt, pasos siguientes: también el último resultado, que el paso siguiente leerá", async () => {
+    const { transport, mocks } = transportWith(answered);
     await transport.generate(
       request({
         messages: [
@@ -174,27 +206,22 @@ describe("transporte de Vercel AI Gateway", () => {
           { role: "assistant", content: "", toolCalls: [{ id: "c1", name: "find_slots", args: {} }] },
           { role: "tool", toolCallId: "c1", toolName: "find_slots", content: '{"status":"executed"}' },
         ],
-        tools: [
-          { name: "find_slots", description: "Busca huecos.", inputSchema: { type: "object" } },
-          { name: "book_appointment", description: "Reserva.", inputSchema: { type: "object" } },
-        ],
+        tools: twoTools,
       }),
     );
-    const sent = mocks[0]?.doGenerateCalls[0];
-    // El sistema estable va primero y con la marca; la hora, después y sin ella.
-    expect(sent?.prompt.slice(0, 2)).toEqual([
-      { role: "system", content: "Reglas y negocio (estable).", providerOptions: CACHE_BREAKPOINT },
-      { role: "system", content: "Hora: lunes 09:30." },
-    ]);
-    // Solo el último mensaje lleva la marca: cada paso del turno lee de la caché lo del anterior.
-    const marked = sent?.prompt.filter((message) => message.providerOptions !== undefined).map((message) => message.role);
-    expect(marked).toEqual(["system", "tool"]);
-    expect(sent?.prompt.at(-1)?.providerOptions).toEqual(CACHE_BREAKPOINT);
-    // De las herramientas, solo la última: guarda todas las anteriores.
-    expect(sent?.tools?.map((tool) => [tool.name, "providerOptions" in tool ? tool.providerOptions : undefined])).toEqual([
-      ["find_slots", undefined],
-      ["book_appointment", CACHE_BREAKPOINT],
-    ]);
+    expect(marks(mocks[0]?.doGenerateCalls[0])).toEqual({
+      prompt: [["system", "cache"], ["system", null], ["user", null], ["assistant", null], ["tool", "cache"]],
+      tools: [["find_slots", null], ["book_appointment", null]],
+    });
+  });
+
+  it("caché de prompt sin sistema estable: la marca va en la última herramienta", async () => {
+    const { transport, mocks } = transportWith(answered);
+    await transport.generate(request({ messages: [{ role: "system", content: "Reglas." }, { role: "user", content: "¿Hay hueco?" }], tools: twoTools }));
+    expect(marks(mocks[0]?.doGenerateCalls[0])).toEqual({
+      prompt: [["system", null], ["user", null]],
+      tools: [["find_slots", null], ["book_appointment", "cache"]],
+    });
   });
 
   it("caché de prompt: sin coste del gateway, lo leído de la caché se cobra al 10 % y lo escrito al 125 %", async () => {
