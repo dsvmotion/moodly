@@ -5,10 +5,9 @@
 // «permission denied» (42501) de Postgres o un 200 vacío: las dos prueban que la
 // API y la base de datos responden. Un 5xx, un corte o un tiempo agotado, no.
 
+// La respuesta es pública: solo el estado, sin versión ni detalle.
 export interface HealthReport {
   status: "ok" | "degraded";
-  checks: { database: "ok" | "fail" };
-  version: string | null;
 }
 
 export interface HealthResult {
@@ -44,15 +43,9 @@ async function databaseReachable({ env = process.env, fetch: doFetch = fetch, ti
 }
 
 export async function checkHealth(deps: HealthDeps = {}): Promise<HealthResult> {
-  const env = deps.env ?? process.env;
   const database = await databaseReachable(deps);
   return {
     httpStatus: database ? 200 : 503,
-    body: {
-      status: database ? "ok" : "degraded",
-      checks: { database: database ? "ok" : "fail" },
-      // Commit desplegado por Vercel: solo los 7 primeros caracteres.
-      version: env["VERCEL_GIT_COMMIT_SHA"]?.slice(0, 7) ?? null,
-    },
+    body: { status: database ? "ok" : "degraded" },
   };
 }

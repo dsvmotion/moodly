@@ -2,13 +2,15 @@ import { createServer, type Server } from "node:http";
 import type { Logger } from "pino";
 
 // Salud del worker para el healthcheck de Railway y para la alerta de staging
-// (PL-health). Barato y sin secretos: solo fases y estados, la versión
-// desplegada y la edad del evento más antiguo sin publicar.
+// (PL-health). Barato y sin secretos. El endpoint puede ser público, así que el
+// cuerpo lleva solo `status`; el detalle (fase, comprobaciones, edad del outbox)
+// va al log, donde ya están la versión y el commit.
 //
-// Una fase «standby» (esperando el lock del executor o arrancando DBOS) responde
-// 200: durante un despliegue, el contenedor nuevo espera a que el viejo suelte el
-// lock (lease.ts), y Railway no para el viejo hasta que el nuevo está sano. Si
-// «standby» diera 503, el despliegue nunca terminaría.
+// «starting» (esperando el lock del executor o arrancando DBOS) responde 200, y
+// no por descuido: durante un despliegue, el contenedor nuevo espera a que el
+// viejo suelte el lock (lease.ts), y Railway no para el viejo hasta que el nuevo
+// está sano. Si «starting» diera 503, el despliegue nunca terminaría. El 200 de
+// «ok» solo llega con DBOS lanzado.
 
 export type WorkerPhase = "waiting-lease" | "launching" | "running" | "stopping";
 
@@ -28,26 +30,27 @@ export interface HealthOptions {
   probeTimeoutMs?: number;
   /** El resultado se reutiliza este tiempo: un sondeo frecuente no multiplica las consultas. */
   cacheMs?: number;
-  version: string;
-  commit: string | null;
   now?: () => number;
 }
 
 type Check = "ok" | "fail";
 
 export interface HealthReport {
-  status: "ok" | "standby" | "degraded" | "stopping";
+  status: "ok" | "starting" | "degraded" | "stopping";
+}
+
+/** Lo que va al log, nunca a la respuesta. */
+export interface HealthDetail {
   phase: WorkerPhase;
   checks?: { database: Check; dbos: Check; outbox: Check };
   /** Edad del evento sin publicar más antiguo, en segundos (0 si no hay). */
   outboxOldestPendingSeconds?: number;
-  version: string;
-  commit: string | null;
 }
 
 export interface HealthResult {
   httpStatus: 200 | 503;
   body: HealthReport;
+  detail: HealthDetail;
 }
 
 export const DEFAULT_MAX_OUTBOX_AGE_MS = 120_000;
@@ -69,14 +72,13 @@ function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
 }
 
 export async function evaluateHealth(options: HealthOptions): Promise<HealthResult> {
-  const { probe, version, commit } = options;
+  const { probe } = options;
   const maxAge = options.maxOutboxAgeMs ?? DEFAULT_MAX_OUTBOX_AGE_MS;
   const timeout = options.probeTimeoutMs ?? 3_000;
   const now = options.now ?? Date.now;
   const phase = probe.phase();
-  const base = { phase, version, commit };
-  if (phase === "stopping") return { httpStatus: 503, body: { status: "stopping", ...base } };
-  if (phase !== "running") return { httpStatus: 200, body: { status: "standby", ...base } };
+  if (phase === "stopping") return { httpStatus: 503, body: { status: "stopping" }, detail: { phase } };
+  if (phase !== "running") return { httpStatus: 200, body: { status: "starting" }, detail: { phase } };
 
   const [database, outbox] = await Promise.allSettled([
     withTimeout(probe.pingDatabase(), timeout),
@@ -93,11 +95,11 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   const healthy = checks.database === "ok" && checks.dbos === "ok" && checks.outbox === "ok";
   return {
     httpStatus: healthy ? 200 : 503,
-    body: {
-      status: healthy ? "ok" : "degraded",
+    body: { status: healthy ? "ok" : "degraded" },
+    detail: {
+      phase,
       checks,
       ...(outbox.status === "fulfilled" ? { outboxOldestPendingSeconds: Math.floor(ageMs / 1000) } : {}),
-      ...base,
     },
   };
 }
@@ -124,7 +126,9 @@ export function createHealthServer(options: HealthOptions & { logger: Logger }):
       return;
     }
     current().then(
-      ({ httpStatus, body }) => {
+      ({ httpStatus, body, detail }) => {
+        // El detalle de un fallo, al log: la respuesta no lo lleva.
+        if (body.status === "degraded") options.logger.warn({ ...detail }, "salud del worker degradada");
         res
           .writeHead(httpStatus, { "content-type": "application/json", "cache-control": "no-store" })
           .end(req.method === "HEAD" ? undefined : JSON.stringify(body));

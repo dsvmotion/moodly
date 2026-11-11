@@ -15,19 +15,18 @@ function probe(overrides: Partial<Omit<WorkerProbe, "phase">> & { phase?: Worker
     ...rest,
   };
 }
-const base = { version: "3f2c1ab", commit: "abcdef1", now: () => NOW };
+const base = { now: () => NOW };
 
 describe("evaluateHealth", () => {
   it("200 y ok con la base de datos viva y el outbox al día", async () => {
     const result = await evaluateHealth({ ...base, probe: probe({ oldestPendingEventAt: async () => ago(5) }) });
     expect(result.httpStatus).toBe(200);
-    expect(result.body).toEqual({
-      status: "ok",
+    // Público: la respuesta lleva solo el estado; el detalle va aparte, al log.
+    expect(result.body).toEqual({ status: "ok" });
+    expect(result.detail).toEqual({
       phase: "running",
       checks: { database: "ok", dbos: "ok", outbox: "ok" },
       outboxOldestPendingSeconds: 5,
-      version: "3f2c1ab",
-      commit: "abcdef1",
     });
   });
 
@@ -35,8 +34,8 @@ describe("evaluateHealth", () => {
     const result = await evaluateHealth({ ...base, maxOutboxAgeMs: 60_000, probe: probe({ oldestPendingEventAt: async () => ago(61) }) });
     expect(result.httpStatus).toBe(503);
     expect(result.body.status).toBe("degraded");
-    expect(result.body.checks?.outbox).toBe("fail");
-    expect(result.body.outboxOldestPendingSeconds).toBe(61);
+    expect(result.detail.checks?.outbox).toBe("fail");
+    expect(result.detail.outboxOldestPendingSeconds).toBe(61);
   });
 
   it("justo en el umbral sigue sano", async () => {
@@ -54,8 +53,8 @@ describe("evaluateHealth", () => {
       }),
     });
     expect(result.httpStatus).toBe(503);
-    expect(result.body.checks).toEqual({ database: "fail", dbos: "ok", outbox: "ok" });
-    expect(JSON.stringify(result.body)).not.toMatch(/secreto|password|postgresql/);
+    expect(result.detail.checks).toEqual({ database: "fail", dbos: "ok", outbox: "ok" });
+    expect(JSON.stringify(result)).not.toMatch(/secreto|password|postgresql/);
   });
 
   it("503 si no se puede leer el outbox", async () => {
@@ -68,8 +67,8 @@ describe("evaluateHealth", () => {
       }),
     });
     expect(result.httpStatus).toBe(503);
-    expect(result.body.checks?.outbox).toBe("fail");
-    expect(result.body.outboxOldestPendingSeconds).toBeUndefined();
+    expect(result.detail.checks?.outbox).toBe("fail");
+    expect(result.detail.outboxOldestPendingSeconds).toBeUndefined();
   });
 
   it("503 si una comprobación se cuelga más del tope", async () => {
@@ -79,17 +78,18 @@ describe("evaluateHealth", () => {
       await vi.advanceTimersByTimeAsync(1_001);
       const result = await pending;
       expect(result.httpStatus).toBe(503);
-      expect(result.body.checks?.database).toBe("fail");
+      expect(result.detail.checks?.database).toBe("fail");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it.each<WorkerPhase>(["waiting-lease", "launching"])("%s: standby con 200 y sin tocar la base de datos (el despliegue sigue)", async (phase) => {
+  it.each<WorkerPhase>(["waiting-lease", "launching"])("%s: starting con 200 y sin tocar la base de datos (el despliegue sigue)", async (phase) => {
     const pingDatabase = vi.fn(async () => {});
     const result = await evaluateHealth({ ...base, probe: probe({ phase, pingDatabase }) });
     expect(result.httpStatus).toBe(200);
-    expect(result.body).toEqual({ status: "standby", phase, version: "3f2c1ab", commit: "abcdef1" });
+    expect(result.body).toEqual({ status: "starting" });
+    expect(result.detail).toEqual({ phase });
     expect(pingDatabase).not.toHaveBeenCalled();
   });
 
@@ -118,7 +118,8 @@ describe("servidor de salud", () => {
     const res = await fetch(`${url}/health`);
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.json()).toMatchObject({ status: "ok", phase: "running" });
+    // Solo el estado: ni fase, ni versión, ni commit, ni edad del outbox.
+    expect(await res.json()).toEqual({ status: "ok" });
   });
 
   it("HEAD /health responde solo el estado", async () => {

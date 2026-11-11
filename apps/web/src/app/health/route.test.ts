@@ -8,7 +8,7 @@ describe("GET /health", () => {
     const response = await GET();
     expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(await response.json()).toMatchObject({ status: "degraded", checks: { database: "fail" } });
+    expect(await response.json()).toEqual({ status: "degraded" });
     vi.unstubAllEnvs();
   });
 });

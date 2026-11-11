@@ -55,8 +55,6 @@ const worker = createWorker(config, logger, {
 // responda «standby» mientras el viejo sigue vivo.
 const health = createHealthServer({
   probe: worker.probe,
-  version: config.applicationVersion,
-  commit: config.gitCommit,
   logger,
 });
 health.on("error", (err) => logger.error({ err }, "el endpoint de salud no pudo escuchar"));
