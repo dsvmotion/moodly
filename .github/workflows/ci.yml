@@ -233,6 +233,14 @@ jobs:
     steps:
       - name: Abrir, actualizar o cerrar el issue «main en rojo»
         run: |
+          # Las corridas de main van en paralelo: una corrida vieja no abre, comenta ni
+          # cierra nada; lo hace la del commit que es hoy la cabeza de main (si no se
+          # sabe cuál es, no se hace nada).
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
+          if [ "$head" != "$SHA" ]; then
+            echo "::notice::Sin cambios en el issue: $SHA ya no es la cabeza de main"
+            exit 0
+          fi
           title="main en rojo"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           red=false
@@ -245,13 +253,5 @@ jobs:
               gh issue create --title "$title" --body "$body"
             fi
           elif [ -n "$number" ]; then
-            # Las corridas de main van en paralelo: una corrida vieja que termina en verde
-            # tarde no puede cerrar el issue de uno nuevo que está en rojo. Solo cierra la
-            # corrida del commit que es hoy la cabeza de main (si no se sabe, no cierra).
-            head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
-            if [ "$head" != "$SHA" ]; then
-              echo "::notice::No se cierra el issue: $SHA ya no es la cabeza de main"
-              exit 0
-            fi
             gh issue close "$number" --comment "El CI de \`main\` volvió a verde en \`$SHA\`: $RUN_URL"
           fi
