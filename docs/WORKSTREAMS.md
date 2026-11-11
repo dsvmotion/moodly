@@ -14,9 +14,10 @@
 5. **Si tu cola no tiene nada abierto, esperas.** Las preguntas de producto las recoge V1 y se las lleva a producto juntas, en su informe.
 
 **Quién abre PRs (decisión #8):**
-- **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda y la Revisora); V2, los arreglos de seguridad de la web.
+- **Ahora: V1 y V2.** V1 hace lo que levanta el límite (la guarda, en `main` desde #168, y la Revisora); V2, los arreglos de seguridad de la web.
 - **Excepción:** V4 abre un solo PR para cerrar lo que quedó del #163 y después espera.
-- **V3 espera.**
+- **V3 (excepción de producto, 2026-11-11):** abre PRs para N-04, `SECURITY.md` (P-08), N-01 y N-02, la parte de M0 de su cola. Solo toca `apps/site/**` y `SECURITY.md`: sin código de la app, datos ni migraciones. Se mergean con el procedimiento de siempre, de uno en uno y en la cola de V1. El resto de su cola espera al límite.
+- **V4:** su cola de M1 (B-01 y K-01) espera a que se levante el límite. Medir B-01 en local, sin PR, solo con el «go B-01» de producto.
 - **V5 (excepción de producto, 2026-11-10):** desarrolla en `dsvmotion/moodly-toolkit` y lleva a `moodly`, por PRs sensibles, las copias de lo que haga falta en `.claude/` (P-10).
 - **El límite se levanta cuando se cumplen las tres:**
   - el PR de P-01 está en `main`;
@@ -188,7 +189,7 @@ Estados: **abierto** (se puede trabajar ya) o **en espera** (y qué espera). Se 
 9. **ADR** de T1, T4, T6, T10 y del hub de integraciones, con una comparación de plataformas de conectores para que elija producto: abierto.
 10. **[M0][P-08]** STATUS generado desde `docs/scope.yaml`, con un check de CI: abierto.
 
-R-02 se queda en M1, como dice el registro. #159 y #160 (M2) esperan a OA07.
+De M1, V1 lleva primero lo que desbloquea a V2: **[M1][R-02]** (cierra M-01), la migración de M-10 (`messages` por la raíz de la partición, para el tiempo real) y la capa de canales de O-01 (para el chat web). #159 y #160 (M2) esperan a OA07.
 
 **V2**
 1. **[M0][G-02]** `safeNextPath` rechaza `/.//evil.test`, `/app/..//evil.test` y `/%2e//evil.test`: **hecho** (#169).
@@ -196,6 +197,12 @@ R-02 se queda en M1, como dice el registro. #159 y #160 (M2) esperan a OA07.
 3. **[M0][M-08]** Las horas se muestran en la zona horaria del local: **hecho** (#172). **Decisión de producto (2026-11-10):** cada hora va en la zona de su local, y se escribe la zona junto a la hora cuando la organización tiene más de una o cuando el dispositivo de quien mira está en otra zona que el local.
 
 No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respuesta en los canales sin envío real va en M1, con la bandeja.
+
+**V2 · M1** (producto, 2026-11-11: «do all that to let you keep working»; propuesta de V2 sobre la auditoría §15 y §19.4). Empieza ya: V2 puede abrir PRs.
+4. **[M1][M-01]** Bloquear el cuadro de respuesta en los canales sin envío real, y el e2e de tomar el control con personal de otro local y con un `org_admin` sin MFA (§15). Se puede empezar ya; se cierra cuando esté **[M1][R-02]** (V1: el worker no escribe si la conversación ya no está en modo `agent`).
+5. **[M1][M-02] / OA10 / OA11** Contadores en la barra lateral y la lista «te necesita» en Inicio y en Aprobaciones. Si hace falta una vista o una función en `packages/db`, la pide a V1.
+6. **Chat web, lado cliente:** espera a la capa de canales de O-01 (V1).
+7. **Base del tiempo real:** espera a la migración de V1 que publica `messages` por la raíz de la partición (M-10).
 
 **V4**
 1. **[M0][K-03]** Cerrar el hueco que dejó #163: el check de `723d604` aún da por «no afirmar» las frases con «verbo + que + si/cuando» (estilo indirecto, no una pregunta indirecta). Abierto, como el único PR que V4 abre mientras siga el límite. Entran como tests:
