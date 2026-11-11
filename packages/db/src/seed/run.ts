@@ -156,6 +156,19 @@ async function enableWorkerDbLogin(dbUrl: string, password: string): Promise<voi
   }
 }
 
+// Ni la service role borra runs (20261111200000_offboarding_execution_states):
+// el seed, que solo corre contra Supabase local, los limpia con la conexión
+// del dueño. Borrar un run borra en cascada sus ejecuciones y aprobaciones.
+async function deleteAgentRuns(dbUrl: string, column: "id" | "organization_id", values: string[]): Promise<void> {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query(`delete from public.agent_runs where ${column} = any($1::uuid[])`, [values]);
+  } finally {
+    await client.end();
+  }
+}
+
 function readServerKeys(): Record<string, string> {
   if (!existsSync(serverKeysFile)) return {};
   return JSON.parse(readFileSync(serverKeysFile, "utf8")) as Record<string, string>;
@@ -332,14 +345,11 @@ async function main(): Promise<void> {
     .limit(1)
     .single();
   check("agent_skills", bookingAgent.error);
-  const removed = await admin
-    .from("agent_runs")
-    .delete()
-    .in(
-      "id",
-      seedApprovals.map((approval) => approval.runId),
-    );
-  check("agent_runs", removed.error);
+  await deleteAgentRuns(
+    local.dbUrl,
+    "id",
+    seedApprovals.map((approval) => approval.runId),
+  );
   const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
   for (const approval of seedApprovals) {
     const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
@@ -514,7 +524,7 @@ async function main(): Promise<void> {
     check("agent_types (F)", type.error);
 
     check("conversations (F)", (await admin.from("conversations").delete().eq("organization_id", org)).error);
-    check("agent_runs (F)", (await admin.from("agent_runs").delete().eq("organization_id", org)).error);
+    await deleteAgentRuns(local.dbUrl, "organization_id", [org]);
 
     const accounts = new Map<string, string>();
     for (const location of [SEED_VOLUME.f1, SEED_VOLUME.f2]) {

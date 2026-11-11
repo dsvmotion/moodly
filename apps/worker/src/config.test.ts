@@ -24,6 +24,7 @@ describe("loadConfig", () => {
       aiGatewayApiKey: null,
       resendApiKey: null,
       webAppUrl: null,
+      healthPort: 8080,
     });
   });
 
@@ -44,6 +45,11 @@ describe("loadConfig", () => {
     for (const bad of ["http://staging.moodlycrm.com", "https://staging.moodlycrm.com/app", "https://u:p@staging.moodlycrm.com", "https://x.com?a=1", "staging"]) {
       expect(() => loadConfig({ ...valid, WEB_APP_URL: bad })).toThrow(/WEB_APP_URL/);
     }
+  });
+
+  it("el puerto de salud sale de PORT (Railway) y se valida", () => {
+    expect(loadConfig({ ...valid, PORT: "3001" }).healthPort).toBe(3001);
+    for (const port of ["0", "70000", "abc", "80 80"]) expect(() => loadConfig({ ...valid, PORT: port })).toThrow(WorkerConfigError);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

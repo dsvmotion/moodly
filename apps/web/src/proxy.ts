@@ -56,6 +56,7 @@ export async function proxy(request: NextRequest) {
 // worker, manifest, página sin conexión e iconos) también: el iPhone los pide
 // sin sesión al instalar la app desde /login y no pueden redirigir al login.
 // Y el tunnel de Sentry (/monitoring): recibe errores también sin sesión.
+// Y /health, que lo llaman la alerta de staging y los sondeos sin sesión.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|offline.html|icons/|monitoring).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|offline.html|icons/|monitoring|health$).*)"],
 };

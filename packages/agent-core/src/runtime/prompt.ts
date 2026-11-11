@@ -74,21 +74,38 @@ function localNow(now: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(now);
 }
 
-export function composeSystemPrompt(ctx: PromptContext): string {
+/**
+ * El prompt partido para la caché de prompt (PL-T3): `stable` no cambia entre
+ * turnos de una misma configuración (reglas, quién es, servicios, conocimiento
+ * e instrucciones del negocio) y el transporte lo guarda en caché; `volatile`
+ * es lo que cambia en cada turno (la hora) y va después, fuera de la caché.
+ */
+export interface SystemPromptParts {
+  stable: string;
+  volatile: string;
+}
+
+export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts {
   const where = ctx.locationName ? `${ctx.businessName} (${ctx.locationName})` : ctx.businessName;
   const layers = [
     ["Platform rules (always apply)", PLATFORM_RULES.map((rule) => `- ${rule}`).join("\n")],
     [
       "Who you are",
-      [
-        `You are ${ctx.agentName}, working for ${where}.`,
-        `It is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}). Give times in this time zone, and send them to tools with their offset.`,
-      ].join("\n"),
+      [`You are ${ctx.agentName}, working for ${where}.`, `Give times in the ${ctx.timezone} time zone, and send them to tools with their offset.`].join("\n"),
     ],
   ];
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
   if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
   const instructions = ctx.instructions?.trim();
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", instructions]);
-  return layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n");
+  return {
+    stable: layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n"),
+    volatile: `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
+  };
+}
+
+/** El prompt entero en un solo texto: el estable y, al final, la hora. */
+export function composeSystemPrompt(ctx: PromptContext): string {
+  const parts = composeSystemPromptParts(ctx);
+  return `${parts.stable}\n\n${parts.volatile}`;
 }

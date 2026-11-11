@@ -179,7 +179,11 @@ importers:
         specifier: 4.6.6
         version: 4.6.6
 
-  packages/channels: {}
+  packages/channels:
+    dependencies:
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/config: {}
 

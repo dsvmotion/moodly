@@ -6,6 +6,7 @@ import {
   cloneElement,
   createContext,
   useContext,
+  useId,
   useState,
   useSyncExternalStore,
   type ComponentProps,
@@ -150,12 +151,17 @@ export function SidebarItem({
 }) {
   const { collapsed } = useSidebar();
   const countText = formatCount(count);
+  const countId = useId();
 
+  // El contador es la descripción del enlace, no parte de su nombre: el enlace
+  // se sigue llamando «Bandeja» y el lector de pantalla añade «1 conversación…».
+  // También con la barra compacta, aunque entonces no se pinte la insignia.
   return (
     <li>
       <Slot.Root
         data-active={active}
         aria-current={active ? "page" : undefined}
+        aria-describedby={countText ? countId : undefined}
         className={cn(
           "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
           active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
@@ -167,11 +173,16 @@ export function SidebarItem({
           {wrapLabel(children, collapsed)}
         </Slot.Slottable>
         {countText && !collapsed ? (
-          <Badge className="ml-auto" aria-label={countLabel ? countLabel(countText) : undefined}>
+          <Badge className="ml-auto" aria-hidden="true">
             {countText}
           </Badge>
         ) : null}
       </Slot.Root>
+      {countText ? (
+        <span id={countId} className="sr-only">
+          {countLabel ? countLabel(countText) : countText}
+        </span>
+      ) : null}
     </li>
   );
 }
