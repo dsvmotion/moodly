@@ -26,6 +26,8 @@ export interface PromptContext {
   servicesTruncated?: boolean;
   /** true si el agente puede buscar en el conocimiento del negocio (search_knowledge, B20-2). */
   knowledge?: boolean;
+  /** true si el agente puede preguntar al equipo lo que no encuentra (ask_team, B20-4b). */
+  asksTeam?: boolean;
 }
 
 export interface BookableService {
@@ -65,9 +67,15 @@ function servicesLayer(services: readonly BookableService[], truncated: boolean)
   return lines.join("\n");
 }
 
+const KNOWLEDGE_SEARCH = "For any question about the business (prices, policies, treatments, opening hours, how things work), call search_knowledge first and answer only with what it returns.";
 const KNOWLEDGE_LAYER = [
-  "For any question about the business (prices, policies, treatments, opening hours, how things work), call search_knowledge first and answer only with what it returns.",
+  KNOWLEDGE_SEARCH,
   "If it returns nothing that answers the question, say that a person from the team will reply. Never make up prices, policies or facts.",
+].join("\n");
+/** Con ask_team (B20-4b): lo que no está en el conocimiento se le pregunta al equipo, una vez por pregunta. */
+const KNOWLEDGE_ASK_LAYER = [
+  KNOWLEDGE_SEARCH,
+  "If it returns nothing that answers the question, call ask_team once with the question, then tell the customer that a person from the team will reply here. Never make up prices, policies or facts.",
 ].join("\n");
 
 function localNow(now: Date, timezone: string): string {
@@ -87,7 +95,7 @@ export function composeSystemPrompt(ctx: PromptContext): string {
     ],
   ];
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
-  if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
+  if (ctx.knowledge) layers.push(["Business knowledge", ctx.asksTeam ? KNOWLEDGE_ASK_LAYER : KNOWLEDGE_LAYER]);
   const instructions = ctx.instructions?.trim();
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", instructions]);
   return layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n");

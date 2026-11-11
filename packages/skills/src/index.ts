@@ -24,6 +24,8 @@ export {
 export type { OfferedEntry, WaitlistOfferSkill, WaitlistOfferSource } from "./reception/waitlist-offer.js";
 export { KNOWLEDGE_RESULTS, SEARCH_KNOWLEDGE_SKILL_KEY, createSearchKnowledgeSkill } from "./knowledge/search.js";
 export type { SearchKnowledgeSkill } from "./knowledge/search.js";
+export { ASK_TEAM_SKILL_KEY, AskTeamScopeError, MAX_QUESTION, createAskTeamSkill } from "./knowledge/ask-team.js";
+export type { AskTeamSkill, KnowledgeRequestDraft, KnowledgeRequestStore } from "./knowledge/ask-team.js";
 export { MAX_REPLY_LENGTH, ReplyTargetError, createReplySkill } from "./conversation/reply.js";
 export type { ConversationSender, ReplySkill } from "./conversation/reply.js";
 export { createFakeConversationSender } from "./conversation/fake.js";

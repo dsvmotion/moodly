@@ -265,6 +265,7 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     // El modelo vio las skills activas (sin reply) y el mensaje marcado como dato.
     const [first] = modelCalls();
     expect(first?.tools?.sort()).toEqual([
+      "ask_team",
       "book_appointment",
       "cancel_appointment",
       "find_slots",
@@ -418,16 +419,71 @@ describe("el conocimiento del negocio (paso B20-2)", () => {
   }
   const callFor = (question: string) => modelCalls().find((call) => call.customer?.endsWith(question));
 
-  it("sin nada escrito, busca y dice que le contestará una persona", async () => {
-    const messageId = await customerSays("¿Hacéis tatuajes?");
+  it("sin nada escrito, busca, se lo pregunta al equipo (B20-4b) y dice que le contestará una persona", async () => {
+    const question = "¿Hacéis tatuajes?";
+    const messageId = await customerSays(question);
     const { run, executions } = await turnOf(messageId);
     expect(run?.status).toBe("completed");
     expect(executions.map((execution) => [execution.skill_key, execution.status, execution.autonomy_applied])).toEqual([
       ["search_knowledge", "executed", "autonomous"],
+      ["ask_team", "executed", "execute"],
       ["reply", "executed", "autonomous"],
     ]);
     expect(executions[0]?.output).toMatchObject({ untrusted: true, results: [] });
-    expect((await agentMessages()).at(-1)?.content).toBe("Una persona del equipo te contestará enseguida.");
+    expect((await agentMessages()).at(-1)?.content).toBe("Se lo he preguntado al equipo: una persona te contestará por aquí.");
+
+    // La pregunta queda para el equipo del local, con su run, su agente y su conversación, y una sola por ejecución.
+    const { rows } = await admin.query<Record<string, unknown>>(
+      `select r.organization_id, r.location_id, r.agent_id = run.agent_id as same_agent, r.conversation_id, r.question,
+              r.assigned_role, r.status, r.idempotency_key
+         from public.knowledge_requests r join public.agent_runs run on run.id = r.run_id
+        where r.run_id = $1`,
+      [run?.id],
+    );
+    expect(rows).toEqual([
+      {
+        organization_id: ids.org,
+        location_id: ids.location,
+        same_agent: true,
+        conversation_id: ids.conversation,
+        question,
+        assigned_role: "staff",
+        status: "open",
+        idempotency_key: `${run?.id}:1:0:ask_team`,
+      },
+    ]);
+    expect(executions[1]?.output).toMatchObject({ request_id: expect.any(String) as unknown as string, already_asked: false });
+
+    // El modelo tenía la herramienta y la capa que le dice que pregunte al equipo en vez de inventar.
+    const call = callFor(question);
+    expect(call?.tools).toContain("ask_team");
+    expect(call?.system).toContain("call ask_team once with the question");
+  });
+
+  it("sin ask_team activa, no se le ofrece ni se le nombra: dice que le contestará una persona", async () => {
+    await admin.query(
+      `update public.agent_skills g set enabled = false from public.skills s
+        where s.id = g.skill_id and g.organization_id = $1 and s.key = 'ask_team'`,
+      [ids.org],
+    );
+    try {
+      const question = "¿Tenéis aparcamiento?";
+      const { run, executions } = await turnOf(await customerSays(question));
+      expect(run?.status).toBe("completed");
+      expect(executions.map((execution) => execution.skill_key)).toEqual(["search_knowledge", "reply"]);
+      expect((await agentMessages()).at(-1)?.content).toBe("Una persona del equipo te contestará enseguida.");
+      const call = callFor(question);
+      expect(call?.tools).not.toContain("ask_team");
+      expect(call?.system).not.toContain("ask_team");
+      const { rows } = await admin.query("select 1 from public.knowledge_requests where run_id = $1", [run?.id]);
+      expect(rows).toEqual([]);
+    } finally {
+      await admin.query(
+        `update public.agent_skills g set enabled = true from public.skills s
+          where s.id = g.skill_id and g.organization_id = $1 and s.key = 'ask_team'`,
+        [ids.org],
+      );
+    }
   });
 
   it("contesta con lo que el negocio escribió para su local y para toda la organización, nunca con lo de otro local", async () => {

@@ -422,7 +422,8 @@
       "appointment_reminder": "Appointment reminder",
       "join_waitlist": "Waitlist",
       "waitlist_offer": "Waitlist offer",
-      "search_knowledge": "Knowledge search"
+      "search_knowledge": "Knowledge search",
+      "ask_team": "Ask the team"
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",

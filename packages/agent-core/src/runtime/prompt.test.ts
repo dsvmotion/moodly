@@ -94,6 +94,17 @@ describe("composeSystemPrompt", () => {
     expect(composeSystemPrompt(base)).not.toContain("Business knowledge");
   });
 
+  it("con ask_team (B20-4b): lo que no encuentra se lo pregunta al equipo una vez y avisa al cliente", () => {
+    const prompt = composeSystemPrompt({ ...base, knowledge: true, asksTeam: true });
+    expect(prompt).toContain("call search_knowledge first and answer only with what it returns");
+    expect(prompt).toContain("call ask_team once with the question, then tell the customer that a person from the team will reply here");
+    expect(prompt).toContain("Never make up prices, policies or facts.");
+    // Sin ask_team, no se nombra una herramienta que no tiene.
+    expect(composeSystemPrompt({ ...base, knowledge: true })).not.toContain("ask_team");
+    // Sin buscar en el conocimiento no hay capa, aunque pudiera preguntar.
+    expect(composeSystemPrompt({ ...base, asksTeam: true })).not.toContain("Business knowledge");
+  });
+
   it("sin instrucciones, no hay capa vacía", () => {
     expect(composeSystemPrompt({ ...base, instructions: "   " })).not.toContain("Business instructions");
   });
