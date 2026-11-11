@@ -13,16 +13,28 @@ import type { DomainEvent, EventContext, EventHandler, StepRetry } from "../even
 // - Cada envío es un paso (DBOS) con su clave de idempotencia en Resend,
 //   approval:<aprobación>:<persona>: un reintento o una entrega reanudada no
 //   manda dos veces el mismo email. Un fallo pasajero (red, 429, 5xx) se
-//   reintenta; uno definitivo (una dirección que Resend rechaza) se registra y
-//   no frena los demás envíos.
+//   reintenta con espera creciente, lo bastante para aguantar una caída de
+//   unos minutos de Resend (SEND_RETRY). Si aun así no sale, o Resend rechaza
+//   ese email (una dirección que no vale), se registra y se sigue con los
+//   demás: el fallo de uno no se lleva a los siguientes.
+// - Un 401/403 es configuración (la clave o el dominio), no algo pasajero: no
+//   se reintenta, se registra como error con su evento de seguridad y no se
+//   intenta con nadie más, porque fallaría igual.
 // - Sin RESEND_API_KEY o sin WEB_APP_URL no se envía nada: se registra un aviso
 //   y se sigue (como sin AI_GATEWAY_API_KEY).
 // - Ningún email en los logs: solo ids y recuentos (ADR 0032).
 
 export const APPROVAL_EMAIL_HANDLER_KEY = "notify.approval_email";
 
-/** Lo que se reintenta un envío que falla de forma pasajera: 1 s, 2 s, 4 s, 8 s. */
-export const SEND_RETRY: StepRetry = { maxAttempts: 5, intervalSeconds: 1, backoffRate: 2 };
+/**
+ * Lo que se reintenta un envío que falla de forma pasajera: 10 intentos con
+ * esperas de 2 s, 4 s, 8 s… 512 s, unos 17 minutos en total, para aguantar una
+ * caída de Resend de unos minutos.
+ */
+export const SEND_RETRY: StepRetry = { maxAttempts: 10, intervalSeconds: 2, backoffRate: 2 };
+
+/** El evento de seguridad de un 401/403 de Resend (ADR 0032): la clave o el dominio están mal. */
+export const EMAIL_UNAUTHORIZED_EVENT = "email.provider_unauthorized";
 
 const notificationSchema = z.object({
   approval: z.object({
@@ -109,11 +121,13 @@ export interface ApprovalEmailHandlerOptions {
   sender: EmailSender | null;
   /** null: sin WEB_APP_URL. */
   webAppUrl: string | null;
+  /** Los reintentos de cada envío; SEND_RETRY si no se dice (los tests de integración los acortan). */
+  retry?: StepRetry;
 }
 
-type SendOutcome = "sent" | "rejected";
+type SendOutcome = "sent" | "rejected" | "unauthorized";
 
-export function createApprovalEmailHandler({ sender, webAppUrl }: ApprovalEmailHandlerOptions): EventHandler {
+export function createApprovalEmailHandler({ sender, webAppUrl, retry = SEND_RETRY }: ApprovalEmailHandlerOptions): EventHandler {
   return {
     key: APPROVAL_EMAIL_HANDLER_KEY,
     eventTypes: ["approval.created"],
@@ -141,28 +155,47 @@ export function createApprovalEmailHandler({ sender, webAppUrl }: ApprovalEmailH
       const emails = buildApprovalEmails(parsed.data, webAppUrl);
       let sent = 0;
       let rejected = 0;
-      for (const email of emails) {
-        const outcome = await ctx.step(
-          `send:${email.userId}`,
-          async (): Promise<SendOutcome> => {
-            try {
-              await sender.send(email.request);
-              return "sent";
-            } catch (err) {
-              // Lo pasajero lanza: DBOS lo reintenta con la misma clave de idempotencia.
-              if (err instanceof EmailSendError && !err.retryable) {
-                ctx.logger.warn({ approvalId, userId: email.userId, status: err.status }, "Resend rechazó el aviso de aprobación");
-                return "rejected";
+      let failed = 0;
+      let skipped = 0;
+      for (const [index, email] of emails.entries()) {
+        let outcome: SendOutcome;
+        try {
+          outcome = await ctx.step(
+            `send:${email.userId}`,
+            async (): Promise<SendOutcome> => {
+              try {
+                await sender.send(email.request);
+                return "sent";
+              } catch (err) {
+                // Lo pasajero lanza: DBOS lo reintenta con la misma clave de idempotencia.
+                if (err instanceof EmailSendError && err.kind === "unauthorized") return "unauthorized";
+                if (err instanceof EmailSendError && err.kind === "rejected") {
+                  ctx.logger.warn({ approvalId, userId: email.userId, status: err.status }, "Resend rechazó el aviso de aprobación");
+                  return "rejected";
+                }
+                throw err;
               }
-              throw err;
-            }
-          },
-          SEND_RETRY,
-        );
+            },
+            retry,
+          );
+        } catch {
+          // Agotó los reintentos: este no sale, los demás sí se intentan.
+          ctx.logger.error({ approvalId, userId: email.userId }, "aviso de aprobación sin enviar: Resend siguió fallando tras los reintentos");
+          failed += 1;
+          continue;
+        }
+        if (outcome === "unauthorized") {
+          skipped = emails.length - index;
+          ctx.logger.error(
+            { approvalId, securityEvent: EMAIL_UNAUTHORIZED_EVENT, skipped },
+            "Resend rechazó la clave o el remitente (401/403): no se envía ningún aviso más de esta aprobación",
+          );
+          break;
+        }
         if (outcome === "sent") sent += 1;
         else rejected += 1;
       }
-      ctx.logger.info({ approvalId, recipients: emails.length, sent, rejected }, "avisos de aprobación enviados");
+      ctx.logger.info({ approvalId, recipients: emails.length, sent, rejected, failed, skipped }, "avisos de aprobación enviados");
     },
   };
 }

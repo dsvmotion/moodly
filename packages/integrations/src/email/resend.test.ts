@@ -78,20 +78,21 @@ describe("createResendSender", () => {
   });
 
   it.each([
-    [429, "rate_limit_exceeded", true],
-    [500, "internal_server_error", true],
-    [503, "application_error", true],
-    [409, "concurrent_idempotent_requests", true],
-    [409, "invalid_idempotent_request", false],
-    [422, "validation_error", false],
-    [403, "invalid_from_address", false],
-  ])("un %i (%s) es reintentable: %s", async (status, name, retryable) => {
+    [429, "rate_limit_exceeded", "transient", true],
+    [500, "internal_server_error", "transient", true],
+    [503, "application_error", "transient", true],
+    [409, "concurrent_idempotent_requests", "transient", true],
+    [409, "invalid_idempotent_request", "rejected", false],
+    [422, "validation_error", "rejected", false],
+    [401, "missing_api_key", "unauthorized", false],
+    [403, "invalid_from_address", "unauthorized", false],
+  ])("un %i (%s) es %s (reintentable: %s)", async (status, name, kind, retryable) => {
     const { fetch } = fakeFetch(() => json(status, { name, message: "persona@example.test no vale" }));
     const error = await createResendSender({ apiKey: KEY, fetch })
       .send(request)
       .catch((err: unknown) => err);
     expect(error).toBeInstanceOf(EmailSendError);
-    expect(error).toMatchObject({ status, retryable });
+    expect(error).toMatchObject({ status, kind, retryable });
   });
 
   it("el error no lleva la clave ni el cuerpo de la respuesta (puede repetir la dirección)", async () => {

@@ -40,4 +40,4 @@ export type { FakeBookingOptions, FakeBookingProvider } from "./booking/fake.js"
 export { renderApprovalEmail } from "./email/approval.js";
 export type { ApprovalEmailInput, EmailLocale, RenderedEmail } from "./email/approval.js";
 export { EmailSendError, RESEND_API_URL, createResendSender } from "./email/resend.js";
-export type { EmailAddress, EmailSender, ResendSenderOptions, SendEmailRequest } from "./email/resend.js";
+export type { EmailAddress, EmailSendErrorKind, EmailSender, ResendSenderOptions, SendEmailRequest } from "./email/resend.js";

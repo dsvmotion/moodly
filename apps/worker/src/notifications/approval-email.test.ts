@@ -6,6 +6,7 @@ import type { DomainEvent, EventContext, StepRetry } from "../events/handlers.ts
 import { createLogger } from "../logger.ts";
 import {
   APPROVAL_EMAIL_HANDLER_KEY,
+  EMAIL_UNAUTHORIZED_EVENT,
   SEND_RETRY,
   approvalUrl,
   buildApprovalEmails,
@@ -76,9 +77,17 @@ function harness(data: unknown, send: (request: SendEmailRequest) => Promise<{ i
   const ctx: EventContext = {
     db,
     logger,
+    // Como DBOS: un paso que lanza se repite hasta retry.maxAttempts veces y después lanza.
     step: async (name, fn, retry) => {
       steps.push({ name, retry });
-      return fn();
+      const attempts = retry?.maxAttempts ?? 1;
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          return await fn();
+        } catch (err) {
+          if (attempt >= attempts) throw err;
+        }
+      }
     },
   };
   const sender: EmailSender = {
@@ -196,25 +205,67 @@ describe("createApprovalEmailHandler", () => {
     }
   });
 
-  it("un rechazo definitivo de Resend no frena a los demás; uno pasajero lanza para que DBOS lo reintente", async () => {
-    const rejected = harness(notification(), async (request) => {
-      if (request.to === "admin@example.test") throw new EmailSendError("Resend rechazó el email (422 validation_error)", 422, false);
+  it("SEND_RETRY aguanta una caída de Resend de varios minutos", () => {
+    const { maxAttempts, intervalSeconds, backoffRate } = SEND_RETRY;
+    const waited = Array.from({ length: maxAttempts - 1 }, (_, i) => intervalSeconds * backoffRate ** i).reduce((a, b) => a + b, 0);
+    expect(waited).toBeGreaterThanOrEqual(10 * 60);
+  });
+
+  it("un rechazo definitivo de Resend no frena a los demás", async () => {
+    const h = harness(notification(), async (request) => {
+      if (request.to === "admin@example.test") throw new EmailSendError("Resend rechazó el email (422 validation_error)", 422, "rejected");
       return { id: "ok" };
     });
-    await createApprovalEmailHandler({ sender: rejected.sender, webAppUrl: WEB }).handle(event(), rejected.ctx);
-    expect(rejected.sent.map((request) => request.to)).toEqual(["admin@example.test", "staff@example.test"]);
+    await createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);
+    expect(h.sent.map((request) => request.to)).toEqual(["admin@example.test", "staff@example.test"]);
+    expect(h.lines.join("")).toMatch(/"rejected":1/);
+  });
 
-    const transient = harness(notification(), async () => {
-      throw new EmailSendError("Resend rechazó el email (503 application_error)", 503, true);
+  it("un fallo pasajero se reintenta con la misma clave hasta que sale: una sola vez por persona", async () => {
+    let failures = 0;
+    const h = harness(notification(), async (request) => {
+      if (request.to === "admin@example.test" && failures < 6) {
+        failures += 1;
+        throw new EmailSendError("Resend rechazó el email (503 application_error)", 503, "transient");
+      }
+      return { id: "ok" };
     });
-    await expect(createApprovalEmailHandler({ sender: transient.sender, webAppUrl: WEB }).handle(event(), transient.ctx)).rejects.toThrow(
-      EmailSendError,
-    );
+    await createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);
+    const admin = h.sent.filter((request) => request.to === "admin@example.test");
+    expect(admin).toHaveLength(7);
+    expect(new Set(admin.map((request) => request.idempotencyKey))).toEqual(new Set([`approval:${APPROVAL}:${ADMIN}`]));
+    expect(h.sent.filter((request) => request.to === "staff@example.test")).toHaveLength(1);
+    expect(h.lines.join("")).toMatch(/"sent":2/);
+  });
+
+  it("si agota los reintentos, ese no sale y los demás sí", async () => {
+    const h = harness(notification(), async (request) => {
+      if (request.to === "admin@example.test") throw new EmailSendError("Resend rechazó el email (503 application_error)", 503, "transient");
+      return { id: "ok" };
+    });
+    const retry = { maxAttempts: 3, intervalSeconds: 0, backoffRate: 1 };
+    await expect(createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB, retry }).handle(event(), h.ctx)).resolves.toBeUndefined();
+    expect(h.sent.filter((request) => request.to === "admin@example.test")).toHaveLength(3);
+    expect(h.sent.filter((request) => request.to === "staff@example.test")).toHaveLength(1);
+    const logs = h.lines.map((line) => JSON.parse(line) as { level: string; msg: string; failed?: number; sent?: number });
+    expect(logs.some((log) => log.level === "error" && /tras los reintentos/.test(log.msg))).toBe(true);
+    expect(logs.at(-1)).toMatchObject({ failed: 1, sent: 1 });
+  });
+
+  it("un 401/403 no se reintenta, no se intenta con nadie más y deja un error con su evento de seguridad", async () => {
+    const h = harness(notification(), async () => {
+      throw new EmailSendError("Resend rechazó el email (401 missing_api_key)", 401, "unauthorized");
+    });
+    await createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);
+    expect(h.sent).toHaveLength(1);
+    const logs = h.lines.map((line) => JSON.parse(line) as { level: string; securityEvent?: string; skipped?: number; sent?: number });
+    expect(logs.find((log) => log.securityEvent === EMAIL_UNAUTHORIZED_EVENT)).toMatchObject({ level: "error", skipped: 2 });
+    expect(logs.at(-1)).toMatchObject({ sent: 0, skipped: 2 });
   });
 
   it("ningún email en los logs", async () => {
     const h = harness(notification(), async (request) => {
-      if (request.to === "staff@example.test") throw new EmailSendError("Resend rechazó el email (422 validation_error)", 422, false);
+      if (request.to === "staff@example.test") throw new EmailSendError("Resend rechazó el email (422 validation_error)", 422, "rejected");
       return { id: "ok" };
     });
     await createApprovalEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);

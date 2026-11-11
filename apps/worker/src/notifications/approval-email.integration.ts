@@ -8,14 +8,15 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
-import { APPROVAL_EMAIL_HANDLER_KEY } from "./approval-email.ts";
+import { APPROVAL_EMAIL_HANDLER_KEY, EMAIL_UNAUTHORIZED_EVENT } from "./approval-email.ts";
 
 // M-02: de una aprobación nueva al email, pasando por approval.created en el
 // outbox, el publicador y el consumidor notify.approval_email, con el cliente de
 // Resend de verdad contra un servidor falso. Se avisa exactamente a quien puede
 // decidir cada aprobación (de la base de datos), una vez por persona aunque
-// Resend falle una vez, y a nadie de otro local fuera de su alcance ni de otra
-// organización.
+// Resend falle varias veces seguidas, y a nadie de otro local fuera de su
+// alcance ni de otra organización. Un 401 no se reintenta ni se intenta con
+// nadie más, y deja su evento de seguridad.
 const fixture = join(import.meta.dirname, "..", "testing", "approval-email-worker.ts");
 const children = new Set<ChildProcess>();
 const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
@@ -30,8 +31,12 @@ interface Received {
   body: { from: string; to: string[]; subject: string; html: string; text: string };
 }
 const received: Received[] = [];
-/** La primera petición cuya clave de idempotencia acaba así recibe un 503: el worker la reintenta. */
-let failOnceSuffix: string | null = null;
+/** Las peticiones cuya clave de idempotencia acaba así reciben un 503 tantas veces: el worker las reintenta. */
+const failTimes = new Map<string, number>();
+/** Las peticiones para estas personas (sufijo de la clave) reciben un 401: la clave de Resend no vale. */
+const unauthorizedSuffixes = new Set<string>();
+/** Cuántas veces devolvió 503 el servidor falso. */
+let served503 = 0;
 let server: Server;
 let resendUrl = "";
 
@@ -96,8 +101,13 @@ beforeAll(async () => {
       if (req.method !== "POST" || req.url !== "/emails") {
         res.statusCode = 404;
         res.end(JSON.stringify({ name: "not_found" }));
-      } else if (failOnceSuffix && key.endsWith(failOnceSuffix)) {
-        failOnceSuffix = null;
+      } else if ([...unauthorizedSuffixes].some((suffix) => key.endsWith(suffix))) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ name: "missing_api_key" }));
+      } else if ([...failTimes].some(([suffix, left]) => key.endsWith(suffix) && left > 0)) {
+        const [suffix, left] = [...failTimes].find(([s, n]) => key.endsWith(s) && n > 0) as [string, number];
+        failTimes.set(suffix, left - 1);
+        served503 += 1;
         res.statusCode = 503;
         res.end(JSON.stringify({ name: "application_error" }));
       } else {
@@ -189,18 +199,19 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       FAKE_RESEND_URL: resendUrl,
     });
 
-    // Resend falla una vez con el email del staff de X1: el paso se reintenta con la misma clave.
-    failOnceSuffix = `:${userIds.xStaff1}`;
+    // X1: Resend cae para el staff de X1 durante 6 intentos y luego vuelve. Y1: Resend rechaza la clave (401).
+    failTimes.set(`:${userIds.xStaff1}`, 6);
+    unauthorizedSuffixes.add(`:${userIds.yAdmin}`).add(`:${userIds.yStaff1}`);
     const inX1 = await createApproval(ids.orgX, ids.locX1, "staff");
     const inY1 = await createApproval(ids.orgY, ids.locY1, "staff");
 
     const expectedX1: Person[] = ["xAdmin", "xRegionN", "xManager1", "xStaff1"];
-    const expectedY1: Person[] = ["yAdmin", "yStaff1"];
     await waitFor(
-      () => new Set(keysFor(inX1)).size === expectedX1.length && new Set(keysFor(inY1)).size === expectedY1.length,
-      "los avisos de las dos aprobaciones",
+      () => new Set(keysFor(inX1)).size === expectedX1.length && served503 === 6 && keysFor(inX1).length === expectedX1.length + 6,
+      "los avisos de X1, con los 6 reintentos",
       worker.output,
     );
+    await waitFor(() => worker.output().includes(EMAIL_UNAUTHORIZED_EVENT), "el 401 de Y1, registrado", worker.output);
     // Margen para que un envío de más (o a quien no toca) llegara también.
     await new Promise((resolve) => setTimeout(resolve, 3_000));
 
@@ -208,14 +219,21 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
     const forY1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inY1}:`));
     // Exactamente a quien puede decidir; ni el region_manager del sur, ni el staff de X2 o X3, ni nadie de la otra organización.
     expect(new Set(forX1.map((r) => r.body.to[0]))).toEqual(new Set(expectedX1.map(emailOf)));
-    expect(new Set(forY1.map((r) => r.body.to[0]))).toEqual(new Set(expectedY1.map(emailOf)));
-    // Una vez por persona: solo el que falló se repite, y con la misma clave.
-    expect(forX1).toHaveLength(expectedX1.length + 1);
-    expect(keysFor(inX1).filter((key) => key === `approval:${inX1}:${userIds.xStaff1}`)).toHaveLength(2);
-    expect(forY1).toHaveLength(expectedY1.length);
+    // Una vez por persona: solo el que falló se repite (6 503 y el 200), siempre con la misma clave.
+    expect(forX1).toHaveLength(expectedX1.length + 6);
+    expect(keysFor(inX1).filter((key) => key === `approval:${inX1}:${userIds.xStaff1}`)).toHaveLength(7);
     for (const person of expectedX1) {
       expect(keysFor(inX1)).toContain(`approval:${inX1}:${userIds[person]}`);
     }
+    // Y1 con un 401: un solo intento, sin reintentos ni nadie más; nadie lo recibe.
+    expect(forY1).toHaveLength(1);
+    expect([emailOf("yAdmin"), emailOf("yStaff1")]).toContain(forY1[0]?.body.to[0]);
+    const unauthorized = worker
+      .output()
+      .split("\n")
+      .filter((line) => line.includes(EMAIL_UNAUTHORIZED_EVENT))
+      .map((line) => JSON.parse(line) as { level: string; approvalId: string; skipped: number });
+    expect(unauthorized).toEqual([expect.objectContaining({ level: "error", approvalId: inY1, skipped: 2 })]);
 
     // La clave de Resend solo en su cabecera; el remitente, la dirección de avisos; el enlace, a la web con el local.
     for (const request of [...forX1, ...forY1]) {

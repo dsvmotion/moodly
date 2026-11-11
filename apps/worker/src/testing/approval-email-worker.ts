@@ -3,6 +3,9 @@
 // verdad, que envía a un servidor falso (FAKE_RESEND_URL) en vez de a Resend.
 //
 //   FAKE_RESEND_URL=http://127.0.0.1:<puerto> RESEND_API_KEY=re_… WEB_APP_URL=… node approval-email-worker.ts
+//
+// Los reintentos de cada envío, cortos (10 intentos cada 0,1 s) para que el
+// test no espere los minutos de SEND_RETRY.
 import { createResendSender } from "@repo/integrations";
 import { loadConfig } from "../config.ts";
 import { logHandler } from "../events/log-handler.ts";
@@ -17,7 +20,10 @@ const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const sender = config.resendApiKey ? createResendSender({ apiKey: config.resendApiKey, baseUrl }) : null;
 const worker = createWorker(config, logger, {
-  eventHandlers: [logHandler, createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl })],
+  eventHandlers: [
+    logHandler,
+    createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl, retry: { maxAttempts: 10, intervalSeconds: 0.1, backoffRate: 1 } }),
+  ],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);

@@ -30,16 +30,28 @@ export interface EmailSender {
   send(request: SendEmailRequest): Promise<{ id: string }>;
 }
 
+/**
+ * - transient: vale la pena reintentar (red, 429, 5xx o una petición igual en curso).
+ * - unauthorized: 401/403, la clave o el dominio están mal configurados. No es
+ *   pasajero: reintentar no sirve y fallará igual con cualquier destinatario.
+ * - rejected: Resend rechaza este email (p. ej. una dirección que no vale).
+ */
+export type EmailSendErrorKind = "transient" | "unauthorized" | "rejected";
+
 export class EmailSendError extends Error {
   override readonly name = "EmailSendError";
   constructor(
     message: string,
     /** null: no llegó respuesta (red). */
     readonly status: number | null,
-    /** Vale la pena reintentar: red, 429, 5xx o una petición igual en curso. */
-    readonly retryable: boolean,
+    readonly kind: EmailSendErrorKind,
   ) {
     super(message);
+  }
+
+  /** Vale la pena reintentar. */
+  get retryable(): boolean {
+    return this.kind === "transient";
   }
 }
 
@@ -77,7 +89,7 @@ export function createResendSender({ apiKey, fetch = globalThis.fetch, baseUrl =
   return {
     async send(request) {
       if (!request.idempotencyKey || request.idempotencyKey.length > IDEMPOTENCY_KEY_MAX) {
-        throw new EmailSendError("La clave de idempotencia no es válida", null, false);
+        throw new EmailSendError("La clave de idempotencia no es válida", null, "rejected");
       }
       let response: Response;
       try {
@@ -97,14 +109,18 @@ export function createResendSender({ apiKey, fetch = globalThis.fetch, baseUrl =
           }),
         });
       } catch {
-        throw new EmailSendError("Resend no respondió", null, true);
+        throw new EmailSendError("Resend no respondió", null, "transient");
       }
       if (!response.ok) {
         const name = await errorName(response);
         // 409 concurrent_idempotent_requests: otra petición con la misma clave en curso.
-        const retryable =
-          response.status === 429 || response.status >= 500 || (response.status === 409 && name === "concurrent_idempotent_requests");
-        throw new EmailSendError(`Resend rechazó el email (${response.status} ${name})`, response.status, retryable);
+        const kind: EmailSendErrorKind =
+          response.status === 401 || response.status === 403
+            ? "unauthorized"
+            : response.status === 429 || response.status >= 500 || (response.status === 409 && name === "concurrent_idempotent_requests")
+              ? "transient"
+              : "rejected";
+        throw new EmailSendError(`Resend rechazó el email (${response.status} ${name})`, response.status, kind);
       }
       const body: unknown = await response.json().catch(() => null);
       const id = body && typeof body === "object" && "id" in body && typeof body.id === "string" ? body.id : "";
