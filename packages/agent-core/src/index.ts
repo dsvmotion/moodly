@@ -27,6 +27,7 @@ export {
   createModelRouter,
   eligibleTransports,
   policyAllows,
+  resolveModelKey,
 } from "./models/router.js";
 export type {
   ConnectionMode,
@@ -55,5 +56,5 @@ export { InvalidModelSettingsError, policyFromSettings } from "./models/settings
 export type { ModelSettingsRow } from "./models/settings.js";
 export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, runAgentTurn } from "./runtime/turn.js";
 export type { ExecutionStatus, HandOffReason, HistoryMessage, Step, TurnExecution, TurnParams, TurnResult, TurnStatus } from "./runtime/turn.js";
-export { PLATFORM_RULES, composeSystemPrompt } from "./runtime/prompt.js";
-export type { BookableService, PromptContext } from "./runtime/prompt.js";
+export { PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts } from "./runtime/prompt.js";
+export type { BookableService, PromptContext, SystemPromptParts } from "./runtime/prompt.js";

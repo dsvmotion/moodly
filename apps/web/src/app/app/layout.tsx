@@ -11,6 +11,7 @@ import { AppTopbar } from "@/components/app-topbar";
 import { getOrgAgents } from "@/lib/agents-data";
 import { requireUser } from "@/lib/auth/session";
 import { parseSidebarCollapsed, parseTheme, SIDEBAR_COOKIE, THEME_COOKIE } from "@/lib/preferences";
+import { loadNeedsYouCounts } from "@/lib/needs-you-data";
 import { getProfileName } from "@/lib/profile-data";
 import { getScopeContext } from "@/lib/scope-data";
 import { signOut } from "./actions";
@@ -30,7 +31,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   ]);
   const { options, organizations, organization, role } = scopeContext;
   // Del catálogo, con RLS (ADR 0030): la web no supone cuántos agentes hay.
-  const agents = await getOrgAgents(organization?.id ?? null);
+  // Los contadores de la barra (M-02) cuentan todo lo que ve la persona, no el
+  // alcance elegido: un layout no recibe los parámetros de la URL.
+  const [agents, needsYou] = await Promise.all([
+    getOrgAgents(organization?.id ?? null),
+    loadNeedsYouCounts(organization?.id ?? null, { kind: "any" }),
+  ]);
 
   return (
     <AppFrame
@@ -39,6 +45,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       sidebar={
         <AppSidebar
           agents={agents}
+          counts={{ approvals: needsYou.approvals, inbox: needsYou.humanConversations }}
           user={{
             name,
             email: user.email ?? "",

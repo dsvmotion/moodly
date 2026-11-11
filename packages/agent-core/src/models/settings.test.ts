@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { MODEL_KEYS, MODEL_TASKS } from "@repo/config";
 import { describe, expect, it } from "vitest";
-import { PLATFORM_MODEL_POLICY } from "./router.js";
+import { PLATFORM_MODEL_POLICY, resolveModelKey } from "./router.js";
 import { InvalidModelSettingsError, policyFromSettings } from "./settings.js";
 
 const row = {
@@ -24,9 +24,22 @@ describe("policyFromSettings", () => {
       residency: "eu",
       allowedProviders: ["anthropic", "mistral"],
       modelByTask: { classify: "fast", extract: "fast", converse: "smart", reason: "smart", embed: "embedding" },
+      modelOverrides: { converse: "smart" },
       connection: "byok",
       budget: { perRunEur: 0.25, perDayEur: 10 },
     });
+  });
+
+  it("guarda aparte lo que eligió la organización: sin elección, ningún override y manda el modelo de cada agente", () => {
+    const none = policyFromSettings({ ...row, model_by_task: {} });
+    expect(none.modelOverrides).toEqual({});
+    expect(resolveModelKey(none, "converse", "customer")).toBe("fast");
+    expect(resolveModelKey(none, "converse", "reception")).toBe("smart");
+  });
+
+  it("una elección de la organización para conversar manda sobre el agente, en los dos sentidos", () => {
+    expect(resolveModelKey(policyFromSettings(row), "converse", "customer")).toBe("smart");
+    expect(resolveModelKey(policyFromSettings({ ...row, model_by_task: { converse: "fast" } }), "converse", "reception")).toBe("fast");
   });
 
   it.each([

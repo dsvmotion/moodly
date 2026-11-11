@@ -23,6 +23,8 @@ export interface WorkerConfig {
    * respuesta (MANUAL §15.1). Nunca va a los logs.
    */
   aiGatewayApiKey: string | null;
+  /** Puerto del endpoint de salud (PL-health). Railway da PORT; en local, 8080 por defecto. */
+  healthPort: number;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -74,6 +76,11 @@ const schema = z.object({
     .regex(/^sb_secret_[A-Za-z0-9_-]{16,200}$/, "SUPABASE_SECRET_KEY no es una clave secreta de Supabase (sb_secret_…)"),
   // Sin formato propio documentado: una sola palabra de caracteres visibles.
   // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
+  PORT: z
+    .string()
+    .regex(/^\d{1,5}$/, "PORT: un número de puerto")
+    .refine((value) => Number(value) >= 1 && Number(value) <= 65535, "PORT: de 1 a 65535")
+    .optional(),
   AI_GATEWAY_API_KEY: z
     .string()
     .transform((value) => value.trim())
@@ -100,5 +107,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    healthPort: Number(parsed.data.PORT ?? "8080"),
   };
 }

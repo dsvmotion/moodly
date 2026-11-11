@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL_BY_TASK } from "@repo/config";
+import { DEFAULT_MODEL_BY_TASK, converseModelForAgentType } from "@repo/config";
 import type { ModelKey, ModelTask } from "@repo/config";
 
 // Enrutador de modelos (ADR 0033, que concreta el 0019). El runtime pide por
@@ -16,7 +16,14 @@ export interface ModelPolicy {
   residency: Residency;
   /** Proveedores permitidos (p. ej. "anthropic", "openai"); vacía = cualquiera de los configurados. */
   allowedProviders: readonly string[];
+  /** La clave por tarea: el por defecto de plataforma con lo que elija la organización encima. */
   modelByTask: Readonly<Record<ModelTask, ModelKey>>;
+  /**
+   * Solo lo que eligió la organización a propósito (org_model_settings.model_by_task;
+   * BYOK o enterprise). Manda sobre el modelo de cada agente (resolveModelKey);
+   * sin esto no se distinguiría de un por defecto de plataforma.
+   */
+  modelOverrides: Readonly<Partial<Record<ModelTask, ModelKey>>>;
   connection: ConnectionMode;
   /** Topes en euros: se comprueban antes de llamar. */
   budget: { perRunEur: number; perDayEur: number };
@@ -27,6 +34,7 @@ export const PLATFORM_MODEL_POLICY: ModelPolicy = {
   residency: "any",
   allowedProviders: [],
   modelByTask: DEFAULT_MODEL_BY_TASK,
+  modelOverrides: {},
   connection: "managed",
   budget: { perRunEur: 0.5, perDayEur: 20 },
 };
@@ -47,7 +55,17 @@ export interface ToolSpec {
 }
 
 export type ModelMessage =
-  | { role: "system" | "user"; content: string }
+  | {
+      role: "system";
+      content: string;
+      /**
+       * Prefijo estable (PL-T3): no cambia de un turno a otro, así que el
+       * transporte pone ahí una marca de caché de prompt. Lo que cambia en cada
+       * turno (la hora) va en otro mensaje de sistema, después y sin la marca.
+       */
+      cacheable?: boolean;
+    }
+  | { role: "user"; content: string }
   | {
       role: "assistant";
       content: string;
@@ -68,6 +86,12 @@ export interface ModelCall {
   organizationId: string;
   runId: string;
   task: ModelTask;
+  /**
+   * La clave del tipo del agente que conversa (agent_types): sale de la fila del
+   * agente del run, nunca de lo que dice el LLM. Con ella, conversar usa el
+   * modelo de ese tipo de agente.
+   */
+  agentType?: string;
   messages: readonly ModelMessage[];
   /** Tope de tokens de salida: con él se estima el coste antes de llamar. */
   maxOutputTokens: number;
@@ -95,8 +119,13 @@ export interface TransportResponse {
   /** Los mensajes del modelo tal como los devolvió el proveedor (JSON), para reenviarlos en el paso siguiente. */
   providerMessages?: readonly unknown[];
   model: string;
+  /** Toda la entrada, también la que se leyó o se escribió en la caché de prompt. */
   tokensIn: number;
   tokensOut: number;
+  /** De tokensIn, los que se leyeron de la caché de prompt (más baratos). */
+  cacheReadTokens?: number;
+  /** De tokensIn, los que se escribieron en la caché de prompt (algo más caros). */
+  cacheWriteTokens?: number;
   costEur: number;
 }
 
@@ -163,6 +192,20 @@ export function eligibleTransports(policy: ModelPolicy, modelKey: ModelKey, tran
   return transports.filter((transport) => transport.serves.includes(modelKey) && policyAllows(policy, transport));
 }
 
+/**
+ * Qué clave de modelo atiende una tarea (MANUAL §5.11; producto, 2026-11-11):
+ * 1. la que eligió la organización a propósito para esa tarea;
+ * 2. para conversar, la del tipo de agente (la más barata que pasa sus evals);
+ * 3. la de la tarea en la política (por defecto de plataforma), también para
+ *    un tipo de agente sin clave propia.
+ */
+export function resolveModelKey(policy: ModelPolicy, task: ModelTask, agentType?: string): ModelKey {
+  const chosen = policy.modelOverrides[task];
+  if (chosen !== undefined) return chosen;
+  const byAgent = task === "converse" && agentType !== undefined ? converseModelForAgentType(agentType) : undefined;
+  return byAgent ?? policy.modelByTask[task];
+}
+
 export interface ModelRouter {
   generate(call: ModelCall, policy: ModelPolicy, spend: Spend): Promise<RoutedResult>;
 }
@@ -175,7 +218,7 @@ export interface ModelRouter {
 export function createModelRouter(transports: readonly ModelTransport[], now: () => number = Date.now): ModelRouter {
   return {
     async generate(call, policy, spend) {
-      const modelKey = policy.modelByTask[call.task];
+      const modelKey = resolveModelKey(policy, call.task, call.agentType);
       const candidates = eligibleTransports(policy, modelKey, transports).slice(0, 2);
       if (candidates.length === 0) {
         throw new NoEligibleTransportError(

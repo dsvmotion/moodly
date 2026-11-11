@@ -24,10 +24,11 @@ const catalog: ReceptionCatalog = {
 };
 const scope: RunScope = { organizationId: ORG, locationId: LOC, runId: RUN, conversation: { id: "conv-1", contactId: ANA } };
 
-function setup() {
+function setup(hours: { openHour?: number; closeHour?: number } = {}) {
   const booking = createFakeBookingProvider({
     services: [{ id: LASER, durationMinutes: 30, locationId: null }],
     resources: [{ id: CAB1, locationId: LOC, serviceIds: [LASER] }],
+    ...hours,
     now: () => new Date("2030-06-01T00:00:00Z"),
   });
   const sender = createFakeConversationSender();
@@ -117,7 +118,8 @@ describe("Recepción el primer día", () => {
   });
 
   it("con la autonomía subida, reserva para quien escribe y responde sin esperar", async () => {
-    const env = setup();
+    // El local abre de 9:00 a 14:00 en Madrid (UTC+2): de 7 a 12 UTC; el calendario de prueba solo reserva dentro de horario.
+    const env = setup({ openHour: 7, closeHour: 12 });
     env.settings.set("book_appointment", { enabled: true, autonomy: "execute" });
     env.settings.set("reply", { enabled: true, autonomy: "autonomous" });
     let index = 0;

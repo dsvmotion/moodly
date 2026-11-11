@@ -27,19 +27,21 @@ export interface PendingApprovals {
   rows: ApprovalRow[];
   /** Hay más pendientes que las que se muestran. */
   truncated: boolean;
+  /** Cuántas hay en total en el alcance, también las que no caben en la lista (M-02). */
+  total: number;
 }
 
 export async function loadPendingApprovals(scope: Scope, context: ScopeContext): Promise<PendingApprovals> {
   const organization = context.organization;
-  if (!organization) return { rows: [], truncated: false };
+  if (!organization) return { rows: [], truncated: false, total: 0 };
   const locations = locationFilter(scope, context.locations);
-  if (locations.kind === "only" && locations.locationIds.length === 0) return { rows: [], truncated: false };
+  if (locations.kind === "only" && locations.locationIds.length === 0) return { rows: [], truncated: false, total: 0 };
 
   const supabase = await createClient();
   // Una fila de más: si llega, hay más pendientes de las que se muestran.
   let query = supabase
     .from("approvals")
-    .select("id, reason, effect_class, location_id, created_at, expires_at, execution:executions(skill_key)")
+    .select("id, reason, effect_class, location_id, created_at, expires_at, execution:executions(skill_key)", { count: "exact" })
     .eq("organization_id", organization.id)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
@@ -47,7 +49,7 @@ export async function loadPendingApprovals(scope: Scope, context: ScopeContext):
     .order("id", { ascending: true })
     .limit(APPROVALS_LIMIT + 1);
   if (locations.kind === "only") query = query.in("location_id", locations.locationIds);
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) throw new Error("No se pudieron cargar las aprobaciones", { cause: error });
 
   const names = new Map(context.locations.map((location) => [location.id, location.name]));
@@ -62,5 +64,6 @@ export async function loadPendingApprovals(scope: Scope, context: ScopeContext):
       expiresAt: row.expires_at,
     })),
     truncated: data.length > APPROVALS_LIMIT,
+    total: count ?? data.length,
   };
 }

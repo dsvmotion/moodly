@@ -10,6 +10,7 @@ import AgentCarousel from "@/components/agent-carousel";
 import DemoForm from "@/components/demo-form";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { availability, AvailabilityBadge } from "@/components/availability";
 
 export default function Page() {
   const lang = useLang();
@@ -27,9 +28,11 @@ export default function Page() {
   const VERTICALS = getVerticals(lang);
   const A = t.agents;
   const arrow = (stroke) => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>);
-  const tool = (src, label) => (<span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", minWidth: 0, padding: "10px 12px", borderRadius: "800px", background: "#ffffff", border: "1px solid #0000000f", fontSize: "14px", lineHeight: "20px", whiteSpace: "nowrap" }}><img src={src} alt="" width="20" height="20" style={{ display: "block", flex: "none", borderRadius: "4px" }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span></span>);
+  // Solo herramientas del piloto o ya disponibles (N-01): un logo «En hoja de ruta» rompe la compilación.
+  const pilotOnly = (src) => { const id = "int-" + src.split("/").pop().split(".")[0]; if (availability(id) === "roadmap") throw new Error(`portada: ${id} está en hoja de ruta`); };
+  const tool = (src, label) => (pilotOnly(src), <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", minWidth: 0, padding: "10px 12px", borderRadius: "800px", background: "#ffffff", border: "1px solid #0000000f", fontSize: "14px", lineHeight: "20px", whiteSpace: "nowrap" }}><img src={src} alt="" width="20" height="20" style={{ display: "block", flex: "none", borderRadius: "4px" }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span></span>);
   const picto = (src, title, desc) => (<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}><img src={src} alt="" width="44" height="44" style={{ objectFit: "contain", objectPosition: "left" }} /><span style={{ fontSize: "18px", lineHeight: "24px" }}>{title}</span><span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{desc}</span></div>);
-  const intLogo = (src, label) => (<span style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#f7f7f8", display: "flex", alignItems: "center", justifyContent: "center" }}><img src={src} alt={label} width="28" height="28" /></span>);
+  const intLogo = (src, label) => (pilotOnly(src), <span style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#f7f7f8", display: "flex", alignItems: "center", justifyContent: "center" }}><img src={src} alt={label} width="28" height="28" /></span>);
 
   return (
     <div style={{ fontFamily: "var(--font-display)", color: "#000000", background: "#f7f7f8", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased" }}>
@@ -73,7 +76,7 @@ export default function Page() {
           <div style={{ display: "flex", flexDirection: "column", gap: "28px", alignItems: "center" }}>
             <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.toolsLabel}</span>
             <div className="logo-grid" style={{ width: "100%", maxWidth: "1040px", display: "grid", gap: "10px" }}>
-              {tool("/logos/whatsapp.svg", "WhatsApp")}{tool("/logos/gmail.svg", "Gmail")}{tool("/logos/googlecalendar.svg", "Google Calendar")}{tool("/logos/microsoftoutlook.svg", "Outlook")}{tool("/logos/microsoftteams.svg", "Teams")}{tool("/logos/instagram.svg", "Instagram")}{tool("/logos/hubspot.svg", "HubSpot")}{tool("/logos/salesforce.svg", "Salesforce")}{tool("/logos/stripe.svg", "Stripe")}{tool("/logos/holded.png", "Holded")}{tool("/logos/googledrive.svg", "Google Drive")}{tool("/logos/slack.svg", "Slack")}{tool("/logos/openai.svg", "OpenAI")}
+              {tool("/logos/whatsapp.svg", "WhatsApp")}{tool("/logos/gmail.svg", "Gmail")}{tool("/logos/googlecalendar.svg", "Google Calendar")}{tool("/logos/microsoftoutlook.svg", "Outlook")}{tool("/logos/telegram.svg", "Telegram")}{tool("/logos/notion.svg", "Notion")}{tool("/logos/hubspot.svg", "HubSpot")}{tool("/logos/zapier.svg", "Zapier")}{tool("/logos/stripe.svg", "Stripe")}{tool("/logos/holded.png", "Holded")}{tool("/logos/googledrive.svg", "Google Drive")}{tool("/logos/slack.svg", "Slack")}{tool("/logos/make.svg", "Make")}
               <LangLink href="/integraciones" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", minWidth: 0, padding: "10px 12px", borderRadius: "800px", background: "#000000", border: "1px solid #000000", fontSize: "14px", lineHeight: "20px", whiteSpace: "nowrap", color: "#ffffff" }}>{t.toolsMore}</LangLink>
             </div>
             <div className="benefit-grid" style={{ width: "100%", maxWidth: "1232px", display: "grid", gap: "32px 24px", marginTop: "72px", textAlign: "left" }}>
@@ -103,7 +106,7 @@ export default function Page() {
           <AgentCarousel>
 
             <LangLink href="/agentes" style={{ flex: "0 0 384px", height: "480px", borderRadius: "12px", background: "#004c39", color: "#ffffff", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", scrollSnapAlign: "start", overflow: "hidden" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.recepcion.name}</span>
+              <span style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.recepcion.name}</span><AvailabilityBadge id="RC2" lang={lang} /></span>
               <span style={{ marginTop: "12px", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{A.recepcion.desc}</span>
               <span style={{ marginTop: "20px", width: "32px", height: "32px", borderRadius: "800px", background: "#ffffff33", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow("#ffffff")}</span>
               <span style={{ marginTop: "auto", background: "#ffffff", color: "#000000", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>
@@ -115,18 +118,18 @@ export default function Page() {
             </LangLink>
 
             <LangLink href="/agentes" style={{ flex: "0 0 384px", height: "480px", borderRadius: "12px", background: "#9dbecc", color: "#000000", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", scrollSnapAlign: "start", overflow: "hidden" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.atencion.name}</span>
+              <span style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.atencion.name}</span><AvailabilityBadge id="CU1" lang={lang} /></span>
               <span style={{ marginTop: "12px", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{A.atencion.desc}</span>
               <span style={{ marginTop: "20px", width: "32px", height: "32px", borderRadius: "800px", background: "#00000014", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow("#000000")}</span>
               <span style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>
                 <span style={{ alignSelf: "flex-start", background: "#f6f2e8", borderRadius: "12px", padding: "10px 14px", maxWidth: "85%" }}>{A.atencion.q}</span>
                 <span style={{ alignSelf: "flex-end", background: "#000000", color: "#ffffff", borderRadius: "12px", padding: "10px 14px", maxWidth: "85%" }}>{A.atencion.a}</span>
-                <span style={{ display: "flex", gap: "6px" }}><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>WhatsApp</span><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>Email</span><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>Instagram</span></span>
+                <span style={{ display: "flex", gap: "6px" }}><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>WhatsApp</span><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>Email</span><span style={{ padding: "6px 12px", borderRadius: "800px", background: "#f6f2e8", fontSize: "12px", lineHeight: "14px" }}>Web chat</span></span>
               </span>
             </LangLink>
 
             <LangLink href="/agentes" style={{ flex: "0 0 384px", height: "480px", borderRadius: "12px", background: "#a30042", color: "#ffffff", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", scrollSnapAlign: "start", overflow: "hidden" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.comercial.name}</span>
+              <span style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.comercial.name}</span><AvailabilityBadge id="SA1" lang={lang} /></span>
               <span style={{ marginTop: "12px", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{A.comercial.desc}</span>
               <span style={{ marginTop: "20px", width: "32px", height: "32px", borderRadius: "800px", background: "#ffffff33", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow("#ffffff")}</span>
               <span style={{ marginTop: "auto", background: "#ffffff", color: "#000000", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}>
@@ -138,7 +141,7 @@ export default function Page() {
             </LangLink>
 
             <LangLink href="/agentes" style={{ flex: "0 0 384px", height: "480px", borderRadius: "12px", background: "#8e4e00", color: "#ffffff", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", scrollSnapAlign: "start", overflow: "hidden" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.admin.name}</span>
+              <span style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.admin.name}</span><AvailabilityBadge id="AD2" lang={lang} /></span>
               <span style={{ marginTop: "12px", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{A.admin.desc}</span>
               <span style={{ marginTop: "20px", width: "32px", height: "32px", borderRadius: "800px", background: "#ffffff33", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow("#ffffff")}</span>
               <span style={{ marginTop: "auto", background: "#ffffff", color: "#000000", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}>
@@ -149,7 +152,7 @@ export default function Page() {
             </LangLink>
 
             <LangLink href="/agentes" style={{ flex: "0 0 384px", height: "480px", borderRadius: "12px", background: "#000000", color: "#ffffff", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", scrollSnapAlign: "start", overflow: "hidden" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.custom.name}</span>
+              <span style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{A.custom.name}</span><AvailabilityBadge id="PL-custom-agents" lang={lang} /></span>
               <span style={{ marginTop: "12px", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{A.custom.desc}</span>
               <span style={{ marginTop: "20px", width: "32px", height: "32px", borderRadius: "800px", background: "#ffffff33", display: "flex", alignItems: "center", justifyContent: "center" }}>{arrow("#ffffff")}</span>
               <span style={{ marginTop: "auto", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
@@ -170,17 +173,17 @@ export default function Page() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "40px" }}>
 
             <div style={{ flex: "2 1 560px", minHeight: "440px", borderRadius: "12px", background: "#a3c2a7", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_plugTitle}</h3>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_plugTitle}</h3><AvailabilityBadge id="PL-templates" lang={lang} /></div>
               <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", opacity: ".75", maxWidth: "440px" }}>{t.f_plugText}</p>
               <div style={{ marginTop: "auto", background: "#ffffff", borderRadius: "12px", padding: "8px 20px", maxWidth: "480px", fontSize: "14px", lineHeight: "21px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #0000000f" }}><span>{t.f_plug1}</span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#000000", position: "relative", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #0000000f" }}><span>{t.f_plug2}</span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#000000", position: "relative", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0" }}><span>{t.f_plug3}</span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#d4d4d8", position: "relative", flex: "none" }}><span style={{ position: "absolute", left: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #0000000f" }}><span style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>{t.f_plug1}<AvailabilityBadge id="RC5" lang={lang} /></span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#000000", position: "relative", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #0000000f" }}><span style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>{t.f_plug2}<AvailabilityBadge id="RC6" lang={lang} /></span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#000000", position: "relative", flex: "none" }}><span style={{ position: "absolute", right: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0" }}><span style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>{t.f_plug3}<AvailabilityBadge id="CU5" lang={lang} /></span><span aria-hidden="true" style={{ width: "40px", height: "24px", borderRadius: "800px", background: "#d4d4d8", position: "relative", flex: "none" }}><span style={{ position: "absolute", left: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "#ffffff" }}></span></span></div>
               </div>
             </div>
 
             <div style={{ flex: "1 1 320px", minHeight: "440px", borderRadius: "12px", background: "#000000", color: "#ffffff", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_approveTitle}</h3>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_approveTitle}</h3><AvailabilityBadge id="OA02" lang={lang} /></div>
               <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.f_approveText}</p>
               <div style={{ marginTop: "auto", background: "#ffffff", color: "#000000", borderRadius: "12px", padding: "8px 16px", fontSize: "14px", lineHeight: "21px" }}>
                 {t.f_approveRows.map((r, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: i < t.f_approveRows.length - 1 ? "1px solid #0000000f" : "none" }}><span>{r[0]}</span><span style={{ padding: "0 10px", borderRadius: "800px", background: r[2], color: r[3] }}>{r[1]}</span></div>))}
@@ -188,7 +191,7 @@ export default function Page() {
             </div>
 
             <div style={{ flex: "1 1 320px", minHeight: "440px", borderRadius: "12px", background: "#f6f2e8", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_memTitle}</h3>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_memTitle}</h3><AvailabilityBadge id="E3" lang={lang} /></div>
               <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.f_memText}</p>
               <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "21px" }}>
                 {t.f_mem.map((m, i) => (<div key={i} style={{ background: "#ffffff", borderRadius: "12px", padding: "12px 16px" }}>{m}</div>))}
@@ -196,7 +199,7 @@ export default function Page() {
             </div>
 
             <div style={{ flex: "2 1 560px", minHeight: "440px", borderRadius: "12px", background: "#ffbab5", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_coachTitle}</h3><span style={{ padding: "4px 10px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{t.f_coachSoon}</span></div>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_coachTitle}</h3><AvailabilityBadge id="CO2" lang={lang} /></div>
               <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", opacity: ".75", maxWidth: "440px" }}>{t.f_coachText}</p>
               <div style={{ marginTop: "auto", background: "#ffffff", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "12px", maxWidth: "520px", fontSize: "14px", lineHeight: "21px" }}>
                 <div style={{ fontWeight: "500" }}>{t.f_coachSugg}</div>
@@ -205,7 +208,7 @@ export default function Page() {
               </div>
             </div>
 
-            <div style={{ flex: "1 1 480px", minHeight: "440px", borderRadius: "12px", background: "#ffffff", border: "1px solid #0000000f", padding: "36px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}> <h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_intTitle}</h3> <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", color: "#5f5f63", maxWidth: "440px" }}>{t.f_intText}</p><div style={{ marginTop: "auto", display: "flex", flexWrap: "wrap", gap: "10px" }}>{intLogo("/logos/whatsapp.svg", "WhatsApp")}{intLogo("/logos/gmail.svg", "Gmail")}{intLogo("/logos/googlecalendar.svg", "Google Calendar")}{intLogo("/logos/microsoftoutlook.svg", "Outlook")}{intLogo("/logos/microsoftteams.svg", "Microsoft Teams")}{intLogo("/logos/hubspot.svg", "HubSpot")}{intLogo("/logos/salesforce.svg", "Salesforce")}{intLogo("/logos/pipedrive.svg", "Pipedrive")}{intLogo("/logos/stripe.svg", "Stripe")}{intLogo("/logos/quickbooks.svg", "QuickBooks")}{intLogo("/logos/xero.svg", "Xero")}{intLogo("/logos/shopify.svg", "Shopify")}{intLogo("/logos/notion.svg", "Notion")}{intLogo("/logos/slack.svg", "Slack")}</div><LangLink href="/integraciones" style={{ fontSize: "14px", color: "#2457f5" }}>{t.f_intMore}</LangLink></div>
+            <div style={{ flex: "1 1 480px", minHeight: "440px", borderRadius: "12px", background: "#ffffff", border: "1px solid #0000000f", padding: "36px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}> <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}><h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_intTitle}</h3><AvailabilityBadge id="OA08" lang={lang} /></div> <p style={{ margin: "0", fontSize: "16px", lineHeight: "24px", color: "#5f5f63", maxWidth: "440px" }}>{t.f_intText}</p><div style={{ marginTop: "auto", display: "flex", flexWrap: "wrap", gap: "10px" }}>{intLogo("/logos/whatsapp.svg", "WhatsApp")}{intLogo("/logos/gmail.svg", "Gmail")}{intLogo("/logos/googlecalendar.svg", "Google Calendar")}{intLogo("/logos/microsoftoutlook.svg", "Outlook")}{intLogo("/logos/telegram.svg", "Telegram")}{intLogo("/logos/hubspot.svg", "HubSpot")}{intLogo("/logos/zapier.svg", "Zapier")}{intLogo("/logos/pipedrive.svg", "Pipedrive")}{intLogo("/logos/stripe.svg", "Stripe")}{intLogo("/logos/quickbooks.svg", "QuickBooks")}{intLogo("/logos/xero.svg", "Xero")}{intLogo("/logos/shopify.svg", "Shopify")}{intLogo("/logos/notion.svg", "Notion")}{intLogo("/logos/slack.svg", "Slack")}</div><LangLink href="/integraciones" style={{ fontSize: "14px", color: "#2457f5" }}>{t.f_intMore}</LangLink></div>
 
             <div style={{ flex: "1 1 480px", minHeight: "440px", borderRadius: "12px", background: "#ff6301", color: "#000000", padding: "40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
               <h3 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>{t.f_delTitle}</h3>

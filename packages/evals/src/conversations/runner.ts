@@ -87,7 +87,7 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
  * gasto por run es el de la plataforma (PLATFORM_MODEL_POLICY).
  */
 export interface RunOptions {
-  /** La clave de modelo para conversar, si no es la de plataforma (para comparar modelos). */
+  /** La clave de modelo para conversar, si no es la de cada agente (para comparar modelos). */
   converseModel?: ModelKey;
 }
 
@@ -98,13 +98,17 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPrompt,
+    systemPrompt: world.systemPromptParts.stable,
+    systemContext: world.systemPromptParts.volatile,
     history: testCase.history,
     skills: world.skills,
     settings: world.settings,
     router: createModelRouter([model]),
+    // El agente del caso elige con qué modelo conversa, como en producción (MANUAL §5.11);
+    // --model lo fija para todos, como haría una organización que elige el suyo.
+    agentType: testCase.agent,
     policy: options.converseModel
-      ? { ...PLATFORM_MODEL_POLICY, modelByTask: { ...PLATFORM_MODEL_POLICY.modelByTask, converse: options.converseModel } }
+      ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0 },
   });
