@@ -2,17 +2,18 @@
 // decisión de producto 10: aviso por email al dueño). Función pura, sin I/O: el
 // worker la llama al crearse una aprobación, con los datos ya leídos de la base
 // de datos, y la envía. Nada del payload ni del modelo decide a quién se envía:
-// eso lo hace el worker.
+// eso lo hace el worker. La marca llega como dato (el worker la toma de
+// BRAND_NAME, @repo/config): aquí nunca se escribe a mano.
 //
 // Lo que entra puede llevar texto del cliente (el resumen de lo que se aprueba):
 // en el HTML se escapa todo, y el asunto queda en una sola línea corta.
-
-import { BRAND_NAME } from "@repo/config";
 
 export type EmailLocale = "es" | "en";
 
 export interface ApprovalEmailInput {
   locale: EmailLocale;
+  /** El nombre de la marca: BRAND_NAME de @repo/config. */
+  brandName: string;
   /** El nombre del agente, como lo ve el dueño («Recepción»). */
   agentName: string;
   /** Lo que se aprueba, en una frase (la vista previa de la skill). Sin email ni teléfono del cliente. */
@@ -76,6 +77,7 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
   const summary = oneLine(input.summary);
   const location = input.locationName ? oneLine(input.locationName) : copy.wholeOrganization;
   const created = formatCreatedAt(input.createdAt, input.locale, input.timeZone);
+  const brand = oneLine(input.brandName);
 
   const subject = truncate(copy.subject(agent, summary), SUBJECT_MAX_LENGTH);
   const text = [
@@ -86,9 +88,9 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
     `${copy.location}: ${location}`,
     `${copy.created}: ${created}`,
     "",
-    `${copy.action} (${BRAND_NAME}): ${url}`,
+    `${copy.action} (${brand}): ${url}`,
     "",
-    copy.footer(BRAND_NAME),
+    copy.footer(brand),
   ].join("\n");
 
   const html = `<!doctype html>
@@ -99,7 +101,7 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
 <p style="margin:0 0 4px;color:#4b5563">${escapeHtml(copy.location)}: ${escapeHtml(location)}</p>
 <p style="margin:0 0 20px;color:#4b5563">${escapeHtml(copy.created)}: ${escapeHtml(created)}</p>
 <p style="margin:0 0 24px"><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">${escapeHtml(copy.action)}</a></p>
-<p style="margin:0;font-size:12px;color:#6b7280">${escapeHtml(copy.footer(BRAND_NAME))}</p>
+<p style="margin:0;font-size:12px;color:#6b7280">${escapeHtml(copy.footer(brand))}</p>
 </body>
 </html>`;
 
