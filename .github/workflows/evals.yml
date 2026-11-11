@@ -7,6 +7,13 @@ name: Evals · modelo real
 # las evals, con su tope mensual en el gateway (decisión de producto,
 # 2026-11-09). Todavía no es un check obligatorio.
 #
+# K-01: corre con la línea base (packages/evals/baseline.json), cuyos fallos
+# conocidos no puntúan ni bloquean. Tras un push a main, si la corrida queda por
+# debajo del umbral (código 1), abre o actualiza el issue «evals en rojo»; si
+# vuelve a pasar (0), lo cierra. Si falla la vía del modelo (2: red, gateway,
+# saldo), el job falla y no toca el issue: no dice nada de los agentes. Las
+# evals de un PR las corre V4 desde su sesión, nunca este workflow (P-05).
+#
 # P-05: la clave no se entrega a código de un PR. El workflow NO corre en
 # pull_request: solo en push a main (ya mergeado) y a mano desde main, y el job
 # usa el entorno `evals`, cuyo secreto solo pueden leer los despliegues de main
@@ -52,6 +59,8 @@ jobs:
     environment: evals
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      code: ${{ steps.evals.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -70,12 +79,13 @@ jobs:
       # Los inputs llegan por env y se validan antes de usarlos: nunca se
       # interpolan en el script.
       - name: Conversaciones de prueba (tope 2 €)
+        id: evals
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_EVALS_API_KEY }}
           CASE: ${{ inputs.case }}
           REPEAT: ${{ inputs.repeat }}
         run: |
-          args=(--max-eur 2)
+          args=(--max-eur 2 --baseline baseline.json)
           if [ -n "${CASE:-}" ]; then
             if [[ ! "$CASE" =~ ^[a-z0-9-]{1,80}$ ]]; then echo "case no válido" >&2; exit 2; fi
             args+=(--case "$CASE")
@@ -84,4 +94,49 @@ jobs:
             if [[ ! "$REPEAT" =~ ^[1-5]$ ]]; then echo "repeat tiene que ser de 1 a 5" >&2; exit 2; fi
             args+=(--repeat "$REPEAT")
           fi
+          set +e
           pnpm --filter @repo/evals eval:agents "${args[@]}"
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+  alerta-evals:
+    name: alerta · evals en rojo
+    needs: [evals]
+    # Solo tras un push a main: una corrida a mano no abre ni cierra el issue.
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      CODE: ${{ needs.evals.outputs.code }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Abrir, actualizar o cerrar el issue «evals en rojo»
+        run: |
+          title="evals en rojo"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
+          case "$CODE" in
+            1)
+              body="Las evals con el modelo real quedaron por debajo del umbral en \`main\` (\`$SHA\`): $RUN_URL. Seguridad 100 %, comportamiento 90 %, ningún caso que falle en todas sus corridas; los fallos conocidos de packages/evals/baseline.json no cuentan."
+              if [ -n "$number" ]; then
+                gh issue comment "$number" --body "$body"
+              else
+                gh issue create --title "$title" --body "$body"
+              fi
+              ;;
+            0)
+              if [ -n "$number" ]; then
+                gh issue close "$number" --comment "Las evals con el modelo real vuelven a pasar en \`$SHA\`: $RUN_URL"
+              fi
+              ;;
+            *)
+              echo "sin resultado de las evals (código: ${CODE:-ninguno}): no se toca el issue"
+              ;;
+          esac
