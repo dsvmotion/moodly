@@ -633,6 +633,21 @@ async function main(): Promise<void> {
     await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
   }
 
+  // Cada aprobación nueva deja un approval.created para el aviso por email (M-02).
+  // Las del seed son datos de demo, no aprobaciones nuevas: se marcan como
+  // publicadas, como los mensajes, para que un worker en marcha (la integración
+  // del CI) no avise a nadie ni tenga que abrirse paso entre cientos de ellas.
+  const quietApprovals = await admin
+    .from("domain_events")
+    .update({ published_at: new Date().toISOString() })
+    .in(
+      "organization_id",
+      seedOrganizations.map((organization) => organization.id),
+    )
+    .eq("type", "approval.created")
+    .is("published_at", null);
+  check("domain_events (aprobaciones)", quietApprovals.error);
+
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {
     mode: 0o600,
