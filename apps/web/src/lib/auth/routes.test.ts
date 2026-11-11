@@ -54,4 +54,48 @@ describe("safeNextPath", () => {
       expect(safeNextPath(value)).toBe(HOME_PATH);
     },
   );
+
+  // Auditoría de preproducción, G-02. Al resolver la URL, los segmentos de punto
+  // («.», «..» y sus formas codificadas «%2e») desaparecen y lo que queda puede
+  // empezar por «//», que el navegador lee como otro sitio: «/.//evil.test»
+  // pasaba el filtro de la entrada y salía como «//evil.test».
+  it.each([
+    "/.//evil.test",
+    "/app/..//evil.test",
+    "/%2e//evil.test",
+    "/.//evil.test/x",
+    "/.//evil.test?volver=1#x",
+    "/././/evil.test",
+    "/.///evil.test",
+    "/..//evil.test",
+    "/%2E//evil.test",
+    "/%2e%2e//evil.test",
+    "/app/%2e%2E//evil.test",
+    "/app/settings/../..//evil.test",
+  ])("rechaza %j: sin los segmentos de punto apunta fuera de la app", (value) => {
+    expect(safeNextPath(value)).toBe(HOME_PATH);
+  });
+
+  it("devuelve siempre una ruta que el navegador resuelve dentro de la app", () => {
+    const origin = "http://127.0.0.1:3000";
+    for (const value of ["/.//evil.test/x", "/app/..//evil.test", "/%2e//evil.test", "/app/../app/inbox?status=human"]) {
+      expect(new URL(safeNextPath(value), origin).origin).toBe(origin);
+    }
+  });
+
+  it("lo que devuelve ya está limpio: pasarlo otra vez no lo cambia", () => {
+    // Si la salida no superase su propia comprobación, un sitio que la usa una
+    // sola vez (la redirección de /login con sesión) quedaría expuesto.
+    for (const value of ["/app", "/app?tab=1#x", "/app/./settings", "/.//evil.test/x", "/app/..//evil.test", "/%2e//evil.test"]) {
+      const once = safeNextPath(value);
+      expect(safeNextPath(once), value).toBe(once);
+    }
+  });
+
+  it("los segmentos de punto que se quedan dentro de la app se aceptan, ya resueltos", () => {
+    expect(safeNextPath("/app/./settings")).toBe("/app/settings");
+    expect(safeNextPath("/app/../app/inbox?status=human")).toBe("/app/inbox?status=human");
+    // Una barra doble en medio de la ruta no cambia de sitio.
+    expect(safeNextPath("/app//inbox")).toBe("/app//inbox");
+  });
 });

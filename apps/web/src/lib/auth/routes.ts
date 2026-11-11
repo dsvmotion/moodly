@@ -21,14 +21,24 @@ const INTERNAL_ORIGIN = "http://app.internal";
 // eslint-disable-next-line no-control-regex -- buscar caracteres de control es justo el objetivo
 const UNSAFE_CHARS = /[\u0000-\u001F\u007F\s\\]/;
 
+/** Una ruta de este sitio: empieza por una sola barra ("//host" es otro sitio) y no lleva nada que el navegador cambie. */
+function isLocalPath(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//") && !UNSAFE_CHARS.test(path);
+}
+
 /**
  * Destino tras el login, solo si es una ruta interna de la app. Evita
  * redirecciones abiertas: se resuelve contra un origen interno ficticio y se
  * exige que el origen no cambie.
+ *
+ * La ruta se comprueba dos veces, antes y después de resolverla. Al resolver
+ * desaparecen los segmentos de punto (".", ".." y "%2e"), y lo que queda puede
+ * empezar por "//": "/.//evil.test" entraba como ruta interna y salía como
+ * "//evil.test" (auditoría de preproducción, G-02).
  */
 export function safeNextPath(next: unknown): string {
   if (typeof next !== "string" || next.length === 0 || next.length > 2048) return HOME_PATH;
-  if (UNSAFE_CHARS.test(next) || !next.startsWith("/") || next.startsWith("//")) return HOME_PATH;
+  if (!isLocalPath(next)) return HOME_PATH;
 
   let url: URL;
   try {
@@ -37,7 +47,8 @@ export function safeNextPath(next: unknown): string {
     return HOME_PATH;
   }
   if (url.origin !== INTERNAL_ORIGIN) return HOME_PATH;
-  return `${url.pathname}${url.search}${url.hash}`;
+  const resolved = `${url.pathname}${url.search}${url.hash}`;
+  return isLocalPath(resolved) ? resolved : HOME_PATH;
 }
 
 /**
