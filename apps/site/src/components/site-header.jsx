@@ -9,8 +9,6 @@ import LanguageSwitcher from "./language-switcher";
 
 export { AGENTS };
 
-const APP_URL = "/plataforma";
-
 const navLink = { padding: "8px 10px", borderRadius: "800px", fontSize: "14px", lineHeight: "21px", background: "transparent", border: 0, color: "#000000", fontFamily: "inherit", cursor: "pointer" };
 const mLabel = { display: "block", padding: "16px 4px 6px", fontSize: "12px", lineHeight: "18px", color: "#6b6b70" };
 const mLink = { display: "flex", alignItems: "center", gap: "10px", padding: "12px 4px", fontSize: "16px", lineHeight: "22px", borderBottom: "1px solid #0000000f" };
@@ -70,8 +68,9 @@ export default function SiteHeader() {
             <Link href={L("/precios")} style={navLink}>{t.pricing}</Link>
           </div>
         </div>
+        {/* Sin «Entrar» hasta que exista producción: la web pública nunca apunta a staging
+            ni al prototipo (auditoría 2026-11-10, N-04; decisión de producto del 2026-11-10). */}
         <div className="nav-desktop" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Link href={APP_URL} style={{ padding: "11px 14px", fontSize: "14px", lineHeight: "21px" }}>{t.login}</Link>
           <Link href={L("/contacto")} style={{ padding: "10px 18px", borderRadius: "800px", fontSize: "14px", lineHeight: "21px", border: "1px solid #0000001a", background: "#ffffff", whiteSpace: "nowrap" }}>{t.talkSales}</Link>
           <Link href={L("/#demo")} style={{ padding: "10px 18px", borderRadius: "800px", fontSize: "14px", lineHeight: "21px", background: "#000000", color: "#ffffff", whiteSpace: "nowrap" }}>{t.demo}</Link>
         </div>
@@ -94,7 +93,7 @@ export default function SiteHeader() {
           {RESOURCES.map((r) => (<Link key={r.name} href={r.href} onClick={() => setMobile(false)} style={mLink}>{r.name}</Link>))}
           <Link href={L("/precios")} onClick={() => setMobile(false)} style={mLink}>{t.pricing}</Link>
           <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
-            <Link href={APP_URL} onClick={() => setMobile(false)} style={{ flex: 1, textAlign: "center", padding: "13px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", fontSize: "15px" }}>{t.login}</Link>
+            <Link href={L("/contacto")} onClick={() => setMobile(false)} style={{ flex: 1, textAlign: "center", padding: "13px 18px", borderRadius: "800px", border: "1px solid #0000001a", background: "#ffffff", fontSize: "15px" }}>{t.talkSales}</Link>
             <Link href={L("/#demo")} onClick={() => setMobile(false)} style={{ flex: 1, textAlign: "center", padding: "13px 18px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "15px" }}>{t.demo}</Link>
           </div>
         </div>

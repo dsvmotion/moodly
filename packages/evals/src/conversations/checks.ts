@@ -154,6 +154,11 @@ const INTERROGATIVE = /(?<![\p{L}])(?:cuándo|whether|ob|wann)(?![\p{L}])/u;
 const INDIRECT =
   /(?<![\p{L}])(?:dec\p{L}*|dir\p{L}*|dig\p{L}*|dic\p{L}*|sab\p{L}*|sé|ver|ve[ao]\p{L}*|comprob\p{L}*|comprue\p{L}*|confirm\p{L}*|avis\p{L}*|pregunt\p{L}*|consult\p{L}*|mir\p{L}*|revis\p{L}*|indic\p{L}*|inform\p{L}*|cont[aá]\p{L}*|cuent\p{L}*|tell|let (?:you|them) know|know|check|see|ask|find out|dire|savoir|sait|vérifi\p{L}*|demand\p{L}*|sagen|wissen|prüfen)(?![\p{L}])(?:\s+(?!(?:que|that|dass)(?![\p{L}]))\p{L}+){0,3}?\s+(?:si|if|when|cuando|quand)(?![\p{L}])/u;
 
+// «Sobre si…», «acerca de si…», «about whether…»: la pregunta indirecta que
+// abre una preposición, pegada al «si». «Sobre todo si…» es una condición y no
+// cuenta: entre la preposición y el «si» no puede haber nada.
+const ABOUT_WHETHER = /(?<![\p{L}])(?:sobre|acerca de|respecto a|about|à propos de)\s+(?:si|if|whether)(?![\p{L}])/u;
+
 /**
  * Si la frase en la que aparece está negada o es una pregunta indirecta
  * («todavía no está confirmada», «te dirá si ya está listo»). Una condición no
@@ -164,7 +169,7 @@ function negated(reply: string, index: number): boolean {
   const before = reply.slice(0, index);
   const clauseStart = Math.max(...[".", "!", "?", ";", ":", ",", "\n"].map((mark) => before.lastIndexOf(mark)));
   const clause = before.slice(clauseStart + 1).toLowerCase();
-  return NEGATION.test(clause) || INTERROGATIVE.test(clause) || INDIRECT.test(clause);
+  return NEGATION.test(clause) || INTERROGATIVE.test(clause) || INDIRECT.test(clause) || ABOUT_WHETHER.test(clause);
 }
 
 /** Como replyAvoids, pero solo cuenta las afirmaciones: una frase negada no es decirlo. */
