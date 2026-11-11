@@ -18,11 +18,13 @@ import { AppUserMenu } from "@/components/app-user-menu";
  * acceso rápido llegan como `header`; aquí van la navegación principal,
  * agentes, registros, vistas guardadas, favoritos, recientes y el pie
  * (Ajustes y el menú de usuario).
- * Sin contadores ni elementos inventados: lo que aún no existe se dice.
+ * Sin contadores ni elementos inventados: lo que aún no existe se dice. Los
+ * contadores son los de lo que espera a la persona (M-02), cuando hay algo.
  */
 export function AppSidebar({
   header,
   agents,
+  counts,
   user,
   signOutAction,
   theme,
@@ -31,6 +33,8 @@ export function AppSidebar({
   header: ReactNode;
   /** Agentes de la organización activa (del catálogo; ninguno sin organización). */
   agents: readonly AgentView[];
+  /** Lo pendiente de cada entrada de la navegación (por su clave); sin cuenta, nada. */
+  counts: Partial<Record<"approvals" | "inbox", number>>;
   /** Quién es (nombre, si lo tiene, y email) y su rol en la organización activa. */
   user: { name: string | null; email: string; context: string | null };
   signOutAction: () => Promise<void>;
@@ -42,13 +46,22 @@ export function AppSidebar({
   // El alcance elegido viaja con la navegación (MANUAL §9.4: estado en la URL).
   const scope = useSearchParams().get(SCOPE_PARAM);
 
-  const item = (entry: NavItem) => (
-    <SidebarItem key={entry.key} icon={<entry.icon />} active={isActive(pathname, entry.href)}>
-      <Link href={withScope(entry.href, scope)} data-testid={`nav-${entry.key}`}>
-        {t(`nav.${entry.key}`)}
-      </Link>
-    </SidebarItem>
-  );
+  const item = (entry: NavItem) => {
+    const count = entry.key === "approvals" || entry.key === "inbox" ? (counts[entry.key] ?? 0) : 0;
+    return (
+      <SidebarItem
+        key={entry.key}
+        icon={<entry.icon />}
+        active={isActive(pathname, entry.href)}
+        count={count}
+        countLabel={() => t(`navCounts.${entry.key}`, { count })}
+      >
+        <Link href={withScope(entry.href, scope)} data-testid={`nav-${entry.key}`}>
+          {t(`nav.${entry.key}`)}
+        </Link>
+      </SidebarItem>
+    );
+  };
 
   return (
     <Sidebar

@@ -7,7 +7,7 @@
 //   --agent <tipo>      solo los de reception o customer
 //   --turns <n>         solo los de un turno (single) o los de varios (multi)
 //   --repeat <n>        cada caso n veces (por defecto, 1)
-//   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1)
+//   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1; nunca más de 2, P-05)
 //   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
 //   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
 //   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
@@ -28,6 +28,10 @@ import { CATEGORIES } from "./runner.js";
 import type { ConversationCase } from "./runner.js";
 import { comparisonTable, isMultiTurn, metered, runSet, summarize } from "./runset.js";
 import type { SetResult } from "./runset.js";
+
+/** Tope duro de una corrida (P-05): ningún argumento puede pasar de aquí, ni siquiera el del workflow. */
+const HARD_MAX_EUR = 2;
+const HARD_MAX_REPEAT = 5;
 
 interface Options {
   cases: string[];
@@ -73,6 +77,8 @@ export function parse(argv: readonly string[]): Options {
   }
   if (!Number.isInteger(options.repeat) || options.repeat < 1) throw new Error("--repeat tiene que ser un entero ≥ 1");
   if (!(options.maxEur > 0)) throw new Error("--max-eur tiene que ser > 0");
+  if (options.maxEur > HARD_MAX_EUR) throw new Error(`--max-eur no puede pasar de ${HARD_MAX_EUR} € (tope duro)`);
+  if (options.repeat > HARD_MAX_REPEAT) throw new Error(`--repeat no puede pasar de ${HARD_MAX_REPEAT}`);
   if (options.model !== null && options.compare.length > 0) throw new Error("--model y --compare no van juntos");
   if (new Set(options.compare).size !== options.compare.length) throw new Error("--compare repite una clave");
   return options;
