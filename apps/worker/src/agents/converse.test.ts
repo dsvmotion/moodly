@@ -11,6 +11,7 @@ import {
   createConverseHandler,
   runIdFor,
   runStatusFor,
+  withSummaryUsage,
 } from "./converse.ts";
 import type { TurnContext } from "./converse.ts";
 
@@ -33,6 +34,20 @@ describe("el turno del agente en el worker", () => {
     const drafted = { status: "drafted", skillKey: "book_appointment" } as TurnResult["executions"][number];
     expect(status({ status: "replied", executions: [drafted] })).toBe("awaiting_approval");
     expect(status({ status: "handed_off", reason: "max_steps", executions: [drafted] })).toBe("handed_off");
+  });
+
+  it("el run cuenta lo que costó el resumen continuo, y nada si no se hizo (PL-T3)", () => {
+    const turn = { status: "replied", executions: [], usage: { tokensIn: 100, tokensOut: 10, costEur: 0.01, model: "m/smart" } } as TurnResult;
+    const updated = withSummaryUsage(turn, {
+      kind: "updated",
+      summary: "s",
+      coveredUntil: "2030-06-03T09:00:00Z",
+      usage: { tokensIn: 50, tokensOut: 5, costEur: 0.001, model: "m/fast" },
+    });
+    expect(updated.usage).toEqual({ tokensIn: 150, tokensOut: 15, costEur: 0.011, model: "m/smart" });
+    expect(updated.status).toBe("replied");
+    expect(withSummaryUsage(turn, { kind: "none" })).toBe(turn);
+    expect(withSummaryUsage(turn, { kind: "skipped", reason: "budget" })).toBe(turn);
   });
 
   it("consume solo message.received, con una clave estable", () => {

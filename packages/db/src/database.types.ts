@@ -384,6 +384,31 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"conversation_summaries": {
+                  Row: {
+                    "conversation_id": string,"covered_until": string,"created_at": string,"model": string | null,"organization_id": string,"summary": string,"updated_at": string
+                  }
+                  Insert: {
+                    "conversation_id": string,"covered_until": string,"created_at"?: string,"model"?: string | null,"organization_id": string,"summary": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "conversation_id"?: string,"covered_until"?: string,"created_at"?: string,"model"?: string | null,"organization_id"?: string,"summary"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversation_summaries_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: true
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversation_summaries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"conversations": {
                   Row: {
                     "agent_id": string,"assigned_user_id": string | null,"channel": string,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string

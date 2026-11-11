@@ -4,6 +4,7 @@ import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolC
 import { decide } from "../policy.js";
 import type { ConsentChecker, RejectReason, RunScope, SkillSettings } from "../policy.js";
 import type { SkillContext, SkillDefinition, SkillPreview, Target } from "../skill.js";
+import { SUMMARY_MARK } from "./summary.js";
 
 // Un turno del agente (MANUAL §5.1, paso 4d): del mensaje del cliente a la
 // respuesta, pasando por el motor de políticas en cada herramienta.
@@ -92,6 +93,12 @@ export interface TurnParams {
   /** Lo del sistema que cambia en cada turno (la hora): va después y fuera de la caché. */
   systemContext?: string;
   history: readonly HistoryMessage[];
+  /**
+   * El resumen de los mensajes anteriores a `history` (PL-T3), si lo hay: entra
+   * antes de la historia, marcado como dato (lo escribió un modelo a partir de
+   * lo que dijo el cliente).
+   */
+  summary?: string | null;
   /** Las skills activas del agente, con la de responder (REPLY_SKILL_KEY). */
   skills: ReadonlyMap<string, SkillDefinition<unknown>>;
   settings: ReadonlyMap<string, SkillSettings>;
@@ -164,6 +171,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
   const messages: ModelMessage[] = [
     { role: "system", content: params.systemPrompt, cacheable: true },
     ...(params.systemContext ? [{ role: "system" as const, content: params.systemContext }] : []),
+    ...(params.summary?.trim() ? [{ role: "user" as const, content: `${SUMMARY_MARK}\n${params.summary.trim()}` }] : []),
     ...params.history.flatMap((message) => {
       const converted = toModelMessage(message);
       return converted ? [converted] : [];

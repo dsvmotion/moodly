@@ -37,6 +37,8 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
+import { loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
 // message.received y ejecuta runAgentTurn con pasos de DBOS.
@@ -155,6 +157,8 @@ type Prepared =
       conversation: Conversation;
       context: TurnContext;
       history: HistoryMessage[];
+      /** El resumen de lo anterior a `history` (PL-T3), y hasta dónde llega. */
+      summary: { summary: string; coveredUntil: string } | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       dayEur: number;
@@ -202,15 +206,11 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
   }
 
-  const messages = check(
-    await db
-      .from("messages")
-      .select("author, content, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT),
-    "el historial",
-  );
+  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido.
+  const summary = await loadSummary(db, conversationId);
+  let history = db.from("messages").select("author, content, created_at").eq("conversation_id", conversationId);
+  if (summary) history = history.gt("created_at", summary.coveredUntil);
+  const messages = check(await history.order("created_at", { ascending: false }).limit(HISTORY_LIMIT), "el historial");
   const location = conversation.location_id
     ? check(await db.from("locations").select("name, timezone").eq("id", conversation.location_id).maybeSingle(), "el local")
     : null;
@@ -246,6 +246,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
     history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    summary,
     location,
     modelSettings,
     dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
@@ -471,6 +472,20 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
   return true;
 }
 
+/** El run cuenta también lo que costó el resumen: así el gasto del día y los topes lo ven. */
+export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): TurnResult {
+  if (summarized.kind !== "updated") return result;
+  return {
+    ...result,
+    usage: {
+      ...result.usage,
+      tokensIn: result.usage.tokensIn + summarized.usage.tokensIn,
+      tokensOut: result.usage.tokensOut + summarized.usage.tokensOut,
+      costEur: result.usage.costEur + summarized.usage.costEur,
+    },
+  };
+}
+
 export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
@@ -525,6 +540,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         systemPrompt: prompt.stable,
         systemContext: prompt.volatile,
         history: prepared.history,
+        summary: prepared.summary?.summary ?? null,
         skills,
         settings,
         router,
@@ -540,9 +556,25 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
         },
       });
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
+      // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
+      const summarized = await ctx.step("summary:model", () =>
+        summarizeStep({
+          db: ctx.db,
+          organizationId: event.organizationId,
+          runId,
+          conversationId: conversation.id,
+          previous: prepared.summary,
+          router,
+          policy,
+          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur },
+        }),
+      );
+      if (summarized.kind === "updated") await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
+      else if (summarized.kind === "skipped") ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
+      const finished = withSummaryUsage(result, summarized);
+      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, finished));
       ctx.logger.info(
-        { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
+        { runId, status: finished.status, reason: finished.reason, error: finished.error, executions: finished.executions.length, costEur: finished.usage.costEur, summary: summarized.kind },
         "turno del agente terminado",
       );
     },
