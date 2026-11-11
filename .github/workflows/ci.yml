@@ -38,6 +38,10 @@ jobs:
       - run: pnpm test
       - name: Tests de la comprobación de configuración del despliegue
         run: bash scripts/supabase/tests/config-drift.test.sh
+      - name: Revisora automática (tipos y tests, SE01)
+        run: |
+          pnpm exec tsc -p scripts/reviewer
+          node --test scripts/reviewer/*.test.ts
       - run: pnpm build
 
   db:

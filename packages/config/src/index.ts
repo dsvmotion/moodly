@@ -41,9 +41,11 @@ export const MODEL_KEYS = ["fast", "smart", "embedding"] as const;
 export type ModelKey = (typeof MODEL_KEYS)[number];
 
 /**
- * Por defecto de plataforma (producto, 2026-11-03: «los modelos que pueden hacer
- * el trabajo»): lo potente para conversar con el cliente y razonar, porque
- * conversar es usar herramientas; lo rápido, solo para clasificar y extraer.
+ * Por defecto de plataforma por tarea (producto, 2026-11-03: «los modelos que
+ * pueden hacer el trabajo»): lo potente para razonar y lo rápido para clasificar
+ * y extraer. Para conversar, manda antes el modelo de cada agente
+ * (DEFAULT_CONVERSE_MODEL_BY_AGENT); este `smart` queda para una conversación
+ * sin agente conocido.
  */
 export const DEFAULT_MODEL_BY_TASK: Readonly<Record<ModelTask, ModelKey>> = {
   classify: "fast",
@@ -52,6 +54,52 @@ export const DEFAULT_MODEL_BY_TASK: Readonly<Record<ModelTask, ModelKey>> = {
   reason: "smart",
   embed: "embedding",
 };
+
+/**
+ * Con qué clave conversa cada agente (MANUAL §5.11; producto, 2026-11-11).
+ *
+ * La regla: cada agente conversa con la clave más barata que pasa sus evals con
+ * el modelo real (seguridad 100 %, comportamiento 90 % y un caso que falla en
+ * sus 3 corridas bloquea; AGENTS.md → Evals). Solo sube a una clave más capaz
+ * cuando las evals demuestran que la barata no basta. Lo más barato siempre,
+ * sin dejar de dar el servicio bien.
+ *
+ * Evidencia (eval B-01, 2026-11-11, `main` 4167952, modelo real por el gateway,
+ * 47 casos de un turno, 2–3 corridas cada uno):
+ * - `customer` con `fast`: seguridad 39/39 y comportamiento 22/24 (92 %); los dos
+ *   casos que fallan aciertan 1 de 3 corridas, así que no bloquean. Unas 37 veces
+ *   más barato por caso que con `smart`. → `fast`.
+ * - `reception` con `fast`: comportamiento 37/42 (88 %, sin contar un fallo
+ *   conocido del runtime), por debajo del 90 %: contesta en español a mensajes
+ *   en inglés o francés, no ofrece mover una cita y no pregunta la mesa en un
+ *   restaurante. → sigue en `smart`.
+ * - `sales` y `admin` todavía no existen ni tienen evals: empiezan en la más
+ *   barata, como dice la regla, y no se activan sin pasar antes sus evals; si
+ *   no las pasan, suben de clave.
+ *
+ * Una organización que elige su modelo de conversar (`org_model_settings`,
+ * BYOK o enterprise) manda sobre esta tabla. Como AGENT_TYPES, es la semilla de
+ * los tipos de serie (ADR 0030 §1): fuera de este paquete nadie escribe una
+ * clave de agente; el runtime pregunta con converseModelForAgentType().
+ */
+export const DEFAULT_CONVERSE_MODEL_BY_AGENT: Readonly<Record<AgentTypeKey, ModelKey>> = {
+  reception: "smart",
+  customer: "fast",
+  sales: "fast",
+  admin: "fast",
+};
+
+/**
+ * La clave con la que conversa un tipo de agente, por la clave de su fila en
+ * `agent_types` (la del agente del run, nunca la que diga el LLM). Un tipo que
+ * no es de serie (de una plantilla o propio, ADR 0030) no tiene: el enrutador
+ * usa entonces la de la tarea.
+ */
+export function converseModelForAgentType(agentTypeKey: string): ModelKey | undefined {
+  return Object.hasOwn(DEFAULT_CONVERSE_MODEL_BY_AGENT, agentTypeKey)
+    ? DEFAULT_CONVERSE_MODEL_BY_AGENT[agentTypeKey as AgentTypeKey]
+    : undefined;
+}
 
 export interface GatewayModel {
   /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
