@@ -22,7 +22,13 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
+      healthPort: 8080,
     });
+  });
+
+  it("el puerto de salud sale de PORT (Railway) y se valida", () => {
+    expect(loadConfig({ ...valid, PORT: "3001" }).healthPort).toBe(3001);
+    for (const port of ["0", "70000", "abc", "80 80"]) expect(() => loadConfig({ ...valid, PORT: port })).toThrow(WorkerConfigError);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

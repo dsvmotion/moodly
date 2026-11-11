@@ -1,0 +1,138 @@
+import { createServer, type Server } from "node:http";
+import type { Logger } from "pino";
+
+// Salud del worker para el healthcheck de Railway y para la alerta de staging
+// (PL-health). Barato y sin secretos: solo fases y estados, la versión
+// desplegada y la edad del evento más antiguo sin publicar.
+//
+// Una fase «standby» (esperando el lock del executor o arrancando DBOS) responde
+// 200: durante un despliegue, el contenedor nuevo espera a que el viejo suelte el
+// lock (lease.ts), y Railway no para el viejo hasta que el nuevo está sano. Si
+// «standby» diera 503, el despliegue nunca terminaría.
+
+export type WorkerPhase = "waiting-lease" | "launching" | "running" | "stopping";
+
+export interface WorkerProbe {
+  phase(): WorkerPhase;
+  /** Una consulta trivial a la base de datos de sistema de DBOS. Lanza si no responde. */
+  pingDatabase(): Promise<void>;
+  /** Hora de creación del evento del outbox más antiguo sin publicar, o null. */
+  oldestPendingEventAt(): Promise<Date | null>;
+}
+
+export interface HealthOptions {
+  probe: WorkerProbe;
+  /** Por encima de esta edad, el publicador del outbox se da por atascado. */
+  maxOutboxAgeMs?: number;
+  /** Tope de cada comprobación contra la base de datos. */
+  probeTimeoutMs?: number;
+  /** El resultado se reutiliza este tiempo: un sondeo frecuente no multiplica las consultas. */
+  cacheMs?: number;
+  version: string;
+  commit: string | null;
+  now?: () => number;
+}
+
+type Check = "ok" | "fail";
+
+export interface HealthReport {
+  status: "ok" | "standby" | "degraded" | "stopping";
+  phase: WorkerPhase;
+  checks?: { database: Check; dbos: Check; outbox: Check };
+  /** Edad del evento sin publicar más antiguo, en segundos (0 si no hay). */
+  outboxOldestPendingSeconds?: number;
+  version: string;
+  commit: string | null;
+}
+
+export interface HealthResult {
+  httpStatus: 200 | 503;
+  body: HealthReport;
+}
+
+export const DEFAULT_MAX_OUTBOX_AGE_MS = 120_000;
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("tiempo agotado")), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error("fallo"));
+      },
+    );
+  });
+}
+
+export async function evaluateHealth(options: HealthOptions): Promise<HealthResult> {
+  const { probe, version, commit } = options;
+  const maxAge = options.maxOutboxAgeMs ?? DEFAULT_MAX_OUTBOX_AGE_MS;
+  const timeout = options.probeTimeoutMs ?? 3_000;
+  const now = options.now ?? Date.now;
+  const phase = probe.phase();
+  const base = { phase, version, commit };
+  if (phase === "stopping") return { httpStatus: 503, body: { status: "stopping", ...base } };
+  if (phase !== "running") return { httpStatus: 200, body: { status: "standby", ...base } };
+
+  const [database, outbox] = await Promise.allSettled([
+    withTimeout(probe.pingDatabase(), timeout),
+    withTimeout(probe.oldestPendingEventAt(), timeout),
+  ]);
+  const oldest = outbox.status === "fulfilled" ? outbox.value : null;
+  const ageMs = oldest ? Math.max(0, now() - oldest.getTime()) : 0;
+  const checks = {
+    database: database.status === "fulfilled" ? "ok" : "fail",
+    // La fase «running» es DBOS lanzado; no se vuelve a «running» sin lanzarlo.
+    dbos: "ok",
+    outbox: outbox.status === "fulfilled" && ageMs <= maxAge ? "ok" : "fail",
+  } as const;
+  const healthy = checks.database === "ok" && checks.dbos === "ok" && checks.outbox === "ok";
+  return {
+    httpStatus: healthy ? 200 : 503,
+    body: {
+      status: healthy ? "ok" : "degraded",
+      checks,
+      ...(outbox.status === "fulfilled" ? { outboxOldestPendingSeconds: Math.floor(ageMs / 1000) } : {}),
+      ...base,
+    },
+  };
+}
+
+/** Servidor HTTP mínimo: GET/HEAD /health. Cualquier otra ruta, 404. */
+export function createHealthServer(options: HealthOptions & { logger: Logger }): Server {
+  const cacheMs = options.cacheMs ?? 10_000;
+  const now = options.now ?? Date.now;
+  let cached: { at: number; result: Promise<HealthResult> } | undefined;
+
+  function current(): Promise<HealthResult> {
+    // Las fases «no running» son baratas y cambian rápido: no se guardan.
+    if (options.probe.phase() !== "running") return evaluateHealth(options);
+    if (!cached || now() - cached.at >= cacheMs) {
+      cached = { at: now(), result: evaluateHealth(options) };
+    }
+    return cached.result;
+  }
+
+  return createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://worker.internal");
+    if ((req.method !== "GET" && req.method !== "HEAD") || url.pathname !== "/health") {
+      res.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" }).end('{"error":"not_found"}');
+      return;
+    }
+    current().then(
+      ({ httpStatus, body }) => {
+        res
+          .writeHead(httpStatus, { "content-type": "application/json", "cache-control": "no-store" })
+          .end(req.method === "HEAD" ? undefined : JSON.stringify(body));
+      },
+      (err: unknown) => {
+        options.logger.error({ err }, "la comprobación de salud falló");
+        res.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" }).end('{"status":"degraded"}');
+      },
+    );
+  });
+}
