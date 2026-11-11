@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "eval:embeddings": "tsc -p tsconfig.build.json && node dist/embeddings/cli.js",
     "eval:agents": "tsc -p tsconfig.build.json && node dist/conversations/cli.js"
   },
