@@ -51,7 +51,6 @@ export const COPY = {
     faqTitle: "Preguntas frecuentes",
     faq: [
       ["¿Dónde se guardan mis datos?", "En la Unión Europea [por confirmar región]. La nube dedicada para Enterprise está en hoja de ruta."],
-      ["¿Los modelos de IA aprenden de mis datos o de mis clientes?", "No. Usamos APIs empresariales que excluyen el entrenamiento con datos de clientes [confirmar proveedor a proveedor]."],
       ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "Sí, con todos los clientes, antes de empezar."],
       ["¿Qué pasa si un agente se equivoca?", "Defines qué puede hacer solo y qué necesita aprobación. Todo queda registrado y puedes corregirlo o revertirlo."],
       ["¿Cómo informo de una vulnerabilidad?", "Escribe a contact@moodly.com. Respondemos en menos de 3 días laborables y no emprendemos acciones contra investigaciones de buena fe."],
@@ -108,7 +107,6 @@ export const COPY = {
     faqTitle: "Frequently asked questions",
     faq: [
       ["Where is my data stored?", "In the European Union [region to be confirmed]. A dedicated cloud for Enterprise is on the roadmap."],
-      ["Do the AI models learn from my data or my customers'?", "No. We use enterprise APIs that exclude training on customer data [to confirm provider by provider]."],
       ["Do you sign a data processing agreement (DPA)?", "Yes, with all customers, before we start."],
       ["What if an agent makes a mistake?", "You define what it can do alone and what needs approval. Everything is logged and you can correct or revert it."],
       ["How do I report a vulnerability?", "Write to contact@moodly.com. We respond within 3 working days and take no action against good-faith research."],
@@ -165,7 +163,6 @@ export const COPY = {
     faqTitle: "Questions fréquentes",
     faq: [
       ["Où mes données sont-elles stockées ?", "Dans l'Union européenne [région à confirmer]. Le cloud dédié pour Enterprise est sur la feuille de route."],
-      ["Les modèles d'IA apprennent-ils de mes données ou de celles de mes clients ?", "Non. Nous utilisons des API d'entreprise qui excluent l'entraînement avec les données clients [à confirmer fournisseur par fournisseur]."],
       ["Signez-vous un contrat de sous-traitance (DPA) ?", "Oui, avec tous les clients, avant de commencer."],
       ["Que se passe-t-il si un agent se trompe ?", "Vous définissez ce qu'il peut faire seul et ce qui nécessite une validation. Tout est enregistré et vous pouvez le corriger ou l'annuler."],
       ["Comment signaler une vulnérabilité ?", "Écrivez à contact@moodly.com. Nous répondons sous 3 jours ouvrables et n'engageons aucune action contre les recherches de bonne foi."],
@@ -222,7 +219,6 @@ export const COPY = {
     faqTitle: "Häufige Fragen",
     faq: [
       ["Wo werden meine Daten gespeichert?", "In der Europäischen Union [Region zu bestätigen]. Eine dedizierte Cloud für Enterprise steht auf der Roadmap."],
-      ["Lernen die KI-Modelle aus meinen Daten oder denen meiner Kunden?", "Nein. Wir nutzen Enterprise-APIs, die das Training mit Kundendaten ausschließen [Anbieter für Anbieter zu bestätigen]."],
       ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "Ja, mit allen Kunden, bevor wir beginnen."],
       ["Was passiert, wenn ein Agent einen Fehler macht?", "Du legst fest, was er allein darf und was eine Freigabe braucht. Alles wird protokolliert und du kannst es korrigieren oder rückgängig machen."],
       ["Wie melde ich eine Schwachstelle?", "Schreibe an contact@moodly.com. Wir antworten innerhalb von 3 Werktagen und gehen nicht gegen gutgläubige Forschung vor."],
