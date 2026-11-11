@@ -1,7 +1,7 @@
 -- Invitaciones con consentimiento (20261022090000_invitations.sql).
 begin;
 \ir _fixtures/tenants.psql
-select plan(31);
+select plan(35);
 
 -- Como pg_temp.login, pero con el email en el JWT (lo usa accept_invitation).
 create function pg_temp.login_email(p_user uuid) returns void language plpgsql as $$
@@ -148,6 +148,28 @@ select throws_ok(
   '42501', null, 'organización suspendida: el org_admin no puede invitar');
 reset role;
 update public.organizations set status = 'active' where id = :org_a;
+
+-- ===========================================================================
+-- 3b. Email sin confirmar (G-04): el email del JWT no basta
+-- ===========================================================================
+reset role;
+\set unconfirmed '''c3000000-0000-4000-8000-0000000000aa'''
+insert into auth.users (id, email, aud, role) values (:unconfirmed, 'sinconfirmar@test.local', 'authenticated', 'authenticated');
+select pg_temp.login_mfa(:a_admin);
+select public.create_invitation(:org_a, 'sinconfirmar@test.local', 'staff', '{}', array[:loc_a1]::uuid[]) as tok_unconfirmed \gset
+reset role;
+select pg_temp.login_email(:unconfirmed);
+select throws_ok(format('select public.accept_invitation(%L)', :'tok_unconfirmed'), 'P0002', null,
+  'email sin confirmar: no acepta la invitación (mismo error)');
+reset role;
+select is((select accepted_at from public.invitations where email = 'sinconfirmar@test.local'), null,
+  'email sin confirmar: la invitación sigue sin usar');
+update auth.users set email_confirmed_at = now() where id = :unconfirmed;
+select pg_temp.login_email(:unconfirmed);
+select is(public.accept_invitation(:'tok_unconfirmed'), :org_a::uuid, 'ya con el email confirmado: la acepta');
+reset role;
+select ok(exists (select 1 from public.memberships where user_id = :unconfirmed and organization_id = :org_a),
+  'ya con el email confirmado: entra en A');
 
 -- ===========================================================================
 -- 4. Sin sesión
