@@ -4,6 +4,7 @@ import type pg from "pg";
 import type { Logger } from "pino";
 import type { WorkerConfig } from "./config.ts";
 import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
+import type { WorkerProbe, WorkerPhase } from "./health.ts";
 import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
 import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
@@ -21,6 +22,8 @@ export interface Worker {
   start(): Promise<void>;
   /** Para de aceptar trabajo y cierra las conexiones. Lo que quede a medias se reanuda al volver. */
   stop(): Promise<void>;
+  /** Lo que mira el endpoint de salud (health.ts). */
+  probe: WorkerProbe;
 }
 
 export interface WorkerOptions {
@@ -69,7 +72,16 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let lease: ExecutorLease | undefined;
   let pool: pg.Pool | undefined;
   let launched = false;
+  let phase: WorkerPhase = "waiting-lease";
   return {
+    probe: {
+      phase: () => phase,
+      async pingDatabase() {
+        if (!pool) throw new Error("sin conexión a la base de datos de sistema");
+        await pool.query("select 1");
+      },
+      oldestPendingEventAt: () => db.outbox.oldestPendingAt(),
+    },
     async start() {
       lease = await acquireExecutorLease({
         connectionString: config.systemDatabaseUrl,
@@ -78,6 +90,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
         onLost: options.onLeaseLost,
         ...(options.signal ? { signal: options.signal } : {}),
       });
+      phase = "launching";
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
       // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
@@ -114,6 +127,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
       await startOutbox(outbox);
+      phase = "running";
       logger.info(
         {
           executorId: config.executorId,
@@ -124,6 +138,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       );
     },
     async stop() {
+      phase = "stopping";
       // DBOS primero: el lock se suelta cuando ya no queda nada en marcha. Su
       // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
       if (launched) await DBOS.shutdown();

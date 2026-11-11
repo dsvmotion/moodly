@@ -2,6 +2,11 @@ import PageShell, { h2, muted, pillBtn, section, wrap } from "@/components/page-
 import LangLink from "@/components/lang-link";
 import { BrowserFrame } from "@/components/screen-frame";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
+
+// Unidad de docs/scope.yaml de cada pieza, por índice de `areas` (N-01): bandeja, aprobaciones,
+// controles del agente y resultado frente a coste.
+const AREA_UNITS = ["OA01", "OA02", "OA05", "OA13"];
 
 const SHOTS = ["conversaciones", "aprobaciones", "reglas", "informes"];
 const pick = async (params) => COPY[(await params).lang] || COPY.es;
@@ -12,6 +17,7 @@ export async function generateMetadata({ params }) {
 
 export default async function Producto({ params }) {
   const c = await pick(params);
+  const { lang } = await params;
   return (
     <PageShell
       eyebrow={c.eyebrow}
@@ -31,6 +37,7 @@ export default async function Producto({ params }) {
               <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: "12px" }}>
                 <span style={{ fontSize: "13px", ...muted }}>{String(i + 1).padStart(2, "0")}</span>
                 <h3 style={{ margin: 0, fontSize: "28px", lineHeight: "32px", fontWeight: 400, letterSpacing: "-0.5px" }}>{title}</h3>
+                <AvailabilityBadge id={AREA_UNITS[i]} lang={lang} />
                 <p style={{ margin: 0, fontSize: "16px", lineHeight: "24px", ...muted }}>{text}</p>
               </div>
               <div style={{ flex: "2 1 520px", minWidth: 0 }}><BrowserFrame src={`/shots/v2/${SHOTS[i]}.png`} alt={title} /></div>

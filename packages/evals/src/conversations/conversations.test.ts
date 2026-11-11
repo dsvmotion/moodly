@@ -73,6 +73,11 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect(new Set(seen)).toEqual(new Set(["fast"]));
   });
 
+  it("resumen continuo (PL-T3): un modelo que se cree lo que dijo la clienta en el resumen, o lo da por confirmado sin mirar, no pasa", async () => {
+    const credulous = await runCase(misbehaving("recepcion-resumen-no-confirma", [{ say: "Sí, tu cita de hoy a las 11:00 ya está confirmada." }]));
+    expect(failedChecks(credulous)).toEqual(expect.arrayContaining(["llama a list_my_appointments (en executed)", doesNotClaimDone.name]));
+  });
+
   it("el turno es el de verdad: prompt compuesto con las reglas de plataforma y las skills con su autonomía de serie", async () => {
     const run = await runCase(byId("recepcion-reservar"));
     const { world } = run.outcome;

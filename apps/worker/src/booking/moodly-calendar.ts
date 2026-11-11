@@ -4,6 +4,7 @@ import {
   AppointmentNotFoundError,
   InvalidBookingError,
   SlotTakenError,
+  SlotUnavailableError,
 } from "@repo/integrations";
 import type { Appointment, AppointmentStatus, BookingProvider } from "@repo/integrations";
 
@@ -49,6 +50,7 @@ function toAppointment(row: AppointmentRow): Appointment {
 /** Los errores de Postgres que significan algo para quien reserva; el resto, tal cual. */
 function bookingError(error: PgError): Error {
   if (error.code === "23P01") return new SlotTakenError("ese hueco ya está ocupado");
+  if (error.code === "BK001") return new SlotUnavailableError("esa hora no es un hueco libre");
   if (error.code === "23514") return new InvalidBookingError("el servicio no se ofrece en ese local o el recurso no lo hace");
   if (error.code === "42501") return new AppointmentNotChangeableError("esa cita ya no se puede cambiar");
   return new Error(`appointments: ${error.message}`);

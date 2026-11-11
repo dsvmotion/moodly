@@ -37,7 +37,7 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
 import { createConversationSender } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
-import { loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
 import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
@@ -161,6 +161,8 @@ type Prepared =
       history: HistoryMessage[];
       /** El resumen de lo anterior a `history` (PL-T3), y hasta dónde llega. */
       summary: { summary: string; coveredUntil: string } | null;
+      /** Si no se pudo leer el resumen: el turno va con la historia entera. */
+      summaryError: string | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       dayEur: number;
@@ -209,7 +211,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
   }
 
   // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido.
-  const summary = await loadSummary(db, conversationId);
+  // Si no se puede leer, sin resumen: la historia entera, como antes (nunca un turno sin contestar).
+  const { summary, error: summaryError } = await loadSummary(db, conversationId);
   let history = db.from("messages").select("author, content, created_at").eq("conversation_id", conversationId);
   if (summary) history = history.gt("created_at", summary.coveredUntil);
   const messages = check(await history.order("created_at", { ascending: false }).limit(HISTORY_LIMIT), "el historial");
@@ -249,6 +252,7 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     context,
     history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
     summary,
+    summaryError,
     location,
     modelSettings,
     dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
@@ -528,6 +532,9 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
       });
+      // La bandera se guarda en un paso: si cambia con un turno a medias, al reanudarlo
+      // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
+      const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -548,7 +555,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur },
-        intentRouting,
+        intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
         record: async (execution) => {
           if (execution.status === "rejected") {
@@ -559,6 +566,9 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
           if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
         },
       });
+      // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
+      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
+      if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
       // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
       const summarized = await ctx.step("summary:model", () =>
         summarizeStep({
@@ -572,10 +582,16 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
           spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur },
         }),
       );
-      if (summarized.kind === "updated") await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
-      else if (summarized.kind === "skipped") ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
       const finished = withSummaryUsage(result, summarized);
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, finished));
+      if (summarized.kind === "updated") {
+        // Primero el coste (se gastó aunque no se guarde), después el resumen.
+        const booked = await ctx.step("summary:usage", () => bookSummaryUsage(ctx.db, runId, finished.usage));
+        if (booked) ctx.logger.warn({ runId, error: booked }, "no se pudo apuntar el coste del resumen en el run");
+        const saved = await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
+        if (saved) ctx.logger.warn({ runId, error: saved }, "no se pudo guardar el resumen");
+      } else if (summarized.kind === "skipped") {
+        ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
+      }
       ctx.logger.info(
         {
           runId,

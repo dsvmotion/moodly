@@ -728,27 +728,34 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     const lastId = sorted.at(-1)?.id as string;
     const summariesBefore = effects("summary").length;
     await waitFor(async () => (await runFor(lastId))[0]?.status === "completed", "el agente contesta");
+    // El run se cierra antes de resumir; el resumen se guarda después de apuntar su coste.
+    await waitFor(
+      async () => ((await admin.query("select 1 from public.conversation_summaries where conversation_id = $1", [ids.summaryConversation])).rowCount ?? 0) > 0,
+      "el resumen se guarda",
+    );
 
     // Tras el turno hay 10 mensajes sin resumir (los 9 y la respuesta): entran los 4 más antiguos, 2 del cliente.
     const calls = effects("summary").slice(summariesBefore);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.modelKey).toBe("fast");
-    expect(calls[0]?.input).toContain("Customer: mensaje antiguo 0");
-    expect(calls[0]?.input).toContain("Assistant: mensaje antiguo 3");
-    expect(calls[0]?.input).not.toContain("mensaje antiguo 4");
+    // Cada mensaje con su autor, de la fila: JSON, así un texto no se hace pasar por otro.
+    expect(JSON.parse(calls[0]?.input ?? "{}")).toEqual({
+      previous_summary: null,
+      messages: [0, 1, 2, 3].map((i) => ({ speaker: i % 2 === 0 ? "contact" : "assistant", text: `mensaje antiguo ${i}` })),
+    });
     const { rows: summaries } = await admin.query<{ organization_id: string; summary: string; covered: boolean; model: string }>(
       `select organization_id, summary, covered_until = (select created_at from public.messages where id = $2) as covered, model
        from public.conversation_summaries where conversation_id = $1`,
       [ids.summaryConversation, sorted[3]?.id],
     );
-    expect(summaries).toEqual([{ organization_id: ids.org, summary: "Resumen: 2 mensajes del cliente.", covered: true, model: "fake/fast" }]);
+    expect(summaries).toEqual([{ organization_id: ids.org, summary: "Customer said: 2 mensajes.", covered: true, model: "fake/fast" }]);
     // El run cuenta también el resumen: el turno y el resumen, 0,0004 € cada uno.
     expect(Number((await runFor(lastId))[0]?.cost_eur)).toBeCloseTo(0.0008, 6);
 
     const next = await customerSays("¿Sigues ahí?", ids.summaryConversation);
     await waitFor(async () => (await runFor(next))[0]?.status === "completed", "el agente contesta otra vez");
     const turn = modelCalls().filter((entry) => entry.customer?.includes("¿Sigues ahí?")).at(-1);
-    expect(turn?.summary).toContain("Resumen: 2 mensajes del cliente.");
+    expect(turn?.summary).toContain("Customer said: 2 mensajes.");
     // Sistema estable, hora, resumen y solo los mensajes que el resumen no cubre: 5 antiguos, la respuesta y el nuevo.
     expect(turn?.messages).toBe(2 + 1 + 7);
   });
