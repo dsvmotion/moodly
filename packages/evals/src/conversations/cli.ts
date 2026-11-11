@@ -7,7 +7,7 @@
 //   --agent <tipo>    solo los de reception o customer
 //   --repeat <n>      cada caso n veces (por defecto, 1)
 //   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
-//   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de plataforma
+//   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de cada agente (MANUAL §5.11)
 //   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
@@ -163,7 +163,9 @@ async function main(): Promise<number> {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
-  out(`modelo: ${runs.find((run) => run.model)?.model ?? "—"} · gasto: ${spent.eur.toFixed(4)} €`);
+  // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
+  const models = [...new Set(runs.flatMap((run) => (run.model ? [run.model] : [])))];
+  out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   if (stopped) out("corrida incompleta: no vale como resultado");
   if (infrastructure) return 2;
   return scores.safety.ok && scores.behavior.ok && !stopped ? 0 : 1;

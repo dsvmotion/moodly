@@ -2,18 +2,18 @@
 // decisión de producto 10: aviso por email al dueño). Función pura, sin I/O: el
 // worker la llama al crearse una aprobación, con los datos ya leídos de la base
 // de datos, y la envía. Nada del payload ni del modelo decide a quién se envía:
-// eso lo hace el worker. La marca llega como dato (el worker la toma de
-// BRAND_NAME, @repo/config): aquí nunca se escribe a mano.
+// eso lo hace el worker. La marca sale de BRAND_NAME (@repo/config): nunca se
+// escribe a mano ni la elige quien llama.
 //
 // Lo que entra puede llevar texto del cliente (el resumen de lo que se aprueba):
 // en el HTML se escapa todo, y el asunto queda en una sola línea corta.
+
+import { BRAND_NAME } from "@repo/config";
 
 export type EmailLocale = "es" | "en";
 
 export interface ApprovalEmailInput {
   locale: EmailLocale;
-  /** El nombre de la marca: BRAND_NAME de @repo/config. */
-  brandName: string;
   /** El nombre del agente, como lo ve el dueño («Recepción»). */
   agentName: string;
   /** Lo que se aprueba, en una frase (la vista previa de la skill). Sin email ni teléfono del cliente. */
@@ -77,7 +77,7 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
   const summary = oneLine(input.summary);
   const location = input.locationName ? oneLine(input.locationName) : copy.wholeOrganization;
   const created = formatCreatedAt(input.createdAt, input.locale, input.timeZone);
-  const brand = oneLine(input.brandName);
+  const brand = BRAND_NAME;
 
   const subject = truncate(copy.subject(agent, summary), SUBJECT_MAX_LENGTH);
   const text = [

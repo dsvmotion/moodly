@@ -1,0 +1,27 @@
+# Rutas de nivel 2 de la Revisora automática (SE01): las de más riesgo, que la
+# Revisora analiza con el modelo capaz y nunca aprueba. Es la lista corta de M0
+# (P-01, producto 2026-11-10; aef3d84). No depende de la lista de la guarda de
+# mergeo: producto suspendió la revisión humana el 2026-11-11 (#181), no el riesgo.
+# Formato: <expresión regular extendida><TAB><motivo>.
+^packages/db/supabase/migrations/	migraciones
+^packages/db/supabase/rollbacks/	rollbacks
+\.sql$	SQL (políticas RLS, funciones, SECURITY DEFINER)
+^packages/db/supabase/config\.toml$	config.toml de Supabase (auth)
+^apps/web/src/proxy\.ts$	auth: proxy
+^apps/web/src/lib/auth/	auth: DAL, sesión y redirecciones
+^apps/web/src/lib/supabase/	auth: clientes de Supabase
+^apps/web/src/app/login/	auth: login
+(^|/)\.env	secretos y variables de entorno
+(^|/)package\.json$	dependencias y scripts de instalación (corren en workflows con secretos de staging)
+^pnpm-lock\.yaml$	dependencias (lockfile)
+^pnpm-workspace\.yaml$	dependencias: overrides y qué paquetes ejecutan scripts de instalación
+(^|/)\.npmrc$	registro y configuración de npm/pnpm
+^packages/db/src/service\.ts$	acceso del worker a los datos de cada organización (forOrganization, outbox)
+^scripts/supabase/	despliegue y configuración de staging
+^\.github/	CI, workflows y configuración de GitHub
+^scripts/merge-guard/	la guarda de mergeo
+^scripts/safe-merge\.sh$	la guarda de mergeo
+(^|/)\.claude/	skills, agentes, permisos y hooks de las sesiones (también en subcarpetas)
+(^|/)\.mcp\.json$	servidores MCP que cargan las sesiones
+(^|/)(AGENTS|CLAUDE)\.md$	reglas del repo (también en subcarpetas: las sesiones las cargan)
+^scripts/reviewer/	la Revisora automática

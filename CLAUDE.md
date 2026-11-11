@@ -30,7 +30,7 @@ Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUA
 - [ ] Flujo afectado ejecutado de extremo a extremo, con evidencia en el PR.
 - [ ] Migraciones reversibles o con plan de vuelta atrás.
 - [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
-- [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y su fila de `docs/scope.yaml` está al día (`docs/WORKSTREAMS.md`, regla 1).
+- [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y el cuerpo dice el estado y la evidencia para su fila de `docs/scope.yaml`, que pone al día V1 después del merge: los PRs no tocan ese archivo (`docs/WORKSTREAMS.md`, regla 1).
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
 TypeScript strict · pnpm workspaces + Turborepo · Next.js (App Router) · Tailwind + shadcn/ui · Zod · Supabase Postgres (región UE) con RLS y pgvector · migraciones SQL con Supabase CLI · Vercel AI SDK · DBOS Transact para ejecución duradera y colas sobre Postgres (ADR 0027, aceptado; sustituye a pg-boss) · worker Node always-on en contenedor · Vitest · pgTAP · Playwright · GitHub Actions.
@@ -60,11 +60,13 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Typecheck: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Tests unitarios: `pnpm test`
+- Registro de alcance (P-08): `pnpm test` valida `docs/scope.yaml` (`packages/config/src/docs-status`): todas las filas se leen, sin ids repetidos, estados e hitos válidos y ninguna unidad `done` sin evidencia. `pnpm docs:status` imprime por stdout el resumen por hito M0–M5 (conteos y lo abierto); `--out <archivo>` lo escribe y `--check` solo valida. El resumen no se commitea.
 - Tests de base de datos (pgTAP, con Supabase levantado): `pnpm test:db`
 - Tests de integración (con Supabase levantado y el seed aplicado): `tenantDb` con `pnpm --filter @repo/db test:integration`; el worker (reanudación tras SIGKILL y outbox, ADR 0009) con `pnpm turbo run build --filter=@repo/worker^...` y `pnpm --filter @repo/worker test:integration`
 - Subir de versión DBOS: en el mismo PR, la versión exacta de `@dbos-inc/dbos-sdk` en `apps/worker`, una migración nueva con el SQL de `pnpm --filter @repo/worker exec dbos schema --print-migrations <primera migración nueva>` y la versión del esquema que comprueba `19_dbos_schema.test.sql`
 - Lint del esquema SQL (con Supabase levantado): `pnpm db:lint`
 - Tests de la guarda de mergeo (`safe-merge.sh` y `check-sensitive.sh`): `bash scripts/merge-guard/tests/run.sh`
+- Tests de la Revisora automática (SE01, `scripts/reviewer/`): `pnpm exec tsc -p scripts/reviewer` y `node --test scripts/reviewer/*.test.ts`
 - Tests de la comprobación de configuración del despliegue a staging (`config-drift.sh`): `bash scripts/supabase/tests/config-drift.test.sh`
 - Mergeo autónomo de un PR propio: `scripts/safe-merge.sh <n>`, o el procedimiento con el conector de GitHub (ver "Mergeo autónomo")
 - Evals de los agentes (MANUAL §12.4, `packages/evals`): el set de ataque y las conversaciones de prueba de Recepción y Atención al cliente corren con un modelo falso dentro de `pnpm test` (umbral del 100 %). Con el modelo real, por Vercel AI Gateway (cuesta dinero, ~0,05 € por caso con el modelo `smart`; el presupuesto lo decide producto; en GitHub, el workflow «Evals · modelo real» (`.github/workflows/evals.yml`) lo corre en los PRs que tocan `agent-core`, `skills`, `evals`, `config`, el calendario o el conocimiento, y a mano con `case` y `repeat`, con la clave propia `AI_GATEWAY_EVALS_API_KEY` y tope de 2 € por corrida; todavía no es obligatorio): `AI_GATEWAY_API_KEY=… pnpm --filter @repo/evals eval:agents`, con `--list` (los casos, sin llamar a nadie), `--case <id>`, `--agent reception|customer`, `--repeat <n>`, `--model <clave>` (otra clave de modelo para conversar, p. ej. `fast`, para comparar) y `--max-eur <x>` (tope de la corrida, 1 € por defecto). En una sesión en la nube, la clave la inyecta el proxy: `AI_GATEWAY_API_KEY=proxy-injected-placeholder NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`. Umbrales con el modelo real: seguridad 100 %, comportamiento 90 %, y un caso de comportamiento que falla se repite hasta 3 corridas: si no acierta ninguna, bloquea aunque la tasa pase el umbral (decisión de producto, 2026-11-09). La eval de embeddings: `pnpm --filter @repo/evals eval:embeddings`

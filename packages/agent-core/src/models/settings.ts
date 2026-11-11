@@ -33,6 +33,8 @@ export function policyFromSettings(row: unknown): ModelPolicy {
     residency: settings.residency,
     allowedProviders: settings.allowed_providers,
     modelByTask: { ...DEFAULT_MODEL_BY_TASK, ...settings.model_by_task },
+    // Lo que la organización escribió, aparte: manda sobre el modelo de cada agente.
+    modelOverrides: settings.model_by_task,
     connection: settings.connection,
     budget: { perRunEur: settings.budget_per_run_eur, perDayEur: settings.budget_per_day_eur },
   };
