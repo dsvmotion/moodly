@@ -1,10 +1,10 @@
 -- Vuelta atrás de 20261111200000_offboarding_execution_states.sql: las guardas
 -- vuelven a rechazar el null que deja borrar a una persona (D-01), las
 -- ejecuciones vuelven a no tener máquina de estados en la base de datos y la
--- service role vuelve a poder borrar ejecuciones y aprobaciones (D-02).
+-- service role vuelve a poder borrar runs, ejecuciones y aprobaciones (D-02).
 -- Las funciones vuelven a su versión de 20261030090000 y 20261031120000.
 
-grant delete, truncate on public.executions, public.approvals to service_role;
+grant delete, truncate on public.agent_runs, public.executions, public.approvals to service_role;
 
 drop trigger guard_execution_status on public.executions;
 drop function private.guard_execution_status();

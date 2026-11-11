@@ -27,10 +27,12 @@
 --       siempre se puede);
 --     approved → executed | failed, también con su aprobación aprobada;
 --     executed, failed y rejected son finales.
--- Y la service role ya no borra (ni vacía) ejecuciones ni aprobaciones: son
--- el registro de qué se hizo y quién lo aprobó. Las cascadas (borrar un run,
--- un local o una organización) siguen funcionando: las ejecuta el dueño de
--- las tablas.
+-- Y la service role ya no borra (ni vacía) runs, ejecuciones ni
+-- aprobaciones: son el registro de qué se hizo y quién lo aprobó (borrar un
+-- run borraría en cascada sus ejecuciones y aprobaciones). Ningún código de
+-- producción los borra; el seed de desarrollo los limpia con la conexión del
+-- dueño. Las cascadas (borrar un local o una organización) siguen
+-- funcionando: las ejecuta el dueño de las tablas.
 --
 -- Security definer: private.user_was_deleted y
 -- private.guard_execution_status solo leen (public.users y public.approvals),
@@ -39,7 +41,7 @@
 -- Vuelta atrás: rollbacks/20261111200000_offboarding_execution_states.down.sql
 -- (vuelve a las funciones de 20261030090000 y 20261031120000, quita el
 -- trigger y las funciones nuevas y devuelve delete y truncate a la service
--- role). No hay datos de clientes todavía.
+-- role en las tres tablas). No hay datos de clientes todavía.
 
 -- ---------------------------------------------------------------------------
 -- 1. D-01: el null que deja borrar a una persona
@@ -253,4 +255,4 @@ create trigger guard_execution_status before insert or update on public.executio
 -- ---------------------------------------------------------------------------
 -- 3. D-02: nadie de la app ni de la plataforma borra el registro
 -- ---------------------------------------------------------------------------
-revoke delete, truncate on public.executions, public.approvals from service_role;
+revoke delete, truncate on public.agent_runs, public.executions, public.approvals from service_role;

@@ -7,10 +7,10 @@
 --    política la dejó ejecutar (autonomía execute o autonomous) o, si esperaba
 --    a una persona, con su aprobación aprobada. Para todos los roles: también
 --    la service role, que es con la que trabaja el worker, y el dueño.
--- 3. Ni la service role borra ejecuciones ni aprobaciones.
+-- 3. Ni la service role borra runs, ejecuciones ni aprobaciones.
 begin;
 \ir _fixtures/tenants.psql
-select plan(38);
+select plan(40);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 \set h1 '''a111111111111111111111111111111111111111111111111111111111111111'''
@@ -154,12 +154,16 @@ select results_eq(
   'los estados quedan como los dejó el worker');
 
 -- ===========================================================================
--- 3. D-02: ni la service role borra ejecuciones ni aprobaciones
+-- 3. D-02: ni la service role borra runs, ejecuciones ni aprobaciones
 -- ===========================================================================
 select throws_ok($$delete from public.approvals where id = 'e2000000-0000-4000-8000-000000000005'$$,
   '42501', null, 'la service role no borra aprobaciones');
 select throws_ok($$delete from public.executions where id = 'e1000000-0000-4000-8000-000000000003'$$,
   '42501', null, 'ni ejecuciones');
+select throws_ok($$delete from public.agent_runs where id = 'e0000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'ni runs (que borrarían en cascada sus ejecuciones y aprobaciones)');
+select throws_ok($$truncate public.agent_runs cascade$$,
+  '42501', null, 'ni los vacía');
 reset role;
 
 -- ===========================================================================
