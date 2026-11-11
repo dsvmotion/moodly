@@ -1062,6 +1062,9 @@ isOneToOne: false
 "agent_turn_context":
 { Args: { "p_agent_id": string,"p_organization_id": string }; Returns: Json
                            },
+"approval_notification":
+{ Args: { "p_approval_id": string,"p_organization_id": string }; Returns: Json
+                           },
 "close_test_conversation":
 { Args: { "p_conversation_id": string }; Returns: undefined
                            },

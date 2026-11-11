@@ -55,6 +55,7 @@
   - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
+- **M-02, parte del worker** (V1 vía sesión trabajadora, `[M1][M-02]`): cada aprobación nueva deja `approval.created` en el outbox y el consumidor `notify.approval_email` avisa por email (Resend) a quien puede decidirla, con la regla de `can_decide_approval`; sin verificar en staging hasta que Railway tenga `RESEND_API_KEY` y `WEB_APP_URL`.
 - **#191** (V1 vía sesión trabajadora, `[M0][G-03][G-04]`): `login_record_success` exige sesión activa (aal2 con factor) y aceptar una invitación exige email confirmado; confirmación de email activada también en local.
 - **Coordinación (producto, 2026-11-10):** V1 coordina a las demás sesiones y es la única a la que escribe producto. Encargo: `docs/audits/2026-11-10-ordenes-m0.md` (#164). Ahora abren PRs V1 y V2; V4, solo el de K-03; V3 espera (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 

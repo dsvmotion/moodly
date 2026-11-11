@@ -1,0 +1,248 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { join } from "node:path";
+import { BRAND_NAME, NOTIFICATION_EMAIL_FROM } from "@repo/config";
+import pg from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { deliveryWorkflowId } from "../events/outbox.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { APPROVAL_EMAIL_HANDLER_KEY } from "./approval-email.ts";
+
+// M-02: de una aprobación nueva al email, pasando por approval.created en el
+// outbox, el publicador y el consumidor notify.approval_email, con el cliente de
+// Resend de verdad contra un servidor falso. Se avisa exactamente a quien puede
+// decidir cada aprobación (de la base de datos), una vez por persona aunque
+// Resend falle una vez, y a nadie de otro local fuera de su alcance ni de otra
+// organización.
+const fixture = join(import.meta.dirname, "..", "testing", "approval-email-worker.ts");
+const children = new Set<ChildProcess>();
+const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+const marker = `m02-${randomUUID().slice(0, 8)}`;
+const api = localSupabaseApi();
+// Se arma en tiempo de ejecución: un literal con forma de clave lo marcaría gitleaks.
+const RESEND_KEY = `re_${"t".repeat(24)}`;
+const WEB = "http://127.0.0.1:3000";
+
+interface Received {
+  headers: IncomingHttpHeaders;
+  body: { from: string; to: string[]; subject: string; html: string; text: string };
+}
+const received: Received[] = [];
+/** La primera petición cuya clave de idempotencia acaba así recibe un 503: el worker la reintenta. */
+let failOnceSuffix: string | null = null;
+let server: Server;
+let resendUrl = "";
+
+const ids = {
+  orgX: randomUUID(),
+  orgY: randomUUID(),
+  regionN: randomUUID(),
+  regionS: randomUUID(),
+  regionY: randomUUID(),
+  locX1: randomUUID(),
+  locX2: randomUUID(),
+  locX3: randomUUID(),
+  locY1: randomUUID(),
+};
+// Quién es quién: [clave, organización, rol, regiones, locales].
+const people = {
+  xAdmin: ["orgX", "org_admin", [], []],
+  xRegionN: ["orgX", "region_manager", ["regionN"], []],
+  xRegionS: ["orgX", "region_manager", ["regionS"], []],
+  xManager1: ["orgX", "location_manager", [], ["locX1"]],
+  xStaff1: ["orgX", "staff", [], ["locX1"]],
+  xStaff2: ["orgX", "staff", [], ["locX2"]],
+  xStaff3: ["orgX", "staff", [], ["locX3"]],
+  yAdmin: ["orgY", "org_admin", [], []],
+  yStaff1: ["orgY", "staff", [], ["locY1"]],
+} as const satisfies Record<string, readonly [keyof typeof ids, string, readonly (keyof typeof ids)[], readonly (keyof typeof ids)[]]>;
+type Person = keyof typeof people;
+const userIds = Object.fromEntries(Object.keys(people).map((key) => [key, randomUUID()])) as Record<Person, string>;
+const emailOf = (person: Person) => `${marker}-${person.toLowerCase()}@demo.test`;
+
+function startWorker(env: NodeJS.ProcessEnv): { child: ChildProcess; output(): string; exited: Promise<number | null> } {
+  const child = spawn(process.execPath, [fixture], { env, stdio: ["ignore", "pipe", "pipe"] });
+  children.add(child);
+  let output = "";
+  child.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  const exited = new Promise<number | null>((resolve) => {
+    child.on("close", (code) => {
+      children.delete(child);
+      resolve(code);
+    });
+  });
+  return { child, output: () => output, exited };
+}
+
+async function waitFor(condition: () => boolean | Promise<boolean>, what: string, output: () => string, timeoutMs = 45_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!(await condition())) {
+    if (Date.now() > deadline) throw new Error(`no llegó a pasar: ${what}\n${output()}`);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+beforeAll(async () => {
+  server = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk: Buffer) => (raw += chunk.toString()));
+    req.on("end", () => {
+      const key = String(req.headers["idempotency-key"] ?? "");
+      received.push({ headers: req.headers, body: JSON.parse(raw) as Received["body"] });
+      res.setHeader("content-type", "application/json");
+      if (req.method !== "POST" || req.url !== "/emails") {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ name: "not_found" }));
+      } else if (failOnceSuffix && key.endsWith(failOnceSuffix)) {
+        failOnceSuffix = null;
+        res.statusCode = 503;
+        res.end(JSON.stringify({ name: "application_error" }));
+      } else {
+        res.end(JSON.stringify({ id: randomUUID() }));
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  resendUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  await admin.connect();
+  // Las aprobaciones del seed también dejaron su approval.created: no son de este
+  // test, y el worker tardaría en llegar a las suyas detrás de ellas.
+  await admin.query("update public.domain_events set published_at = now() where type = 'approval.created' and published_at is null");
+  await admin.query("begin");
+  await admin.query("insert into public.organizations (id, name) values ($1, $2), ($3, $4)", [ids.orgX, `${marker} X`, ids.orgY, `${marker} Y`]);
+  await admin.query("insert into public.regions (id, organization_id, name) values ($1, $2, 'Norte'), ($3, $2, 'Sur'), ($4, $5, 'Centro')", [
+    ids.regionN,
+    ids.orgX,
+    ids.regionS,
+    ids.regionY,
+    ids.orgY,
+  ]);
+  await admin.query(
+    `insert into public.locations (id, organization_id, region_id, name) values
+       ($1, $2, $3, 'X1'), ($4, $2, $3, 'X2'), ($5, $2, $6, 'X3'), ($7, $8, $9, 'Y1')`,
+    [ids.locX1, ids.orgX, ids.regionN, ids.locX2, ids.locX3, ids.regionS, ids.locY1, ids.orgY, ids.regionY],
+  );
+  for (const [person, [org, role, regions, locations]] of Object.entries(people) as [Person, (typeof people)[Person]][]) {
+    await admin.query(
+      "insert into auth.users (id, email, aud, role, email_confirmed_at) values ($1, $2, 'authenticated', 'authenticated', now())",
+      [userIds[person], emailOf(person)],
+    );
+    await admin.query("insert into public.users (id, full_name, locale) values ($1, $2, $3)", [userIds[person], person, person === "xStaff1" ? "en-GB" : "es-ES"]);
+    await admin.query(
+      "insert into public.memberships (user_id, organization_id, role, scope_region_ids, scope_location_ids) values ($1, $2, $3, $4::uuid[], $5::uuid[])",
+      [userIds[person], ids[org], role, regions.map((r) => ids[r]), locations.map((l) => ids[l])],
+    );
+  }
+  await admin.query("commit");
+});
+
+afterAll(async () => {
+  for (const child of children) child.kill("SIGKILL");
+  await admin.query("delete from public.organizations where id = any($1::uuid[])", [[ids.orgX, ids.orgY]]);
+  await admin.query("delete from auth.users where id = any($1::uuid[])", [Object.values(userIds)]);
+  await admin.end();
+  await new Promise((resolve) => server.close(resolve));
+});
+
+/** Una aprobación nueva en un local (como el worker: run, ejecución y aprobación). Su trigger escribe approval.created. */
+async function createApproval(org: string, location: string, requiredRole: string): Promise<string> {
+  const { rows: agents } = await admin.query<{ id: string }>("select id from public.agents where organization_id = $1 order by id limit 1", [org]);
+  const agent = agents[0]?.id;
+  if (!agent) throw new Error("la organización no tiene agentes");
+  const hash = "c".repeat(64);
+  const { rows: runs } = await admin.query<{ id: string }>(
+    "insert into public.agent_runs (organization_id, location_id, agent_id, trigger) values ($1, $2, $3, 'inbound_message') returning id",
+    [org, location, agent],
+  );
+  const { rows: executions } = await admin.query<{ id: string }>(
+    `insert into public.executions (run_id, organization_id, location_id, skill_key, skill_version, effect_class,
+       autonomy_applied, input, target, input_hash, status, idempotency_key)
+     values ($1, $2, $3, 'reply', 1, 'external_message', 'execute', '{}', '{"kind":"none"}', $4, 'needs_approval', $5) returning id`,
+    [runs[0]?.id, org, location, hash, `${marker}-${randomUUID()}`],
+  );
+  const { rows: approvals } = await admin.query<{ id: string }>(
+    `insert into public.approvals (execution_id, organization_id, location_id, effect_class, input_hash, required_role, reason, expires_at)
+     values ($1, $2, $3, 'external_message', $4, $5, 'Responder: «Tenemos hueco el lunes a las 9:00»', now() + interval '1 day') returning id`,
+    [executions[0]?.id, org, location, hash, requiredRole],
+  );
+  return approvals[0]?.id as string;
+}
+
+const keysFor = (approvalId: string) => received.map((r) => String(r.headers["idempotency-key"])).filter((key) => key.startsWith(`approval:${approvalId}:`));
+
+describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
+  it("cada persona que puede decidir recibe un email, una sola vez; nadie fuera de su alcance ni de otra organización", async () => {
+    const worker = startWorker({
+      ...process.env,
+      WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_EXECUTOR_ID: `test-approval-email-${process.pid}`,
+      WORKER_APP_VERSION: "test-approval-email",
+      LOG_LEVEL: "info",
+      SUPABASE_URL: api.url,
+      SUPABASE_SECRET_KEY: api.secretKey,
+      RESEND_API_KEY: RESEND_KEY,
+      WEB_APP_URL: WEB,
+      FAKE_RESEND_URL: resendUrl,
+    });
+
+    // Resend falla una vez con el email del staff de X1: el paso se reintenta con la misma clave.
+    failOnceSuffix = `:${userIds.xStaff1}`;
+    const inX1 = await createApproval(ids.orgX, ids.locX1, "staff");
+    const inY1 = await createApproval(ids.orgY, ids.locY1, "staff");
+
+    const expectedX1: Person[] = ["xAdmin", "xRegionN", "xManager1", "xStaff1"];
+    const expectedY1: Person[] = ["yAdmin", "yStaff1"];
+    await waitFor(
+      () => new Set(keysFor(inX1)).size === expectedX1.length && new Set(keysFor(inY1)).size === expectedY1.length,
+      "los avisos de las dos aprobaciones",
+      worker.output,
+    );
+    // Margen para que un envío de más (o a quien no toca) llegara también.
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+
+    const forX1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inX1}:`));
+    const forY1 = received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`approval:${inY1}:`));
+    // Exactamente a quien puede decidir; ni el region_manager del sur, ni el staff de X2 o X3, ni nadie de la otra organización.
+    expect(new Set(forX1.map((r) => r.body.to[0]))).toEqual(new Set(expectedX1.map(emailOf)));
+    expect(new Set(forY1.map((r) => r.body.to[0]))).toEqual(new Set(expectedY1.map(emailOf)));
+    // Una vez por persona: solo el que falló se repite, y con la misma clave.
+    expect(forX1).toHaveLength(expectedX1.length + 1);
+    expect(keysFor(inX1).filter((key) => key === `approval:${inX1}:${userIds.xStaff1}`)).toHaveLength(2);
+    expect(forY1).toHaveLength(expectedY1.length);
+    for (const person of expectedX1) {
+      expect(keysFor(inX1)).toContain(`approval:${inX1}:${userIds[person]}`);
+    }
+
+    // La clave de Resend solo en su cabecera; el remitente, la dirección de avisos; el enlace, a la web con el local.
+    for (const request of [...forX1, ...forY1]) {
+      expect(request.headers.authorization).toBe(`Bearer ${RESEND_KEY}`);
+      expect(request.body.from).toBe(`${BRAND_NAME} <${NOTIFICATION_EMAIL_FROM}>`);
+    }
+    const staff = forX1.find((r) => r.body.to[0] === emailOf("xStaff1"));
+    expect(staff?.body.subject).toMatch(/is waiting for your approval/);
+    expect(forX1.find((r) => r.body.to[0] === emailOf("xAdmin"))?.body.subject).toMatch(/espera tu aprobación/);
+    expect(staff?.body.text).toContain(`${WEB}/app/approvals?scope=location%3A${ids.locX1}`);
+
+    // Una sola entrega por evento, y terminada.
+    const { rows: events } = await admin.query<{ id: string }>(
+      "select id from public.domain_events where type = 'approval.created' and payload->>'approval_id' = any($1::text[])",
+      [[inX1, inY1]],
+    );
+    expect(events).toHaveLength(2);
+    const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = any($1::text[])", [
+      events.map((event) => deliveryWorkflowId(event.id, APPROVAL_EMAIL_HANDLER_KEY)),
+    ]);
+    expect(rows.map((row) => row.status)).toEqual(["SUCCESS", "SUCCESS"]);
+    // Ningún email en los logs del worker.
+    expect(worker.output()).not.toContain("@demo.test");
+    expect(worker.output()).not.toContain(RESEND_KEY);
+
+    worker.child.kill("SIGTERM");
+    expect(await worker.exited, worker.output()).toBe(0);
+  });
+
+});

@@ -111,7 +111,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     await handler.handle(event, {
       db: tenant,
       logger: log.child({ eventId: event.id, type: event.type, organizationId: event.organizationId, handler: handler.key }),
-      step: (name, fn) => DBOS.runStep(fn, { name: `${handler.key}:${name}` }),
+      step: (name, fn, retry) => DBOS.runStep(fn, { name: `${handler.key}:${name}`, ...(retry ? { retriesAllowed: true, ...retry } : {}) }),
     });
     return "delivered";
   }

@@ -28,7 +28,14 @@ export interface EventContext {
    * no se repite. Si se interrumpe a medias, se repite entero (regla 2): lo que
    * haga fuera de la base de datos tiene que ser idempotente.
    */
-  step<T>(name: string, fn: () => Promise<T>): Promise<T>;
+  step<T>(name: string, fn: () => Promise<T>, retry?: StepRetry): Promise<T>;
+}
+
+/** Reintentos de un paso que lanza (DBOS): para lo que falla de forma pasajera, como un 5xx. */
+export interface StepRetry {
+  maxAttempts: number;
+  intervalSeconds: number;
+  backoffRate: number;
 }
 
 export interface EventHandler {

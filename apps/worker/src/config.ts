@@ -23,6 +23,13 @@ export interface WorkerConfig {
    * respuesta (MANUAL §15.1). Nunca va a los logs.
    */
   aiGatewayApiKey: string | null;
+  /**
+   * La clave de Resend para los emails de aviso (M-02). Opcional: sin ella no
+   * se envía ningún aviso (se registra y se sigue). Nunca va a los logs.
+   */
+  resendApiKey: string | null;
+  /** La URL pública de la web (sin barra final): los enlaces de los avisos. Sin ella, no hay avisos. */
+  webAppUrl: string | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -79,6 +86,24 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
+  // Las claves de Resend empiezan por re_. Vacía cuenta como ausente.
+  RESEND_API_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^re_[A-Za-z0-9_-]{8,200}$/.test(value), "RESEND_API_KEY no parece una clave de Resend (re_…)")
+    .optional(),
+  // HTTPS fuera de local: el enlace va en un email. Sin ruta, credenciales ni parámetros.
+  WEB_APP_URL: z
+    .string()
+    .transform((value) => value.trim().replace(/\/+$/, ""))
+    .refine((value) => {
+      if (value === "") return true;
+      if (!URL.canParse(value)) return false;
+      const url = new URL(value);
+      if (url.username || url.password || url.search || url.hash || url.pathname !== "/") return false;
+      return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
+    }, "WEB_APP_URL: https://dominio (o http:// solo en local), sin ruta, credenciales ni parámetros")
+    .optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -100,5 +125,7 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    resendApiKey: parsed.data.RESEND_API_KEY || null,
+    webAppUrl: parsed.data.WEB_APP_URL || null,
   };
 }

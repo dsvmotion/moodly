@@ -100,10 +100,10 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext)", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification)", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "findBookingSlots", "from", "organizationId", "searchKnowledge"]);
+    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "approvalNotification", "findBookingSlots", "from", "organizationId", "searchKnowledge"]);
   });
 });
 
@@ -194,6 +194,23 @@ describe("tenantDb.agentTurnContext (paso 4d-2)", () => {
 
   it("rechaza un agente que no es un UUID, sin llamar", async () => {
     await expect(db.agentTurnContext(`${AGENT},x`)).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb.approvalNotification (M-02)", () => {
+  const APPROVAL = "5eed0000-0000-4000-8000-0000000000a1";
+
+  it("llama a approval_notification con la organización de este acceso", async () => {
+    await db.approvalNotification(APPROVAL);
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/approval_notification");
+    expect(body).toEqual({ p_organization_id: ORG, p_approval_id: APPROVAL });
+  });
+
+  it("rechaza una aprobación que no es un UUID, sin llamar", async () => {
+    await expect(db.approvalNotification(`${APPROVAL},x`)).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });

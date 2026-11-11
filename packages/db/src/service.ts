@@ -11,6 +11,7 @@ export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
 export {
   TenantScopeError,
   type AgentTurnContext,
+  type ApprovalNotification,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,
