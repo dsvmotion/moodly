@@ -208,6 +208,14 @@ La tarifa española de los mensajes de servicio no está contrastada: se usa la 
 
 En la etapa 2, los mismos planes quedan en el 81 %, el 76 % y el 87 %.
 
+**Para planificar se usa un margen más bajo que el de este modelo** (producto, 2026-11-11: «mejor ser
+precavido»): 35–45 % en los dos primeros años y 55–60 % a escala. Las tablas de arriba son el modelo de
+costes propio, con las etapas 1 y 2 sin construir; el margen que declaran las empresas de IA es menor
+(45 % de media en 2025 según ICONIQ, en torno al 60 % las eficientes según Bessemer, 49,9 % Twilio por el
+coste de la mensajería). Esas referencias se leyeron en resúmenes de los informes, no en el original. La
+tarifa de WhatsApp para España sigue sin verificar en la tabla de Meta: los 0,0166 € por respuesta son la
+tarifa de utilidad usada como aproximación.
+
 La conversación extra a 0,35 € deja un 49 % de margen en la etapa 1 (0,08 € de IA más unos 0,10 € de WhatsApp fuera del tramo gratuito: seis respuestas a 0,0166 €) y es deficitaria en la
 etapa 0 (0,24–0,25 € de IA más el WhatsApp): hasta que el enrutado esté en producción, el tope de gasto
 por organización es lo que limita la exposición.
