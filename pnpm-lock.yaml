@@ -224,6 +224,9 @@ importers:
       '@repo/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@repo/config':
+        specifier: workspace:*
+        version: link:../config
       zod:
         specifier: 4.6.6
         version: 4.6.6
