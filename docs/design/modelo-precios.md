@@ -52,9 +52,9 @@ precio de lista más un margen fijo de plataforma).
 Protección del cliente: límite de gasto mensual. Aviso al 80 %; al 100 %, los agentes
 pasan las conversaciones al equipo.
 
-**Referencias de mercado** (noviembre de 2026, tomadas de resultados de búsqueda y sin
-contrastar en la web de cada empresa): HeyDiga 49–279 €/mes por minutos de voz; Fin (antes
-Intercom) 0,99 $ por resolución más puestos; Treatwell AI Receptionist desde 69 £/mes;
+**Referencias de mercado** (noviembre de 2026; HeyDiga y Fin, contrastados en su web; el resto, de
+resultados de búsqueda sin contrastar): HeyDiga 49–279 €/mes por minutos de voz, con WhatsApp conversacional aparte a 39 €/mes (visto en su web el 2026-11-11); Fin (antes
+Intercom) 0,99 $ por resolución con un mínimo de 49 $/mes (visto en su web el 2026-11-11); Treatwell AI Receptionist desde 69 £/mes;
 Fresha AI Concierge 29,95–99,95 $ por sede y mes. Esencial y Equipo quedan en la franja de
 HeyDiga cubriendo cuatro agentes en lugar de un canal.
 
@@ -99,15 +99,21 @@ Notas oficiales:
 
 **Fuente oficial:** [developers.facebook.com/…/whatsapp/pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing).
 
-Reglas vigentes:
-- Cobro por mensaje de plantilla entregado (desde el 1 jul 2025).
+Reglas vigentes (leídas en la página oficial el 2026-11-11):
+- Cobro por mensaje entregado, por categoría y mercado (desde el 1 jul 2025). Los mensajes
+  del usuario a la empresa no se cobran.
+- **Desde el 1 oct 2026 los mensajes de servicio vuelven a cobrarse** (eran gratis desde el
+  1 nov 2024). Son las respuestas sin plantilla dentro de la ventana de 24 h, es decir,
+  casi todo lo que escribe un agente.
 - Gratis:
-  - mensajes sin plantilla dentro de la ventana de 24 h;
-  - conversaciones de servicio;
-  - plantillas de utilidad dentro de la ventana;
-  - 72 h tras un anuncio Click-to-WhatsApp.
-- Los cambios del 1 oct 2026 **no** empiezan a cobrar estos mensajes. Algunos artículos
-  de terceros dicen lo contrario y se equivocan.
+  - los primeros **1.000 mensajes de servicio al mes por número de teléfono** (no se
+    acumulan);
+  - todo lo enviado en la ventana de punto de entrada gratuito (hasta 7 días tras un
+    anuncio Click-to-WhatsApp).
+- Sin método de pago en la cuenta, Meta deja de entregar los mensajes de servicio.
+
+> **Corrección (2026-11-11):** la versión anterior de este documento decía que los cambios
+> del 1 oct 2026 no cobraban estos mensajes. Era falso y afecta al coste por cliente (§4).
 
 Tarifas para España:
 - Marketing: **0,0509 €** por mensaje.
@@ -184,20 +190,25 @@ auditoría):
 | Concepto | Etapa 0 | Etapa 1 | Etapa 2 |
 |---|---|---|---|
 | IA | 75 € | 24 € | 6 € |
-| WhatsApp (300 recordatorios a 0,0166 €) | 5 € | 5 € | 5 € |
+| WhatsApp: 300 recordatorios y unas 800 respuestas de pago (1.800 menos las 1.000 gratis), a 0,0166 € | 18 € | 18 € | 18 € |
 | Infraestructura (sin medir; 500 €/mes entre 100 clientes) | 5 € | 5 € | 5 € |
-| **Total** | **85 €** | **34 €** | **16 €** |
-| Margen bruto con Esencial (98 €) | 13 % | 65 % | 84 % |
+| **Total** | **98 €** | **47 €** | **29 €** |
+| Margen bruto con Esencial (98 €) | 0 % | 52 % | 70 % |
+
+La tarifa española de los mensajes de servicio no está contrastada: se usa la de utilidad
+(0,0166 €) y seis respuestas por conversación. Confirmarla en el CSV de tarifas de Meta.
 
 **Margen por plan en la etapa 1** (0,08 € por conversación; los volúmenes son supuestos):
 
 | Plan | Ingreso al mes | Coste de servirlo | Margen bruto |
 |---|---|---|---|
-| Esencial, 300 conversaciones | 98 € | 34 € | 65 % |
-| Equipo, 1.000 conversaciones y 3 sedes | 298 € | ≈ 105 € | 65 % |
-| Empresa, 20 sedes y 6.000 conversaciones | 3.000 € | ≈ 630 € | 79 % |
+| Esencial, 300 conversaciones | 98 € | 47 € | 52 % |
+| Equipo, 1.000 conversaciones y 3 sedes | 298 € | ≈ 155 € | 48 % |
+| Empresa, 20 sedes y 6.000 conversaciones | 3.000 € | ≈ 900 € | 70 % |
 
-La conversación extra a 0,25 € deja un 68 % de margen en la etapa 1 y es deficitaria en la
+En la etapa 2, los mismos planes quedan en el 70 %, el 68 % y el 82 %.
+
+La conversación extra a 0,25 € deja un 28 % de margen en la etapa 1 (0,08 € de IA más unos 0,10 € de WhatsApp fuera del tramo gratuito: seis respuestas a 0,0166 €) y es deficitaria en la
 etapa 0 (0,24–0,25 € de coste): hasta que el enrutado esté en producción, el tope de gasto
 por organización es lo que limita la exposición.
 
@@ -230,8 +241,8 @@ proveedor de voz es la decisión que más afecta al margen.
 
 1. **Nivel de precio.** Los importes de §2 quedan a la altura de HeyDiga. Si el
    posicionamiento premium pide estar por encima, la alternativa a estudiar es Esencial
-   149 €, Equipo 399 € y Empresa 200 € por sede (con los mismos costes, 77 %, 74 % y 84 % de
-   margen en la etapa 1). Decide producto con los primeros pilotos.
+   149 €, Equipo 399 € y Empresa 200 € por sede (con los mismos costes, 68 %, 61 % y 78 % de
+   margen en la etapa 1, frente al 52 %, 48 % y 70 % de los importes de §2). Decide producto con los primeros pilotos.
 2. Conversaciones incluidas en cada plan (300 y 1.000 son supuestos).
 3. Confirmar las cifras de Mistral y las tarifas de WhatsApp en las fuentes oficiales
    (Mistral Studio y CSV de Meta).
