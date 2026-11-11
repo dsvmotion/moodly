@@ -10,8 +10,12 @@ import type { TenantDb } from "@repo/db/service";
 // - Al acabar el turno: si hay más mensajes sin cubrir que los recientes que
 //   van siempre enteros, el modelo barato los mete en el resumen y se guarda.
 // - Todo con el organization_id de ctx.db (tenantDb), nunca de lo que diga el
-//   modelo. Si algo falla, el turno no se entera: el siguiente lleva más
-//   mensajes enteros, como antes del resumen.
+//   modelo.
+// - Nada de esto puede dejar un turno sin contestar ni un run sin cerrar: si
+//   leer el resumen falla, el turno va con la historia entera (como antes del
+//   resumen); el run se cierra antes de resumir, y si resumir, guardar o
+//   apuntar su coste falla, se apunta en el log y el siguiente turno lleva más
+//   mensajes enteros. Ninguna de estas funciones lanza.
 
 export interface StoredSummary {
   summary: string;
@@ -26,12 +30,23 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
   return result.data;
 }
 
-export async function loadSummary(db: TenantDb, conversationId: string): Promise<StoredSummary | null> {
-  const row = check(
-    await db.from("conversation_summaries").select("summary, covered_until").eq("conversation_id", conversationId).maybeSingle(),
-    "el resumen de la conversación",
-  );
-  return row ? { summary: row.summary, coveredUntil: row.covered_until } : null;
+/** El resumen guardado; si no se puede leer, ninguno (el turno va con la historia entera) y el porqué. */
+export async function loadSummary(db: TenantDb, conversationId: string): Promise<{ summary: StoredSummary | null; error: string | null }> {
+  try {
+    const row = check(
+      await db.from("conversation_summaries").select("summary, covered_until").eq("conversation_id", conversationId).maybeSingle(),
+      "el resumen de la conversación",
+    );
+    return { summary: row ? { summary: row.summary, coveredUntil: row.covered_until } : null, error: null };
+  } catch (error) {
+    return { summary: null, error: errorName(error) };
+  }
+}
+
+/** El nombre del error y, si viene de la base de datos, su código: nunca el mensaje (puede llevar datos). */
+function errorName(error: unknown): string {
+  const code = error instanceof Error ? /\(([A-Z0-9]{5})\)$/.exec(error.message)?.[1] : undefined;
+  return `${error instanceof Error ? error.name : "Error"}${code ? `(${code})` : ""}`;
 }
 
 /** Los mensajes que el resumen no cubre todavía, del más antiguo al más nuevo. */
@@ -59,9 +74,14 @@ export interface RefreshParams {
   spend: Spend;
 }
 
-/** Decide si hace falta resumir y, si hace falta, pide el resumen al modelo. No escribe nada. */
+/** Decide si hace falta resumir y, si hace falta, pide el resumen al modelo. No escribe nada ni lanza. */
 export async function summarizeStep(params: RefreshParams): Promise<SummaryStep> {
-  const uncovered = await uncoveredMessages(params.db, params.conversationId, params.previous?.coveredUntil ?? null);
+  let uncovered: SummaryMessage[];
+  try {
+    uncovered = await uncoveredMessages(params.db, params.conversationId, params.previous?.coveredUntil ?? null);
+  } catch (error) {
+    return { kind: "skipped", reason: "db_error", error: errorName(error) };
+  }
   const plan = planSummary(uncovered);
   if (!plan) return { kind: "none" };
   const result: SummarizeResult = await summarizeConversation({
@@ -77,13 +97,40 @@ export async function summarizeStep(params: RefreshParams): Promise<SummaryStep>
   return { kind: "updated", summary: result.summary, coveredUntil: plan.coveredUntil, usage: result.usage };
 }
 
-/** Guarda el resumen nuevo: una fila por conversación, de la organización de ctx.db. */
-export async function saveSummary(db: TenantDb, conversationId: string, step: Extract<SummaryStep, { kind: "updated" }>): Promise<void> {
-  const values = { summary: step.summary, covered_until: step.coveredUntil, model: step.usage.model };
-  const updated = await db.from("conversation_summaries").update(values).eq("conversation_id", conversationId).select("conversation_id");
-  if (updated.error) throw new Error(`no se pudo guardar el resumen (${updated.error.code})`);
-  if ((updated.data ?? []).length > 0) return;
-  const inserted = await db.from("conversation_summaries").insert({ conversation_id: conversationId, ...values });
-  // 23505: otro turno lo creó entre medias; se queda el suyo, el siguiente lo pone al día.
-  if (inserted.error && inserted.error.code !== "23505") throw new Error(`no se pudo guardar el resumen (${inserted.error.code})`);
+/** Guarda el resumen nuevo: una fila por conversación, de la organización de ctx.db. Devuelve el error, sin lanzar. */
+export async function saveSummary(db: TenantDb, conversationId: string, step: Extract<SummaryStep, { kind: "updated" }>): Promise<string | null> {
+  try {
+    const values = { summary: step.summary, covered_until: step.coveredUntil, model: step.usage.model };
+    const updated = await db.from("conversation_summaries").update(values).eq("conversation_id", conversationId).select("conversation_id");
+    if (updated.error) throw new Error(`no se pudo guardar el resumen (${updated.error.code})`);
+    if ((updated.data ?? []).length > 0) return null;
+    const inserted = await db.from("conversation_summaries").insert({ conversation_id: conversationId, ...values });
+    // 23505: otro turno lo creó entre medias; se queda el suyo, el siguiente lo pone al día.
+    if (inserted.error && inserted.error.code !== "23505") throw new Error(`no se pudo guardar el resumen (${inserted.error.code})`);
+    return null;
+  } catch (error) {
+    return errorName(error);
+  }
+}
+
+/**
+ * Apunta en el run, ya cerrado, lo que costó el resumen: el total del turno más
+ * el del resumen (valores absolutos: si el paso se repite, no suma dos veces).
+ * Así el gasto del día y los topes lo ven. Devuelve el error, sin lanzar.
+ */
+export async function bookSummaryUsage(
+  db: TenantDb,
+  runId: string,
+  total: { tokensIn: number; tokensOut: number; costEur: number },
+): Promise<string | null> {
+  try {
+    const { error } = await db
+      .from("agent_runs")
+      .update({ tokens_in: total.tokensIn, tokens_out: total.tokensOut, cost_eur: total.costEur })
+      .eq("id", runId);
+    if (error) throw new Error(`no se pudo apuntar el coste del resumen (${error.code})`);
+    return null;
+  } catch (error) {
+    return errorName(error);
+  }
 }
