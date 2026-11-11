@@ -34,6 +34,7 @@ m0_extra: ["Restore the safety check loosened by #156 (packages/evals/src/conver
 findings:
   - {id: "K-03", milestone: "M0", owner: "V4", status: "done", evidence: ["PR #163", "723d604", "PR #165"], note: "El check de afirmaciones vuelve a tratar una condición como afirmar (#163) y el estilo indirecto, «te confirmo que si…», también (#165); solo las preguntas indirectas quedan exentas"}
   - {id: "P-08", milestone: "M0", owner: "V1 + V3", status: "in_progress", evidence: ["PR #162"], note: "Plan del piloto en MANUAL, STATUS y WORKSTREAMS; falta generar STATUS a partir de este registro y el check de documentación en CI"}
+  - {id: "M-07", milestone: "M0", owner: "V2", status: "done", evidence: ["PR #171", "apps/web/e2e/inbox-pages.e2e.ts", "apps/web/e2e/approvals-pages.e2e.ts"], note: "El filtro de local va en la consulta, antes del tope, en la bandeja y en las aprobaciones; la bandeja se pagina por posición. e2e de carga con Demo F (#170): 106 abiertas y 105 cerradas en dos páginas sin repetir ninguna, y lo de F2 sale al elegir F2"}
 
 # Tareas de producto (Diego): lo que ninguna sesión puede hacer. No cuentan en el porcentaje de alcance.
 # El estado lo declara producto; lo que no se puede comprobar desde el repositorio lo dice en la evidencia.

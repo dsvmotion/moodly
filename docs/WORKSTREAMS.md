@@ -192,7 +192,7 @@ R-02 se queda en M1, como dice el registro. #159 y #160 (M2) esperan a OA07.
 
 **V2**
 1. **[M0][G-02]** `safeNextPath` rechaza `/.//evil.test`, `/app/..//evil.test` y `/%2e//evil.test`: abierto.
-2. **[M0][M-07]** El filtro de local va en la consulta, antes del límite, en la bandeja y en las aprobaciones, con la paginación (criterio de cierre del hallazgo): abierto. Los datos de prueba (más de 100 conversaciones en un local y una más antigua en otro) los pone V1 en el seed.
+2. **[M0][M-07]** El filtro de local va en la consulta, antes del límite, en la bandeja y en las aprobaciones, con la paginación (criterio de cierre del hallazgo): **hecho** (#171).
 3. **[M0][M-08]** Las horas se muestran en la zona horaria del local: abierto. **Decisión de producto (2026-11-10):** cada hora va en la zona de su local, y se escribe la zona junto a la hora cuando la organización tiene más de una o cuando el dispositivo de quien mira está en otra zona que el local.
 
 No toca `packages/db`: el cambio se lo pide a V1. El bloqueo del cuadro de respuesta en los canales sin envío real va en M1, con la bandeja.

@@ -70,6 +70,23 @@ export function locationsInScope<T extends VisibleLocation>(scope: Scope, locati
   return [...locations];
 }
 
+/**
+ * El alcance elegido, como filtro para la consulta de una lista. Va en la
+ * consulta y no después porque las listas tienen tope de filas: filtrando
+ * después, lo del local elegido que no entra en el tope desaparece de la
+ * lista (auditoría de preproducción, M-07).
+ * - `any`: sin filtro. RLS ya deja ver solo lo del alcance de la persona,
+ *   también lo de toda la organización (sin local) a quien puede verlo.
+ * - `only`: solo las filas de esos locales, nunca las que no tienen local. Con
+ *   la lista vacía no pasa ninguna.
+ */
+export type LocationFilter = { kind: "any" } | { kind: "only"; locationIds: string[] };
+
+export function locationFilter(scope: Scope, locations: readonly VisibleLocation[]): LocationFilter {
+  if (scope.kind === "all") return { kind: "any" };
+  return { kind: "only", locationIds: locationsInScope(scope, locations).map((location) => location.id) };
+}
+
 export interface ScopedMembership {
   role: MembershipRole | string;
   scopeRegionIds: readonly string[];

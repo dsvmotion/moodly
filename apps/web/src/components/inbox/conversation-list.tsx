@@ -18,15 +18,19 @@ import { SCOPE_PARAM } from "@/lib/scope";
 
 // La lista de la bandeja (P2): pestañas por estado, búsqueda por nombre y una
 // fila por conversación con su último mensaje. Todo vive en la URL (MANUAL
-// §9.4): filtro, búsqueda, alcance y conversación abierta.
+// §9.4): filtro, búsqueda, alcance, página y conversación abierta. Cambiar de
+// pestaña o buscar vuelve a la primera página.
 
 export async function ConversationList({
   conversations,
+  older,
   query,
   selectedId,
   agentLabels,
 }: {
   conversations: InboxConversation[];
+  /** El cursor de la página anterior en el tiempo, o null si no hay más. */
+  older: string | null;
   query: InboxQuery;
   selectedId?: string | undefined;
   agentLabels: ReadonlyMap<string, string>;
@@ -40,7 +44,7 @@ export async function ConversationList({
         {INBOX_FILTERS.map((filter) => (
           <Link
             key={filter}
-            href={inboxHref({ ...query, filter })}
+            href={inboxHref({ ...query, filter, before: null })}
             aria-current={filter === query.filter ? "page" : undefined}
             className={cn(
               "rounded-full border px-3 py-1",
@@ -72,6 +76,14 @@ export async function ConversationList({
           {t("search")}
         </Button>
       </form>
+
+      {query.before ? (
+        <Button asChild variant="outline" size="sm" className="self-start">
+          <Link href={inboxHref({ ...query, before: null })} data-testid="inbox-newest">
+            {t("newest")}
+          </Link>
+        </Button>
+      ) : null}
 
       {conversations.length === 0 ? (
         <EmptyState
@@ -133,6 +145,14 @@ export async function ConversationList({
           })}
         </ul>
       )}
+
+      {older ? (
+        <Button asChild variant="outline" size="sm" className="self-start">
+          <Link href={inboxHref({ ...query, before: older })} data-testid="inbox-older">
+            {t("older")}
+          </Link>
+        </Button>
+      ) : null}
     </div>
   );
 }

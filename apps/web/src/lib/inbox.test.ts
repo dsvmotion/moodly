@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  encodeCursor,
   ilikePattern,
   inboxErrorFor,
   inboxHref,
@@ -8,6 +9,8 @@ import {
   latestByConversation,
   messageSide,
   modesFor,
+  olderThan,
+  parseCursor,
   parseInboxFilter,
   parseSearch,
   previewText,
@@ -152,6 +155,67 @@ describe("inboxHref", () => {
 
   it("codifica el id de la conversación", () => {
     expect(inboxHref({ filter: "open", search: "", scope: null }, "a/b?c")).toBe("/app/inbox/a%2Fb%3Fc");
+  });
+});
+
+// Auditoría de preproducción, M-07: la lista se pagina por posición (la última
+// fila de la página), no por número de página, para que un mensaje nuevo no
+// repita ni se salte conversaciones al pasar de página.
+describe("el cursor de la lista", () => {
+  const withMessages = {
+    lastMessageAt: "2026-11-09T10:01:00.123456+00:00",
+    createdAt: "2026-11-08T09:00:00+00:00",
+    id: "5eed000b-0000-4000-8000-0000000000b1",
+  };
+  const withoutMessages = { ...withMessages, lastMessageAt: null };
+
+  it("va y vuelve de la URL sin perder nada", () => {
+    expect(parseCursor(encodeCursor(withMessages))).toEqual(withMessages);
+    expect(parseCursor(encodeCursor(withoutMessages))).toEqual(withoutMessages);
+    expect(parseCursor([encodeCursor(withMessages), "otro"])).toEqual(withMessages);
+  });
+
+  it.each([
+    undefined,
+    null,
+    "",
+    42,
+    "~",
+    "ayer~hoy~uno",
+    // Fechas o id que no lo son.
+    "2026-11-09~2026-11-08T09:00:00+00:00~5eed000b-0000-4000-8000-0000000000b1",
+    "2026-11-09T10:01:00+00:00~2026-11-08T09:00:00+00:00~b1",
+    // Sin fecha de creación.
+    "2026-11-09T10:01:00+00:00~~5eed000b-0000-4000-8000-0000000000b1",
+    // Intentos de colar otro filtro en la consulta.
+    "2026-11-09T10:01:00+00:00~2026-11-08T09:00:00+00:00~5eed000b-0000-4000-8000-0000000000b1),id.neq.x",
+    '2026-11-09T10:01:00+00:00",id.neq."x~2026-11-08T09:00:00+00:00~5eed000b-0000-4000-8000-0000000000b1',
+    "2026-11-09T10:01:00+00:00~2026-11-08T09:00:00+00:00~5eed000b-0000-4000-8000-0000000000b1~de-mas",
+  ])("%j no es un cursor: la lista empieza por el principio", (value) => {
+    expect(parseCursor(value)).toBeNull();
+  });
+
+  it("lo anterior a una conversación con mensajes: mensajes más antiguos, el desempate y las que no tienen mensajes", () => {
+    expect(olderThan(withMessages)).toEqual({
+      onlyWithoutMessages: false,
+      or: 'last_message_at.lt."2026-11-09T10:01:00.123456+00:00",last_message_at.is.null,and(last_message_at.eq."2026-11-09T10:01:00.123456+00:00",or(created_at.lt."2026-11-08T09:00:00+00:00",and(created_at.eq."2026-11-08T09:00:00+00:00",id.lt.5eed000b-0000-4000-8000-0000000000b1)))',
+    });
+  });
+
+  it("lo anterior a una conversación sin mensajes: solo otras sin mensajes, creadas antes", () => {
+    expect(olderThan(withoutMessages)).toEqual({
+      onlyWithoutMessages: true,
+      or: 'created_at.lt."2026-11-08T09:00:00+00:00",and(created_at.eq."2026-11-08T09:00:00+00:00",id.lt.5eed000b-0000-4000-8000-0000000000b1)',
+    });
+  });
+
+  it("el enlace a la página anterior lleva el cursor, y las conversaciones abiertas desde ella lo conservan", () => {
+    const before = encodeCursor(withMessages);
+    const href = inboxHref({ filter: "human", search: "", scope: null, before });
+    expect(new URL(href, "http://x").searchParams.get("before")).toBe(before);
+    expect(new URL(inboxHref({ filter: "open", search: "", scope: null, before }, "c-1"), "http://x").searchParams.get("before")).toBe(
+      before,
+    );
   });
 });
 

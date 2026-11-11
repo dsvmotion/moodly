@@ -10,14 +10,14 @@ import { loadInboxPage, type InboxSearchParams } from "@/lib/inbox-page";
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<InboxSearchParams> }) {
   await requireUser();
-  const [{ query, conversations, agentLabels }, t] = await Promise.all([
+  const [{ query, conversations, older, agentLabels }, t] = await Promise.all([
     searchParams.then(loadInboxPage),
     getTranslations("inboxPage"),
   ]);
   return (
     <InboxLayout
       hasSelection={false}
-      list={<ConversationList conversations={conversations} query={query} agentLabels={agentLabels} />}
+      list={<ConversationList conversations={conversations} older={older} query={query} agentLabels={agentLabels} />}
       detail={
         <p className="text-muted-foreground rounded-lg border border-dashed p-12 text-center text-sm" data-testid="inbox-choose">
           {t("choose")}

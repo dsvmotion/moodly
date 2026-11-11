@@ -33,7 +33,13 @@ export default async function InboxConversationPage({
     <InboxLayout
       hasSelection
       list={
-        <ConversationList conversations={page.conversations} query={page.query} selectedId={id} agentLabels={page.agentLabels} />
+        <ConversationList
+          conversations={page.conversations}
+          older={page.older}
+          query={page.query}
+          selectedId={id}
+          agentLabels={page.agentLabels}
+        />
       }
       detail={
         <ConversationThread
