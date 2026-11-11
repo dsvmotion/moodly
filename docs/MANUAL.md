@@ -677,7 +677,7 @@ Reglas:
 
 ### 5.11 Modelos, coste y fiabilidad **[PROPUESTO; enrutador: ADR 0033, `packages/agent-core/src/models`]**
 
-El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`) al `ModelRouter`. La tarea se resuelve a una clave lógica (`fast`, `smart` o `embedding`, en `@repo/config`). Antes de llamar, el enrutador aplica la política de la organización: residencia, proveedores permitidos, modo de conexión sin caer de BYOK a Moodly, y topes de gasto por run y por día. Ningún código fuera de `models/transports` importa un SDK de proveedor (test estructural).
+El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`) al `ModelRouter`. La tarea se resuelve a una clave lógica (`fast`, `balanced`, `smart` o `embedding`, en `@repo/config`; `balanced` es el escalón intermedio entre `fast` y `smart`, B-01). Antes de llamar, el enrutador aplica la política de la organización: residencia, proveedores permitidos, modo de conexión sin caer de BYOK a Moodly, y topes de gasto por run y por día. Ningún código fuera de `models/transports` importa un SDK de proveedor (test estructural).
 
 - Los modelos se definen en `packages/config` por tarea (clasificación, conversación, razonamiento complejo, extracción). Nunca hay IDs de modelo escritos en el código de negocio.
 - **Modelos capaces [DECIDIDO: producto, 2026-11-03]:** los que pueden hacer el trabajo y ejecutar lo que se les pide. Razonar usa el modelo potente (`smart`); el ligero (`fast`), clasificar y extraer. Para conversar manda la regla siguiente. La tabla con IDs y precios está en `@repo/config` (`GATEWAY_MODELS`, ADR 0033 §7).
