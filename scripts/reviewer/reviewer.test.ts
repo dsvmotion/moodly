@@ -65,6 +65,13 @@ describe("comprobaciones fijas", () => {
     assert.deepEqual(idsFromTitle("[M0][SE01][P-08] Algo"), ["SE01", "P-08"]);
     assert.deepEqual(idsFromTitle("Algo sin id"), []);
     assert.deepEqual(idsFromTitle("feat: [M0][P-08] tarde"), []);
+    assert.deepEqual(idsFromTitle("[M1][PL-T3] Caché"), ["PL-T3"]);
+    assert.deepEqual(idsFromTitle("[M1][PL-ledger][B-01] Coste"), ["PL-ledger", "B-01"]);
+    assert.deepEqual(idsFromTitle("[M1][OA19] Objetivos"), ["OA19"]);
+    assert.deepEqual(idsFromTitle("[M2][ch-whatsapp] Canal"), ["ch-whatsapp"]);
+    assert.deepEqual(idsFromTitle("[M1][P 08] Espacio"), []);
+    assert.deepEqual(idsFromTitle("[M1][-P08] Guion inicial"), []);
+    assert.deepEqual(idsFromTitle("[M6][P-08] Hito que no existe"), []);
   });
   it("ve las filas que el diff pone en done", () => {
     const diff = ['-  - {id: "M-07", status: "in_progress", evidence: ["PR #1"]}', '+  - {id: "M-07", status: "done", evidence: ["x"]}', '+++ b/docs/scope.yaml'].join("\n");
