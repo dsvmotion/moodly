@@ -218,6 +218,9 @@ jobs:
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Un fallo de `gh` (red, límite de la API) no puede poner el CI en rojo ni
+    # bloquear el despliegue a staging, que espera a este workflow.
+    continue-on-error: true
     permissions:
       contents: read
       issues: write
@@ -230,6 +233,14 @@ jobs:
     steps:
       - name: Abrir, actualizar o cerrar el issue «main en rojo»
         run: |
+          # Las corridas de main van en paralelo: una corrida vieja no abre, comenta ni
+          # cierra nada; lo hace la del commit que es hoy la cabeza de main (si no se
+          # sabe cuál es, no se hace nada).
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
+          if [ "$head" != "$SHA" ]; then
+            echo "::notice::Sin cambios en el issue: $SHA ya no es la cabeza de main"
+            exit 0
+          fi
           title="main en rojo"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           red=false

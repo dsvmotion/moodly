@@ -49,15 +49,49 @@ env:
   VERCEL_TEAM_ID: team_GntqBZyHYlk3Dei89qjxRwhK
 
 jobs:
-  migrations:
-    name: staging · migraciones
-    # workflow_run filtra por el nombre de la rama de origen, y un PR desde un
-    # fork puede llamar a su rama «main»: solo vale un push a este repositorio.
+  # P-04: el CI de main corre en paralelo (una corrida por commit), así que un
+  # commit viejo puede terminar después de uno nuevo y desplegar hacia atrás
+  # (`db push` falla o `config push` revierte staging). Solo se despliega el commit
+  # que sigue siendo la cabeza de main; si no, este despliegue se salta con un aviso
+  # y el del commit más nuevo (que ya lo incluye) se encarga.
+  fresh:
+    name: staging · ¿sigue siendo la cabeza de main?
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      current: ${{ steps.head.outputs.current }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - id: head
+        run: |
+          # Si no se puede saber, no se despliega: es lo seguro (se puede relanzar a mano).
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
+          if [ -n "$head" ] && [ "$head" = "$DEPLOY_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Despliegue omitido: $DEPLOY_SHA ya no es la cabeza de main (${head:-desconocida}); lo despliega la corrida de un commit más nuevo"
+          fi
+
+  migrations:
+    name: staging · migraciones
+    needs: fresh
+    # workflow_run filtra por el nombre de la rama de origen, y un PR desde un
+    # fork puede llamar a su rama «main»: solo vale un push a este repositorio.
+    if: >-
+      needs.fresh.outputs.current == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: staging
