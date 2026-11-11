@@ -213,7 +213,7 @@ for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/rollbac
   check_case "sensible: $path" 1 "$path"
 done
 
-echo "== lista activa (lista corta de M0, P-01)"
+echo "== lista activa: vacía (decisión de producto, 2026-11-11)"
 (
   unset SENSITIVE_PATTERNS
   for path in packages/db/supabase/migrations/1_x.sql packages/db/supabase/tests/database/01_x.test.sql \
@@ -225,8 +225,8 @@ echo "== lista activa (lista corta de M0, P-01)"
     package.json apps/web/package.json pnpm-lock.yaml packages/db/src/service.ts scripts/supabase/config-drift.sh pnpm-workspace.yaml .npmrc apps/web/.npmrc; do
     echo "$path" > "$tmp/paths.txt"
     status=0; bash "$check_sensitive" "$tmp/paths.txt" > /dev/null || status=$?
-    if [[ $status -eq 1 ]]; then echo "✓ activa, sensible: $path → 1"
-    else echo "✗ activa, $path → $status (esperado 1)"; exit 1; fi
+    if [[ $status -eq 0 ]]; then echo "✓ activa vacía, no sensible: $path → 0"
+    else echo "✗ activa vacía, $path → $status (esperado 0)"; exit 1; fi
   done
   for path in apps/web/src/app/app/inbox/page.tsx packages/evals/src/conversations/checks.ts docs/STATUS.md \
     docs/WORKSTREAMS.md docs/scope.yaml apps/worker/src/agents/converse.ts; do
@@ -281,6 +281,21 @@ wf_case "solo da por buenos PRs contra la rama por defecto" grep -Fq 'if [[ "$BA
 gate_base_status=0; bash "$root/scripts/merge-guard/sensitive-gate.sh" base labeled true > /dev/null || gate_base_status=$?
 wf_case "con otra base, el veredicto es fail aunque lleve la etiqueta" test "$gate_base_status" -eq 1
 wf_case "el resultado de la guarda no pasa por una tubería" bash -c '! grep -Eq "check-sensitive\.sh[^|]*\| *tee" "$1"' _ "$workflow"
+
+echo "== el workflow de la Revisora corre desde la rama base y no ejecuta el PR (SE01)"
+workflow="$root/.github/workflows/revisora.yml"
+wf_case "se dispara con pull_request_target" grep -Eq '^  pull_request_target:' "$workflow"
+wf_case "no se dispara con pull_request (correría la versión del PR)" bash -c '! grep -Eq "^  pull_request:" "$1"' _ "$workflow"
+wf_case "nunca hace checkout del head del PR" bash -c '! grep -Eq "pull_request\.head\.(sha|ref)|github\.head_ref|refs/pull/" "$1"' _ "$workflow"
+wf_case "el checkout es el de la rama base" grep -Fq 'ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}' "$workflow"
+wf_case "el checkout no guarda credenciales" grep -Fq 'persist-credentials: false' "$workflow"
+wf_case "sin permisos por defecto en el workflow ni en el job" bash -c '[[ $(grep -cE "^ *permissions: \{\}" "$1") -ge 2 ]]' _ "$workflow"
+wf_case "no instala dependencias (no corre código de paquetes del PR)" bash -c '! grep -Eq "(pnpm|npm|yarn) (install|ci)|npx " "$1"' _ "$workflow"
+wf_case "no revisa borradores ni PRs contra otras ramas" grep -Fq "github.event.pull_request.draft == false && github.event.pull_request.base.ref == 'main'" "$workflow"
+wf_case "las claves solo en el entorno reviewer" grep -Eq '^    environment: reviewer$' "$workflow"
+wf_case "el token de la App solo con pull requests (escritura) y contenidos (lectura)" bash -c 'grep -q "permission-pull-requests: write" "$1" && grep -q "permission-contents: read" "$1" && [[ $(grep -c "permission-" "$1") -eq 2 ]]' _ "$workflow"
+wf_case "todas las acciones fijadas a un commit" bash -c '! grep -E "uses: " "$1" | grep -Ev "@[0-9a-f]{40}( |$)"' _ "$workflow"
+wf_case "el nivel 1 no aprueba hasta correr el set (producto, 2026-11-10)" grep -Eq '^export const LEVEL1_CAN_APPROVE = false;$' "$root/scripts/reviewer/config.ts"
 
 echo "== required-checks.txt y required-statuses.txt"
 if grep -qxF sensitive-paths "$root/scripts/merge-guard/required-statuses.txt" && ! grep -qxF sensitive-paths "$root/scripts/merge-guard/required-checks.txt"; then

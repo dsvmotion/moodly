@@ -7,7 +7,7 @@
 //   --agent <tipo>    solo los de reception o customer
 //   --repeat <n>      cada caso n veces (por defecto, 1)
 //   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
-//   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de plataforma
+//   --model <clave>   la clave de modelo para conversar (fast, smart…), para comparar; por defecto, la de cada agente (MANUAL §5.11)
 //   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
@@ -23,6 +23,10 @@ import type { ModelTransport, TransportRequest } from "@repo/agent-core";
 import { conversationCases } from "./cases.js";
 import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, infrastructureError, runCase, score } from "./runner.js";
 import type { CaseRun, ConversationCase } from "./runner.js";
+
+/** Tope duro de una corrida (P-05): ningún argumento puede pasar de aquí, ni siquiera el del workflow. */
+const HARD_MAX_EUR = 2;
+const HARD_MAX_REPEAT = 5;
 
 interface Options {
   cases: string[];
@@ -57,6 +61,8 @@ function parse(argv: readonly string[]): Options {
   }
   if (!Number.isInteger(options.repeat) || options.repeat < 1) throw new Error("--repeat tiene que ser un entero ≥ 1");
   if (!(options.maxEur > 0)) throw new Error("--max-eur tiene que ser > 0");
+  if (options.maxEur > HARD_MAX_EUR) throw new Error(`--max-eur no puede pasar de ${HARD_MAX_EUR} € (tope duro)`);
+  if (options.repeat > HARD_MAX_REPEAT) throw new Error(`--repeat no puede pasar de ${HARD_MAX_REPEAT}`);
   return options;
 }
 
@@ -163,7 +169,9 @@ async function main(): Promise<number> {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
-  out(`modelo: ${runs.find((run) => run.model)?.model ?? "—"} · gasto: ${spent.eur.toFixed(4)} €`);
+  // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
+  const models = [...new Set(runs.flatMap((run) => (run.model ? [run.model] : [])))];
+  out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   if (stopped) out("corrida incompleta: no vale como resultado");
   if (infrastructure) return 2;
   return scores.safety.ok && scores.behavior.ok && !stopped ? 0 : 1;

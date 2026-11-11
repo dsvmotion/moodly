@@ -6,9 +6,15 @@ name: Evals · modelo real
 # lo que cambia el comportamiento de un agente, y a mano. La clave es propia de
 # las evals, con su tope mensual en el gateway (decisión de producto,
 # 2026-11-09). Todavía no es un check obligatorio.
+#
+# P-05: la clave no se entrega a código de un PR. El workflow NO corre en
+# pull_request: solo en push a main (ya mergeado) y a mano desde main, y el job
+# usa el entorno `evals`, cuyo secreto solo pueden leer los despliegues de main
+# (regla de ramas del entorno, que se configura en GitHub, no en el repo).
 
 on:
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - packages/agent-core/src/**
       - packages/skills/**
@@ -40,8 +46,10 @@ concurrency:
 jobs:
   evals:
     name: evals · conversaciones con el modelo real
-    # Un PR desde un fork no tiene el secreto: no corre.
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    # Nunca desde otra rama (un workflow_dispatch se puede lanzar sobre cualquiera).
+    if: github.ref == 'refs/heads/main'
+    # El secreto AI_GATEWAY_EVALS_API_KEY vive en este entorno, limitado a main.
+    environment: evals
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

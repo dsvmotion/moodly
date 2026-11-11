@@ -35,10 +35,10 @@ export const COUNTRY_LOCALE = {
 // Textos de la cabecera, el pie y los avisos comunes, en los cuatro idiomas.
 export const UI = {
   es: {
-    badges: [["Seguridad de nivel enterprise", "Cifrado y aislamiento por cliente"], ["Despliegue donde quieras", "Nube gestionada, tu nube u on-premise"], ["Diseñado para el RGPD", "Alojamiento en la UE [por confirmar]"]],
+    badges: [["Seguridad de nivel enterprise", "Cifrado y aislamiento por cliente"], ["Tú apruebas lo importante", "Lo sensible pasa por tu visto bueno"], ["Diseñado para el RGPD", "Alojamiento en la UE [por confirmar]"]],
     moreSecurity: "Más sobre seguridad", languages: "Idiomas", vuln: "Política de divulgación de vulnerabilidades", city: "Madrid", address: ["[Dirección de la oficina]", "[Código postal] Madrid", "España"],
     platform: "Plataforma", sectors: "Sectores", resources: "Recursos", security: "Seguridad", enterprise: "Enterprise", pricing: "Precios",
-    login: "Entrar", talkSales: "Hablar con ventas", demo: "Pedir demo", agents: "Agentes", openMenu: "Abrir menú", closeMenu: "Cerrar menú", language: "Idioma",
+    talkSales: "Hablar con ventas", demo: "Pedir demo", agents: "Agentes", openMenu: "Abrir menú", closeMenu: "Cerrar menú", language: "Idioma",
     seePlatform: ["Ver la plataforma", "Cómo es por dentro y cómo se pone en marcha, con capturas reales.", "Ver la presentación"],
     cases: ["Casos de uso →", "Cómo trabajan los agentes en negocios como el tuyo."],
     noSector: ["¿Tu sector no está?", "Partimos de la plantilla más cercana y la adaptamos a tu negocio.", "Hablar con nosotros"],
@@ -51,10 +51,10 @@ export const UI = {
     translating: null,
   },
   en: {
-    badges: [["Enterprise-grade security", "Encryption and per-customer isolation"], ["Deployable anywhere", "Managed, your own cloud or on-prem"], ["Built for GDPR", "EU hosting [to be confirmed]"]],
+    badges: [["Enterprise-grade security", "Encryption and per-customer isolation"], ["You approve what matters", "Anything sensitive needs your sign-off"], ["Built for GDPR", "EU hosting [to be confirmed]"]],
     moreSecurity: "More about security", languages: "Languages", vuln: "Vulnerability disclosure policy", city: "Madrid", address: ["[Office address]", "[Postcode] Madrid", "Spain"],
     platform: "Platform", sectors: "Industries", resources: "Resources", security: "Security", enterprise: "Enterprise", pricing: "Pricing",
-    login: "Log in", talkSales: "Talk to sales", demo: "Book a demo", agents: "Agents", openMenu: "Open menu", closeMenu: "Close menu", language: "Language",
+    talkSales: "Talk to sales", demo: "Book a demo", agents: "Agents", openMenu: "Open menu", closeMenu: "Close menu", language: "Language",
     seePlatform: ["See the platform", "What it looks like inside and how you get started, with real screenshots.", "See the overview"],
     cases: ["Use cases →", "How the agents work in businesses like yours."],
     noSector: ["Industry not listed?", "We start from the closest template and adapt it to your business.", "Talk to us"],
@@ -67,10 +67,10 @@ export const UI = {
     translating: "We're translating this page. Some content is still shown in Spanish.",
   },
   fr: {
-    badges: [["Sécurité de niveau entreprise", "Chiffrement et isolation par client"], ["Déployable partout", "Cloud géré, votre cloud ou sur site"], ["Conçu pour le RGPD", "Hébergement dans l'UE [à confirmer]"]],
+    badges: [["Sécurité de niveau entreprise", "Chiffrement et isolation par client"], ["Vous validez l'essentiel", "Tout ce qui est sensible passe par votre accord"], ["Conçu pour le RGPD", "Hébergement dans l'UE [à confirmer]"]],
     moreSecurity: "En savoir plus sur la sécurité", languages: "Langues", vuln: "Politique de divulgation des vulnérabilités", city: "Madrid", address: ["[Adresse du bureau]", "[Code postal] Madrid", "Espagne"],
     platform: "Plateforme", sectors: "Secteurs", resources: "Ressources", security: "Sécurité", enterprise: "Entreprise", pricing: "Tarifs",
-    login: "Connexion", talkSales: "Parler aux ventes", demo: "Demander une démo", agents: "Agents", openMenu: "Ouvrir le menu", closeMenu: "Fermer le menu", language: "Langue",
+    talkSales: "Parler aux ventes", demo: "Demander une démo", agents: "Agents", openMenu: "Ouvrir le menu", closeMenu: "Fermer le menu", language: "Langue",
     seePlatform: ["Voir la plateforme", "À quoi elle ressemble et comment démarrer, avec de vraies captures.", "Voir la présentation"],
     cases: ["Cas d'usage →", "Comment les agents travaillent dans des entreprises comme la vôtre."],
     noSector: ["Votre secteur n'y est pas ?", "Nous partons du modèle le plus proche et l'adaptons à votre activité.", "Nous contacter"],
@@ -83,10 +83,10 @@ export const UI = {
     translating: "Traduction en cours. Une partie du contenu est encore en espagnol.",
   },
   de: {
-    badges: [["Sicherheit auf Enterprise-Niveau", "Verschlüsselung und Isolierung pro Kunde"], ["Überall einsetzbar", "Verwaltet, eigene Cloud oder On-Premise"], ["Für die DSGVO entwickelt", "Hosting in der EU [wird bestätigt]"]],
+    badges: [["Sicherheit auf Enterprise-Niveau", "Verschlüsselung und Isolierung pro Kunde"], ["Du gibst das Wichtige frei", "Alles Heikle braucht deine Freigabe"], ["Für die DSGVO entwickelt", "Hosting in der EU [wird bestätigt]"]],
     moreSecurity: "Mehr zur Sicherheit", languages: "Sprachen", vuln: "Richtlinie zur Offenlegung von Schwachstellen", city: "Madrid", address: ["[Büroadresse]", "[PLZ] Madrid", "Spanien"],
     platform: "Plattform", sectors: "Branchen", resources: "Ressourcen", security: "Sicherheit", enterprise: "Enterprise", pricing: "Preise",
-    login: "Anmelden", talkSales: "Vertrieb kontaktieren", demo: "Demo anfragen", agents: "Agenten", openMenu: "Menü öffnen", closeMenu: "Menü schließen", language: "Sprache",
+    talkSales: "Vertrieb kontaktieren", demo: "Demo anfragen", agents: "Agenten", openMenu: "Menü öffnen", closeMenu: "Menü schließen", language: "Sprache",
     seePlatform: ["Plattform ansehen", "So sieht sie aus und so startest du, mit echten Screenshots.", "Übersicht ansehen"],
     cases: ["Anwendungsfälle →", "So arbeiten die Agenten in Betrieben wie deinem."],
     noSector: ["Deine Branche fehlt?", "Wir starten mit der passendsten Vorlage und passen sie an deinen Betrieb an.", "Sprich mit uns"],

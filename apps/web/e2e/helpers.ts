@@ -159,3 +159,11 @@ export async function completeMfa(page: Page, secret: string): Promise<void> {
 export async function texts(page: Page, testId: string): Promise<string[]> {
   return (await page.getByTestId(testId).allInnerTexts()).map((t) => t.trim()).sort();
 }
+
+/**
+ * Insignias de la barra lateral fuera de Aprobaciones y Bandeja, las dos
+ * entradas con contador de pendientes (M-02). Las pruebas esperan cero: en el
+ * resto de secciones no hay contadores inventados.
+ */
+export const OTHER_THAN_COUNTED_BADGES =
+  'li:not(:has([data-testid="nav-approvals"])):not(:has([data-testid="nav-inbox"])) [data-slot="badge"]';
