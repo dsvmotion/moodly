@@ -226,6 +226,18 @@ echo "== lista activa (lista corta de M0, P-01)"
   else echo "✗ con la lista activa, un test.skip no bloquea → $status (esperado 1)"; exit 1; fi
 ) && passed=$((passed + 24)) || failed=$((failed + 1))
 
+echo "== entradas que no se pueden releer (\`<(…)\`, como en el procedimiento de mergeo)"
+# La guarda lee la lista de rutas una vez por patrón. Con una tubería, solo el
+# primer patrón veía las rutas y el resultado salía limpio sin serlo.
+procsub_case() { # descripción exit-esperado rutas diff
+  local desc="$1" want="$2" paths="$3" patch="$4" status=0
+  bash "$check_sensitive" <(printf '%b' "$paths") <(printf '%b' "$patch") > /dev/null || status=$?
+  if [[ $status -eq $want ]]; then echo "✓ $desc → $status"; passed=$((passed + 1)); else echo "✗ $desc → $status (esperado $want)"; failed=$((failed + 1)); fi
+}
+procsub_case "una ruta sensible que no es la del primer patrón" 1 "docs/STATUS.md\nCLAUDE.md\n" ""
+procsub_case "un archivo de test borrado" 1 "apps/web/src/x.test.ts\n" "diff --git a/apps/web/src/x.test.ts b/apps/web/src/x.test.ts\ndeleted file mode 100644\n"
+procsub_case "nada sensible" 0 "docs/STATUS.md\n" "diff --git a/docs/STATUS.md b/docs/STATUS.md\n+x\n"
+
 echo "== el workflow de la guarda corre desde la rama base (P-01)"
 workflow="$root/.github/workflows/sensitive-paths.yml"
 wf_case() { # descripción comando

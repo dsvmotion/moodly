@@ -19,8 +19,22 @@ if [[ $# -lt 1 || ! -r "$1" ]]; then
   echo "uso: $0 <archivo-con-rutas> [<archivo-con-diff>]" >&2
   exit 2
 fi
-files="$1"
-diff="${2:-}"
+# Copia de las entradas: se leen una vez por patrón, y una entrada que no se
+# puede releer (`<(…)`, una tubería) dejaría vacías todas las lecturas después
+# de la primera y el resultado saldría limpio sin serlo.
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+cat -- "$1" > "$work/files"
+files="$work/files"
+diff=""
+if [[ -n "${2:-}" ]]; then
+  if [[ ! -r "$2" ]]; then
+    echo "no se puede leer el diff: $2" >&2
+    exit 2
+  fi
+  cat -- "$2" > "$work/diff"
+  diff="$work/diff"
+fi
 found=0
 
 while IFS=$'\t' read -r regex why || [[ -n "$regex" ]]; do
