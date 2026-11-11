@@ -3,6 +3,19 @@ import LangLink from "@/components/lang-link";
 import PageShell, { card, h2, h3, muted, pillBtn, section, wrap } from "@/components/page-shell";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
+
+// Unidad de docs/scope.yaml de cada pilar, opción de despliegue y punto de gobierno (N-01;
+// regla de V1 del 2026-11-11). null = sin unidad: no se enseña. Mismo índice en los cuatro idiomas.
+const UNITS = {
+  pillars: ["OA05", "OA08", "SE04"],
+  deploy: ["PL-prod", "PL-cells", "PL-cells", null],
+  governance: ["OA15", "PL-sso", "SE04", null, "OA14", "E11"],
+};
+for (const [lang, c] of Object.entries(COPY)) for (const [f, u] of Object.entries(UNITS)) {
+  if (c[f].length !== u.length) throw new Error(`enterprise: ${lang}.${f} tiene ${c[f].length} y UNITS ${u.length}`);
+}
+const withUnits = (list, units) => list.map((x, i) => [x, units[i]]).filter(([, u]) => u !== null);
 
 export default function Enterprise() {
   const lang = useLang();
@@ -29,10 +42,11 @@ export default function Enterprise() {
 
       <section style={section}>
         <div style={{ ...wrap, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px" }}>
-          {t.pillars.map(([title, d], i) => {
+          {withUnits(t.pillars, UNITS.pillars).map(([[title, d], unit], i) => {
             const [bg, fg] = PILLAR_COLORS[i];
             return (<div key={i} style={{ ...card, background: bg, color: fg, border: bg === "#ffffff" ? card.border : 0, minHeight: "260px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <h3 style={{ ...h3, fontSize: "22px", lineHeight: "26px" }}>{title}</h3>
+              <AvailabilityBadge id={unit} lang={lang} />
               <p style={{ margin: 0, fontSize: "16px", lineHeight: "24px", opacity: 0.75 }}>{d}</p>
             </div>);
           })}
@@ -61,9 +75,10 @@ export default function Enterprise() {
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
           <h2 style={h2}>{t.deployA} <span style={muted}>{t.deployB}</span></h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
-            {t.deploy.map(([title, d, tier], i) => (
+            {withUnits(t.deploy, UNITS.deploy).map(([[title, d, tier], unit], i) => (
               <div key={i} style={{ ...card, background: i === 0 ? "#e8edff" : "#ffffff", minHeight: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
                 <h3 style={h3}>{title}</h3>
+                <AvailabilityBadge id={unit} lang={lang} />
                 <p style={{ margin: 0, fontSize: "15px", lineHeight: "22px", ...muted }}>{d}</p>
                 <span style={{ marginTop: "auto", alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: i === 0 ? "#2457f5" : "#f2f2f4", color: i === 0 ? "#ffffff" : "#000000", fontSize: "12px", lineHeight: "16px" }}>{tier}</span>
               </div>
@@ -76,7 +91,7 @@ export default function Enterprise() {
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
           <h2 style={h2}>{t.govA} <span style={muted}>{t.govB}</span></h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
-            {t.governance.map(([title, d]) => (<div key={title} style={{ ...card, padding: "22px", display: "flex", flexDirection: "column", gap: "6px" }}><span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{title}</span><span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{d}</span></div>))}
+            {withUnits(t.governance, UNITS.governance).map(([[title, d], unit]) => (<div key={title} style={{ ...card, padding: "22px", display: "flex", flexDirection: "column", gap: "6px" }}><span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{title}</span><AvailabilityBadge id={unit} lang={lang} /><span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>{d}</span></div>))}
           </div>
         </div>
       </section>
