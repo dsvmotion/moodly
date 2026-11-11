@@ -86,7 +86,7 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 - Mergear un PR sin cumplir el procedimiento de la sección siguiente (CI en verde sobre el commit exacto y sin tests debilitados). Poner o quitar la etiqueta `revisado-humano`.
 
 ## Mergeo autónomo de tus propios PRs
-**Decisión de producto (2026-10-22): mientras no haya datos reales de clientes, el agente mergea sus propios PRs, también los que tocan zonas sensibles, sin esperar la etiqueta `revisado-humano`.** La lista de zonas sensibles está suspendida (`scripts/merge-guard/sensitive-paths.txt` vacía; la completa se conserva en `sensitive-paths.suspended.txt`). **Antes de meter el primer dato real de un cliente hay que reactivarla**, al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda: es condición de salida a producción en `docs/STATUS.md`.
+**Decisión de producto (2026-10-22, cambiada en el hito M0, 2026-11-10):** mientras no haya datos reales de clientes, el agente mergea sus propios PRs con el procedimiento de abajo, salvo los que tocan la **lista corta de zonas sensibles** (`scripts/merge-guard/sensitive-paths.txt`): migraciones, SQL, `config.toml`, auth, secretos, `.github/`, la guarda (`scripts/merge-guard/` y `scripts/safe-merge.sh`), y lo que cargan las sesiones de Claude Code: `.claude/`, `.mcp.json`, `AGENTS.md` y `CLAUDE.md`, también en subcarpetas. Esos PRs necesitan el veredicto de una sesión Revisora y la etiqueta `revisado-humano` sobre su commit actual, que pone producto (decisión #7; `docs/WORKSTREAMS.md`). La guarda corre desde la rama base (`pull_request_target`, que GitHub ejecuta siempre con el workflow de `main`) y lee el PR por la API, sin ejecutar su código: un PR no puede cambiar la guarda que lo revisa (P-01). Publica su veredicto como el check `sensitive-paths` en el head del PR. **Riesgo abierto hasta F03:** ese check lo firma la app «GitHub Actions», la misma que firma los jobs del propio PR, así que un PR con un workflow suyo podría publicar un `sensitive-paths` falso o reescribir el de la guarda. Se cierra cuando lo publique una App propia y la protección de `main` exija esa App. La lista completa se conserva en `sensitive-paths.suspended.txt` y **se reactiva entera antes de meter el primer dato real de un cliente**: es condición de salida a producción en `docs/STATUS.md`.
 
 Solo se mergea si se cumple **todo** lo siguiente. Si algo falla o hay dudas, **no mergees**: para y avisa a producto.
 1. **CI en verde sobre el head commit actual:** cada check de `scripts/merge-guard/required-checks.txt` existe y su ejecución más reciente sobre ese commit exacto está en `SUCCESS`.
@@ -95,7 +95,7 @@ Solo se mergea si se cumple **todo** lo siguiente. Si algo falla o hay dudas, **
 
 Cómo:
 - **Con `gh` autenticado:** `scripts/safe-merge.sh <n>`, que hace los tres pasos.
-- **Sin `gh` (sesiones en la nube):** los mismos pasos con el conector de GitHub: leer los check runs del head, ejecutar `check-sensitive.sh` sobre los archivos y el diff del PR, y mergear con `merge_method: squash` y `expectedHeadSha` = el commit comprobado. Nunca mergear sin `expectedHeadSha`.
+- **Sin `gh` (sesiones en la nube):** los mismos pasos con el conector de GitHub: leer los check runs del head, ejecutar el `check-sensitive.sh` de `origin/main` (nunca el del PR) sobre los archivos y el diff del PR, guardados en archivos, y no mergear si algún check `sensitive-paths` del head ha fallado; después, mergear con `merge_method: squash` y `expectedHeadSha` = el commit comprobado. Nunca mergear sin `expectedHeadSha`.
 
 Antes de mergear, publica en el PR un comentario con el resumen, la evidencia (tests ejecutados, prueba en negativo si aplica) y la lista de archivos tocados.
 
@@ -103,12 +103,12 @@ Después del merge: verifica `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:see
 
 **Lo que la guarda no detecta sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, explícalo en el PR y avisa a producto antes de mergear.
 
-**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Mientras la lista de zonas sensibles esté vacía no hace falta. El job `invalidate-review` la sigue quitando con cada commit nuevo, para cuando se reactive.
+**La etiqueta `revisado-humano`** la ponen y la quitan solo las personas de producto; tú nunca. Hace falta en los PRs que tocan la lista corta. El job `invalidate-review` la quita con cada commit nuevo: hay que volver a revisar y ponerla.
 
 Nunca desactives, relajes ni saltes tests o checks para conseguir un CI en verde.
 
-## Requiere revisión humana (suspendido hasta el primer dato real)
-Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · motor de políticas · techos de autonomía · reglas de plataforma de los prompts. Mientras no haya datos reales de clientes, el agente las mergea con el procedimiento anterior y explica en cada PR qué cambia y cómo lo probó. Se vuelve obligatoria antes del primer dato real.
+## Requiere revisión humana
+Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secretos y credenciales · la guarda, los workflows y `.claude/` · `AGENTS.md` y `CLAUDE.md`: desde el hito M0 (P-01), con el veredicto de una sesión Revisora y la etiqueta `revisado-humano` de producto. El motor de políticas, los techos de autonomía y las reglas de plataforma de los prompts se suman antes del primer dato real, con la lista completa. En todos, el PR explica qué cambia y cómo se probó.
 
 ## Base de datos: guardas (ADR 0003)
 - Las reglas que RLS no puede expresar por columna viven en triggers `guard_*` de `packages/db`. Ejemplos: qué campos puede cambiar cada rol, `organization_id` inmutable, que nunca falte un `org_admin`.
