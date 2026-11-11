@@ -4,7 +4,7 @@
 -- estado.
 begin;
 \ir _fixtures/tenants.psql
-select plan(36);
+select plan(39);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 
@@ -117,6 +117,23 @@ select lives_ok(
 select lives_ok(
   format($$update public.inbound_events set status = 'processed', conversation_id = %L where provider_event_id = 'evt-worker'$$, :'conv'),
   'y lo marca como procesado');
+reset role;
+insert into public.contacts (organization_id, display_name) values (:org_b, 'Bea') returning id as c_bea \gset
+insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+select :org_b, :loc_b1, :'c_bea', :'ca_b', a.id from public.agents a where a.organization_id = :org_b order by a.id limit 1
+returning id as conv_b \gset
+insert into public.messages (organization_id, conversation_id, direction, author, content)
+values (:org_b, :'conv_b', 'in', 'contact', 'Hola desde B') returning id as m_b \gset
+insert into public.messages (organization_id, conversation_id, direction, author, content)
+values (:org_a, :'conv', 'in', 'contact', 'Hola') returning id as m_in \gset
+set local role service_role;
+select throws_ok(
+  format($$update public.inbound_events set message_id = %L where provider_event_id = 'evt-worker'$$, :'m_b'),
+  '23503', null, 'el mensaje de un evento no puede ser de otra organización');
+select lives_ok(
+  format($$update public.inbound_events set message_id = %L where provider_event_id = 'evt-worker'$$, :'m_in'),
+  'sí el que creó en su organización y su conversación');
+select is((select message_id from public.inbound_events where provider_event_id = 'evt-worker'), :'m_in'::uuid, 'y queda apuntado');
 select throws_ok(
   $$update public.inbound_events set payload = '{}' where provider_event_id = 'evt-worker'$$,
   '42501', null, 'pero no puede cambiar lo que llegó');

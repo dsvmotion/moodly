@@ -48,8 +48,9 @@ create table public.inbound_events (
   -- no era para nadie (cuenta desactivada, tipo que no se atiende); failed: se
   -- intentó y falló (se puede volver a intentar).
   status text not null default 'received' check (status in ('received', 'processed', 'ignored', 'failed')),
-  -- Lo que creó al procesarse. message_id sin clave externa: messages está
-  -- particionada y su clave primaria es (id, created_at).
+  -- Lo que creó al procesarse. message_id sin clave externa (messages está
+  -- particionada y su clave primaria es (id, created_at)): lo comprueba
+  -- guard_inbound_event, de la misma organización y conversación.
   conversation_id uuid,
   message_id uuid,
   processed_at timestamptz,
@@ -85,6 +86,15 @@ begin
   end if;
   if new.status = 'received' and old.status <> 'received' then
     raise exception 'un evento no vuelve a received' using errcode = '42501';
+  end if;
+  -- Sin clave externa a messages (está particionada): el mensaje tiene que ser
+  -- de la misma organización y, si se sabe, de la misma conversación.
+  if new.message_id is distinct from old.message_id and new.message_id is not null and not exists (
+    select 1 from public.messages m
+    where m.id = new.message_id and m.organization_id = new.organization_id
+      and (new.conversation_id is null or m.conversation_id = new.conversation_id)
+  ) then
+    raise exception 'el mensaje no es de la organización (o de la conversación) del evento' using errcode = '23503';
   end if;
   new.processed_at := case when new.status = 'processed' then coalesce(old.processed_at, now()) end;
   return new;
