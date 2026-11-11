@@ -89,6 +89,10 @@
       "admin": "Administration"
     }
   },
+  "navCounts": {
+    "approvals": "{count, plural, one {# pending approval} other {# pending approvals}}",
+    "inbox": "{count, plural, one {# conversation handled by the team} other {# conversations handled by the team}}"
+  },
   "sidebarEmpty": {
     "savedViews": "No saved views yet.",
     "favorites": "No favorites yet.",
@@ -110,7 +114,12 @@
     "locations": "{count, plural, =0 {No locations in your scope} one {# location in your scope} other {# locations in your scope}}",
     "locationsAction": "View locations",
     "inbox": "Today's inbox",
-    "inboxEmpty": "Nothing in the inbox yet"
+    "inboxEmpty": "Nothing in the inbox yet",
+    "needsYou": {
+      "approvals": "{count, plural, one {# approval awaits your decision} other {# approvals await your decision}}",
+      "humanConversations": "{count, plural, one {# conversation is handled by the team} other {# conversations are handled by the team}}"
+    },
+    "needsYouAction": "View"
   },
   "sections": {
     "home": {
@@ -427,7 +436,8 @@
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
       "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
-    }
+    },
+    "count": "{count, plural, one {# pending} other {# pending}}"
   },
   "inboxPage": {
     "title": "Inbox",
