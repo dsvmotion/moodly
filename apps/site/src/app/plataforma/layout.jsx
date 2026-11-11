@@ -8,8 +8,14 @@ import { PlatformI18n } from "@/components/plataforma-i18n";
 import DialogA11y from "@/components/dialog-a11y";
 import ScreenStates from "@/components/screen-states";
 import MobileNav from "@/components/mobile-nav";
+import PrototypeBanner from "@/components/prototype-banner";
 
-export const metadata = { title: "Moodly AI · Plataforma (demo)" };
+// Prototipo, no producto (auditoría 2026-11-10, N-04): fuera de los buscadores y con
+// el aviso «prototipo con datos ficticios» en cada ruta.
+export const metadata = {
+  title: "Moodly AI · Prototipo con datos ficticios",
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
+};
 
 // Prototipo navegable de la plataforma. Escrito en español; en/fr/de con la capa de
 // traducción de components/plataforma-i18n.jsx (el idioma se elige en Preferencias).
@@ -22,6 +28,7 @@ export default function PlataformaLayout({ children }) {
         <link rel="preload" href="/fonts/LabilGrotesk-Regular.woff2" as="font" type="font/woff2" crossOrigin="" />
       </head>
       <body className="plataforma-root">
+        <PrototypeBanner />
         <SedeProvider>
           {children}
           <DemoActions />
