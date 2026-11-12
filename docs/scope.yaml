@@ -140,153 +140,153 @@ areas:
     # si ya está en el lote C, entra el siguiente sistema por orden de oleada.
     pilot_booking_system: {milestone: "M3", batch: "B", level_target: 3, bind_to: null, owner: "V1", status: "blocked", note: "Needs the pilot client (STATUS, Bloqueado). The founder is talking to candidate businesses (F07)"}
     units:
-      - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "M1", owner: "V1", status: "blocked", connect: "in_progress", evidence: [], note: "Same product as ch-whatsapp, seen from the catalog; follows its milestone and status. Waiting for Meta Business verification (F05)"}
+      - {id: "int-whatsapp", name: "WhatsApp Business", category: "mensajeria", source: "design", milestone: "M1", owner: "V1", status: "blocked", connect: "pending", evidence: [], note: "Same product as ch-whatsapp, seen from the catalog; follows its milestone and status. Waiting for Meta Business verification (F05)"}
       - {id: "int-instagram", name: "Instagram", category: "mensajeria", source: "design", milestone: "stretch", owner: "V1", status: "planned", connect: "needs_contract", evidence: [], note: "Same product as ch-instagram (through a partner); follows its milestone"}
       - {id: "int-messenger", name: "Messenger", category: "mensajeria", source: "design", milestone: "stretch", owner: "V1", status: "planned", connect: "needs_contract", evidence: [], note: "Same product as ch-messenger (through a partner); follows its milestone"}
-      - {id: "int-facebook", name: "Facebook", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-facebook", name: "Facebook", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-telegram", name: "Telegram", category: "mensajeria", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-tiktok", name: "TikTok", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-x", name: "X", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-linkedin", name: "LinkedIn", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-threads", name: "Threads", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-youtube", name: "YouTube", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-pinterest", name: "Pinterest", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-signal", name: "Signal", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-gmail", name: "Gmail", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googlecalendar", name: "Google Calendar", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-microsoftoutlook", name: "Outlook", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-microsoftteams", name: "Microsoft Teams", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googlemeet", name: "Google Meet", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-zoom", name: "Zoom", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-calendly", name: "Calendly", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-slack", name: "Slack", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-calcom", name: "Cal.com", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-webex", name: "Webex", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googletasks", name: "Google Tasks", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-hubspot", name: "HubSpot", category: "crm", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-salesforce", name: "Salesforce", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-dynamics365", name: "Microsoft Dynamics 365", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-tiktok", name: "TikTok", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-x", name: "X", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-linkedin", name: "LinkedIn", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-threads", name: "Threads", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-youtube", name: "YouTube", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-pinterest", name: "Pinterest", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-signal", name: "Signal", category: "mensajeria", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-gmail", name: "Gmail", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googlecalendar", name: "Google Calendar", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-microsoftoutlook", name: "Outlook", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-microsoftteams", name: "Microsoft Teams", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googlemeet", name: "Google Meet", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-zoom", name: "Zoom", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-calendly", name: "Calendly", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-slack", name: "Slack", category: "email", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-calcom", name: "Cal.com", category: "email", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-webex", name: "Webex", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googletasks", name: "Google Tasks", category: "email", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-hubspot", name: "HubSpot", category: "crm", source: "design", milestone: "M2", batch: "A", level_target: 3, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-salesforce", name: "Salesforce", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-dynamics365", name: "Microsoft Dynamics 365", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-freshsales", name: "Freshsales", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-pipedrive", name: "Pipedrive", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-zoho", name: "Zoho CRM", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-odoo", name: "Odoo", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-mondaydotcom", name: "monday.com", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-mailchimp", name: "Mailchimp", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-typeform", name: "Typeform", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-intercom", name: "Intercom", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-zendesk", name: "Zendesk", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-pipedrive", name: "Pipedrive", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-zoho", name: "Zoho CRM", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-odoo", name: "Odoo", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-mondaydotcom", name: "monday.com", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-mailchimp", name: "Mailchimp", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-typeform", name: "Typeform", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-intercom", name: "Intercom", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-zendesk", name: "Zendesk", category: "crm", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-freshdesk", name: "Freshdesk", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-brevo", name: "Brevo", category: "crm", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-klaviyo", name: "Klaviyo", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-activecampaign", name: "ActiveCampaign", category: "crm", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-quickbooks", name: "QuickBooks", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-xero", name: "Xero", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-sage", name: "Sage", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-stripe", name: "Stripe", category: "facturacion", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-paypal", name: "PayPal", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-square", name: "Square", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-quickbooks", name: "QuickBooks", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-xero", name: "Xero", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-sage", name: "Sage", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-stripe", name: "Stripe", category: "facturacion", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-paypal", name: "PayPal", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-square", name: "Square", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-holded", name: "Holded", category: "facturacion", source: "design", milestone: "M2", batch: "A", level_target: 2, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-pennylane", name: "Pennylane", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-sap", name: "SAP Business One", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-mollie", name: "Mollie", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-gocardless", name: "GoCardless", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-sumup", name: "SumUp", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-revolut", name: "Revolut Business", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-adyen", name: "Adyen", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-klarna", name: "Klarna", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-shopify", name: "Shopify", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-pennylane", name: "Pennylane", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-sap", name: "SAP Business One", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-mollie", name: "Mollie", category: "facturacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-gocardless", name: "GoCardless", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-sumup", name: "SumUp", category: "facturacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-revolut", name: "Revolut Business", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-adyen", name: "Adyen", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-klarna", name: "Klarna", category: "facturacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-shopify", name: "Shopify", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-woocommerce", name: "WooCommerce", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-wordpress", name: "WordPress", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-wix", name: "Wix", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-squarespace", name: "Squarespace", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googlemaps", name: "Google Maps", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-prestashop", name: "PrestaShop", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-wordpress", name: "WordPress", category: "tienda", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-wix", name: "Wix", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-squarespace", name: "Squarespace", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googlemaps", name: "Google Maps", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-prestashop", name: "PrestaShop", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-magento", name: "Adobe Commerce", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-bigcommerce", name: "BigCommerce", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-webflow", name: "Webflow", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-framer", name: "Framer", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googledrive", name: "Google Drive", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googledocs", name: "Google Docs", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googlesheets", name: "Google Sheets", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-microsoftexcel", name: "Excel", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-microsoftonedrive", name: "OneDrive", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-dropbox", name: "Dropbox", category: "documentos", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-box", name: "Box", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-notion", name: "Notion", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googleslides", name: "Google Slides", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-confluence", name: "Confluence", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-evernote", name: "Evernote", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-obsidian", name: "Obsidian", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-airtable", name: "Airtable", category: "productividad", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-trello", name: "Trello", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-asana", name: "Asana", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-clickup", name: "ClickUp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googleanalytics", name: "Google Analytics", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-jira", name: "Jira", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-linear", name: "Linear", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-basecamp", name: "Basecamp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-todoist", name: "Todoist", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-miro", name: "Miro", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-figma", name: "Figma", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-zapier", name: "Zapier", category: "automatizacion", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-bigcommerce", name: "BigCommerce", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-webflow", name: "Webflow", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-framer", name: "Framer", category: "tienda", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googledrive", name: "Google Drive", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googledocs", name: "Google Docs", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googlesheets", name: "Google Sheets", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-microsoftexcel", name: "Excel", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-microsoftonedrive", name: "OneDrive", category: "documentos", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-dropbox", name: "Dropbox", category: "documentos", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-box", name: "Box", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-notion", name: "Notion", category: "documentos", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googleslides", name: "Google Slides", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-confluence", name: "Confluence", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-evernote", name: "Evernote", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-obsidian", name: "Obsidian", category: "documentos", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-airtable", name: "Airtable", category: "productividad", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-trello", name: "Trello", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-asana", name: "Asana", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-clickup", name: "ClickUp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googleanalytics", name: "Google Analytics", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-jira", name: "Jira", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-linear", name: "Linear", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-basecamp", name: "Basecamp", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-todoist", name: "Todoist", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-miro", name: "Miro", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-figma", name: "Figma", category: "productividad", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-zapier", name: "Zapier", category: "automatizacion", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-make", name: "Make", category: "automatizacion", source: "design", milestone: "M2", batch: "A", level_target: 1, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-n8n", name: "n8n", category: "automatizacion", source: "design", milestone: "M3", batch: "B", level_target: 1, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-twilio", name: "Twilio", category: "automatizacion", source: "design", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-ifttt", name: "IFTTT", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-discord", name: "Discord", category: "automatizacion", source: "design", milestone: "stretch", owner: "V1", status: "planned", connect: "in_progress", evidence: [], note: "Same product as ch-discord (team channel); follows its milestone"}
-      - {id: "int-thefork", name: "TheFork", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-bookingdotcom", name: "Booking.com", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-lightspeed", name: "Lightspeed", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-ifttt", name: "IFTTT", category: "automatizacion", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-discord", name: "Discord", category: "automatizacion", source: "design", milestone: "stretch", owner: "V1", status: "planned", connect: "pending", evidence: [], note: "Same product as ch-discord (team channel); follows its milestone"}
+      - {id: "int-thefork", name: "TheFork", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-bookingdotcom", name: "Booking.com", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-lightspeed", name: "Lightspeed", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-doctoralia", name: "Doctoralia", category: "sectoriales", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "not_possible", evidence: []}
-      - {id: "int-factorial", name: "Factorial", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-personio", name: "Personio", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-docusign", name: "DocuSign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-dropboxsign", name: "Dropbox Sign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-factorial", name: "Factorial", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-personio", name: "Personio", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-docusign", name: "DocuSign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-dropboxsign", name: "Dropbox Sign", category: "rrhh", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-openai", name: "OpenAI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-anthropic", name: "Anthropic", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
       - {id: "int-googlegemini", name: "Google Gemini", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-mistralai", name: "Mistral AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-meta", name: "Meta Llama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-mistralai", name: "Mistral AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-meta", name: "Meta Llama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-perplexity", name: "Perplexity", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-huggingface", name: "Hugging Face", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-azure", name: "Azure OpenAI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-aws", name: "Amazon Bedrock", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-googlevertex", name: "Vertex AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-ollama", name: "Ollama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-heygen", name: "HeyGen", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-captions", name: "Captions", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-huggingface", name: "Hugging Face", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-azure", name: "Azure OpenAI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-aws", name: "Amazon Bedrock", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-googlevertex", name: "Vertex AI", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-ollama", name: "Ollama", category: "ia", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-heygen", name: "HeyGen", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-captions", name: "Captions", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-gamma", name: "Gamma", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-notebooklm", name: "NotebookLM", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-notebooklm", name: "NotebookLM", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-elevenlabs", name: "ElevenLabs", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}
-      - {id: "int-canva", name: "Canva", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-descript", name: "Descript", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-runway", name: "Runway", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-booksy", name: "Booksy", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-treatwell", name: "Treatwell", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-koibox", name: "Koibox", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-timp", name: "Timp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-wilapp", name: "Wilapp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-fresha", name: "Fresha", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-shore", name: "Shore", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-salonized", name: "Salonized", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-covermanager", name: "CoverManager", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-restoo", name: "Restoo", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-quiter", name: "Quiter", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-tallergp", name: "TallerGP", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-canva", name: "Canva", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-descript", name: "Descript", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-runway", name: "Runway", category: "contenido", source: "design", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-booksy", name: "Booksy", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-treatwell", name: "Treatwell", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-koibox", name: "Koibox", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-timp", name: "Timp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-wilapp", name: "Wilapp", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-fresha", name: "Fresha", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-shore", name: "Shore", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-salonized", name: "Salonized", category: "belleza", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-covermanager", name: "CoverManager", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-restoo", name: "Restoo", category: "restauracion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-quiter", name: "Quiter", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-tallergp", name: "TallerGP", category: "talleres", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
       - {id: "int-cliniccloud", name: "Clinic Cloud", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "not_possible", evidence: []}
       - {id: "int-gesden", name: "Gesden", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "not_possible", evidence: []}
       - {id: "int-dentalink", name: "Dentalink", category: "salud", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "not_possible", evidence: []}
-      - {id: "int-inmovilla", name: "Inmovilla", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-witei", name: "Witei", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-idealista", name: "Idealista", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-fotocasa", name: "Fotocasa", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-gesfincas", name: "Gesfincas", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-avantio", name: "Avantio", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-quipu", name: "Quipu", category: "facturacion", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-verifactu", name: "Verifactu", category: "facturacion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-redsys", name: "Redsys", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-bizum", name: "Bizum", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
-      - {id: "int-google-business-profile", name: "Google Business Profile", category: "general", source: "heydiga", milestone: "M4", batch: "C", level_target: 2, owner: "V1", status: "planned", connect: "in_progress", evidence: []}
+      - {id: "int-inmovilla", name: "Inmovilla", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-witei", name: "Witei", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-idealista", name: "Idealista", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-fotocasa", name: "Fotocasa", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-gesfincas", name: "Gesfincas", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-avantio", name: "Avantio", category: "inmobiliaria", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-quipu", name: "Quipu", category: "facturacion", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-verifactu", name: "Verifactu", category: "facturacion", source: "heydiga", milestone: "after", owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-redsys", name: "Redsys", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-bizum", name: "Bizum", category: "pagos", source: "heydiga", milestone: "M4", batch: "C", level_target: 1, owner: "V1", status: "planned", connect: "pending", evidence: []}
+      - {id: "int-google-business-profile", name: "Google Business Profile", category: "general", source: "heydiga", milestone: "M4", batch: "C", level_target: 2, owner: "V1", status: "planned", connect: "pending", evidence: []}
 
   channels:
     done_when: "Inbound is signed and de-duplicated; outbound has delivery states; opt-in is recorded; one end-to-end test passes"

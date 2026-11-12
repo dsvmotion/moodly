@@ -16,7 +16,8 @@ export const MILESTONES = ["M0", "M1", "M2", "M3", "M4", "M5"] as const;
  * Cómo se conecta cada integración (auditoría §18.8; V1, 2026-11-12). Lista cerrada y
  * obligatoria en las filas int-*: la web (/integraciones) la lee de aquí.
  */
-export const CONNECT_VALUES = ["available", "in_progress", "needs_api_key", "needs_contract", "not_possible"] as const;
+// «pending»: aún no se puede conectar y no hay más que decir; no confundir con el status de la fila.
+export const CONNECT_VALUES = ["available", "pending", "needs_api_key", "needs_contract", "not_possible"] as const;
 export type Connect = (typeof CONNECT_VALUES)[number];
 export const EXTRA_BUCKETS = ["stretch", "after"] as const;
 

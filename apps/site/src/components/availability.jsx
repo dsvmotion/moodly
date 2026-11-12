@@ -22,7 +22,7 @@ export function availability(id) {
 /**
  * Cómo se conecta una integración (auditoría §18.8): el campo connect de su fila int-*
  * en docs/scope.yaml, obligatorio allí (lo valida packages/config). Sin él, la compilación falla.
- * @returns {"available" | "in_progress" | "needs_api_key" | "needs_contract" | "not_possible"}
+ * @returns {"available" | "pending" | "needs_api_key" | "needs_contract" | "not_possible"}
  */
 export function connectOf(id) {
   const u = SCOPE[id];
@@ -31,7 +31,7 @@ export function connectOf(id) {
   return u.c;
 }
 
-// «in_progress» no lleva nota: la etiqueta de estado ya dice si está en el piloto o en hoja de ruta.
+// «pending» no lleva nota: la etiqueta de estado ya dice si está en el piloto o en hoja de ruta.
 export const CONNECT_LABELS = {
   es: { available: "Se conecta hoy", needs_api_key: "Con tu clave de API", needs_contract: "Necesita un acuerdo con el proveedor", not_possible: "No se puede conectar" },
   en: { available: "Connects today", needs_api_key: "With your API key", needs_contract: "Needs an agreement with the provider", not_possible: "Can't be connected" },
@@ -41,7 +41,7 @@ export const CONNECT_LABELS = {
 
 export function ConnectNote({ id, lang }) {
   const c = connectOf(id);
-  if (c === "in_progress") return null;
+  if (c === "pending") return null;
   const t = CONNECT_LABELS[lang] || CONNECT_LABELS.es;
   return <span data-connect={c} style={{ fontSize: "12px", lineHeight: "18px", color: "#4a4a4f" }}>{t[c]}</span>;
 }
