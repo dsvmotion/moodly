@@ -58,7 +58,7 @@ function turn(script: (() => TransportResponse)[], message: string) {
     settings: env.settings,
     router: createModelRouter([transport]),
     policy: PLATFORM_MODEL_POLICY,
-    spend: { runEur: 0, dayEur: 0 },
+    spend: { runEur: 0, dayEur: 0, monthEur: 0 },
   });
   return { ...env, transport, result };
 }
@@ -136,7 +136,7 @@ describe("Recepción el primer día", () => {
       settings: env.settings,
       router: createModelRouter([transport]),
       policy: PLATFORM_MODEL_POLICY,
-      spend: { runEur: 0, dayEur: 0 },
+      spend: { runEur: 0, dayEur: 0, monthEur: 0 },
     });
     expect(result.status).toBe("replied");
     expect(env.booking.appointments.map((appointment) => [appointment.contactId, appointment.startsAt.toISOString()])).toEqual([

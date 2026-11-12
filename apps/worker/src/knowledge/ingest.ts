@@ -57,7 +57,7 @@ async function loadPolicy(db: TenantDb) {
   const row = check(
     await db
       .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur")
+      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur")
       .maybeSingle(),
     "la política de modelos",
   );

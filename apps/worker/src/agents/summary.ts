@@ -1,5 +1,5 @@
 import { planSummary, summarizeConversation } from "@repo/agent-core";
-import type { HistoryMessage, ModelPolicy, ModelRouter, Spend, SummarizeResult, SummaryMessage } from "@repo/agent-core";
+import type { HistoryMessage, ModelPolicy, ModelRouter, Spend, SummarizeResult, SummaryMessage, TurnModelCall } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
 
 // Resumen continuo de cada conversación en el worker (PL-T3, punto 2;
@@ -72,8 +72,9 @@ async function uncoveredMessages(db: TenantDb, conversationId: string, coveredUn
 /** Lo que decidió el paso del resumen. Serializable: es el resultado de un paso de DBOS. */
 export type SummaryStep =
   | { kind: "none" }
-  | { kind: "skipped"; reason: string; error?: string }
-  | { kind: "updated"; summary: string; coveredUntil: string; usage: { tokensIn: number; tokensOut: number; costEur: number; model: string } };
+  /** `call` si se llegó a llamar al modelo: va al libro de consumo aunque no haya resumen. */
+  | { kind: "skipped"; reason: string; error?: string; call?: TurnModelCall }
+  | { kind: "updated"; summary: string; coveredUntil: string; usage: { tokensIn: number; tokensOut: number; costEur: number; model: string }; call: TurnModelCall };
 
 export interface RefreshParams {
   db: TenantDb;
@@ -105,8 +106,10 @@ export async function summarizeStep(params: RefreshParams): Promise<SummaryStep>
     policy: params.policy,
     spend: params.spend,
   });
-  if (result.status === "skipped") return { kind: "skipped", reason: result.reason, ...(result.error ? { error: result.error } : {}) };
-  return { kind: "updated", summary: result.summary, coveredUntil: plan.coveredUntil, usage: result.usage };
+  if (result.status === "skipped") {
+    return { kind: "skipped", reason: result.reason, ...(result.error ? { error: result.error } : {}), ...(result.call ? { call: result.call } : {}) };
+  }
+  return { kind: "updated", summary: result.summary, coveredUntil: plan.coveredUntil, usage: result.usage, call: result.call };
 }
 
 /** Guarda el resumen nuevo: una fila por conversación, de la organización de ctx.db. Devuelve el error, sin lanzar. */

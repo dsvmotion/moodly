@@ -16,6 +16,7 @@ const settingsRow = z.object({
   // numeric de Postgres llega como texto por PostgREST.
   budget_per_run_eur: z.coerce.number().positive(),
   budget_per_day_eur: z.coerce.number().positive(),
+  budget_per_month_eur: z.coerce.number().positive(),
 });
 
 export type ModelSettingsRow = z.input<typeof settingsRow>;
@@ -36,6 +37,6 @@ export function policyFromSettings(row: unknown): ModelPolicy {
     // Lo que la organización escribió, aparte: manda sobre el modelo de cada agente.
     modelOverrides: settings.model_by_task,
     connection: settings.connection,
-    budget: { perRunEur: settings.budget_per_run_eur, perDayEur: settings.budget_per_day_eur },
+    budget: { perRunEur: settings.budget_per_run_eur, perDayEur: settings.budget_per_day_eur, perMonthEur: settings.budget_per_month_eur },
   };
 }

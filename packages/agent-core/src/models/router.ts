@@ -25,8 +25,8 @@ export interface ModelPolicy {
    */
   modelOverrides: Readonly<Partial<Record<ModelTask, ModelKey>>>;
   connection: ConnectionMode;
-  /** Topes en euros: se comprueban antes de llamar. */
-  budget: { perRunEur: number; perDayEur: number };
+  /** Topes en euros: se comprueban antes de llamar (del run, del día y del mes; MANUAL §15.1). */
+  budget: { perRunEur: number; perDayEur: number; perMonthEur: number };
 }
 
 /** Por defecto de plataforma (decisión de producto del 2026-10-24): cualquier proveedor con DPA, claves de Moodly. */
@@ -36,7 +36,7 @@ export const PLATFORM_MODEL_POLICY: ModelPolicy = {
   modelByTask: DEFAULT_MODEL_BY_TASK,
   modelOverrides: {},
   connection: "managed",
-  budget: { perRunEur: 0.5, perDayEur: 20 },
+  budget: { perRunEur: 0.5, perDayEur: 20, perMonthEur: 300 },
 };
 
 /** Una llamada a una herramienta que propone el modelo. Los args son lo que dice el LLM: pasan por decide() antes de nada. */
@@ -105,10 +105,14 @@ export interface ModelCall {
   tools?: readonly ToolSpec[];
 }
 
-/** Lo que gastó ya la organización: lo lleva el runtime (agent_runs y usage_records). */
+/**
+ * Lo que gastó ya la organización: el del run lo lleva el turno; el del día y
+ * el del mes salen del libro de consumo (usage_records, PL-ledger).
+ */
 export interface Spend {
   runEur: number;
   dayEur: number;
+  monthEur: number;
 }
 
 export interface TransportRequest {
@@ -156,6 +160,8 @@ export interface RoutedResult extends TransportResponse {
   via: Via;
   connection: ConnectionMode;
   modelKey: ModelKey;
+  /** Cuándo empezó la llamada (ISO): con el run y el orden, la anota una sola vez en el libro de consumo. */
+  startedAt: string;
   latencyMs: number;
   /** true si respondió el respaldo porque falló el principal. */
   fallback: boolean;
@@ -242,9 +248,13 @@ export function createModelRouter(transports: readonly ModelTransport[], now: ()
       const causes: unknown[] = [];
       for (const [index, transport] of candidates.entries()) {
         const estimate = transport.estimateEur(request);
-        if (spend.runEur + estimate > policy.budget.perRunEur || spend.dayEur + estimate > policy.budget.perDayEur) {
+        if (
+          spend.runEur + estimate > policy.budget.perRunEur ||
+          spend.dayEur + estimate > policy.budget.perDayEur ||
+          spend.monthEur + estimate > policy.budget.perMonthEur
+        ) {
           throw new BudgetExceededError(
-            `la llamada (hasta ${estimate.toFixed(4)} €) supera el tope del run o del día de la organización`,
+            `la llamada (hasta ${estimate.toFixed(4)} €) supera el tope del run, del día o del mes de la organización`,
           );
         }
         const startedAt = now();
@@ -257,6 +267,7 @@ export function createModelRouter(transports: readonly ModelTransport[], now: ()
             via: transport.via,
             connection: transport.connection,
             modelKey,
+            startedAt: new Date(startedAt).toISOString(),
             latencyMs: now() - startedAt,
             fallback: index > 0,
           };

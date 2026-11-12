@@ -18,7 +18,7 @@ const call: ModelCall = {
   messages: [{ role: "user", content: "¿Tenéis hueco mañana?" }],
   maxOutputTokens: 300,
 };
-const noSpend: Spend = { runEur: 0, dayEur: 0 };
+const noSpend: Spend = { runEur: 0, dayEur: 0, monthEur: 0 };
 const policy = (overrides: Partial<ModelPolicy> = {}): ModelPolicy => ({ ...PLATFORM_MODEL_POLICY, ...overrides });
 const failing = () => {
   throw new Error("503 del proveedor");
@@ -155,7 +155,7 @@ describe("presupuesto", () => {
   it("corta antes de llamar si la llamada supera el tope del run", async () => {
     const transport = createFakeTransport({ provider: "a", estimateEur: 0.2 });
     const router = createModelRouter([transport]);
-    await expect(router.generate(call, policy({ budget: { perRunEur: 0.5, perDayEur: 20 } }), { runEur: 0.4, dayEur: 1 })).rejects.toThrow(
+    await expect(router.generate(call, policy({ budget: { perRunEur: 0.5, perDayEur: 20, perMonthEur: 300 } }), { runEur: 0.4, dayEur: 1, monthEur: 0 })).rejects.toThrow(
       BudgetExceededError,
     );
     expect(transport.calls).toHaveLength(0);
@@ -164,15 +164,30 @@ describe("presupuesto", () => {
   it("corta antes de llamar si supera el tope del día", async () => {
     const transport = createFakeTransport({ provider: "a", estimateEur: 0.2 });
     await expect(
-      createModelRouter([transport]).generate(call, policy({ budget: { perRunEur: 5, perDayEur: 20 } }), { runEur: 0, dayEur: 19.9 }),
+      createModelRouter([transport]).generate(call, policy({ budget: { perRunEur: 5, perDayEur: 20, perMonthEur: 300 } }), { runEur: 0, dayEur: 19.9, monthEur: 0 }),
+    ).rejects.toThrow(BudgetExceededError);
+    expect(transport.calls).toHaveLength(0);
+  });
+
+  it("corta antes de llamar si supera el tope del mes, aunque quepa en el del día", async () => {
+    const transport = createFakeTransport({ provider: "a", estimateEur: 0.2 });
+    await expect(
+      createModelRouter([transport]).generate(call, policy({ budget: { perRunEur: 5, perDayEur: 20, perMonthEur: 300 } }), { runEur: 0, dayEur: 0, monthEur: 299.9 }),
     ).rejects.toThrow(BudgetExceededError);
     expect(transport.calls).toHaveLength(0);
   });
 
   it("llama si cabe justo en el tope", async () => {
     const transport = createFakeTransport({ provider: "a", estimateEur: 0.1 });
-    await createModelRouter([transport]).generate(call, policy({ budget: { perRunEur: 0.5, perDayEur: 20 } }), { runEur: 0.4, dayEur: 0 });
+    await createModelRouter([transport]).generate(call, policy({ budget: { perRunEur: 0.5, perDayEur: 20, perMonthEur: 300 } }), { runEur: 0.4, dayEur: 0, monthEur: 0 });
     expect(transport.calls).toHaveLength(1);
+  });
+});
+
+describe("lo que anota el libro de consumo", () => {
+  it("cuándo empezó la llamada, en ISO, del reloj del enrutador", async () => {
+    const result = await createModelRouter([createFakeTransport({ provider: "a" })], () => Date.parse("2026-11-12T08:30:00Z")).generate(call, policy(), noSpend);
+    expect(result.startedAt).toBe("2026-11-12T08:30:00.000Z");
   });
 });
 
@@ -221,6 +236,7 @@ describe("lo que devuelve cada llamada (ADR 0019)", () => {
       via: "gateway",
       connection: "managed",
       modelKey: "fast",
+      startedAt: "1970-01-01T00:00:01.250Z",
       latencyMs: 250,
       fallback: false,
     });
