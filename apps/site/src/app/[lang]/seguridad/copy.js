@@ -13,7 +13,7 @@ export const COPY = {
     ],
     foundA: "Bases de confianza.", foundB: "Lo que no cambia, sea cual sea tu plan.",
     foundations: [
-      ["Datos en la UE", "Base de datos alojada en la Unión Europea (Supabase). El procesamiento de los modelos de IA solo en la UE, en el piloto [por confirmar región]."],
+      ["Datos en la UE", "Base de datos alojada en la Unión Europea (Supabase). La región de los modelos de IA, [por confirmar]."],
       ["Sin entrenamiento", "Usamos APIs empresariales de IA cuyos términos excluyen entrenar con tus datos [confirmar proveedor a proveedor]."],
       ["Cifrado en reposo y en tránsito", "AES-256 en reposo y TLS 1.2+ en tránsito, hoy (Supabase y Vercel). En el piloto: tus claves de IA y los secretos de MCP, cifrados en una bóveda por organización, y los conectores de la plataforma a través de nuestro hub de conectores alojado en la UE."],
     ],
@@ -69,7 +69,7 @@ export const COPY = {
     ],
     foundA: "Foundations of trust.", foundB: "What doesn't change, whatever your plan.",
     foundations: [
-      ["Data in the EU", "Database hosted in the European Union (Supabase). EU-only AI model processing, in the pilot [region to be confirmed]."],
+      ["Data in the EU", "Database hosted in the European Union (Supabase). AI model region [to be confirmed]."],
       ["No training", "We use enterprise AI APIs whose terms exclude training on your data [to confirm provider by provider]."],
       ["Encryption at rest and in transit", "AES-256 at rest and TLS 1.2+ in transit, today (Supabase and Vercel). In the pilot: your AI keys and MCP secrets, encrypted in a per-organization vault, and platform connectors through our EU-hosted connector hub."],
     ],
@@ -125,7 +125,7 @@ export const COPY = {
     ],
     foundA: "Bases de confiance.", foundB: "Ce qui ne change pas, quel que soit votre plan.",
     foundations: [
-      ["Données dans l'UE", "Base de données hébergée dans l'Union européenne (Supabase). Traitement des modèles d'IA uniquement dans l'UE, dans le pilote [région à confirmer]."],
+      ["Données dans l'UE", "Base de données hébergée dans l'Union européenne (Supabase). Région des modèles d'IA [à confirmer]."],
       ["Aucun entraînement", "Nous utilisons des API d'IA d'entreprise dont les conditions excluent l'entraînement avec vos données [à confirmer fournisseur par fournisseur]."],
       ["Chiffrement au repos et en transit", "AES-256 au repos et TLS 1.2+ en transit, dès aujourd'hui (Supabase et Vercel). Dans le pilote : vos clés d'IA et les secrets MCP, chiffrés dans un coffre par organisation, et les connecteurs de la plateforme via notre hub de connecteurs hébergé dans l'UE."],
     ],
@@ -181,7 +181,7 @@ export const COPY = {
     ],
     foundA: "Vertrauensgrundlagen.", foundB: "Was sich nicht ändert, egal welcher Plan.",
     foundations: [
-      ["Daten in der EU", "Datenbank in der Europäischen Union gehostet (Supabase). KI-Verarbeitung nur in der EU, im Pilotprojekt [Region zu bestätigen]."],
+      ["Daten in der EU", "Datenbank in der Europäischen Union gehostet (Supabase). Region der KI-Modelle [zu bestätigen]."],
       ["Kein Training", "Wir nutzen Enterprise-KI-APIs, deren Bedingungen das Training mit deinen Daten ausschließen [Anbieter für Anbieter zu bestätigen]."],
       ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand und TLS 1.2+ bei der Übertragung, schon heute (Supabase und Vercel). Im Pilotprojekt: deine KI-Schlüssel und MCP-Secrets, verschlüsselt in einem Tresor pro Organisation, und die Plattform-Konnektoren über unseren in der EU gehosteten Konnektor-Hub."],
     ],
