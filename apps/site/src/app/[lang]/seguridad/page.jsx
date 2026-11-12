@@ -5,6 +5,7 @@ import PageShell, { card, h2, h3, muted, pillBtn, section, wrap } from "@/compon
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
 import { AvailabilityBadge } from "@/components/availability";
+import { withContact } from "@/components/contact";
 
 // Unidad de docs/scope.yaml de cada afirmación de seguridad (N-01; regla de V1 del 2026-11-11):
 // lo del piloto, «En el piloto»; lo de después, «En hoja de ruta»; null = sin unidad: no se
@@ -126,7 +127,7 @@ export default function Seguridad() {
             {t.faq.map(([q, a]) => (
               <details key={q} style={{ borderBottom: "1px solid #0000001a", padding: "20px 0" }}>
                 <summary style={{ display: "flex", justifyContent: "space-between", gap: "16px", fontSize: "18px", lineHeight: "27px" }}>{q}<span aria-hidden="true">+</span></summary>
-                <p style={{ margin: "12px 0 0", fontSize: "16px", lineHeight: "24px", maxWidth: "760px", ...muted }}>{a}</p>
+                <p style={{ margin: "12px 0 0", fontSize: "16px", lineHeight: "24px", maxWidth: "760px", ...muted }}>{withContact(a)}</p>
               </details>
             ))}
           </div>
