@@ -1,5 +1,5 @@
 import { GATEWAY_MODELS, USD_TO_EUR } from "@repo/config";
-import type { GatewayModel, ModelKey } from "@repo/config";
+import type { GatewayModel, ModelKey, ModelPrices, PriceRegion } from "@repo/config";
 import { createGateway, generateText, jsonSchema, tool } from "ai";
 import type { LanguageModel, ModelMessage as SdkMessage, SystemModelMessage, ToolSet } from "ai";
 import type { ModelMessage, ModelTransport, ToolCall, ToolSpec, TransportRequest, TransportResponse } from "../router.js";
@@ -19,7 +19,9 @@ import type { ModelMessage, ModelTransport, ToolCall, ToolSpec, TransportRequest
 // - Si el modelo se niega o la respuesta se corta, falla: el turno pasa a una
 //   persona en vez de mandarle al cliente media respuesta.
 // - El coste real es el que devuelve el gateway; si no viene, se calcula con la
-//   tabla de precios de @repo/config, con la caché de prompt aparte.
+//   tabla de precios de @repo/config, con la caché de prompt aparte y el
+//   contexto largo. Sin región fijada (el SDK del gateway no la fija), precio
+//   global: la ruta UE del ADR 0051 cobrará con priceEur(…, "eu").
 // - Caché de prompt (PL-T3): marcas explícitas de Anthropic (cacheControl),
 //   solo donde lo escrito se va a leer después (escribir cuesta un 25 % más):
 //   - el último mensaje de sistema estable: herramientas y reglas, iguales en
@@ -79,13 +81,28 @@ export interface BilledTokens {
   output: number;
 }
 
-export function priceEur(model: GatewayModel, tokens: BilledTokens): number {
+/**
+ * Los precios de una ruta: los de la región si la inferencia va fijada en ella
+ * (un 10 % más en el catálogo), los globales si no. Una región sin precio en la
+ * tabla falla: cobrarla a precio global se quedaría corto.
+ */
+export function pricesFor(model: GatewayModel, region?: PriceRegion): ModelPrices {
+  if (region === undefined) return model;
+  const prices = model.regional?.[region];
+  if (!prices) throw new ModelResponseError(`«${model.id}» no tiene precio en la región «${region}»`);
+  return prices;
+}
+
+export function priceEur(model: GatewayModel, tokens: BilledTokens, region?: PriceRegion): number {
+  const prices = pricesFor(model, region);
   const usd =
-    tokens.input * model.inputUsdPerMTok +
-    tokens.cacheRead * (model.cacheReadUsdPerMTok ?? model.inputUsdPerMTok) +
-    tokens.cacheWrite * (model.cacheWriteUsdPerMTok ?? model.inputUsdPerMTok) +
-    tokens.output * model.outputUsdPerMTok;
-  return usdToEur(usd / 1_000_000);
+    tokens.input * prices.inputUsdPerMTok +
+    tokens.cacheRead * (prices.cacheReadUsdPerMTok ?? prices.inputUsdPerMTok) +
+    tokens.cacheWrite * (prices.cacheWriteUsdPerMTok ?? prices.inputUsdPerMTok) +
+    tokens.output * prices.outputUsdPerMTok;
+  const promptTokens = tokens.input + tokens.cacheRead + tokens.cacheWrite;
+  const multiplier = model.longContext && promptTokens >= model.longContext.aboveInputTokens ? model.longContext.multiplier : 1;
+  return usdToEur((usd * multiplier) / 1_000_000);
 }
 
 /** La marca de caché de prompt de Anthropic: hasta aquí, el prefijo se guarda y se reutiliza. */
