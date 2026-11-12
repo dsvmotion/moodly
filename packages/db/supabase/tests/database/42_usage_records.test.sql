@@ -1,4 +1,4 @@
--- El libro de consumo (20261112040500, PL-ledger): una fila por llamada a un
+-- El libro de consumo (20261112041000, PL-ledger): una fila por llamada a un
 -- modelo, particionada por mes, que solo anota la plataforma y nunca cambia;
 -- la ve el org_admin de su organización (y el equipo interno con permiso), con
 -- su resumen por día; usage_spend suma el gasto del día y del mes para el
