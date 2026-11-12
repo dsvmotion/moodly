@@ -1,4 +1,4 @@
--- PL-T1, paso 3c-1 (20261112063000): moodly_worker crea y cierra runs y anota
+-- PL-T1, paso 3c-1 (20261112130000): moodly_worker crea y cierra runs y anota
 -- consumo, solo de su organización, solo las columnas que necesita y solo las
 -- transiciones de su turno; no borra; las validaciones de siempre actúan
 -- también para él; service_role queda igual. guard_worker_agent_run, por

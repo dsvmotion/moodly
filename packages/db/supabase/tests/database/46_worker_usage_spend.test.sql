@@ -1,4 +1,4 @@
--- PL-T1, paso 3 (20261112062000): moodly_worker lee el libro de consumo solo
+-- PL-T1, paso 3 (20261112120000): moodly_worker lee el libro de consumo solo
 -- de la organización de su transacción, y no escribe en él.
 begin;
 \ir _fixtures/tenants.psql
@@ -11,7 +11,7 @@ values
   (:org_a, 'agent_turn', 'llm_tokens', 10, 8, 2, 0.75, 'anthropic', 'gateway', 'eu', 'fake/a', now() - interval '40 days'),
   (:org_b, 'agent_turn', 'llm_tokens', 10, 8, 2, 9.00, 'anthropic', 'gateway', 'eu', 'fake/b', now());
 
--- Desde 20261112063000 (3c-1) la política es FOR ALL y el worker también
+-- Desde 20261112130000 (3c-1) la política es FOR ALL y el worker también
 -- anota (47_worker_runs_usage); aquí, que siempre es por la organización de la
 -- transacción y que lo anotado no se cambia ni se borra.
 select is(

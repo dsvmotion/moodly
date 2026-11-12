@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261112063000_worker_runs_usage_writes.sql. Antes, desplegar
+-- Vuelta atrás de 20261112130000_worker_runs_usage_writes.sql. Antes, desplegar
 -- un worker que escriba los runs y el consumo por PostgREST.
 revoke insert on public.usage_records from moodly_worker;
 drop policy usage_records_worker on public.usage_records;

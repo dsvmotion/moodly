@@ -100,10 +100,21 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend) y la transacción bajo RLS", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, checkBudgetThresholds, budgetNotification) y la transacción bajo RLS", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "approvalNotification", "findBookingSlots", "from", "organizationId", "searchKnowledge", "transaction", "usageSpend"]);
+    expect(Object.keys(db).sort()).toEqual([
+      "agentTurnContext",
+      "approvalNotification",
+      "budgetNotification",
+      "checkBudgetThresholds",
+      "findBookingSlots",
+      "from",
+      "organizationId",
+      "searchKnowledge",
+      "transaction",
+      "usageSpend",
+    ]);
   });
 
   it("sin WORKER_DATABASE_URL no hay transacciones bajo RLS (no cae al acceso sin RLS)", async () => {
@@ -230,6 +241,29 @@ describe("tenantDb.usageSpend (PL-ledger)", () => {
 
   it("rechaza una fecha que no lo es, sin llamar", async () => {
     await expect(db.usageSpend({ dayStart: new Date("x"), monthStart: new Date() })).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb: los avisos del tope mensual (PL-ledger)", () => {
+  it("checkBudgetThresholds llama a check_budget_thresholds con la organización de este acceso", async () => {
+    await db.checkBudgetThresholds();
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/check_budget_thresholds");
+    expect(body).toEqual({ p_organization_id: ORG });
+  });
+
+  it("budgetNotification llama a budget_notification con la organización de este acceso, el mes y el umbral", async () => {
+    await db.budgetNotification("2026-11-01", 80);
+    const { url, body } = only();
+    expect(url.pathname).toBe("/rest/v1/rpc/budget_notification");
+    expect(body).toEqual({ p_organization_id: ORG, p_month: "2026-11-01", p_threshold: 80 });
+  });
+
+  it("rechaza un mes que no es el primer día o un umbral que no es 80 ni 100, sin llamar", async () => {
+    for (const month of ["2026-11-02", "2026-11", "x,2026-11-01"]) await expect(db.budgetNotification(month, 80)).rejects.toThrow(TenantScopeError);
+    for (const threshold of [0, 50, 101, Number.NaN]) await expect(db.budgetNotification("2026-11-01", threshold)).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });

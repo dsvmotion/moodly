@@ -37,7 +37,7 @@
 --   pide 00_rls_enabled); lo que puede hacer lo limitan los privilegios: leer y
 --   anotar.
 --
--- Vuelta atrás: rollbacks/20261112063000_worker_runs_usage_writes.down.sql.
+-- Vuelta atrás: rollbacks/20261112130000_worker_runs_usage_writes.down.sql.
 
 create function private.guard_worker_agent_run()
 returns trigger
