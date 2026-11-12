@@ -68,6 +68,8 @@ describe("registro de consumidores", () => {
     expect(() => createEventRegistry([handler("log", "*"), handler("log", "*")])).toThrow(/repetido/);
     expect(() => createEventRegistry([handler("Con Espacios", "*")])).toThrow(/clave/);
     expect(() => createEventRegistry([handler("x", ["payment.received" as "invitation.created"])])).toThrow(/catálogo/);
+    expect(() => createEventRegistry([{ ...handler("x", "*"), queue: "otra" as "notifications" }])).toThrow(/cola/);
+    expect(createEventRegistry([{ ...handler("x", "*"), queue: "notifications" }]).get("x")?.queue).toBe("notifications");
   });
 
   it("el ID de una entrega es el mismo cada vez: volver a encolar no crea otra", () => {

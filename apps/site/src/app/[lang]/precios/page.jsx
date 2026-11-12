@@ -3,11 +3,30 @@ import LangLink from "@/components/lang-link";
 import PageShell, { card, h2, muted, pillBtn, section, wrap } from "@/components/page-shell";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
+import { withContact } from "@/components/contact";
 
 // /precios (MANUAL §15.1 y §15.2): prueba con tarjeta y crédito de IA, tres
 // formas de seguir pagando la IA que se usa, y Enterprise con implantación y
 // contrato. Estructura de la página de precios de Langdock; los importes de los
 // planes siguen abiertos y la página lo dice.
+//
+// Estado de cada afirmación (N-01; regla de V1 del 2026-11-11): la etiqueta sale de
+// docs/scope.yaml. El alta autoservicio, la prueba y los planes son PL-billing (después
+// del piloto); hoy se entra al piloto hablando con nosotros. "" = un servicio de personas
+// (implantación), sin unidad de producto ni etiqueta. Mismo índice en los cuatro idiomas.
+const BILLING = "PL-billing";
+const UNITS = {
+  "ent.list": ["PL-sso", "F06", "SE04", "PL-cells"],
+  after: ["SE05", "PL-ledger", "PL-ledger", "PL-billing"],
+  visible: ["OA14", "PL-billing", "SE05", "PL-billing"],
+  implementation: ["OA27", "", ""],
+  addons: ["ch-voice", "OA24", "ch-whatsapp", "PL-sso", "PL-api"],
+};
+const at = (c, path) => path.split(".").reduce((o, k) => o[k], c);
+for (const [lang, c] of Object.entries(COPY)) for (const [f, u] of Object.entries(UNITS)) {
+  if (at(c, f).length !== u.length) throw new Error(`precios: ${lang}.${f} tiene ${at(c, f).length} y UNITS ${u.length}`);
+}
 
 const li = { margin: 0, padding: "16px 0 0", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" };
 const badge = (txt) => <span style={{ padding: "4px 10px", borderRadius: "800px", background: "#2457f5", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{txt}</span>;
@@ -31,12 +50,23 @@ function Plan({ plan, recommended }) {
 export default function Precios() {
   const lang = useLang();
   const t = COPY[lang] || COPY.es;
+  const Badge = ({ id }) => (id ? <span><AvailabilityBadge id={id} lang={lang} /></span> : null);
+  const Head = ({ children, id }) => (<span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 14px" }}><h2 style={h2}>{children}</h2><Badge id={id} /></span>);
 
   return (
     <PageShell eyebrow={t.eyebrow} title={t.title} intro={t.intro}>
       <section style={{ ...section, paddingTop: "clamp(40px, 6vw, 72px)" }}>
+        <div style={{ ...wrap, ...card, background: "#e8edff", border: 0, display: "flex", flexWrap: "wrap", gap: "16px 32px", alignItems: "center", justifyContent: "space-between" }} data-testid="pilot">
+          <span style={{ flex: "1 1 420px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "20px", lineHeight: "26px" }}>{t.pilotA}</span>
+            <span style={{ fontSize: "15px", lineHeight: "23px" }}>{withContact(t.pilotB)}</span>
+          </span>
+          <LangLink href="/contacto" style={pillBtn(true)}>{t.pilotCta}</LangLink>
+        </div>
+      </section>
+      <section style={section}>
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "16px" }}>
-          <h2 style={h2}>{t.plansTitle}</h2>
+          <Head id={BILLING}>{t.plansTitle}</Head>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "16px" }}>
             {t.plans.map((plan) => (<Plan key={plan.name} plan={plan} recommended={t.recommended} />))}
           </div>
@@ -50,7 +80,7 @@ export default function Precios() {
               <span style={{ fontSize: "14px", lineHeight: "21px", opacity: 0.7 }}>{t.ent.desc}</span>
               <LangLink href="/enterprise" style={{ ...pillBtn(false), alignSelf: "flex-start" }}>{t.ent.cta}</LangLink>
             </div>
-            <ul style={{ ...li, flex: "1 1 280px", padding: 0 }}>{t.ent.list.map((x) => (<li key={x}>✓ {x}</li>))}</ul>
+            <ul style={{ ...li, flex: "1 1 280px", padding: 0 }}>{t.ent.list.map((x, i) => (<li key={x} style={{ display: "flex", flexWrap: "wrap", gap: "6px 10px", alignItems: "center" }}>✓ {x} <Badge id={UNITS["ent.list"][i]} /></li>))}</ul>
           </div>
         </div>
       </section>
@@ -63,6 +93,7 @@ export default function Precios() {
               <li key={title} style={{ borderTop: "1px solid #000000", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
                 <span style={{ font: "400 13px/20px var(--font-mono)", color: "#6b6b70" }}>0{i + 1}</span>
                 <span style={{ fontSize: "18px", lineHeight: "22px", letterSpacing: "-0.36px" }}>{title}</span>
+                <Badge id={UNITS.after[i]} />
                 <span style={{ fontSize: "15px", lineHeight: "23px", ...muted }}>{d}</span>
               </li>
             ))}
@@ -74,7 +105,7 @@ export default function Precios() {
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
           <h2 style={h2}>{t.visibleA} <span style={muted}>{t.visibleB}</span></h2>
           <ul style={{ ...card, margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "14px 32px", listStyle: "none", fontSize: "15px", lineHeight: "22px" }}>
-            {t.visible.map((x) => (<li key={x}>✓ {x}</li>))}
+            {t.visible.map((x, i) => (<li key={x} style={{ display: "flex", flexDirection: "column", gap: "6px" }}><span>✓ {x}</span><Badge id={UNITS.visible[i]} /></li>))}
           </ul>
         </div>
       </section>
@@ -87,6 +118,7 @@ export default function Precios() {
               <div key={name} style={{ ...card, background: i === 0 ? "#dcebdd" : "#ffffff", border: i === 0 ? 0 : card.border, display: "flex", flexDirection: "column", gap: "10px", minHeight: "230px" }}>
                 <span style={{ fontSize: "13px", ...muted }}>{fit}</span>
                 <span style={{ fontSize: "20px", lineHeight: "24px" }}>{name}</span>
+                <Badge id={UNITS.implementation[i]} />
                 <span style={{ fontSize: "28px", lineHeight: "32px", fontWeight: 100, letterSpacing: "-0.03em" }}>{price}</span>
                 <p style={{ margin: 0, fontSize: "14px", lineHeight: "21px", ...muted }}>{text}</p>
               </div>
@@ -102,7 +134,7 @@ export default function Precios() {
           <div style={{ ...card, padding: 0 }}>
             {t.addons.map(([title, d, p], i) => (
               <div key={title} style={{ display: "flex", flexWrap: "wrap", gap: "8px 24px", justifyContent: "space-between", alignItems: "center", padding: "20px 28px", borderTop: i ? "1px solid #0000000f" : 0 }}>
-                <span style={{ flex: "1 1 360px", display: "flex", flexDirection: "column", gap: "2px" }}><span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{title}</span><span style={{ fontSize: "14px", lineHeight: "20px", ...muted }}>{d}</span></span>
+                <span style={{ flex: "1 1 360px", display: "flex", flexDirection: "column", gap: "2px" }}><span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{title}</span><Badge id={UNITS.addons[i]} /><span style={{ fontSize: "14px", lineHeight: "20px", ...muted }}>{d}</span></span>
                 <span style={{ fontSize: "14px", lineHeight: "20px" }}>{p}</span>
               </div>
             ))}
@@ -112,7 +144,7 @@ export default function Precios() {
 
       <section style={section}>
         <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
-          <h2 style={h2}>{t.compareTitle}</h2>
+          <Head id={BILLING}>{t.compareTitle}</Head>
           <div style={{ ...card, padding: 0, overflowX: "auto" }}>
             <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", fontSize: "15px", lineHeight: "22px" }}>
               <thead><tr style={{ textAlign: "left", background: "#f2f2f4" }}><th style={{ padding: "14px 28px", fontWeight: 500 }}></th><th style={{ padding: "14px", fontWeight: 500 }}>{t.cols[0]}</th><th style={{ padding: "14px", fontWeight: 500 }}>{t.cols[1]}</th><th style={{ padding: "14px 28px", fontWeight: 500 }}>{t.cols[2]}</th></tr></thead>
@@ -129,7 +161,7 @@ export default function Precios() {
             {t.faq.map(([q, a]) => (
               <details key={q} style={{ borderBottom: "1px solid #0000001a", padding: "20px 0" }}>
                 <summary style={{ display: "flex", justifyContent: "space-between", gap: "16px", fontSize: "18px", lineHeight: "27px" }}>{q}<span aria-hidden="true">+</span></summary>
-                <p style={{ margin: "12px 0 0", fontSize: "16px", lineHeight: "24px", maxWidth: "760px", ...muted }}>{a}</p>
+                <p style={{ margin: "12px 0 0", fontSize: "16px", lineHeight: "24px", maxWidth: "760px", ...muted }}>{withContact(a)}</p>
               </details>
             ))}
           </div>

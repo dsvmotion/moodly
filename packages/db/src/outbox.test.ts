@@ -54,6 +54,22 @@ describe("outbox: lo único que el publicador ve entre organizaciones", () => {
     expect(url.searchParams.get("limit")).toBe("50");
   });
 
+  it("oldestPendingAt pide solo la hora de creación del pendiente más antiguo", async () => {
+    reply = [{ created_at: "2026-11-11T10:00:00+00:00" }];
+    expect(await box.oldestPendingAt()).toEqual(new Date("2026-11-11T10:00:00Z"));
+    const { method, url } = only();
+    expect(method).toBe("GET");
+    expect(url.searchParams.get("select")).toBe("created_at");
+    expect(url.searchParams.get("published_at")).toBe("is.null");
+    expect(url.searchParams.get("order")).toBe("created_at.asc");
+    expect(url.searchParams.get("limit")).toBe("1");
+  });
+
+  it("oldestPendingAt devuelve null sin pendientes", async () => {
+    reply = [];
+    expect(await box.oldestPendingAt()).toBeNull();
+  });
+
   it("pending rechaza un lote fuera de 1–500 sin preguntar a la base de datos", async () => {
     for (const limit of [0, -1, 501, 1.5, Number.NaN]) {
       await expect(box.pending(limit)).rejects.toThrow(OutboxError);

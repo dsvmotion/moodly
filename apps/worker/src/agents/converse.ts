@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPrompt, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPromptParts, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -10,6 +10,7 @@ import type {
   SkillSettings,
   Target,
   TurnExecution,
+  TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
 import type { Json } from "@repo/db";
@@ -34,9 +35,11 @@ import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
-import { AWAITING_PERSON, requestApproval } from "./approvals.ts";
-import { createConversationSender } from "./conversation-sender.ts";
+import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
+import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
+import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
 // message.received y ejecuta runAgentTurn con pasos de DBOS.
@@ -51,6 +54,10 @@ import { createReceptionCatalog } from "./reception-catalog.ts";
 //   publicarlo. En pausa, nunca.
 // - El run tiene un id que sale del evento: si la entrega se reanuda, es el
 //   mismo run y las mismas claves de idempotencia.
+// - Si una persona toma el control a mitad del turno, el agente ya no escribe
+//   (R-02): la base de datos rechaza su mensaje (conversation-sender.ts), y un
+//   mensaje que iba a esperar aprobación no la pide (nadie la aprobaría para
+//   que el agente hable en una conversación de una persona).
 // - Cada ejecución decidida se guarda en executions en cuanto se decide; las
 //   rechazadas por el motor no tienen hash ni entrada válida y van al log (sin
 //   sus argumentos, que son lo que dijo el modelo).
@@ -76,6 +83,8 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
+  intentRouting?: boolean;
 }
 
 /** El id del run de un evento: siempre el mismo para la misma entrega (UUID de 128 bits del SHA-256). */
@@ -141,7 +150,7 @@ const contextSchema = z.object({
 });
 export type TurnContext = z.infer<typeof contextSchema>;
 
-interface Conversation {
+export interface Conversation {
   id: string;
   location_id: string | null;
   contact_id: string;
@@ -155,9 +164,15 @@ type Prepared =
       conversation: Conversation;
       context: TurnContext;
       history: HistoryMessage[];
+      /** El resumen de lo anterior a `history` (PL-T3), y hasta dónde llega. */
+      summary: { summary: string; coveredUntil: string } | null;
+      /** Si no se pudo leer el resumen: el turno va con la historia entera. */
+      summaryError: string | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
+      /** Lo gastado hoy y este mes (UTC), del libro de consumo: lo compara el enrutador con los topes. */
       dayEur: number;
+      monthEur: number;
       /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
       services: BookableService[] | null;
       servicesTruncated: boolean;
@@ -202,22 +217,19 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
   }
 
-  const messages = check(
-    await db
-      .from("messages")
-      .select("author, content, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT),
-    "el historial",
-  );
+  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido.
+  // Si no se puede leer, sin resumen: la historia entera, como antes (nunca un turno sin contestar).
+  const { summary, error: summaryError } = await loadSummary(db, conversationId);
+  let history = db.from("messages").select("author, content, created_at").eq("conversation_id", conversationId);
+  if (summary) history = history.gt("created_at", summary.coveredUntil);
+  const messages = check(await history.order("created_at", { ascending: false }).limit(HISTORY_LIMIT), "el historial");
   const location = conversation.location_id
     ? check(await db.from("locations").select("name, timezone").eq("id", conversation.location_id).maybeSingle(), "el local")
     : null;
   const modelSettings = check(
     await db
       .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur")
+      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur")
       .maybeSingle(),
     "la política de modelos",
   );
@@ -238,17 +250,22 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       : [];
   const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
   const now = new Date();
-  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const today = check(await db.from("agent_runs").select("cost_eur").gte("created_at", startOfDay).limit(10_000), "el gasto del día");
+  const spent = await db.usageSpend({
+    dayStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+  });
 
   return {
     kind: "turn",
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
     history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    summary,
+    summaryError,
     location,
     modelSettings,
-    dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
+    dayEur: spent.dayEur,
+    monthEur: spent.monthEur,
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
     now: now.toISOString(),
@@ -302,6 +319,16 @@ async function startRun(db: TenantDb, runId: string, conversation: Conversation,
   if (error && error.code !== "23505") throw new Error(`no se pudo crear el run (${error.code})`);
 }
 
+/**
+ * Un mensaje del agente a su conversación (external_message con destino la
+ * conversación) que iba a esperar aprobación, con la conversación ya en manos
+ * de una persona: no la pide.
+ */
+export function holdsForPerson(effectClass: string, target: Target | undefined, mode: string | null): boolean {
+  return effectClass === "external_message" && target?.kind === "conversation" && mode !== "agent";
+}
+
+/** Guarda la ejecución y, si espera a una persona, pide su aprobación. Devuelve si se retuvo (R-02). */
 async function recordExecution(
   db: TenantDb,
   runId: string,
@@ -309,8 +336,8 @@ async function recordExecution(
   skill: SkillDefinition<unknown>,
   execution: TurnExecution,
   now: Date,
-): Promise<void> {
-  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return;
+): Promise<boolean> {
+  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
   const { data, error } = await db.from("executions").insert({
     run_id: runId,
     location_id: locationId,
@@ -328,13 +355,31 @@ async function recordExecution(
   }).select("id").single();
   // 23505: ya guardada (la entrega se reanudó después de guardarla).
   if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
-  if (!AWAITING_PERSON.has(execution.status)) return;
+  if (!AWAITING_PERSON.has(execution.status)) return false;
   // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
   let executionId = data?.id;
   if (!executionId) {
     const existing = await db.from("executions").select("id").eq("idempotency_key", execution.idempotencyKey).maybeSingle();
     if (existing.error || !existing.data) throw new Error(`no se encontró la ejecución guardada (${existing.error?.code ?? "sin fila"})`);
     executionId = existing.data.id;
+  }
+  // Si la conversación ya la lleva una persona, el mensaje del agente no pide
+  // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
+  // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
+  if (execution.target?.kind === "conversation") {
+    const conversation = check(
+      await db.from("conversations").select("mode").eq("id", execution.target.conversationId).maybeSingle(),
+      "la conversación de la ejecución",
+    );
+    if (holdsForPerson(skill.effectClass, execution.target, conversation?.mode ?? null)) {
+      const held = await db
+        .from("executions")
+        .update({ status: "failed", output: { held: HELD_NOT_AGENT_MODE } })
+        .eq("id", executionId)
+        .in("status", [...AWAITING_PERSON]);
+      if (held.error) throw new Error(`no se pudo retener la ejecución (${held.error.code})`);
+      return true;
+    }
   }
   await requestApproval(db, {
     executionId,
@@ -344,10 +389,79 @@ async function recordExecution(
     summary: execution.preview?.summary ?? null,
     now,
   });
+  return false;
 }
 
-async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult): Promise<void> {
+/**
+ * Una llamada al modelo, al libro de consumo (PL-ledger), en su propio paso
+ * justo después de hacerla. Si el paso se repite, no se anota dos veces: run,
+ * orden y hora de la llamada son únicos (23505: ya estaba).
+ *
+ * Nunca lanza: un fallo del libro no puede dejar al cliente sin respuesta ni el
+ * run en «running». Lo registra como error (con el run) y devuelve false; el
+ * cierre del run lo vuelve a intentar, y el run guarda los totales igualmente.
+ */
+export async function recordUsageSafely(
+  db: TenantDb,
+  logger: Pick<Logger, "error">,
+  runId: string,
+  conversation: Conversation,
+  call: TurnModelCall,
+): Promise<boolean> {
+  try {
+    await recordUsage(db, runId, conversation, call);
+    return true;
+  } catch (err) {
+    logger.error({ runId, callIndex: call.index, err: err instanceof Error ? err.name : "Error" }, "no se pudo anotar una llamada al modelo en el libro de consumo");
+    return false;
+  }
+}
+
+async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
+  const { error } = await db.from("usage_records").insert(
+    {
+      location_id: conversation.location_id,
+      run_id: runId,
+      agent_id: conversation.agent_id,
+      source: "agent_turn",
+      metric: "llm_tokens",
+      quantity: call.tokensIn + call.tokensOut,
+      tokens_in: call.tokensIn,
+      tokens_out: call.tokensOut,
+      cost_eur: call.costEur,
+      provider: call.provider,
+      via: call.via,
+      region: call.region,
+      model: call.model,
+      model_key: call.modelKey,
+      call_index: call.index,
+      occurred_at: call.startedAt,
+    },
+  );
+  if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
+}
+
+/**
+ * Cómo queda el run, también si algo se retuvo (R-02): si lo que iba a esperar
+ * a una persona no espera nada porque la conversación ya la lleva una persona,
+ * el run no queda esperando aprobación para siempre: queda en sus manos.
+ */
+export function finalRunStatus(result: TurnResult, heldAny: boolean, stillAwaiting: boolean): ReturnType<typeof runStatusFor> {
   const status = runStatusFor(result);
+  if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
+  return status;
+}
+
+async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult, heldAny: boolean): Promise<void> {
+  let stillAwaiting = false;
+  if (heldAny) {
+    const pending = check(
+      await db.from("executions").select("id").eq("run_id", runId).in("status", [...AWAITING_PERSON]).limit(1),
+      "lo que queda del run",
+    );
+    stillAwaiting = (pending ?? []).length > 0;
+  }
+  const status = finalRunStatus(result, heldAny, stillAwaiting);
   if (status === "handed_off") {
     // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
     // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
@@ -459,9 +573,17 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
     await ctx.step("waitlist-accept:hold", () => holdOffer(ctx.db, found.entryId, found.expiresAt, holdUntil(new Date(), new Date(found.startsAt))));
   }
   const text = acceptanceText(outcome, { ...found.text, startsAt: new Date(found.startsAt) });
-  await ctx.step("waitlist-accept:reply", () =>
-    createConversationSender(ctx.db).send({ conversationId: conversation.id, text, idempotencyKey: `${key}:reply` }),
-  );
+  // Si una persona tomó el control entretanto, la respuesta no sale (R-02); la reserva ya está hecha o esperando.
+  const replied = await ctx.step("waitlist-accept:reply", async () => {
+    try {
+      await createConversationSender(ctx.db).send({ conversationId: conversation.id, text, idempotencyKey: `${key}:reply` });
+      return true;
+    } catch (error) {
+      if (isNotAgentMode(error)) return false;
+      throw error;
+    }
+  });
+  if (!replied) ctx.logger.info({ conversationId, entryId: found.entryId, reason: HELD_NOT_AGENT_MODE }, "la respuesta a la oferta no sale: la conversación la lleva una persona");
   await ctx.step("run:finish", async () => {
     const runStatus = outcome === "booked" ? "completed" : outcome === "pending" ? "awaiting_approval" : "failed";
     const { error } = await ctx.db.from("agent_runs").update({ status: runStatus }).eq("id", runId).eq("status", "running");
@@ -471,7 +593,21 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
   return true;
 }
 
-export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
+/** El run cuenta también lo que costó el resumen: así el gasto del día y los topes lo ven. */
+export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): TurnResult {
+  if (summarized.kind !== "updated") return result;
+  return {
+    ...result,
+    usage: {
+      ...result.usage,
+      tokensIn: result.usage.tokensIn + summarized.usage.tokensIn,
+      tokensOut: result.usage.tokensOut + summarized.usage.tokensOut,
+      costEur: result.usage.costEur + summarized.usage.costEur,
+    },
+  };
+}
+
+export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -502,6 +638,21 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
       const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      let heldAny = false;
+      const prompt = composeSystemPromptParts({
+        agentName: context.agent.display_name ?? context.agent.type_name,
+        businessName: context.organization.name,
+        locationName: prepared.location?.name ?? null,
+        timezone: prepared.location?.timezone ?? "UTC",
+        now: new Date(prepared.now),
+        ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+        knowledge: searchesKnowledge,
+      });
+      // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
+      const unrecorded: TurnModelCall[] = [];
+      // La bandera se guarda en un paso: si cambia con un turno a medias, al reanudarlo
+      // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
+      const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -512,34 +663,84 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           runId,
           conversation: { id: conversation.id, contactId: conversation.contact_id },
         },
-        systemPrompt: composeSystemPrompt({
-          agentName: context.agent.display_name ?? context.agent.type_name,
-          businessName: context.organization.name,
-          locationName: prepared.location?.name ?? null,
-          timezone: prepared.location?.timezone ?? "UTC",
-          now: new Date(prepared.now),
-          ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
-          knowledge: searchesKnowledge,
-        }),
+        // El prompt estable va a la caché de prompt; la hora, aparte (PL-T3).
+        systemPrompt: prompt.stable,
+        systemContext: prompt.volatile,
         history: prepared.history,
+        summary: prepared.summary?.summary ?? null,
         skills,
         settings,
         router,
         policy,
-        spend: { runEur: 0, dayEur: prepared.dayEur },
+        spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
+        intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
+        recordModelCall: async (call) => {
+          const ok = await ctx.step(`usage:${call.index}`, () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call));
+          if (!ok) unrecorded.push(call);
+        },
         record: async (execution) => {
           if (execution.status === "rejected") {
             ctx.logger.warn({ runId, skillKey: execution.skillKey, reason: execution.rejectReason }, "el motor de políticas rechazó una herramienta");
             return;
           }
           const skill = skills.get(execution.skillKey);
-          if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
+          if (!skill) return;
+          const held = await ctx.step(`record:${execution.idempotencyKey}`, () =>
+            recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()),
+          );
+          if (held) {
+            heldAny = true;
+            ctx.logger.info({ runId, skillKey: execution.skillKey, reason: HELD_NOT_AGENT_MODE }, "la conversación la lleva una persona: el mensaje del agente no pide aprobación");
+          }
         },
       });
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result));
+      // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
+      const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
+      // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
+      await ctx.step("run:finish", async () => {
+        // Lo que no se pudo anotar durante el turno, otra vez (sin lanzar tampoco).
+        for (const call of unrecorded) await recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call);
+        await finishRun(ctx.db, runId, conversation.id, result, heldAny);
+      });
+      if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
+      // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
+      const summarized = await ctx.step("summary:model", () =>
+        summarizeStep({
+          db: ctx.db,
+          organizationId: event.organizationId,
+          runId,
+          conversationId: conversation.id,
+          previous: prepared.summary,
+          router,
+          policy,
+          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur, monthEur: prepared.monthEur + result.usage.costEur },
+        }),
+      );
+      // La llamada del resumen, al libro de consumo (PL-ledger), también si no dio resumen: se pagó igual.
+      const summaryCall = summarized.kind === "none" ? undefined : summarized.call;
+      if (summaryCall) await ctx.step("summary:ledger", () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, summaryCall));
+      const finished = withSummaryUsage(result, summarized);
+      if (summarized.kind === "updated") {
+        // Primero el coste (se gastó aunque no se guarde), después el resumen.
+        const booked = await ctx.step("summary:usage", () => bookSummaryUsage(ctx.db, runId, finished.usage));
+        if (booked) ctx.logger.warn({ runId, error: booked }, "no se pudo apuntar el coste del resumen en el run");
+        const saved = await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
+        if (saved) ctx.logger.warn({ runId, error: saved }, "no se pudo guardar el resumen");
+      } else if (summarized.kind === "skipped") {
+        ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
+      }
       ctx.logger.info(
-        { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
+        {
+          runId,
+          status: finished.status,
+          reason: notAgentMode ? HELD_NOT_AGENT_MODE : finished.reason,
+          error: finished.error,
+          executions: finished.executions.length,
+          costEur: finished.usage.costEur,
+          summary: summarized.kind,
+          intent: finished.intent?.intent,
+        },
         "turno del agente terminado",
       );
     },

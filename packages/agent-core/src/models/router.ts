@@ -25,8 +25,8 @@ export interface ModelPolicy {
    */
   modelOverrides: Readonly<Partial<Record<ModelTask, ModelKey>>>;
   connection: ConnectionMode;
-  /** Topes en euros: se comprueban antes de llamar. */
-  budget: { perRunEur: number; perDayEur: number };
+  /** Topes en euros: se comprueban antes de llamar (del run, del día y del mes; MANUAL §15.1). */
+  budget: { perRunEur: number; perDayEur: number; perMonthEur: number };
 }
 
 /** Por defecto de plataforma (decisión de producto del 2026-10-24): cualquier proveedor con DPA, claves de Moodly. */
@@ -36,7 +36,7 @@ export const PLATFORM_MODEL_POLICY: ModelPolicy = {
   modelByTask: DEFAULT_MODEL_BY_TASK,
   modelOverrides: {},
   connection: "managed",
-  budget: { perRunEur: 0.5, perDayEur: 20 },
+  budget: { perRunEur: 0.5, perDayEur: 20, perMonthEur: 300 },
 };
 
 /** Una llamada a una herramienta que propone el modelo. Los args son lo que dice el LLM: pasan por decide() antes de nada. */
@@ -55,7 +55,17 @@ export interface ToolSpec {
 }
 
 export type ModelMessage =
-  | { role: "system" | "user"; content: string }
+  | {
+      role: "system";
+      content: string;
+      /**
+       * Prefijo estable (PL-T3): no cambia de un turno a otro, así que el
+       * transporte pone ahí una marca de caché de prompt. Lo que cambia en cada
+       * turno (la hora) va en otro mensaje de sistema, después y sin la marca.
+       */
+      cacheable?: boolean;
+    }
+  | { role: "user"; content: string }
   | {
       role: "assistant";
       content: string;
@@ -82,6 +92,12 @@ export interface ModelCall {
    * modelo de ese tipo de agente.
    */
   agentType?: string;
+  /**
+   * La clave que pide el runtime para esta llamada (el camino barato del
+   * enrutado por intención, PL-T3). La elección explícita de la organización
+   * manda sobre ella; ella, sobre la del agente y la de la tarea.
+   */
+  preferredModel?: ModelKey;
   messages: readonly ModelMessage[];
   /** Tope de tokens de salida: con él se estima el coste antes de llamar. */
   maxOutputTokens: number;
@@ -89,10 +105,14 @@ export interface ModelCall {
   tools?: readonly ToolSpec[];
 }
 
-/** Lo que gastó ya la organización: lo lleva el runtime (agent_runs y usage_records). */
+/**
+ * Lo que gastó ya la organización: el del run lo lleva el turno; el del día y
+ * el del mes salen del libro de consumo (usage_records, PL-ledger).
+ */
 export interface Spend {
   runEur: number;
   dayEur: number;
+  monthEur: number;
 }
 
 export interface TransportRequest {
@@ -109,8 +129,13 @@ export interface TransportResponse {
   /** Los mensajes del modelo tal como los devolvió el proveedor (JSON), para reenviarlos en el paso siguiente. */
   providerMessages?: readonly unknown[];
   model: string;
+  /** Toda la entrada, también la que se leyó o se escribió en la caché de prompt. */
   tokensIn: number;
   tokensOut: number;
+  /** De tokensIn, los que se leyeron de la caché de prompt (más baratos). */
+  cacheReadTokens?: number;
+  /** De tokensIn, los que se escribieron en la caché de prompt (algo más caros). */
+  cacheWriteTokens?: number;
   costEur: number;
 }
 
@@ -135,6 +160,8 @@ export interface RoutedResult extends TransportResponse {
   via: Via;
   connection: ConnectionMode;
   modelKey: ModelKey;
+  /** Cuándo empezó la llamada (ISO): con el run y el orden, la anota una sola vez en el libro de consumo. */
+  startedAt: string;
   latencyMs: number;
   /** true si respondió el respaldo porque falló el principal. */
   fallback: boolean;
@@ -180,13 +207,15 @@ export function eligibleTransports(policy: ModelPolicy, modelKey: ModelKey, tran
 /**
  * Qué clave de modelo atiende una tarea (MANUAL §5.11; producto, 2026-11-11):
  * 1. la que eligió la organización a propósito para esa tarea;
- * 2. para conversar, la del tipo de agente (la más barata que pasa sus evals);
- * 3. la de la tarea en la política (por defecto de plataforma), también para
+ * 2. la que pide el runtime para esta llamada (enrutado por intención, PL-T3);
+ * 3. para conversar, la del tipo de agente (la más barata que pasa sus evals);
+ * 4. la de la tarea en la política (por defecto de plataforma), también para
  *    un tipo de agente sin clave propia.
  */
-export function resolveModelKey(policy: ModelPolicy, task: ModelTask, agentType?: string): ModelKey {
+export function resolveModelKey(policy: ModelPolicy, task: ModelTask, agentType?: string, preferred?: ModelKey): ModelKey {
   const chosen = policy.modelOverrides[task];
   if (chosen !== undefined) return chosen;
+  if (preferred !== undefined) return preferred;
   const byAgent = task === "converse" && agentType !== undefined ? converseModelForAgentType(agentType) : undefined;
   return byAgent ?? policy.modelByTask[task];
 }
@@ -203,7 +232,7 @@ export interface ModelRouter {
 export function createModelRouter(transports: readonly ModelTransport[], now: () => number = Date.now): ModelRouter {
   return {
     async generate(call, policy, spend) {
-      const modelKey = resolveModelKey(policy, call.task, call.agentType);
+      const modelKey = resolveModelKey(policy, call.task, call.agentType, call.preferredModel);
       const candidates = eligibleTransports(policy, modelKey, transports).slice(0, 2);
       if (candidates.length === 0) {
         throw new NoEligibleTransportError(
@@ -219,9 +248,13 @@ export function createModelRouter(transports: readonly ModelTransport[], now: ()
       const causes: unknown[] = [];
       for (const [index, transport] of candidates.entries()) {
         const estimate = transport.estimateEur(request);
-        if (spend.runEur + estimate > policy.budget.perRunEur || spend.dayEur + estimate > policy.budget.perDayEur) {
+        if (
+          spend.runEur + estimate > policy.budget.perRunEur ||
+          spend.dayEur + estimate > policy.budget.perDayEur ||
+          spend.monthEur + estimate > policy.budget.perMonthEur
+        ) {
           throw new BudgetExceededError(
-            `la llamada (hasta ${estimate.toFixed(4)} €) supera el tope del run o del día de la organización`,
+            `la llamada (hasta ${estimate.toFixed(4)} €) supera el tope del run, del día o del mes de la organización`,
           );
         }
         const startedAt = now();
@@ -234,6 +267,7 @@ export function createModelRouter(transports: readonly ModelTransport[], now: ()
             via: transport.via,
             connection: transport.connection,
             modelKey,
+            startedAt: new Date(startedAt).toISOString(),
             latencyMs: now() - startedAt,
             fallback: index > 0,
           };

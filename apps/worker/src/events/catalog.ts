@@ -27,6 +27,13 @@ export const eventPayloads = {
     run_id: z.uuid(),
     decision: z.enum(["approved", "rejected"]),
   }),
+  // private.emit_approval_created, en la misma transacción que la aprobación
+  // (M-02). Lo consume notify.approval_email: el aviso a quien puede decidirla.
+  "approval.created": z.object({
+    approval_id: z.uuid(),
+    execution_id: z.uuid(),
+    run_id: z.uuid(),
+  }),
   // private.emit_message_received, en la misma transacción que el mensaje de un
   // cliente (paso 4d-2). Lo consume agent.converse: el turno del agente.
   "message.received": z.object({

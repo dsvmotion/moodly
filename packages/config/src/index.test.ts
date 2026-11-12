@@ -54,4 +54,25 @@ describe("@repo/config", () => {
       expect(DEFAULT_MODEL_BY_TASK.converse).toBe("smart");
     });
   });
+
+  describe("GATEWAY_MODELS: precios del catálogo del gateway (2026-11-12)", () => {
+    const lines = ["inputUsdPerMTok", "outputUsdPerMTok", "cacheReadUsdPerMTok", "cacheWriteUsdPerMTok"] as const;
+
+    it("cada clave tiene precio en la UE, un 10 % más en cada línea (ADR 0051: la UE por defecto)", () => {
+      for (const [key, model] of Object.entries(GATEWAY_MODELS)) {
+        const eu = model?.regional?.eu;
+        expect(eu, key).toBeDefined();
+        for (const line of lines) {
+          expect(model?.[line], `${key}.${line}`).toBeDefined();
+          expect(eu?.[line], `${key}.eu.${line}`).toBeCloseTo((model?.[line] ?? 0) * 1.1, 10);
+        }
+      }
+    });
+
+    it("Haiku 5.5 cobra ×5 desde 100 001 tokens de entrada; Sonnet y Opus 5.5, sin tramos", () => {
+      expect(GATEWAY_MODELS.fast?.longContext).toEqual({ aboveInputTokens: 100_001, multiplier: 5 });
+      expect(GATEWAY_MODELS.balanced?.longContext).toBeUndefined();
+      expect(GATEWAY_MODELS.smart?.longContext).toBeUndefined();
+    });
+  });
 });

@@ -47,6 +47,8 @@ export interface ConversationCase {
   /** Lo que se prueba, en una frase. */
   description: string;
   history: readonly HistoryMessage[];
+  /** El resumen continuo de lo anterior a `history` (PL-T3), como lo guardaría el worker. */
+  summary?: string;
   /** El negocio de prueba (por defecto, el centro de estética AURORA). */
   business?: Business;
   /** Lo que ha escrito el negocio, si no es el suyo de serie. */
@@ -89,6 +91,8 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
 export interface RunOptions {
   /** La clave de modelo para conversar, si no es la de cada agente (para comparar modelos). */
   converseModel?: ModelKey;
+  /** Enrutado por intención (PL-T3): clasifica el mensaje y las intenciones simples conversan con el camino barato. */
+  intentRouting?: boolean;
 }
 
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
@@ -98,8 +102,10 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPrompt,
+    systemPrompt: world.systemPromptParts.stable,
+    systemContext: world.systemPromptParts.volatile,
     history: testCase.history,
+    ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
     settings: world.settings,
     router: createModelRouter([model]),
@@ -109,7 +115,8 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     policy: options.converseModel
       ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
-    spend: { runEur: 0, dayEur: 0 },
+    spend: { runEur: 0, dayEur: 0, monthEur: 0 },
+    ...(options.intentRouting ? { intentRouting: true } : {}),
   });
   const outcome: Outcome = {
     result,

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
@@ -48,15 +48,23 @@ interface ModelCall {
   lastRole?: string;
   customer?: string;
   system?: string | null;
+  /** El mensaje del resumen continuo, si lo llevaba (PL-T3). */
+  summary?: string | null;
+  messages?: number;
+  modelKey?: string;
+  input?: string;
 }
-function modelCalls(): ModelCall[] {
+function effects(step: string): ModelCall[] {
   if (!existsSync(effectsFile)) return [];
   return readFileSync(effectsFile, "utf8")
     .trim()
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line) as ModelCall)
-    .filter((entry) => entry.step === "model");
+    .filter((entry) => entry.step === step);
+}
+function modelCalls(): ModelCall[] {
+  return effects("model");
 }
 
 async function setAutonomy(skillKey: string, autonomy: string): Promise<void> {
@@ -220,8 +228,9 @@ afterAll(async () => {
       [ids.agent, ids.location],
     );
     await admin.query("delete from public.agent_runs where agent_id = $1 and location_id = $2", [ids.agent, ids.location]);
-    await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
-    await admin.query("delete from public.conversations where id = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
+    const conversations = [ids.conversation, ids.testConversation ?? ids.conversation, ids.summaryConversation ?? ids.conversation];
+    await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [conversations]);
+    await admin.query("delete from public.conversations where id = any($1)", [conversations]);
   }
   if (ids.testChannel) await admin.query("delete from public.channel_accounts where id = $1", [ids.testChannel]);
   await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
@@ -248,6 +257,27 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     expect(run).toMatchObject({ organization_id: ids.org, status: "completed", trigger: "inbound_message", model: "fake/fast" });
     expect(Number(run?.tokens_in)).toBe(240);
     expect(Number(run?.cost_eur)).toBeCloseTo(0.0008, 6);
+
+    // El libro de consumo (PL-ledger): una fila por llamada al modelo, de la
+    // organización de la fila, con su orden, vía y coste; sumadas dan lo del run.
+    const { rows: usage } = await admin.query<{
+      organization_id: string;
+      agent_id: string;
+      source: string;
+      call_index: number;
+      provider: string;
+      model: string;
+      tokens_in: number;
+      tokens_out: number;
+      cost_eur: string;
+    }>(
+      "select organization_id, agent_id, source, call_index, provider, model, tokens_in, tokens_out, cost_eur from public.usage_records where run_id = $1 order by call_index",
+      [run?.id],
+    );
+    expect(usage.map((row) => row.call_index)).toEqual([0, 1]);
+    expect(usage.every((row) => row.organization_id === ids.org && row.source === "agent_turn" && row.model === "fake/fast")).toBe(true);
+    expect(usage.reduce((sum, row) => sum + row.tokens_in, 0)).toBe(240);
+    expect(usage.reduce((sum, row) => sum + Number(row.cost_eur), 0)).toBeCloseTo(0.0008, 6);
 
     const executions = await executionsOf(run?.id ?? "");
     expect(executions.map((execution) => [execution.skill_key, execution.status, execution.autonomy_applied])).toEqual([
@@ -698,5 +728,273 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     await waitFor(async () => (await runFor(messageId))[0]?.status === "completed", "el agente contesta");
     expect(modelCalls().length).toBeGreaterThan(modelBefore);
     expect((await agentMessages()).some((message) => message.idempotency_key === `opt-out:${messageId}`)).toBe(false);
+  });
+
+  it("resumen continuo (PL-T3): lo antiguo lo resume el modelo barato al acabar el turno, y el turno siguiente lo lleva en vez de esos mensajes", async () => {
+    ids.summaryConversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    // Ocho mensajes antiguos y el nuevo del cliente, en una sola sentencia: solo contesta al último.
+    const { rows } = await admin.query<{ id: string; created_at: string }>(
+      `insert into public.messages (organization_id, conversation_id, direction, author, content, created_at)
+       select $1, $2, case when i % 2 = 0 then 'in' else 'out' end, case when i % 2 = 0 then 'contact' else 'agent' end,
+              'mensaje antiguo ' || i, now() - make_interval(mins => 20 - i)
+       from generate_series(0, 8) as i
+       returning id, created_at::text`,
+      [ids.org, ids.summaryConversation],
+    );
+    const sorted = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const lastId = sorted.at(-1)?.id as string;
+    const summariesBefore = effects("summary").length;
+    await waitFor(async () => (await runFor(lastId))[0]?.status === "completed", "el agente contesta");
+    // El run se cierra antes de resumir; el resumen se guarda después de apuntar su coste.
+    await waitFor(
+      async () => ((await admin.query("select 1 from public.conversation_summaries where conversation_id = $1", [ids.summaryConversation])).rowCount ?? 0) > 0,
+      "el resumen se guarda",
+    );
+
+    // Tras el turno hay 10 mensajes sin resumir (los 9 y la respuesta): entran los 4 más antiguos, 2 del cliente.
+    const calls = effects("summary").slice(summariesBefore);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.modelKey).toBe("fast");
+    // Cada mensaje con su autor, de la fila: JSON, así un texto no se hace pasar por otro.
+    expect(JSON.parse(calls[0]?.input ?? "{}")).toEqual({
+      previous_summary: null,
+      messages: [0, 1, 2, 3].map((i) => ({ speaker: i % 2 === 0 ? "contact" : "assistant", text: `mensaje antiguo ${i}` })),
+    });
+    const { rows: summaries } = await admin.query<{ organization_id: string; summary: string; covered: boolean; model: string }>(
+      `select organization_id, summary, covered_until = (select created_at from public.messages where id = $2) as covered, model
+       from public.conversation_summaries where conversation_id = $1`,
+      [ids.summaryConversation, sorted[3]?.id],
+    );
+    expect(summaries).toEqual([{ organization_id: ids.org, summary: "Customer said: 2 mensajes.", covered: true, model: "fake/fast" }]);
+    // El run cuenta también el resumen: el turno y el resumen, 0,0004 € cada uno.
+    expect(Number((await runFor(lastId))[0]?.cost_eur)).toBeCloseTo(0.0008, 6);
+    // Y el libro de consumo (PL-ledger): la llamada del turno y la del resumen, cada una en su fila.
+    const runId = (await runFor(lastId))[0]?.id as string;
+    await waitFor(
+      async () => ((await admin.query("select 1 from public.usage_records where run_id = $1 and call_index = 1000", [runId])).rowCount ?? 0) > 0,
+      "la llamada del resumen queda en el libro de consumo",
+    );
+    const { rows: ledger } = await admin.query<{ organization_id: string; call_index: number; model_key: string; cost_eur: string }>(
+      "select organization_id, call_index, model_key, cost_eur::text from public.usage_records where run_id = $1 order by call_index",
+      [runId],
+    );
+    expect(ledger.map((row) => ({ ...row, cost_eur: Number(row.cost_eur) }))).toEqual([
+      expect.objectContaining({ organization_id: ids.org, call_index: 0 }),
+      { organization_id: ids.org, call_index: 1000, model_key: "fast", cost_eur: 0.0004 },
+    ]);
+
+    const next = await customerSays("¿Sigues ahí?", ids.summaryConversation);
+    await waitFor(async () => (await runFor(next))[0]?.status === "completed", "el agente contesta otra vez");
+    const turn = modelCalls().filter((entry) => entry.customer?.includes("¿Sigues ahí?")).at(-1);
+    expect(turn?.summary).toContain("Customer said: 2 mensajes.");
+    // Sistema estable, hora, resumen y solo los mensajes que el resumen no cubre: 5 antiguos, la respuesta y el nuevo.
+    expect(turn?.messages).toBe(2 + 1 + 7);
+  });
+});
+
+describe("tomar el control a mitad del turno (R-02)", () => {
+  const gate = `${effectsFile}.gate`;
+
+  function gateCalls(): number {
+    if (!existsSync(effectsFile)) return 0;
+    return readFileSync(effectsFile, "utf8")
+      .trim()
+      .split("\n")
+      .filter((line) => line.includes('"step":"gate"')).length;
+  }
+
+  async function setMode(mode: "agent" | "human", conversationId = ids.conversation): Promise<void> {
+    await admin.query("update public.conversations set mode = $2 where id = $1", [conversationId, mode]);
+  }
+
+  /** Un mensaje que deja al modelo pensando; mientras, alguien del equipo toma el control. */
+  async function takeOverMidTurn(content: string): Promise<string> {
+    const gatesBefore = gateCalls();
+    const messageId = await customerSays(content);
+    await waitFor(async () => gateCalls() > gatesBefore, "el modelo está pensando");
+    await setMode("human");
+    writeFileSync(gate, "");
+    await waitFor(async () => {
+      const status = (await runFor(messageId))[0]?.status;
+      return status !== undefined && status !== "running";
+    }, "el turno termina");
+    return messageId;
+  }
+
+  async function executionsOfRun(runId: string) {
+    const { rows } = await admin.query<{ id: string; skill_key: string; status: string; output: Record<string, unknown> | null; approvals: number }>(
+      `select e.id, e.skill_key, e.status, e.output, (select count(*)::int from public.approvals a where a.execution_id = e.id) as approvals
+       from public.executions e where e.run_id = $1 order by e.created_at`,
+      [runId],
+    );
+    return rows;
+  }
+
+  async function mode(conversationId = ids.conversation): Promise<string | undefined> {
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversationId]);
+    return rows[0]?.mode;
+  }
+
+  it("con la respuesta autónoma, el mensaje del agente no se guarda: la base de datos lo rechaza", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "autonomous");
+    const before = (await agentMessages()).length;
+    try {
+      const messageId = await takeOverMidTurn("Un momento, ¿sigues ahí?");
+      const run = (await runFor(messageId))[0];
+      expect(run?.status).toBe("handed_off");
+      expect(await agentMessages()).toHaveLength(before);
+      const executions = await executionsOfRun(run?.id ?? "");
+      expect(executions.map((execution) => [execution.skill_key, execution.status])).toEqual([["reply", "failed"]]);
+      // Sigue en manos de quien la tomó.
+      expect(await mode()).toBe("human");
+      expect(worker?.output()).toContain('"reason":"conversation_not_agent_mode"');
+    } finally {
+      await setMode("agent");
+    }
+  });
+
+  it("con la respuesta en borrador, no pide aprobación: se retiene y el run no queda esperando", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "draft");
+    const before = (await agentMessages()).length;
+    try {
+      const messageId = await takeOverMidTurn("Un momento, por favor");
+      const run = (await runFor(messageId))[0];
+      expect(run?.status).toBe("handed_off");
+      const executions = await executionsOfRun(run?.id ?? "");
+      expect(executions).toEqual([
+        expect.objectContaining({ skill_key: "reply", status: "failed", output: { held: "conversation_not_agent_mode" }, approvals: 0 }),
+      ]);
+      expect(await agentMessages()).toHaveLength(before);
+    } finally {
+      await setAutonomy("reply", "autonomous");
+      await setMode("agent");
+    }
+  });
+
+  it("un borrador que se aprueba después de tomar el control no sale", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "draft");
+    try {
+      const messageId = await customerSays("Hola, ¿me atendéis?");
+      await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+      const run = (await runFor(messageId))[0];
+      const pending = (await executionsOfRun(run?.id ?? "")).find((execution) => execution.skill_key === "reply");
+      if (!pending || pending.approvals !== 1) throw new Error("no hay respuesta pendiente");
+      const approvalId = await one("select id from public.approvals where execution_id = $1", [pending.id]);
+      const before = (await agentMessages()).length;
+
+      await setMode("human");
+      // Lo que deja la base de datos cuando una persona aprueba (como en «las aprobaciones del agente»).
+      await admin.query("begin");
+      await admin.query("set local session_replication_role = replica");
+      await admin.query("update public.approvals set status = 'approved', decided_at = now() where id = $1", [approvalId]);
+      await admin.query("set local session_replication_role = origin");
+      const eventId = await one(
+        `insert into public.domain_events (organization_id, location_id, type, payload)
+         select a.organization_id, a.location_id, 'approval.decided',
+                jsonb_build_object('approval_id', a.id, 'execution_id', a.execution_id, 'run_id', e.run_id, 'decision', a.status)
+         from public.approvals a join public.executions e on e.id = a.execution_id where a.id = $1
+         returning id`,
+        [approvalId],
+      );
+      await admin.query("commit");
+      await waitFor(async () => {
+        const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = $1", [
+          deliveryWorkflowId(eventId, APPROVAL_HANDLER_KEY),
+        ]);
+        return rows[0]?.status === "SUCCESS";
+      }, "la aprobación se entrega");
+
+      expect(await agentMessages()).toHaveLength(before);
+      const settled = (await executionsOfRun(run?.id ?? "")).find((execution) => execution.id === pending.id);
+      expect(settled).toMatchObject({ status: "failed", output: { held: "conversation_not_agent_mode" } });
+    } finally {
+      await setAutonomy("reply", "autonomous");
+      await setMode("agent");
+    }
+  });
+
+  describe("tomar el control y el mensaje del agente a la vez (dos conexiones)", () => {
+    const other = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+    let conversationId = "";
+
+    beforeAll(async () => {
+      await other.connect();
+      conversationId = await one(
+        `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+      );
+    });
+    afterAll(async () => {
+      await other.end();
+      if (conversationId) await admin.query("delete from public.conversations where id = $1", [conversationId]);
+    });
+
+    function agentInsert(client: pg.Client, key: string) {
+      return client.query(
+        `insert into public.messages (organization_id, conversation_id, direction, author, content, status, idempotency_key)
+         values ($1, $2, 'out', 'agent', 'Te lo confirmo', 'sent', $3)`,
+        [ids.org, conversationId, key],
+      );
+    }
+
+    async function blocked(client: pg.Client): Promise<boolean> {
+      const pid = (client as unknown as { processID: number }).processID;
+      const { rows } = await admin.query<{ wait_event_type: string | null }>("select wait_event_type from pg_stat_activity where pid = $1", [pid]);
+      return rows[0]?.wait_event_type === "Lock";
+    }
+
+    it("si la toma va primero, el mensaje del agente espera a que termine y no se guarda", async () => {
+      await setMode("agent", conversationId);
+      const key = `race-${randomUUID()}`;
+      await other.query("begin");
+      await other.query("update public.conversations set mode = 'human' where id = $1", [conversationId]);
+      const agent = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+      await agent.connect();
+      try {
+        const insert = agentInsert(agent, key).then(
+          () => null,
+          (error: { code?: string }) => error.code ?? "sin código",
+        );
+        await waitFor(() => blocked(agent), "el mensaje del agente espera a la toma", 10_000);
+        await other.query("commit");
+        expect(await insert).toBe("55000");
+        const { rows } = await admin.query("select id from public.messages where idempotency_key = $1", [key]);
+        expect(rows).toEqual([]);
+      } finally {
+        await agent.end();
+        await setMode("agent", conversationId);
+      }
+    });
+
+    it("si el mensaje del agente va primero, la toma espera a que se guarde y queda después", async () => {
+      await setMode("agent", conversationId);
+      const key = `race-${randomUUID()}`;
+      const agent = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+      await agent.connect();
+      try {
+        await agent.query("begin");
+        await agentInsert(agent, key);
+        const takeover = other.query("update public.conversations set mode = 'human' where id = $1", [conversationId]);
+        await waitFor(() => blocked(other), "la toma espera al mensaje del agente", 10_000);
+        await agent.query("commit");
+        await takeover;
+        const { rows } = await admin.query("select id from public.messages where idempotency_key = $1", [key]);
+        expect(rows).toHaveLength(1);
+        expect(await mode(conversationId)).toBe("human");
+        // Y a partir de ahí, ya no escribe.
+        await expect(agentInsert(admin, `race-${randomUUID()}`)).rejects.toMatchObject({ code: "55000" });
+      } finally {
+        await agent.end();
+        await setMode("agent", conversationId);
+      }
+    });
   });
 });

@@ -23,6 +23,7 @@ export {
   AppointmentNotFoundError,
   InvalidBookingError,
   SlotTakenError,
+  SlotUnavailableError,
 } from "./booking/types.js";
 export type {
   Appointment,
@@ -39,3 +40,5 @@ export type { FakeBookingOptions, FakeBookingProvider } from "./booking/fake.js"
 // Emails de aviso: plantillas puras; el envío lo hace el worker (M-02).
 export { renderApprovalEmail } from "./email/approval.js";
 export type { ApprovalEmailInput, EmailLocale, RenderedEmail } from "./email/approval.js";
+export { EmailSendError, RESEND_API_URL, createResendSender } from "./email/resend.js";
+export type { EmailAddress, EmailSendErrorKind, EmailSender, ResendSenderOptions, SendEmailRequest } from "./email/resend.js";
