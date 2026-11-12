@@ -33,10 +33,10 @@ export default function Screen() {
 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px", lineHeight: "21px", minWidth: "480px" }}>
 <thead><tr style={{ background: "var(--sunken)", textAlign: "left" }}><th style={{ padding: "10px 24px", fontWeight: "500" }}>Servicio</th><th style={{ padding: "10px 12px", fontWeight: "500" }}>Duración</th><th style={{ padding: "10px 12px", fontWeight: "500" }}>Precio</th><th style={{ padding: "10px 24px", fontWeight: "500" }}>Profesionales</th></tr></thead>
 <tbody>
-<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Limpieza dental</td><td style={{ padding: "12px" }}>45 min</td><td style={{ padding: "12px" }}>42 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Dra. Ruiz, Dr. Vidal</td></tr>
-<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Revisión</td><td style={{ padding: "12px" }}>30 min</td><td style={{ padding: "12px" }}>42 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Todos</td></tr>
-<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Blanqueamiento</td><td style={{ padding: "12px" }}>60 min</td><td style={{ padding: "12px" }}>427 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Dr. Vidal</td></tr>
-<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Ortodoncia (primera visita)</td><td style={{ padding: "12px" }}>45 min</td><td style={{ padding: "12px" }}>Gratis</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Dr. Vidal</td></tr>
+<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Corte y peinado</td><td style={{ padding: "12px" }}>45 min</td><td style={{ padding: "12px" }}>42 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Lucía Ruiz, Andrea Vidal</td></tr>
+<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Retoque de color</td><td style={{ padding: "12px" }}>30 min</td><td style={{ padding: "12px" }}>42 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Todos</td></tr>
+<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Coloración</td><td style={{ padding: "12px" }}>60 min</td><td style={{ padding: "12px" }}>65 €</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Andrea Vidal</td></tr>
+<tr style={{ borderTop: "1px solid var(--line-soft)" }}><td style={{ padding: "12px 24px" }}>Keratina (valoración previa)</td><td style={{ padding: "12px" }}>45 min</td><td style={{ padding: "12px" }}>Gratis</td><td style={{ padding: "12px 24px", color: "var(--muted)" }}>Andrea Vidal</td></tr>
 </tbody>
 </table>
 </div>
@@ -45,8 +45,8 @@ export default function Screen() {
 <section style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: "12px", padding: "20px 24px", display: "flex", flexDirection: "column", gap: "4px", fontSize: "14px", lineHeight: "21px" }}>
 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "8px" }}><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Reglas del negocio</h2><a href="/plataforma/reglas" style={{ fontSize: "14px", color: "var(--blue-fg)" }}>+ Nueva regla</a></div>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>No ofrecer descuentos en la primera visita</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Todos los agentes</span></div>
-<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Las urgencias se atienden el mismo día antes de las 13:00</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Recepción</span></div>
-<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Nunca dar diagnósticos ni consejos médicos</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Atención</span></div>
+<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Las citas exprés se dan el mismo día antes de las 13:00</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Recepción</span></div>
+<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Nunca prometer resultados de un tratamiento</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Atención</span></div>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Facturas siempre con aprobación</span><span style={{ fontSize: "12px", color: "var(--muted-2)" }}>Administración</span></div>
 </section>
 </div>
@@ -56,7 +56,7 @@ export default function Screen() {
 <h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Lo que han aprendido</h2>
 <span style={{ color: "var(--muted)" }}>Confírmalo para que lo usen siempre, o descártalo.</span>
 <div style={{ borderRadius: "12px", background: "var(--linen)", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-<span>«Los pacientes preguntan mucho si aceptamos MediSalud». Respuesta propuesta: sí, con copago.</span>
+<span>«Los clientes preguntan mucho si vendemos tarjetas regalo». Respuesta propuesta: sí, desde 30 €.</span>
 <span style={{ display: "flex", gap: "6px" }}><button data-demo="" type="button" style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)" }}>Confirmar</button><button data-demo="" type="button" style={{ padding: "8px 14px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)" }}>Descartar</button></span>
 </div>
 <div style={{ borderRadius: "12px", background: "var(--linen)", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>

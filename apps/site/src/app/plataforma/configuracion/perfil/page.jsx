@@ -6,7 +6,7 @@ import { PlatformLangSelect } from "@/components/plataforma-i18n";
 // Perfil del usuario (prototipo con estado local). TODO(backend): leer/guardar en `profiles` y Supabase Auth.
 const NOTIFS = [
   ["approvals", "Tareas que esperan tu aprobación", "Inmediato"],
-  ["urgent", "Urgencias y quejas de clientes", "Inmediato"],
+  ["urgent", "Quejas y asuntos urgentes de clientes", "Inmediato"],
   ["daily", "Resumen diario de los agentes", "Cada día a las 8:00"],
   ["coach", "Propuestas del modo coach", "Semanal"],
   ["billing", "Plan, consumo y facturas", "Cuando haya novedades"],
@@ -18,7 +18,7 @@ const box = { background: "var(--paper)", borderRadius: "12px", padding: "24px",
 const h2 = { margin: 0, fontSize: "18px", lineHeight: "22px", fontWeight: 400, letterSpacing: "-0.36px" };
 
 export default function Perfil() {
-  const [data, setData] = useState({ name: "Marta Ruiz", email: "marta@clinicadentalsol.es", phone: "+34 600 000 000", tz: "Europe/Madrid" });
+  const [data, setData] = useState({ name: "Marta Ruiz", email: "marta@estudiobellezasol.es", phone: "+34 600 000 000", tz: "Europe/Madrid" });
   const [notif, setNotif] = useState({ approvals: ["App", "WhatsApp"], urgent: ["App", "WhatsApp"], daily: ["Email"], coach: ["Email"], billing: ["Email"] });
   const [twofa, setTwofa] = useState(true);
   const [saved, setSaved] = useState(false);
