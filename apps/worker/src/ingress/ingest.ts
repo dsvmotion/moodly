@@ -28,13 +28,29 @@ export const SWEEP_WORKFLOW = "channels.ingest-sweep";
 export const SWEEP_SCHEDULE_NAME = "channels.ingest-sweep";
 /** Cada minuto, a los 23 s. */
 export const SWEEP_SCHEDULE = "23 * * * * *";
-/** Lo que se reanuda: los de las últimas 24 h; los más viejos se quedan para mirarlos. */
+/** Lo que se vuelve a intentar: los de las últimas 24 h; los más viejos se quedan para mirarlos. */
 const SWEEP_WINDOW_MS = 24 * 3_600_000;
+/** Un workflow en ERROR se rebobina como mucho una vez cada 5 min (288 veces en la ventana). */
+export const SWEEP_MIN_AGE_MS = 5 * 60_000;
+
 /**
- * Los estados de DBOS de un workflow que se reanuda solo: ERROR, que aquí solo
- * sale si no se pudo apuntar un intento en la base de datos (los fallos del
- * mensaje se cuentan dentro, hasta el dead_letter). Al reanudarlo sigue desde
- * su último paso, con sus intentos ya contados: el tope se mantiene.
+ * Rebobina un workflow de la entrada que quedó en ERROR: desde su primer paso
+ * fallido (o desde el siguiente al último, si falló entre pasos), con el mismo
+ * id y en la cola de la entrada.
+ */
+async function rewindFailed(workflowID: string): Promise<void> {
+  const steps = (await DBOS.listWorkflowSteps(workflowID)) ?? [];
+  const failed = steps.find((step) => step.error !== null);
+  const startStep = failed ? failed.functionID : (steps.at(-1)?.functionID ?? -1) + 1;
+  await DBOS.rewindWorkflow(workflowID, { startStep, queueName: INGEST_QUEUE });
+}
+/**
+ * Los estados de DBOS de un workflow que se vuelve a intentar solo: ERROR, que
+ * aquí solo sale si no se pudo apuntar un intento en la base de datos (los
+ * fallos del mensaje se cuentan dentro, hasta el dead_letter). DBOS 5.3 no
+ * reanuda un ERROR (resumeWorkflow no lo toca): se rebobina con el mismo id
+ * desde el primer paso que falló (rewindWorkflow), con los pasos buenos y los
+ * intentos ya contados intactos: el tope se mantiene.
  */
 export const RESUMABLE_STATUSES: readonly WorkflowStatusString[] = ["ERROR"];
 /**
@@ -76,6 +92,8 @@ export interface IngestOptions {
   beforeAttempt?: (input: IngestInput, attempt: number) => Promise<void>;
   /** Solo para tests: la espera entre intentos (por defecto, la de attempts.ts). */
   backoffMs?: readonly number[];
+  /** Solo para tests: cuánto lleva un workflow en ERROR antes de rebobinarlo (por defecto, SWEEP_MIN_AGE_MS). */
+  sweepMinAgeMs?: number;
 }
 
 /**
@@ -220,7 +238,7 @@ async function recordFailure(db: TenantDb, inboundEventId: string, attempt: numb
   if (error) throw new Error(`no se pudo apuntar el intento fallido (${error.code})`);
 }
 
-export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, backoffMs }: IngestOptions) {
+export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, backoffMs, sweepMinAgeMs = SWEEP_MIN_AGE_MS }: IngestOptions) {
   const log = logger.child({ component: "ingress" });
 
   async function ingest(input: IngestInput): Promise<IngestResult> {
@@ -314,12 +332,18 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
     const since = new Date(Date.now() - SWEEP_WINDOW_MS).toISOString();
     const list = (status: readonly WorkflowStatusString[]) =>
       DBOS.listWorkflows({ workflowName: INGEST_WORKFLOW, status: [...status], startTime: since, limit: 100, loadInput: false, loadOutput: false });
-    const stuck = await DBOS.runStep(async () => (await list(RESUMABLE_STATUSES)).map((status) => status.workflowID), { name: "stuck", ...DB_STEP });
-    for (const workflowID of stuck) {
-      // Desde el workflow, no desde un paso (DBOS no lo deja): DBOS lo guarda como un paso propio.
-      await DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE });
-    }
-    if (stuck.length > 0) log.warn({ resumed: stuck.length }, "eventos de entrada parados, reanudados");
+    const stuck = await DBOS.runStep(
+      async () => {
+        const now = Date.now();
+        return (await list(RESUMABLE_STATUSES))
+          .filter((status) => now - (status.updatedAt ?? status.createdAt) >= sweepMinAgeMs)
+          .map((status) => status.workflowID);
+      },
+      { name: "stuck", ...DB_STEP },
+    );
+    // Desde el workflow, no desde un paso (DBOS no lo deja): cada llamada de DBOS se guarda como un paso propio.
+    for (const workflowID of stuck) await rewindFailed(workflowID);
+    if (stuck.length > 0) log.warn({ rewound: stuck.length }, "eventos de entrada parados, vueltos a intentar");
     const parked = await DBOS.runStep(async () => (await list(PARKED_STATUSES)).length, { name: "parked", ...DB_STEP });
     if (parked > 0) log.error({ parked, reason: DEAD_LETTER }, "eventos de entrada parados que no se reanudan solos: hay que mirarlos");
   }
@@ -331,13 +355,14 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
     /**
      * Arranca el workflow de un evento de entrada. Si ya existe y sigue vivo,
      * terminó o está apartado para una persona, no hace nada (el mismo id); si
-     * quedó en ERROR, lo reanuda.
+     * quedó en ERROR, lo rebobina desde el paso que falló.
      */
     async start(input: IngestInput): Promise<void> {
       const workflowID = ingestWorkflowId(input.inboundEventId);
       const status = await DBOS.getWorkflowStatus(workflowID);
       if (status && (RESUMABLE_STATUSES as readonly string[]).includes(status.status)) {
-        await DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE });
+        // Un reintento del proveedor sobre un evento en ERROR: se vuelve a intentar ya, sin esperar al barrido.
+        await rewindFailed(workflowID);
         return;
       }
       await DBOS.startWorkflow(workflow, { workflowID, queueName: INGEST_QUEUE, workflowIDReusePolicy: "return-existing" })(input);

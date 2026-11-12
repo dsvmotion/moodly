@@ -23,6 +23,7 @@ const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabase
 const worker = createWorker(config, logger, {
   ingestTesting: {
     backoffMs: [100, 100, 100, 100],
+    sweepMinAgeMs: 0,
     async beforeAttempt(input, attempt) {
       const { data, error } = await db
         .forOrganization(input.organizationId)

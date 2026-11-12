@@ -295,7 +295,7 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     await waitFor(async () => (await eventsOf(small.providerEventId))[0]?.status === "processed", "el pequeño se procesa");
   });
 
-  it("el barrido reanuda un workflow que quedó en ERROR, desde donde iba: no duplica nada", async () => {
+  it("el barrido vuelve a intentar un workflow que quedó en ERROR (lo rebobina desde donde falló): no duplica nada", async () => {
     const [event] = await eventsOf(ids.firstEvent ?? "");
     const workflowId = ingestWorkflowId(event?.id ?? "");
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
@@ -303,6 +303,6 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     // El barrido corre cada minuto (a los 23 s).
     await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el barrido lo reanuda", 75_000);
     expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
-    expect(output).toContain("eventos de entrada parados, reanudados");
+    expect(output).toContain("eventos de entrada parados, vueltos a intentar");
   }, 90_000);
 });
