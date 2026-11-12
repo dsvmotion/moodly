@@ -16,7 +16,7 @@ export const COPY = {
       ["Voz y agentes de voz", "Llamadas con voz natural"],
       ["Modelos abiertos", "Modelos de nicho y embeddings"],
     ],
-    cat: { a: "Catálogo previsto.", b: "Los modelos que planeamos usar de cada proveedor y dónde se opera cada uno. Cada proveedor lleva su estado.", note: "Precios de referencia por millón de tokens (entrada / salida), orientativos.", cols: ["Modelo", "Tipo", "Contexto", "Coste ref."], regions: { "Operado en la UE": "Operado en la UE", "Operado en EE. UU.": "Operado en EE. UU.", "Despliegue global": "Despliegue global" }, types: { chat: "Chat", razon: "Razonamiento", vision: "Visión", codigo: "Código", imagen: "Imagen" } },
+    cat: { a: "Catálogo previsto.", b: "Los modelos que planeamos usar de cada proveedor y dónde se opera cada uno. Cada proveedor lleva su estado.", note: "Precios de referencia por millón de tokens (entrada / salida), orientativos.", cols: ["Modelo", "Tipo", "Contexto", "Coste ref."], regions: { "Operado en la UE": "Operado en la UE", "Operado en EE. UU.": "Operado en EE. UU.", "Despliegue global": "Despliegue global", "Voz (síntesis y clonación)": "Voz (síntesis y clonación)" }, types: { chat: "Chat", razon: "Razonamiento", vision: "Visión", codigo: "Código", imagen: "Imagen" } },
     taskA: "El modelo adecuado para cada tarea.", taskB: "El más barato que pasa sus pruebas de calidad.",
     th: ["Agente", "Tarea típica", "Tipo de modelo", "Por qué"],
     tasks: [
@@ -26,7 +26,7 @@ export const COPY = {
       ["Administración", "Pagos y facturas", "Empieza con el modelo rápido", "Sube a uno más capaz solo si sus pruebas lo piden"],
     ],
     opt1Tag: "Opción 1 · por defecto", opt1Title: "Incluido en tu plan", opt1Text: "Nosotros gestionamos los proveedores y el consumo, con un límite de gasto que decides tú.", opt1Link: "Ver precios →",
-    opt2Tag: "Opción 2", opt2Title: "Tus propias claves (BYOK)", opt2Text: "Conecta tus claves de OpenAI, Anthropic, Google o Mistral. El consumo va a tu cuenta del proveedor y tú controlas el gasto.",
+    opt2Tag: "Opción 2", opt2Title: "Tus propias claves (BYOK)", opt2Text: "Conectarás tus claves de OpenAI, Anthropic, Google o Mistral. El consumo irá a tu cuenta del proveedor y controlarás el gasto.",
     opt3Tag: "Opción 3 · cadenas y empresas", opt3Title: "Tu nube o tus servidores", opt3Text: "Modelos en tu cuenta de Azure, AWS o Google Cloud, o modelos abiertos en tus propios servidores.", opt3Link: "Ver Enterprise →",
     cloudA: "En tu nube, si lo necesitas.", cloudB: "Los mismos modelos, bajo tus contratos.",
     clouds: [
@@ -59,7 +59,7 @@ export const COPY = {
       ["Voice and voice agents", "Calls with natural voice"],
       ["Open models", "Niche models and embeddings"],
     ],
-    cat: { a: "Planned catalogue.", b: "The models we plan to use from each provider and where each one runs. Each provider shows its status.", note: "Reference prices per million tokens (in / out), indicative.", cols: ["Model", "Type", "Context", "Ref. cost"], regions: { "Operado en la UE": "Operated in the EU", "Operado en EE. UU.": "Operated in the US", "Despliegue global": "Global deployment" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Image" } },
+    cat: { a: "Planned catalogue.", b: "The models we plan to use from each provider and where each one runs. Each provider shows its status.", note: "Reference prices per million tokens (in / out), indicative.", cols: ["Model", "Type", "Context", "Ref. cost"], regions: { "Operado en la UE": "Operated in the EU", "Operado en EE. UU.": "Operated in the US", "Despliegue global": "Global deployment", "Voz (síntesis y clonación)": "Voice (synthesis and cloning)" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Image" } },
     taskA: "The right model for each task.", taskB: "The cheapest one that passes its quality tests.",
     th: ["Agent", "Typical task", "Model type", "Why"],
     tasks: [
@@ -69,7 +69,7 @@ export const COPY = {
       ["Administration", "Payments and invoices", "Starts with the fast model", "Moves to a more capable one only if its tests call for it"],
     ],
     opt1Tag: "Option 1 · default", opt1Title: "Included in your plan", opt1Text: "We manage the providers and the usage, with a spending limit you set.", opt1Link: "See pricing →",
-    opt2Tag: "Option 2", opt2Title: "Your own keys (BYOK)", opt2Text: "Connect your OpenAI, Anthropic, Google or Mistral keys. Usage goes to your provider account and you control the spend.",
+    opt2Tag: "Option 2", opt2Title: "Your own keys (BYOK)", opt2Text: "You will connect your OpenAI, Anthropic, Google or Mistral keys. Usage will go to your provider account and you will control the spend.",
     opt3Tag: "Option 3 · chains and enterprises", opt3Title: "Your cloud or your servers", opt3Text: "Models in your Azure, AWS or Google Cloud account, or open models on your own servers.", opt3Link: "See Enterprise →",
     cloudA: "In your cloud, if you need it.", cloudB: "The same models, under your contracts.",
     clouds: [
@@ -102,7 +102,7 @@ export const COPY = {
       ["Voix et agents vocaux", "Appels avec voix naturelle"],
       ["Modèles ouverts", "Modèles de niche et embeddings"],
     ],
-    cat: { a: "Catalogue prévu.", b: "Les modèles que nous prévoyons d'utiliser chez chaque fournisseur et où chacun est opéré. Chaque fournisseur affiche son statut.", note: "Prix de référence par million de tokens (entrée / sortie), indicatifs.", cols: ["Modèle", "Type", "Contexte", "Coût réf."], regions: { "Operado en la UE": "Opéré dans l'UE", "Operado en EE. UU.": "Opéré aux États-Unis", "Despliegue global": "Déploiement global" }, types: { chat: "Chat", razon: "Raisonnement", vision: "Vision", codigo: "Code", imagen: "Image" } },
+    cat: { a: "Catalogue prévu.", b: "Les modèles que nous prévoyons d'utiliser chez chaque fournisseur et où chacun est opéré. Chaque fournisseur affiche son statut.", note: "Prix de référence par million de tokens (entrée / sortie), indicatifs.", cols: ["Modèle", "Type", "Contexte", "Coût réf."], regions: { "Operado en la UE": "Opéré dans l'UE", "Operado en EE. UU.": "Opéré aux États-Unis", "Despliegue global": "Déploiement global", "Voz (síntesis y clonación)": "Voix (synthèse et clonage)" }, types: { chat: "Chat", razon: "Raisonnement", vision: "Vision", codigo: "Code", imagen: "Image" } },
     taskA: "Le bon modèle pour chaque tâche.", taskB: "Le moins cher qui réussit ses tests de qualité.",
     th: ["Agent", "Tâche typique", "Type de modèle", "Pourquoi"],
     tasks: [
@@ -112,7 +112,7 @@ export const COPY = {
       ["Administration", "Paiements et factures", "Commence avec le modèle rapide", "Passe à un modèle plus capable seulement si ses tests l'exigent"],
     ],
     opt1Tag: "Option 1 · par défaut", opt1Title: "Inclus dans votre offre", opt1Text: "Nous gérons les fournisseurs et la consommation, avec une limite de dépense que vous fixez.", opt1Link: "Voir les tarifs →",
-    opt2Tag: "Option 2", opt2Title: "Vos propres clés (BYOK)", opt2Text: "Connectez vos clés OpenAI, Anthropic, Google ou Mistral. La consommation va sur votre compte fournisseur et vous contrôlez la dépense.",
+    opt2Tag: "Option 2", opt2Title: "Vos propres clés (BYOK)", opt2Text: "Vous connecterez vos clés OpenAI, Anthropic, Google ou Mistral. La consommation ira sur votre compte fournisseur et vous contrôlerez la dépense.",
     opt3Tag: "Option 3 · chaînes et entreprises", opt3Title: "Votre cloud ou vos serveurs", opt3Text: "Des modèles sur votre compte Azure, AWS ou Google Cloud, ou des modèles ouverts sur vos propres serveurs.", opt3Link: "Voir Enterprise →",
     cloudA: "Dans votre cloud, si besoin.", cloudB: "Les mêmes modèles, sous vos contrats.",
     clouds: [
@@ -145,7 +145,7 @@ export const COPY = {
       ["Sprache und Sprach-Agenten", "Anrufe mit natürlicher Stimme"],
       ["Offene Modelle", "Nischenmodelle und Embeddings"],
     ],
-    cat: { a: "Geplanter Katalog.", b: "Die Modelle, die wir bei jedem Anbieter nutzen wollen, und wo jedes betrieben wird. Jeder Anbieter zeigt seinen Status.", note: "Referenzpreise pro Million Token (Ein- / Ausgabe), Richtwerte.", cols: ["Modell", "Typ", "Kontext", "Ref.-Kosten"], regions: { "Operado en la UE": "In der EU betrieben", "Operado en EE. UU.": "In den USA betrieben", "Despliegue global": "Globale Bereitstellung" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Bild" } },
+    cat: { a: "Geplanter Katalog.", b: "Die Modelle, die wir bei jedem Anbieter nutzen wollen, und wo jedes betrieben wird. Jeder Anbieter zeigt seinen Status.", note: "Referenzpreise pro Million Token (Ein- / Ausgabe), Richtwerte.", cols: ["Modell", "Typ", "Kontext", "Ref.-Kosten"], regions: { "Operado en la UE": "In der EU betrieben", "Operado en EE. UU.": "In den USA betrieben", "Despliegue global": "Globale Bereitstellung", "Voz (síntesis y clonación)": "Sprache (Synthese und Klonen)" }, types: { chat: "Chat", razon: "Reasoning", vision: "Vision", codigo: "Code", imagen: "Bild" } },
     taskA: "Das richtige Modell für jede Aufgabe.", taskB: "Das günstigste, das seine Qualitätstests besteht.",
     th: ["Agent", "Typische Aufgabe", "Modelltyp", "Warum"],
     tasks: [
@@ -155,7 +155,7 @@ export const COPY = {
       ["Verwaltung", "Zahlungen und Rechnungen", "Startet mit dem schnellen Modell", "Wechselt nur zu einem stärkeren, wenn seine Tests es verlangen"],
     ],
     opt1Tag: "Option 1 · Standard", opt1Title: "In deinem Tarif enthalten", opt1Text: "Wir verwalten die Anbieter und die Nutzung, mit einem Ausgabenlimit, das du festlegst.", opt1Link: "Preise ansehen →",
-    opt2Tag: "Option 2", opt2Title: "Deine eigenen Schlüssel (BYOK)", opt2Text: "Verbinde deine OpenAI-, Anthropic-, Google- oder Mistral-Schlüssel. Die Nutzung läuft über dein Anbieterkonto und du steuerst die Ausgaben.",
+    opt2Tag: "Option 2", opt2Title: "Deine eigenen Schlüssel (BYOK)", opt2Text: "Du wirst deine OpenAI-, Anthropic-, Google- oder Mistral-Schlüssel verbinden. Die Nutzung läuft dann über dein Anbieterkonto, und du steuerst die Ausgaben.",
     opt3Tag: "Option 3 · Ketten und Unternehmen", opt3Title: "Deine Cloud oder deine Server", opt3Text: "Modelle in deinem Azure-, AWS- oder Google-Cloud-Konto oder offene Modelle auf deinen eigenen Servern.", opt3Link: "Enterprise ansehen →",
     cloudA: "In deiner Cloud, falls nötig.", cloudB: "Dieselben Modelle, unter deinen Verträgen.",
     clouds: [
