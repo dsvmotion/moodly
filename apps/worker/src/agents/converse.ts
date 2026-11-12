@@ -39,6 +39,7 @@ import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approva
 import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
 import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import { checkBudgetSafely } from "../usage/budget-check.ts";
 import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
@@ -765,6 +766,8 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       } else if (summarized.kind === "skipped") {
         ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
       }
+      // Con todo lo del turno ya anotado (también el resumen): ¿se acaba de pasar el 80 % o el 100 % del tope del mes?
+      await ctx.step("budget:check", () => checkBudgetSafely(ctx.db, ctx.logger, { runId }));
       ctx.logger.info(
         {
           runId,
