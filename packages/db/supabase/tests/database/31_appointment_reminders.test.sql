@@ -14,6 +14,10 @@ select a.id as reception_b from public.agents a join public.agent_types t on t.i
 where a.organization_id = :org_b and t.key = 'reception' \gset
 select id as reminder from public.skills where organization_id is null and key = 'appointment_reminder' \gset
 
+-- Las citas de un agente van en un hueco libre (20261111210000, R-08): el local abre de lunes a viernes.
+update public.locations set timezone = 'Europe/Madrid',
+  opening_hours = '{"mon": ["09:00", "14:00"], "tue": ["09:00", "14:00"], "wed": ["09:00", "14:00"], "thu": ["09:00", "14:00"], "fri": ["09:00", "14:00"]}'
+where id = :loc_a1;
 insert into public.services (organization_id, name, duration_minutes) values (:org_a, 'Láser', 30) returning id as svc \gset
 insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_a, :loc_a1, 'Cabina 1', 'room') returning id as cab \gset
 insert into public.resource_services (organization_id, resource_id, service_id) values (:org_a, :'cab', :'svc');

@@ -257,6 +257,16 @@ procsub_case "una ruta sensible que no es la del primer patrón" 1 "docs/STATUS.
 procsub_case "un archivo de test borrado" 1 "apps/web/src/x.test.ts\n" "diff --git a/apps/web/src/x.test.ts b/apps/web/src/x.test.ts\ndeleted file mode 100644\n"
 procsub_case "nada sensible" 0 "docs/STATUS.md\n" "diff --git a/docs/STATUS.md b/docs/STATUS.md\n+x\n"
 
+echo "== fallos conocidos nuevos en la línea base de las evals (K-01)"
+bl="packages/evals/baseline.json"
+bl_head="diff --git a/$bl b/$bl\n--- a/$bl\n+++ b/$bl\n"
+procsub_case "un caso nuevo en knownFailures" 1 "$bl\n" "${bl_head}+    \"recepcion-reservar\": {\n+      \"reason\": \"x\",\n"
+procsub_case "el archivo nuevo con un caso" 1 "$bl\n" "diff --git a/$bl b/$bl\nnew file mode 100644\n--- /dev/null\n+++ b/$bl\n+{\n+  \"knownFailures\": {\n+    \"recepcion-no-duplica-solicitud\": {\n"
+procsub_case "cambiar el motivo de un caso que ya estaba" 0 "$bl\n" "${bl_head}-      \"reason\": \"viejo\",\n+      \"reason\": \"nuevo\",\n"
+procsub_case "reformatear: el mismo caso sale y vuelve a entrar" 0 "$bl\n" "${bl_head}-    \"recepcion-no-duplica-solicitud\": { \"reason\": \"x\" },\n+    \"recepcion-no-duplica-solicitud\": {\n"
+procsub_case "quitar un caso (se arregló)" 0 "$bl\n" "${bl_head}-    \"recepcion-no-duplica-solicitud\": {\n"
+procsub_case "lo mismo en otro archivo no cuenta" 0 "docs/x.json\n" "diff --git a/docs/x.json b/docs/x.json\n+    \"recepcion-reservar\": {\n"
+
 echo "== el workflow de la guarda corre desde la rama base (P-01)"
 workflow="$root/.github/workflows/sensitive-paths.yml"
 wf_case() { # descripción comando
@@ -303,7 +313,7 @@ if grep -qxF sensitive-paths "$root/scripts/merge-guard/required-statuses.txt" &
 else
   echo "✗ sensitive-paths tiene que ir en required-statuses.txt y no en required-checks.txt"; failed=$((failed + 1))
 fi
-for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "seguridad · dependencias y secretos"; do
+for required in "typecheck · lint · test · build" "db · migraciones · pgTAP" "e2e · Playwright por rol" "seguridad · dependencias y secretos" "evals · modelo falso"; do
   if grep -qxF -- "$required" "$root/scripts/merge-guard/required-checks.txt"; then
     echo "✓ exige \"$required\""; passed=$((passed + 1))
   else

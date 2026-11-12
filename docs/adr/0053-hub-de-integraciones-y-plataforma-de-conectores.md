@@ -2,6 +2,7 @@
 
 - **Estado:** aceptado (producto, 2026-11-11: «nango seems good», tras comparar las opciones por seguridad y nivel empresa): Nango autoalojado en la UE. Quedan por confirmar antes de construir la licencia (ELv2, uso interno; asesoría legal) y qué incluye la versión autoalojada gratuita (el proxy).
 - **Fecha:** 2026-11-11
+- **Modifica:** el ADR 0034 y el ADR 0036. Los tokens OAuth de las integraciones de plataforma viven en Nango (clave de instancia); `integration_secrets` y el `SecretVault` siguen para BYOK, `mcp` y las integraciones `native`.
 - **Secciones del MANUAL afectadas:** §3.2, §4 (`integrations`), §7.1, §7.2, §10.4, §18.0 #2
 - **Relación:**
   - auditoría de preproducción §18.1 #2, §18.3 #2 («adopt for breadth, build for depth»), §18.4 etapa B, §18.5 V1 #6, §18.8 (oleadas), §19.2 (50 integraciones en el piloto), §19.6 y hallazgos O-02 y A-04;

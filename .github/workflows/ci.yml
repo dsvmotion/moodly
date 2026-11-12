@@ -51,6 +51,53 @@ jobs:
           node --test scripts/reviewer/*.test.ts
       - run: pnpm build
 
+  evals:
+    # Las conversaciones de prueba de los agentes y el set de ataque con el
+    # modelo falso (MANUAL §12.4, packages/evals; K-01). También corren dentro
+    # de `pnpm test`, pero como check propio y obligatorio: un PR que saque las
+    # evals de `pnpm test` o las rompa no puede mergear sin que se vea. No
+    # llaman a la red ni cuestan nada; las del modelo real están en evals.yml.
+    name: evals · modelo falso
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Versión de pnpm tomada de "packageManager" en package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      # Versión de Node tomada de .nvmrc.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@repo/evals^...
+      # Que corran de verdad: sin --passWithNoTests, y con un mínimo de tests y
+      # los dos archivos de los sets. Si un PR cambia la configuración de Vitest
+      # para que encuentre menos (o ninguno), falla aquí aunque no borre nada.
+      # Bajar EVALS_MIN_TESTS es cambiar este workflow, y se ve en el PR.
+      - name: Evals con el modelo falso (y que corren todas)
+        env:
+          EVALS_MIN_TESTS: "130"
+          EVALS_REQUIRED_FILES: "attacks.test.ts conversations.test.ts runset.test.ts baseline.test.ts"
+        run: |
+          report="$RUNNER_TEMP/evals-vitest.json"
+          pnpm --filter @repo/evals exec vitest run --reporter=default --reporter=json --outputFile="$report"
+          total=$(jq '.numTotalTests' "$report")
+          echo "tests de evals: $total (mínimo $EVALS_MIN_TESTS)"
+          if [ "$total" -lt "$EVALS_MIN_TESTS" ]; then
+            echo "::error::corrieron $total tests de evals; el mínimo es $EVALS_MIN_TESTS"
+            exit 1
+          fi
+          for file in $EVALS_REQUIRED_FILES; do
+            if ! jq -e --arg f "$file" '[.testResults[].name | endswith("/" + $f)] | any' "$report" > /dev/null; then
+              echo "::error::no corrió $file"
+              exit 1
+            fi
+          done
+
   db:
     name: db · migraciones · pgTAP
     runs-on: ubuntu-latest
@@ -189,10 +236,13 @@ jobs:
   # corrida de `main` termina en verde. Solo este job puede escribir issues.
   alerta-main:
     name: alerta · main en rojo
-    needs: [check, db, e2e, security]
+    needs: [check, evals, db, e2e, security]
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Un fallo de `gh` (red, límite de la API) no puede poner el CI en rojo ni
+    # bloquear el despliegue a staging, que espera a este workflow.
+    continue-on-error: true
     permissions:
       contents: read
       issues: write
@@ -205,6 +255,14 @@ jobs:
     steps:
       - name: Abrir, actualizar o cerrar el issue «main en rojo»
         run: |
+          # Las corridas de main van en paralelo: una corrida vieja no abre, comenta ni
+          # cierra nada; lo hace la del commit que es hoy la cabeza de main (si no se
+          # sabe cuál es, no se hace nada).
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
+          if [ "$head" != "$SHA" ]; then
+            echo "::notice::Sin cambios en el issue: $SHA ya no es la cabeza de main"
+            exit 0
+          fi
           title="main en rojo"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           red=false

@@ -6,8 +6,9 @@
 # Uso: check-sensitive.sh <archivo-con-rutas> [<archivo-con-diff>]
 #   <archivo-con-rutas>: una ruta por línea (p. ej. `gh pr diff <n> --name-only`).
 #   <archivo-con-diff>:  diff unificado del PR (opcional), para detectar tests
-#                        debilitados: .skip/.only/.todo/.fixme añadidos o
-#                        archivos de test borrados.
+#                        debilitados: .skip/.only/.todo/.fixme añadidos,
+#                        archivos de test borrados o fallos conocidos nuevos en
+#                        la línea base de las evals (packages/evals/baseline.json).
 # Salida: 0 si no hay nada sensible; 1 si lo hay (y lo lista); 2 si el uso es incorrecto.
 set -euo pipefail
 
@@ -59,8 +60,13 @@ if [[ -n "$diff" ]]; then
     while IFS= read -r line; do echo "TEST DEBILITADO: $line"; done <<< "$weakened"
     found=1
   fi
-  # Archivos de test borrados.
+  # Archivos de test borrados, y casos que pasan a ser fallos conocidos en la
+  # línea base de las evals (K-01): un fallo conocido sigue puntuando, pero
+  # cambia cómo se avisa del rojo, así que añadir uno lo decide una persona.
+  # Una clave que sale y vuelve a entrar en el mismo diff (reformatear) no cuenta.
   current=""
+  added_known="$work/known-added"; removed_known="$work/known-removed"
+  : > "$added_known"; : > "$removed_known"
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" == "diff --git a/"* ]]; then
       current="${line#diff --git a/}"
@@ -68,8 +74,19 @@ if [[ -n "$diff" ]]; then
     elif [[ "$line" == "deleted file mode"* ]] && printf '%s\n' "$current" | grep -Eq '\.(test|e2e)\.[jt]sx?$|\.test\.sql$'; then
       echo "TEST BORRADO: $current"
       found=1
+    elif [[ "$current" == "packages/evals/baseline.json" ]]; then
+      if [[ "$line" =~ ^\+[[:space:]]*\"([a-z0-9-]+)\"[[:space:]]*:[[:space:]]*\{ ]]; then
+        echo "${BASH_REMATCH[1]}" >> "$added_known"
+      elif [[ "$line" =~ ^-[[:space:]]*\"([a-z0-9-]+)\"[[:space:]]*:[[:space:]]*\{ ]]; then
+        echo "${BASH_REMATCH[1]}" >> "$removed_known"
+      fi
     fi
   done < "$diff"
+  while IFS= read -r key; do
+    [[ -z "$key" ]] && continue
+    echo "FALLO CONOCIDO AÑADIDO (packages/evals/baseline.json): $key"
+    found=1
+  done < <(sort -u "$added_known" | comm -23 - <(sort -u "$removed_known"))
 fi
 
 exit "$found"

@@ -4,6 +4,7 @@ import { createApprovalHandler } from "./agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
+import { createHealthServer } from "./health.ts";
 import { logHandler } from "./events/log-handler.ts";
 import { createIngestHandler } from "./knowledge/ingest.ts";
 import { LeaseAbortedError } from "./lease.ts";
@@ -49,6 +50,16 @@ const worker = createWorker(config, logger, {
   },
 });
 
+// Salud para el healthcheck de Railway y la alerta de staging (PL-health): se
+// levanta antes de esperar el lock, para que el contenedor nuevo de un despliegue
+// responda «standby» mientras el viejo sigue vivo.
+const health = createHealthServer({
+  probe: worker.probe,
+  logger,
+});
+health.on("error", (err) => logger.error({ err }, "el endpoint de salud no pudo escuchar"));
+health.listen(config.healthPort, () => logger.info({ port: config.healthPort }, "endpoint de salud escuchando"));
+
 let stopping = false;
 async function stop(signal: NodeJS.Signals): Promise<void> {
   if (stopping) return;
@@ -57,6 +68,7 @@ async function stop(signal: NodeJS.Signals): Promise<void> {
   waiting.abort();
   try {
     await worker.stop();
+    health.close();
     process.exit(0);
   } catch (err) {
     logger.error({ err }, "el worker no paró limpio");
