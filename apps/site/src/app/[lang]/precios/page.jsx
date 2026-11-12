@@ -17,7 +17,7 @@ import { withContact } from "@/components/contact";
 // (implantación), sin unidad de producto ni etiqueta. Mismo índice en los cuatro idiomas.
 const BILLING = "PL-billing";
 const UNITS = {
-  "ent.list": ["PL-sso", "F10", "SE04", "PL-cells"],
+  "ent.list": ["PL-sso", "F06", "SE04", "PL-cells"],
   after: ["SE05", "PL-ledger", "PL-ledger", "PL-billing"],
   visible: ["OA14", "PL-billing", "SE05", "PL-billing"],
   implementation: ["OA27", "", ""],
