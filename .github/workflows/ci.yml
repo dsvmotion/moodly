@@ -153,6 +153,8 @@ jobs:
       # muestrea la presión de CPU, E/S y memoria del runner. Solo se sube si el
       # job falla (paso «Diagnóstico del e2e», abajo). No reintenta ni salta nada.
       - name: Diagnóstico del e2e (muestreo)
+        # Si el muestreo falla, el job sigue: el diagnóstico nunca pone el CI en rojo.
+        continue-on-error: true
         run: bash scripts/ci/e2e-diagnostics.sh start "$RUNNER_TEMP/e2e-diagnostico"
 
       # Usuarios de prueba con contraseñas generadas en el propio run.

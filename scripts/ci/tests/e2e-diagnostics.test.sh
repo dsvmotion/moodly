@@ -33,6 +33,12 @@ check "clave secreta de Supabase" "SUPABASE_SECRET_KEY=sb_secret_N7UND0UgjKTVK-a
 check "clave publicable" "key sb_publishable_ACJWlzQH_xyz" "ACJWlzQH" "sb_publishable_[redacted]"
 check "contraseña en SQL" "statement: alter role dbos_worker login password 'S3creta!'" "S3creta!" "password '[redacted]'"
 check "contraseña en JSON" '{"email":"a@demo.test","password":"Clave-123"}' "Clave-123" '"password":"[redacted]"'
+check "refresh_token en JSON" '{"refresh_token":"r3fr3sh-v4lue","token_type":"bearer"}' "r3fr3sh-v4lue" '"token_type":"bearer"'
+check "access_token en query" "GET /callback?access_token=opaco123&expires_in=3600" "opaco123" "expires_in=3600"
+check "cookie de sesión de Supabase" "cookie: sb-127-auth-token=base64-eyJhY2Nlc3MiOiJ4In0; other=1" "base64-eyJhY2" "other=1"
+check "contraseña con comilla escapada" "alter role x password 'a''b-secreta'" "b-secreta" "password '[redacted]'"
+check "parámetros de una sentencia" 'DETAIL:  parameters: $1 = admin.a@demo.test, $2 = Clave-123' "Clave-123" "parameters: [redacted]"
+check "PGPASSWORD" "env PGPASSWORD=supersecreta psql" "supersecreta" "PGPASSWORD=[redacted]"
 check "lo demás se conserva" '{"status":504,"path":"/token","duration":10002345}' "" '"status":504,"path":"/token"'
 check "un log de lock se conserva" "LOG:  process 123 still waiting for ShareLock on transaction 456 after 1000.123 ms" "" "still waiting for ShareLock"
 

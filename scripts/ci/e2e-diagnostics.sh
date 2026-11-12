@@ -19,7 +19,10 @@
 #
 # Nunca escribe variables de entorno. Los logs pasan por `redact`: JWT, claves
 # de Supabase (sb_secret_…, sb_publishable_…), cabeceras apikey y
-# Authorization, contraseñas en SQL y en JSON.
+# Authorization, access/refresh tokens, la cookie de sesión de Supabase
+# (sb-…-auth-token), contraseñas en SQL (también con comillas escapadas) y en
+# JSON, los parámetros de las sentencias de Postgres (DETAIL: parameters) y
+# PGPASSWORD.
 
 set -euo pipefail
 
@@ -32,8 +35,12 @@ redact() {
     -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/[jwt]/g' \
     -e 's/sb_(secret|publishable)_[A-Za-z0-9_-]+/sb_\1_[redacted]/g' \
     -e 's/((apikey|authorization)"?[[:space:]]*[:=][[:space:]]*"?)(Bearer[[:space:]]+)?[^",&[:space:]]+/\1[redacted]/Ig' \
-    -e "s/(password[[:space:]]*)'[^']*'/\\1'[redacted]'/Ig" \
-    -e 's/("password"[[:space:]]*:[[:space:]]*")[^"]*"/\1[redacted]"/Ig'
+    -e "s/(password[[:space:]]*)'([^']|'')*'/\\1'[redacted]'/Ig" \
+    -e 's/("password"[[:space:]]*:[[:space:]]*")[^"]*"/\1[redacted]"/Ig' \
+    -e 's/(("|[?&[:space:]])(refresh_token|access_token|provider_token|provider_refresh_token)"?[[:space:]]*[:=][[:space:]]*"?)[^",&[:space:]]+/\1[redacted]/Ig' \
+    -e 's/(sb-[A-Za-z0-9_-]+-auth-token(\.[0-9]+)?=)[^;[:space:]]+/\1[redacted]/g' \
+    -e 's/(parameters:).*/\1 [redacted]/' \
+    -e 's/(PGPASSWORD=)[^[:space:]]+/\1[redacted]/g'
 }
 
 psql_admin() {
