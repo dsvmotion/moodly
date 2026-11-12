@@ -287,6 +287,8 @@ export interface SeedApproval {
   effectClass: "external_message" | "internal_write";
   input: Record<string, string>;
   summary: string;
+  /** El rol mínimo que la decide (private.can_decide_approval); por defecto, staff. */
+  requiredRole?: "staff" | "location_manager";
 }
 
 export const seedApprovals: readonly SeedApproval[] = [
@@ -322,6 +324,21 @@ export const seedApprovals: readonly SeedApproval[] = [
     effectClass: "external_message",
     input: { text: "Buenas tardes, le confirmamos la cita del martes." },
     summary: "Responder: «Buenas tardes, le confirmamos la cita del martes.»",
+  },
+  // Pide un encargado: el staff de A2 la ve (RLS por local) pero no la decide,
+  // así que no le cuenta ni sale en su lista (M-02); el region_manager de A
+  // Norte, sí.
+  {
+    key: "a2_manager",
+    runId: "5eed0007-0000-4000-8000-0000000000a4",
+    executionId: "5eed0008-0000-4000-8000-0000000000a4",
+    approvalId: "5eed0009-0000-4000-8000-0000000000a4",
+    locationId: LOC_A2,
+    skillKey: "reply",
+    effectClass: "external_message",
+    input: { text: "Le enviamos el presupuesto que nos pidió." },
+    summary: "Responder: «Le enviamos el presupuesto que nos pidió.»",
+    requiredRole: "location_manager",
   },
 ];
 
