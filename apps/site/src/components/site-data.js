@@ -22,7 +22,7 @@ const T = {
     ["/producto", ["Ver la plataforma", "Capturas y el onboarding, paso a paso."], ["See the platform", "Screenshots and onboarding, step by step."], ["Voir la plateforme", "Captures et onboarding, étape par étape."], ["Plattform ansehen", "Screenshots und Onboarding, Schritt für Schritt."]],
   ],
   verticals: {
-    salud: [["Clinics & Salons", "Clinics, beauty, hair salons, vets."], ["Cliniques et instituts", "Cliniques, esthétique, coiffure, vétérinaires."], ["Praxen & Studios", "Praxen, Kosmetik, Friseure, Tierärzte."]],
+    belleza: [["Beauty & Aesthetics", "Aesthetics, hair salons, barbers, nails."], ["Beauté et esthétique", "Esthétique, coiffure, barbiers, ongles."], ["Beauty & Kosmetik", "Kosmetik, Friseure, Barbiere, Nägel."]],
     hosteleria: [["Hospitality", "Restaurants, hotels, holiday rentals, experiences."], ["Hôtellerie-restauration", "Restaurants, hôtels, locations, activités."], ["Gastronomie & Hotellerie", "Restaurants, Hotels, Ferienwohnungen, Erlebnisse."]],
     inmobiliario: [["Real Estate", "Sales, rentals, new builds and management."], ["Immobilier", "Vente, location, neuf et gestion."], ["Immobilien", "Verkauf, Vermietung, Neubau und Verwaltung."]],
     profesionales: [["Professional Services", "Accountants, law firms, consultancies, agencies."], ["Cabinets et conseil", "Expertise comptable, avocats, conseil, agences."], ["Kanzleien & Beratung", "Steuerberatung, Kanzleien, Beratung, Agenturen."]],

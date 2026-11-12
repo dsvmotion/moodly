@@ -51,8 +51,8 @@ export default function Sso() {
       {step === 1 && (
         <section style={card}>
           <span style={{ fontSize: "17px", fontWeight: 500 }}>Demuestra que el dominio es tuyo</span>
-          <span style={muted}>Añade este registro TXT en el DNS de <strong style={{ fontWeight: 500, color: "var(--ink)" }}>clinicadentalsol.es</strong> (donde gestiones el dominio). Puede tardar unos minutos en propagarse.</span>
-          <Copy label="Nombre" value="_moodly-verification.clinicadentalsol.es" />
+          <span style={muted}>Añade este registro TXT en el DNS de <strong style={{ fontWeight: 500, color: "var(--ink)" }}>estudiobellezasol.es</strong> (donde gestiones el dominio). Puede tardar unos minutos en propagarse.</span>
+          <Copy label="Nombre" value="_moodly-verification.estudiobellezasol.es" />
           <Copy label="Valor TXT" value="moodly-site-verification=7f3a9c21e8b4" />
           {dns === "missing" && <span role="alert" style={{ padding: "12px 14px", borderRadius: "10px", background: "var(--amber-bg)", color: "var(--amber-fg)" }}>Aún no vemos el registro. Si acabas de añadirlo, espera unos minutos y vuelve a comprobarlo.</span>}
           {dns === "ok" && <span role="status" style={{ padding: "12px 14px", borderRadius: "10px", background: "var(--green-bg)", color: "var(--green-fg)" }}>✓ Dominio verificado.</span>}
@@ -87,7 +87,7 @@ export default function Sso() {
           {test === "ok" && (
             <div role="status" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "14px", borderRadius: "10px", background: "var(--green-bg)", color: "var(--green-fg)" }}>
               <strong style={{ fontWeight: 500 }}>✓ Inicio de sesión correcto. Hemos recibido:</strong>
-              <span>Email: marta.ruiz@clinicadentalsol.es · Nombre: Marta Ruiz · Grupo: Dirección</span>
+              <span>Email: marta.ruiz@estudiobellezasol.es · Nombre: Marta Ruiz · Grupo: Dirección</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
@@ -101,7 +101,7 @@ export default function Sso() {
       {step === 4 && !applied && (
         <section style={card}>
           <span style={{ fontSize: "17px", fontWeight: 500 }}>Aplícalo a tu equipo</span>
-          <label style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: "pointer" }}><input type="checkbox" checked={enforce} onChange={(e) => setEnforce(e.target.checked)} style={{ width: "18px", height: "18px", marginTop: "2px" }} /><span><span style={{ display: "block" }}>Obligar a entrar con SSO a todo @clinicadentalsol.es</span><span style={{ ...muted, fontSize: "13px" }}>Sin esto, cada persona puede elegir entre SSO o su contraseña.</span></span></label>
+          <label style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: "pointer" }}><input type="checkbox" checked={enforce} onChange={(e) => setEnforce(e.target.checked)} style={{ width: "18px", height: "18px", marginTop: "2px" }} /><span><span style={{ display: "block" }}>Obligar a entrar con SSO a todo @estudiobellezasol.es</span><span style={{ ...muted, fontSize: "13px" }}>Sin esto, cada persona puede elegir entre SSO o su contraseña.</span></span></label>
           <span style={{ padding: "12px 14px", borderRadius: "10px", background: "var(--linen)", fontSize: "13px" }}>Acceso de emergencia: tú (dueña) podrás seguir entrando con email + 2FA si el proveedor de identidad falla.</span>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}><button type="button" onClick={() => setStep(3)} style={btn(false)}>Atrás</button><button type="button" onClick={() => setApplied(true)} style={btn(true)}>Activar SSO</button></div>
         </section>
