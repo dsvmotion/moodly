@@ -97,12 +97,22 @@ jobs:
             echo "same_head=true" >> "$GITHUB_OUTPUT"
           fi
           echo "Head del PR: $after"; echo "Archivos del PR:"; sed 's/^/  /' "$RUNNER_TEMP/files.txt"
+          # Si toca la línea base de las evals, sus dos versiones (merge-base y
+          # head), leídas por la API como datos: la guarda compara las claves
+          # como JSON (K-01). Si no se pueden leer, el paso falla en cerrado.
+          if grep -qxF packages/evals/baseline.json "$RUNNER_TEMP/files.txt"; then
+            bash scripts/merge-guard/baseline-versions.sh "$GH_REPO" "$base" "$after" "$RUNNER_TEMP"
+            echo "baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "baseline=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Zonas sensibles y tests debilitados
         id: gate
         env:
           EVENT_ACTION: ${{ github.event.action }}
           HAS_LABEL: ${{ steps.pr.outputs.has_label }}
+          BASELINE: ${{ steps.pr.outputs.baseline }}
           BASE: ${{ steps.pr.outputs.base }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
@@ -116,7 +126,9 @@ jobs:
             exit 0
           fi
           # Sin tubería: el shell de los pasos no lleva pipefail y el código de salida se perdería.
-          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" > "$RUNNER_TEMP/guard.txt" || result=$?
+          baseline=()
+          [[ "$BASELINE" == "true" ]] && baseline=("$RUNNER_TEMP/baseline-before.json" "$RUNNER_TEMP/baseline-after.json")
+          bash scripts/merge-guard/check-sensitive.sh "$RUNNER_TEMP/files.txt" "$RUNNER_TEMP/diff.patch" ${baseline[@]+"${baseline[@]}"} > "$RUNNER_TEMP/guard.txt" || result=$?
           cat "$RUNNER_TEMP/guard.txt"
           # La decisión se escribe siempre (este paso no falla) para que
           # invalidate-review pueda leerla aunque el veredicto sea "fail".
