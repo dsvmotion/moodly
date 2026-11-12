@@ -14,8 +14,8 @@
 --
 -- Sin security definer (se ejecuta como quien escribe, como antes).
 --
--- Vuelta atrás: volver a crear private.guard_inbound_event() como en
--- 20261112030000_inbound_events.sql.
+-- Vuelta atrás: rollbacks/20261112070000_inbound_events_conversation_deleted.down.sql
+-- (la función de 20261112030000_inbound_events.sql).
 
 create or replace function private.guard_inbound_event()
 returns trigger
