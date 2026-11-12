@@ -269,7 +269,7 @@ export default function Page() {
       <section id="demo" style={{ padding: "clamp(88px, 10vw, 144px) clamp(16px, 4vw, 40px) 0" }}><div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", textAlign: "center" }}>
         <h2 style={{ margin: "0", fontSize: "clamp(32px, 3.6vw, 48px)", lineHeight: "1.08", fontWeight: "400", letterSpacing: "-0.035em", maxWidth: "420px" }}>{t.demoH2}</h2>
         <DemoForm />
-        <p style={{ margin: "0", fontSize: "12px", lineHeight: "18px", color: "#5f5f63" }}>{t.demoFine1}<LangLink href="/#demo" style={{ textDecoration: "underline", color: "#5f5f63" }}>{t.demoFineLink}</LangLink>{t.demoFine2}</p>
+        <p style={{ margin: "0", fontSize: "12px", lineHeight: "18px", color: "#5f5f63" }}>{t.demoFine1}<LangLink href="/contacto" style={{ textDecoration: "underline", color: "#5f5f63" }}>{t.demoFineLink}</LangLink>{t.demoFine2}</p>
       </div></section>
 
       <SiteFooter />
