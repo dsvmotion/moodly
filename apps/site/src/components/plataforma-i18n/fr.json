@@ -1678,7 +1678,6 @@
 "Servicios, objetivos y reglas": "Services, objectifs et règles",
 "Sesiones abiertas": "Sessions ouvertes",
 "Si activas un proveedor o una región nueva (p. ej. BYOC o «solo EE. UU.»), la lista y el DPA se actualizan y puede requerirse volver a aceptar.": "Si vous activez un nouveau fournisseur ou une nouvelle région (p. ex. BYOC ou « États-Unis uniquement »), la liste et le DPA sont mis à jour et une nouvelle acceptation peut être requise.",
-"Si fijas residencia «solo UE», el enrutador se queda aquí.": "Si vous fixez la résidence « UE uniquement », le routeur reste ici.",
 "Si la aceptáis, decirlo en la web y en el agente podría traer nuevos pacientes.": "Si vous l'acceptez, l'indiquer sur le site et dans l'agent pourrait attirer de nouveaux patients.",
 "Si me paso del consumo incluido…": "Si je dépasse la consommation incluse…",
 "Si ningún modelo cumple la política →": "Si aucun modèle ne respecte la politique →",
@@ -2207,5 +2206,7 @@
 "✓ Verificación en dos pasos activada": "✓ Validation en deux étapes activée",
 "✦ Asistente de Moodly": "✦ Assistant Moodly",
 "⬆ Subir audio (mp3, m4a, wav)": "⬆ Importer un audio (mp3, m4a, wav)",
-"🔒 Bloqueado": "🔒 Verrouillé"
+"🔒 Bloqueado": "🔒 Verrouillé",
+"Residencia «solo UE»: en hoja de ruta.": "Résidence « UE uniquement » : sur la feuille de route.",
+"En hoja de ruta": "Sur la feuille de route"
 }
