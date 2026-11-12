@@ -10,6 +10,7 @@ import type {
   SkillSettings,
   Target,
   TurnExecution,
+  TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
 import type { Json } from "@repo/db";
@@ -149,7 +150,7 @@ const contextSchema = z.object({
 });
 export type TurnContext = z.infer<typeof contextSchema>;
 
-interface Conversation {
+export interface Conversation {
   id: string;
   location_id: string | null;
   contact_id: string;
@@ -169,7 +170,9 @@ type Prepared =
       summaryError: string | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
+      /** Lo gastado hoy y este mes (UTC), del libro de consumo: lo compara el enrutador con los topes. */
       dayEur: number;
+      monthEur: number;
       /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
       services: BookableService[] | null;
       servicesTruncated: boolean;
@@ -217,8 +220,6 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
   // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
   const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
   const now = new Date();
-  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-
   // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido. Si no
   // se puede leer, sin resumen: la historia entera (nunca un turno sin contestar).
   // El resumen sigue por PostgREST hasta que moodly_worker tenga su privilegio.
@@ -243,7 +244,7 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
         ])
       : [];
     const [modelSettings] = await sql.query(
-      `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur
+      `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur
        from public.org_model_settings limit 1`,
     );
     const serviceRows =
@@ -255,14 +256,16 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
             [conversation.location_id, MAX_PROMPT_SERVICES + 1],
           )
         : [];
-    const [today] = await sql.query<{ total: number }>(
-      "select coalesce(sum(cost_eur), 0)::float8 as total from public.agent_runs where created_at >= $1",
-      [startOfDay],
-    );
-    return { messages, location: location ?? null, modelSettings: modelSettings ?? null, serviceRows, dayEur: today?.total ?? 0 };
+    return { messages, location: location ?? null, modelSettings: modelSettings ?? null, serviceRows };
   });
   if (!rest) return { kind: "skip", reason: "agent_not_answering" };
-  const { messages, location, modelSettings, serviceRows, dayEur } = rest;
+  const { messages, location, modelSettings, serviceRows } = rest;
+  // El gasto del día y del mes, del libro de consumo (PL-ledger, usage_spend):
+  // sigue por su función con nombre hasta que pase a la transacción.
+  const spent = await db.usageSpend({
+    dayStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+  });
   const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
@@ -274,7 +277,8 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     summaryError,
     location,
     modelSettings,
-    dayEur,
+    dayEur: spent.dayEur,
+    monthEur: spent.monthEur,
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
     now: now.toISOString(),
@@ -399,6 +403,55 @@ async function recordExecution(
     now,
   });
   return false;
+}
+
+/**
+ * Una llamada al modelo, al libro de consumo (PL-ledger), en su propio paso
+ * justo después de hacerla. Si el paso se repite, no se anota dos veces: run,
+ * orden y hora de la llamada son únicos (23505: ya estaba).
+ *
+ * Nunca lanza: un fallo del libro no puede dejar al cliente sin respuesta ni el
+ * run en «running». Lo registra como error (con el run) y devuelve false; el
+ * cierre del run lo vuelve a intentar, y el run guarda los totales igualmente.
+ */
+export async function recordUsageSafely(
+  db: TenantDb,
+  logger: Pick<Logger, "error">,
+  runId: string,
+  conversation: Conversation,
+  call: TurnModelCall,
+): Promise<boolean> {
+  try {
+    await recordUsage(db, runId, conversation, call);
+    return true;
+  } catch (err) {
+    logger.error({ runId, callIndex: call.index, err: err instanceof Error ? err.name : "Error" }, "no se pudo anotar una llamada al modelo en el libro de consumo");
+    return false;
+  }
+}
+
+async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
+  const { error } = await db.from("usage_records").insert(
+    {
+      location_id: conversation.location_id,
+      run_id: runId,
+      agent_id: conversation.agent_id,
+      source: "agent_turn",
+      metric: "llm_tokens",
+      quantity: call.tokensIn + call.tokensOut,
+      tokens_in: call.tokensIn,
+      tokens_out: call.tokensOut,
+      cost_eur: call.costEur,
+      provider: call.provider,
+      via: call.via,
+      region: call.region,
+      model: call.model,
+      model_key: call.modelKey,
+      call_index: call.index,
+      occurred_at: call.startedAt,
+    },
+  );
+  if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
 }
 
 /**
@@ -611,6 +664,8 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
       });
+      // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
+      const unrecorded: TurnModelCall[] = [];
       // La bandera se guarda en un paso: si cambia con un turno a medias, al reanudarlo
       // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
       const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
@@ -633,9 +688,13 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         settings,
         router,
         policy,
-        spend: { runEur: 0, dayEur: prepared.dayEur },
+        spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
         intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
+        recordModelCall: async (call) => {
+          const ok = await ctx.step(`usage:${call.index}`, () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call));
+          if (!ok) unrecorded.push(call);
+        },
         record: async (execution) => {
           if (execution.status === "rejected") {
             ctx.logger.warn({ runId, skillKey: execution.skillKey, reason: execution.rejectReason }, "el motor de políticas rechazó una herramienta");
@@ -655,7 +714,11 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
       const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
       // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result, heldAny));
+      await ctx.step("run:finish", async () => {
+        // Lo que no se pudo anotar durante el turno, otra vez (sin lanzar tampoco).
+        for (const call of unrecorded) await recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call);
+        await finishRun(ctx.db, runId, conversation.id, result, heldAny);
+      });
       if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
       // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
       const summarized = await ctx.step("summary:model", () =>
@@ -667,9 +730,12 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
           previous: prepared.summary,
           router,
           policy,
-          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur },
+          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur, monthEur: prepared.monthEur + result.usage.costEur },
         }),
       );
+      // La llamada del resumen, al libro de consumo (PL-ledger), también si no dio resumen: se pagó igual.
+      const summaryCall = summarized.kind === "none" ? undefined : summarized.call;
+      if (summaryCall) await ctx.step("summary:ledger", () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, summaryCall));
       const finished = withSummaryUsage(result, summarized);
       if (summarized.kind === "updated") {
         // Primero el coste (se gastó aunque no se guarde), después el resumen.

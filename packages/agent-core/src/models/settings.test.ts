@@ -11,6 +11,7 @@ const row = {
   connection: "byok",
   budget_per_run_eur: "0.2500",
   budget_per_day_eur: "10.0000",
+  budget_per_month_eur: "150.0000",
 };
 
 describe("policyFromSettings", () => {
@@ -26,7 +27,7 @@ describe("policyFromSettings", () => {
       modelByTask: { classify: "fast", extract: "fast", converse: "smart", reason: "smart", embed: "embedding" },
       modelOverrides: { converse: "smart" },
       connection: "byok",
-      budget: { perRunEur: 0.25, perDayEur: 10 },
+      budget: { perRunEur: 0.25, perDayEur: 10, perMonthEur: 150 },
     });
   });
 
@@ -53,6 +54,7 @@ describe("policyFromSettings", () => {
     ["un ID de modelo en vez de una clave lógica", { model_by_task: { converse: "claude-x" } }],
     ["un modo de conexión desconocido", { connection: "shared" }],
     ["un tope a cero", { budget_per_run_eur: "0" }],
+    ["un tope del mes a cero", { budget_per_month_eur: "0" }],
   ])("falla con %s en vez de adivinar", (_name, change) => {
     expect(() => policyFromSettings({ ...row, ...change })).toThrow(InvalidModelSettingsError);
   });

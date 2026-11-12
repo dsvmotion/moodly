@@ -1,6 +1,13 @@
 import { SIMPLE_INTENTS, SIMPLE_INTENT_MODEL } from "@repo/config";
 import type { ModelKey, SimpleIntent } from "@repo/config";
 import type { ModelPolicy, ModelRouter, Spend } from "../models/router.js";
+import type { TurnModelCall } from "./turn.js";
+
+/**
+ * El orden de la llamada de la clasificación en el libro de consumo (PL-ledger):
+ * una por turno, lejos de los pasos del turno (0, 1, …) y del resumen (1000).
+ */
+export const INTENT_CALL_INDEX = 2000;
 
 // Enrutado por intención (PL-T3, punto 3). Antes de conversar, se mira el
 // último mensaje del cliente: un saludo, preguntar el horario o buscar hueco
@@ -61,6 +68,8 @@ export interface Classification {
   /** Cómo se decidió: sin modelo, con el modelo, o «other» porque no se pudo. */
   by: "rule" | "model" | "fallback";
   usage: { tokensIn: number; tokensOut: number; costEur: number } | null;
+  /** Solo si se llamó al modelo: la llamada, para el libro de consumo. */
+  call?: TurnModelCall;
 }
 
 export async function classifyIntent(params: ClassifyParams): Promise<Classification> {
@@ -83,7 +92,23 @@ export async function classifyIntent(params: ClassifyParams): Promise<Classifica
       params.policy,
       params.spend,
     );
-    return { intent: parseIntent(result.text), by: "model", usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut, costEur: result.costEur } };
+    return {
+      intent: parseIntent(result.text),
+      by: "model",
+      usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut, costEur: result.costEur },
+      call: {
+        index: INTENT_CALL_INDEX,
+        provider: result.provider,
+        via: result.via,
+        region: result.region,
+        model: result.model,
+        modelKey: result.modelKey,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+        costEur: result.costEur,
+        startedAt: result.startedAt,
+      },
+    };
   } catch {
     // Sin presupuesto (BudgetExceededError) o sin modelo: el turno sigue con el modelo del agente.
     return { intent: "other", by: "fallback", usage: null };
