@@ -45,8 +45,11 @@ select is(
   (select count(*)::int from public.messages m join rt_conv r on r.conv = m.conversation_id where r.channel <> 'webchat'),
   0, 'y por los demás canales no queda ningún mensaje pendiente para siempre');
 
--- La plataforma no queda bloqueada: el worker escribe por cualquier canal.
+-- La plataforma no queda bloqueada: el worker escribe por cualquier canal. El
+-- agente solo escribe en una conversación que lleva él (guard_agent_message_mode,
+-- 20261111220000): la de WhatsApp vuelve al agente antes de que escriba.
 set local role service_role;
+update public.conversations set mode = 'agent' where id = (select conv from rt_conv where channel = 'whatsapp');
 select lives_ok(
   format($$insert into public.messages (organization_id, conversation_id, direction, author, content, status)
            select %L, conv, 'out', 'agent', 'Hola, soy el agente', 'pending' from rt_conv where channel = 'whatsapp'$$, :org_a),
