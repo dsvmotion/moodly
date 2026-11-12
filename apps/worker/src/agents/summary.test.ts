@@ -1,4 +1,4 @@
-import { PLATFORM_MODEL_POLICY, SUMMARY_INSTRUCTIONS, createFakeTransport, createModelRouter } from "@repo/agent-core";
+import { PLATFORM_MODEL_POLICY, SUMMARY_CALL_INDEX, SUMMARY_INSTRUCTIONS, createFakeTransport, createModelRouter } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
 import { describe, expect, it } from "vitest";
 import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
@@ -30,7 +30,8 @@ function fakeDb(answer: (table: string, ops: string[]) => Result): TenantDb & { 
 
 const broken = fakeDb(() => ({ data: null, error: { code: "57P01" } }));
 const usage = { tokensIn: 10, tokensOut: 2, costEur: 0.001, model: "fake/fast" };
-const updated = { kind: "updated" as const, summary: "Customer said: quiere láser.", coveredUntil: "2030-06-03T09:00:00Z", usage };
+const call = { index: 1000, provider: "fake", via: "direct", region: "eu", model: "fake/fast", modelKey: "fast", tokensIn: 10, tokensOut: 2, costEur: 0.001, startedAt: "2030-06-03T09:00:00.000Z" };
+const updated = { kind: "updated" as const, summary: "Customer said: quiere láser.", coveredUntil: "2030-06-03T09:00:00Z", usage, call };
 
 describe("resumen continuo en el worker: fallos de la base de datos", () => {
   it("si no se puede leer el resumen, ninguno: el turno va con la historia entera, y se sabe por qué", async () => {
@@ -49,7 +50,7 @@ describe("resumen continuo en el worker: fallos de la base de datos", () => {
       previous: null,
       router: createModelRouter([transport]),
       policy: PLATFORM_MODEL_POLICY,
-      spend: { runEur: 0, dayEur: 0 },
+      spend: { runEur: 0, dayEur: 0, monthEur: 0 },
     });
     expect(result).toEqual({ kind: "skipped", reason: "db_error", error: "Error(57P01)" });
     expect(transport.calls).toHaveLength(0);
@@ -79,9 +80,16 @@ describe("resumen continuo en el worker: fallos de la base de datos", () => {
       previous: null,
       router: createModelRouter([transport]),
       policy: PLATFORM_MODEL_POLICY,
-      spend: { runEur: 0, dayEur: 0 },
+      spend: { runEur: 0, dayEur: 0, monthEur: 0 },
     });
-    expect(step).toEqual({ kind: "updated", summary: "Customer said: m0.", coveredUntil: "2030-06-03T09:01:00Z", usage });
+    expect(step).toEqual({
+      kind: "updated",
+      summary: "Customer said: m0.",
+      coveredUntil: "2030-06-03T09:01:00Z",
+      usage,
+      // La llamada, para el libro de consumo (PL-ledger).
+      call: expect.objectContaining({ index: SUMMARY_CALL_INDEX, model: usage.model, modelKey: "fast", tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, costEur: usage.costEur }),
+    });
     expect(transport.calls[0]?.modelKey).toBe("fast");
     if (step.kind !== "updated") return;
     expect(await saveSummary(db, "conv-1", step)).toBeNull();

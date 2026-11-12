@@ -54,12 +54,23 @@ export type { GatewayTransportOptions } from "./models/transports/gateway.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
 export type { ModelSettingsRow } from "./models/settings.js";
-export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, runAgentTurn } from "./runtime/turn.js";
-export type { ExecutionStatus, HandOffReason, HistoryMessage, Step, TurnExecution, TurnParams, TurnResult, TurnStatus } from "./runtime/turn.js";
+export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, UsageRecordError, runAgentTurn } from "./runtime/turn.js";
+export type {
+  ExecutionStatus,
+  HandOffReason,
+  HistoryMessage,
+  Step,
+  TurnExecution,
+  TurnModelCall,
+  TurnParams,
+  TurnResult,
+  TurnStatus,
+  TurnUsage,
+} from "./runtime/turn.js";
 export { PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts } from "./runtime/prompt.js";
 export { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/config";
-export { INTENTS, INTENT_INSTRUCTIONS, classifyIntent, deterministicIntent, modelForIntent, parseIntent } from "./runtime/intent.js";
+export { INTENTS, INTENT_CALL_INDEX, INTENT_INSTRUCTIONS, classifyIntent, deterministicIntent, modelForIntent, parseIntent } from "./runtime/intent.js";
 export type { Classification, ClassifyParams, Intent } from "./runtime/intent.js";
-export { RECENT_MESSAGES, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./runtime/summary.js";
+export { RECENT_MESSAGES, SUMMARY_CALL_INDEX, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./runtime/summary.js";
 export type { SummarizeParams, SummarizeResult, SummaryMessage, SummaryPlan } from "./runtime/summary.js";
 export type { BookableService, PromptContext, SystemPromptParts } from "./runtime/prompt.js";
