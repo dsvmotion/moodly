@@ -304,9 +304,17 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       costEur: result.costEur,
       startedAt: result.startedAt,
     });
-    // El último anotado es el de esta llamada (index = stepIndex).
+    // El último anotado es el de esta llamada (index = stepIndex). Anotarla es
+    // contabilidad: si falla, el turno sigue y el cliente tiene su respuesta
+    // (lo que costó sigue en usage, para quien cierre el run).
     const recorded = usage.calls.at(-1);
-    if (recorded) await params.recordModelCall?.(recorded);
+    if (recorded && params.recordModelCall) {
+      try {
+        await params.recordModelCall(recorded);
+      } catch {
+        // Quien anota registra su propio fallo; aquí no se para el turno.
+      }
+    }
 
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {

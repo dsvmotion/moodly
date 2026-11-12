@@ -142,7 +142,7 @@ const contextSchema = z.object({
 });
 export type TurnContext = z.infer<typeof contextSchema>;
 
-interface Conversation {
+export interface Conversation {
   id: string;
   location_id: string | null;
   contact_id: string;
@@ -356,7 +356,27 @@ async function recordExecution(
  * Una llamada al modelo, al libro de consumo (PL-ledger), en su propio paso
  * justo después de hacerla. Si el paso se repite, no se anota dos veces: run,
  * orden y hora de la llamada son únicos (23505: ya estaba).
+ *
+ * Nunca lanza: un fallo del libro no puede dejar al cliente sin respuesta ni el
+ * run en «running». Lo registra como error (con el run) y devuelve false; el
+ * cierre del run lo vuelve a intentar, y el run guarda los totales igualmente.
  */
+export async function recordUsageSafely(
+  db: TenantDb,
+  logger: Pick<Logger, "error">,
+  runId: string,
+  conversation: Conversation,
+  call: TurnModelCall,
+): Promise<boolean> {
+  try {
+    await recordUsage(db, runId, conversation, call);
+    return true;
+  } catch (err) {
+    logger.error({ runId, callIndex: call.index, err: err instanceof Error ? err.name : "Error" }, "no se pudo anotar una llamada al modelo en el libro de consumo");
+    return false;
+  }
+}
+
 async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
   const { error } = await db.from("usage_records").insert(
     {
@@ -547,6 +567,8 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
       });
+      // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
+      const unrecorded: TurnModelCall[] = [];
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -567,7 +589,10 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
         step: (name, fn) => ctx.step(name, fn),
-        recordModelCall: (call) => ctx.step(`usage:${call.index}`, () => recordUsage(ctx.db, runId, conversation, call)),
+        recordModelCall: async (call) => {
+          const ok = await ctx.step(`usage:${call.index}`, () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call));
+          if (!ok) unrecorded.push(call);
+        },
         record: async (execution) => {
           if (execution.status === "rejected") {
             ctx.logger.warn({ runId, skillKey: execution.skillKey, reason: execution.rejectReason }, "el motor de políticas rechazó una herramienta");
@@ -577,7 +602,11 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           if (skill) await ctx.step(`record:${execution.idempotencyKey}`, () => recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()));
         },
       });
-      await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation, result));
+      await ctx.step("run:finish", async () => {
+        // Lo que no se pudo anotar durante el turno, otra vez (sin lanzar tampoco).
+        for (const call of unrecorded) await recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call);
+        await finishRun(ctx.db, runId, conversation, result);
+      });
       ctx.logger.info(
         { runId, status: result.status, reason: result.reason, error: result.error, executions: result.executions.length, costEur: result.usage.costEur },
         "turno del agente terminado",

@@ -9,6 +9,7 @@ import {
   agentSkills,
   bookableServices,
   createConverseHandler,
+  recordUsageSafely,
   runIdFor,
   runStatusFor,
 } from "./converse.ts";
@@ -118,5 +119,48 @@ describe("las herramientas que ve el modelo", () => {
     // Solo avisa de la que de verdad falta.
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toMatchObject({ skillKey: "una_que_no_existe" });
+  });
+});
+
+describe("el libro de consumo durante el turno (PL-ledger)", () => {
+  const conversation = { id: "conv-1", location_id: "loc-1", contact_id: "ana", agent_id: "agent-1" };
+  const call = {
+    index: 0,
+    provider: "anthropic",
+    via: "gateway",
+    region: "other",
+    model: "anthropic/claude-opus-5.5",
+    modelKey: "smart",
+    tokensIn: 100,
+    tokensOut: 20,
+    costEur: 0.001,
+    startedAt: "2026-11-12T08:30:00.000Z",
+  };
+  const dbWith = (insert: () => Promise<{ error: { code: string } | null }>) =>
+    ({ from: () => ({ insert }) }) as unknown as Parameters<typeof recordUsageSafely>[0];
+
+  it("anota la llamada", async () => {
+    const logger = { error: vi.fn() };
+    await expect(recordUsageSafely(dbWith(async () => ({ error: null })), logger, "run-1", conversation, call)).resolves.toBe(true);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("si ya estaba (23505, un paso repetido), cuenta como anotada", async () => {
+    const logger = { error: vi.fn() };
+    await expect(recordUsageSafely(dbWith(async () => ({ error: { code: "23505" } })), logger, "run-1", conversation, call)).resolves.toBe(true);
+  });
+
+  it.each([
+    ["un error de la base de datos", async () => ({ error: { code: "08006" } })],
+    [
+      "una excepción",
+      async () => {
+        throw new Error("conexión cortada");
+      },
+    ],
+  ])("con %s no lanza: lo registra como error con el run y devuelve false", async (_name, insert) => {
+    const logger = { error: vi.fn() };
+    await expect(recordUsageSafely(dbWith(insert), logger, "run-1", conversation, call)).resolves.toBe(false);
+    expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ runId: "run-1", callIndex: 0 }), expect.stringContaining("libro de consumo"));
   });
 });

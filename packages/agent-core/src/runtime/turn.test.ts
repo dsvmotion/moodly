@@ -412,6 +412,19 @@ describe("límites del turno", () => {
     expect(result.usage.calls.reduce((sum, c) => sum + c.tokensIn + c.tokensOut, 0)).toBe(result.usage.tokensIn + result.usage.tokensOut);
   });
 
+  it("si anotar la llamada falla, el turno sigue y el cliente tiene su respuesta", async () => {
+    const transport = scripted([() => text("Sí, a las 9:00.")]);
+    const result = await runAgentTurn(
+      params(transport, {
+        recordModelCall: async () => {
+          throw new Error("el libro de consumo no responde");
+        },
+      }),
+    );
+    expect(result.status).toBe("replied");
+    expect(result.usage.calls).toHaveLength(1);
+  });
+
   it("anota cada llamada en cuanto la hace: si el turno falla después, lo que costó ya está anotado", async () => {
     const recorded: number[] = [];
     const transport = scripted([
