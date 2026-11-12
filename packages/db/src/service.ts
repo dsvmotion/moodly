@@ -9,9 +9,11 @@ import type { Database } from "./database.types.js";
 import { channelAccounts, type ChannelAccounts } from "./channel-accounts.ts";
 import { outbox, type Outbox } from "./outbox.ts";
 import { tenantDb, type TenantDb } from "./tenant-db.ts";
+import { createWorkerSql } from "./worker-sql.ts";
 
 export { ChannelAccountError, type ChannelAccounts, type ResolvedChannelAccount } from "./channel-accounts.ts";
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
+export { WorkerSqlError, type TenantSql } from "./worker-sql.ts";
 export {
   TenantScopeError,
   type AgentTurnContext,
@@ -23,6 +25,8 @@ export {
   type TenantInsert,
   type TenantTable,
   type TenantUpdate,
+  type UsageSpend,
+  type UsageSpendParams,
 } from "./tenant-db.ts";
 
 export interface ServiceDb {
@@ -36,15 +40,31 @@ export interface ServiceDb {
    * comprobar la firma del proveedor.
    */
   channelAccounts: ChannelAccounts;
+  /** Cierra las conexiones SQL del rol moodly_worker, si las hay. */
+  end(): Promise<void>;
 }
 
-export function createServiceDb(options: { url: string; secretKey: string }): ServiceDb {
+export function createServiceDb(options: {
+  url: string;
+  secretKey: string;
+  /** La conexión del rol moodly_worker (ADR 0049): activa forOrganization(…).transaction. */
+  workerDatabaseUrl?: string;
+  /** Errores de las conexiones libres del pool de moodly_worker (para el log del worker). */
+  onWorkerSqlError?: (error: Error) => void;
+}): ServiceDb {
   const client = createClient<Database>(options.url, options.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+  const workerSql = options.workerDatabaseUrl ? createWorkerSql({
+        connectionString: options.workerDatabaseUrl,
+        ...(options.onWorkerSqlError ? { onError: options.onWorkerSqlError } : {}),
+      }) : undefined;
   return {
-    forOrganization: (organizationId) => tenantDb(client, organizationId),
+    forOrganization: (organizationId) => tenantDb(client, organizationId, workerSql),
     outbox: outbox(client),
     channelAccounts: channelAccounts(client),
+    end: async () => {
+      await workerSql?.end();
+    },
   };
 }

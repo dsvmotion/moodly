@@ -30,8 +30,13 @@ export type AgentTypeKey = (typeof AGENT_TYPES)[number]["key"];
 export const MODEL_TASKS = ["classify", "extract", "converse", "reason", "embed"] as const;
 export type ModelTask = (typeof MODEL_TASKS)[number];
 
-/** Claves lógicas: qué tipo de modelo, no cuál. Se eligen por eval al activar cada proveedor. */
-export const MODEL_KEYS = ["fast", "smart", "embedding"] as const;
+/**
+ * Claves lógicas: qué tipo de modelo, no cuál. Se eligen por eval al activar
+ * cada proveedor. De más barata a más capaz: `fast`, `balanced` (B-01: el
+ * escalón intermedio, para un agente al que `fast` no le basta y `smart` le
+ * sobra) y `smart`; `embedding`, solo para los embeddings.
+ */
+export const MODEL_KEYS = ["fast", "balanced", "smart", "embedding"] as const;
 export type ModelKey = (typeof MODEL_KEYS)[number];
 
 /**
@@ -95,29 +100,86 @@ export function converseModelForAgentType(agentTypeKey: string): ModelKey | unde
     : undefined;
 }
 
-export interface GatewayModel {
-  /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
-  id: string;
-  /** Precio en USD por millón de tokens, para estimar antes de llamar (el coste real lo da el gateway). */
+/**
+ * Enrutado por intención (PL-T3, punto 3): antes de conversar, un clasificador
+ * (determinista o con la tarea `classify`) mira el último mensaje del cliente;
+ * las intenciones simples van por el camino barato y la conversación abierta,
+ * con el modelo del agente. Apagado hasta que las evals con el modelo real
+ * demuestren que el camino barato las contesta bien (V4; AGENTS.md → Evals).
+ */
+export const INTENT_ROUTING_DEFAULT_ENABLED = false;
+/** Las intenciones simples, que puede atender el camino barato. */
+export const SIMPLE_INTENTS = ["greeting", "opening_hours", "slots"] as const;
+export type SimpleIntent = (typeof SIMPLE_INTENTS)[number];
+/** La clave del camino barato. */
+export const SIMPLE_INTENT_MODEL: ModelKey = "fast";
+
+/** Precios en USD por millón de tokens de una ruta del gateway. */
+export interface ModelPrices {
+  /** Para estimar antes de llamar y como respaldo si el gateway no da el coste real. */
   inputUsdPerMTok: number;
   outputUsdPerMTok: number;
   /**
-   * Caché de prompt (PL-T3): leer de la caché y escribir en ella, en USD por
-   * millón de tokens. Sin ellos, el transporte cobra la entrada entera a precio
-   * normal (nunca se queda corto).
+   * Caché de prompt (PL-T3): leer de la caché y escribir en ella. Sin ellos, el
+   * transporte cobra la entrada entera a precio normal (nunca se queda corto).
    */
   cacheReadUsdPerMTok?: number;
   cacheWriteUsdPerMTok?: number;
 }
 
+/** Las regiones con precio propio en el catálogo del gateway (inferencia fijada en la región). */
+export type PriceRegion = "eu" | "us";
+
+export interface GatewayModel extends ModelPrices {
+  /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
+  id: string;
+  /**
+   * Precio con la inferencia fijada en una región (ADR 0051): el catálogo cobra
+   * un 10 % más en cada línea. Lo usa la ruta que declara esa región; sin
+   * región fijada, el precio de arriba. Una región sin precio aquí no tiene
+   * ruta: el transporte no la usa nunca a precio global.
+   */
+  regional?: Partial<Record<PriceRegion, ModelPrices>>;
+  /**
+   * Contexto largo: por encima de tantos tokens de entrada (con la caché), cada
+   * línea se cobra por `multiplier` (Haiku 5.5: ×5 desde 100 001 tokens).
+   */
+  longContext?: { aboveInputTokens: number; multiplier: number };
+}
+
 /**
  * Qué modelo sirve cada clave por Vercel AI Gateway (ADR 0033). Cambiar de
- * modelo es cambiar esta tabla, nunca el código de negocio.
+ * modelo es cambiar esta tabla, nunca el código de negocio. Precios del
+ * catálogo del gateway (2026-11-12), también los de la caché y los de la UE.
  */
 export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> = {
   // Caché de Anthropic: leer cuesta el 10 % de la entrada y escribir (5 minutos), el 125 %.
-  fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5, cacheReadUsdPerMTok: 0.01, cacheWriteUsdPerMTok: 0.125 },
-  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20, cacheReadUsdPerMTok: 0.4, cacheWriteUsdPerMTok: 5 },
+  fast: {
+    id: "anthropic/claude-haiku-5.5",
+    inputUsdPerMTok: 0.1,
+    outputUsdPerMTok: 0.5,
+    cacheReadUsdPerMTok: 0.01,
+    cacheWriteUsdPerMTok: 0.125,
+    regional: { eu: { inputUsdPerMTok: 0.11, outputUsdPerMTok: 0.55, cacheReadUsdPerMTok: 0.011, cacheWriteUsdPerMTok: 0.1375 } },
+    longContext: { aboveInputTokens: 100_001, multiplier: 5 },
+  },
+  // Sonnet 5.5 lee de la caché a 0,1 $/M (el 5 % de la entrada) y escribe a 2,5 $/M (el 125 %).
+  balanced: {
+    id: "anthropic/claude-sonnet-5.5",
+    inputUsdPerMTok: 2,
+    outputUsdPerMTok: 10,
+    cacheReadUsdPerMTok: 0.1,
+    cacheWriteUsdPerMTok: 2.5,
+    regional: { eu: { inputUsdPerMTok: 2.2, outputUsdPerMTok: 11, cacheReadUsdPerMTok: 0.11, cacheWriteUsdPerMTok: 2.75 } },
+  },
+  smart: {
+    id: "anthropic/claude-opus-5.5",
+    inputUsdPerMTok: 4,
+    outputUsdPerMTok: 20,
+    cacheReadUsdPerMTok: 0.2,
+    cacheWriteUsdPerMTok: 5,
+    regional: { eu: { inputUsdPerMTok: 4.4, outputUsdPerMTok: 22, cacheReadUsdPerMTok: 0.22, cacheWriteUsdPerMTok: 5.5 } },
+  },
 };
 
 export interface GatewayEmbeddingModel {

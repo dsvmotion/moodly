@@ -13,6 +13,9 @@
 // le contestará una persona); ante una duda médica, no dice nada (el turno pasa
 // a una persona); si no, saluda.
 //
+// Si la llamada es la del resumen continuo (PL-T3), lo apunta como «summary» y
+// contesta con un resumen que dice cuántos mensajes del cliente resumió.
+//
 // Si el cliente pide «un momento», el modelo se queda pensando hasta que exista
 // <archivo>.gate (lo crea el test después de tomar el control, R-02) y luego
 // contesta como siempre.
@@ -21,7 +24,7 @@
 // indexa las fuentes (knowledge.ingest) y el agente busca en ellas, por una vía
 // como la del gateway (sin región UE garantizada).
 import { appendFileSync, existsSync, rmSync } from "node:fs";
-import { createFakeTransport, createModelRouter } from "@repo/agent-core";
+import { SUMMARY_INSTRUCTIONS, SUMMARY_MARK, createFakeTransport, createModelRouter } from "@repo/agent-core";
 import type { RouteOrigin, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { createFakeEmbedder } from "@repo/knowledge";
 import { createApprovalHandler } from "../agents/approvals.ts";
@@ -63,6 +66,13 @@ async function gated(response: TransportResponse): Promise<TransportResponse> {
 }
 
 function respond(request: TransportRequest): TransportResponse | Promise<TransportResponse> {
+  // El resumen continuo (PL-T3): otra llamada, con sus instrucciones fijas; se apunta aparte.
+  if (request.messages[0]?.content === SUMMARY_INSTRUCTIONS) {
+    const input = request.messages[1]?.content ?? "";
+    effect({ step: "summary", modelKey: request.modelKey, input });
+    const { messages } = JSON.parse(input) as { messages: { speaker: string }[] };
+    return say(`Customer said: ${messages.filter((message) => message.speaker === "contact").length} mensajes.`);
+  }
   const last = request.messages.at(-1);
   const system = request.messages[0]?.role === "system" ? request.messages[0].content : null;
   const customer = [...request.messages].reverse().find((message) => message.role === "user")?.content ?? "";
@@ -72,6 +82,8 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     lastRole: last?.role,
     customer,
     system: request.messages[0]?.role === "system" ? request.messages[0].content : null,
+    summary: request.messages.find((message) => message.content.startsWith(SUMMARY_MARK))?.content ?? null,
+    messages: request.messages.length,
   });
   if (last?.role === "tool") {
     const result = JSON.parse(last.content) as { status: string; output?: { results?: { text: string }[] } };

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createWorkerModels } from "./model-router.ts";
 
 const call = { organizationId: "org-1", runId: "run-1", task: "converse" as const, messages: [{ role: "user" as const, content: "hola" }], maxOutputTokens: 100 };
-const spend = { runEur: 0, dayEur: 0 };
+const spend = { runEur: 0, dayEur: 0, monthEur: 0 };
 
 describe("vías de modelo del worker", () => {
   it("con la clave del gateway, el enrutador usa el gateway con esa clave", async () => {
@@ -20,7 +20,7 @@ describe("vías de modelo del worker", () => {
   it("de verdad es el transporte del gateway: gestionado, sin garantía de UE y con los modelos capaces", async () => {
     const models = createWorkerModels({ aiGatewayApiKey: "clave-de-prueba-larga" });
     expect(models.transports).toEqual([
-      expect.objectContaining({ provider: "vercel-ai-gateway", via: "gateway", connection: "managed", region: "other", serves: ["fast", "smart"] }),
+      expect.objectContaining({ provider: "vercel-ai-gateway", via: "gateway", connection: "managed", region: "other", serves: ["fast", "balanced", "smart"] }),
     ]);
     // Con «Solo UE» no lo usa: falla antes de llamar, sin red.
     await expect(models.router.generate(call, { ...PLATFORM_MODEL_POLICY, residency: "eu" }, spend)).rejects.toThrow(NoEligibleTransportError);
