@@ -1,5 +1,6 @@
 import { defineSkill } from "@repo/agent-core";
 import type { SkillContext, SkillDefinition } from "@repo/agent-core";
+import { SlotUnavailableError } from "@repo/integrations";
 import type { Appointment, BookingProvider } from "@repo/integrations";
 import { z } from "zod";
 
@@ -88,7 +89,21 @@ export interface ReceptionSkills {
   cancelAppointment: SkillDefinition<{ appointment_id: string }, { appointment: AppointmentOutput }>;
 }
 
-export function createReceptionSkills({ booking, catalog }: { booking: BookingProvider; catalog: ReceptionCatalog }): ReceptionSkills {
+export function createReceptionSkills({
+  booking,
+  catalog,
+  now = () => new Date(),
+}: {
+  booking: BookingProvider;
+  catalog: ReceptionCatalog;
+  now?: () => Date;
+}): ReceptionSkills {
+  // La hora que elige el modelo nunca está en el pasado (el calendario, además,
+  // comprueba el horario y la cuadrícula: R-08). El nombre del error es lo que
+  // ve el modelo, para que vuelva a buscar huecos.
+  const assertFuture = (startsAt: Date) => {
+    if (startsAt <= now()) throw new SlotUnavailableError("la hora de la cita ya ha pasado");
+  };
   const describe = async (ctx: SkillContext, serviceId: string, resourceId?: string) => {
     const described = await catalog.describe({ locationId: requireLocation(ctx), serviceId, ...(resourceId ? { resourceId } : {}) });
     return described ?? { service: "un servicio que este local no ofrece", resource: null, timezone: "UTC" };
@@ -144,7 +159,8 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const bookAppointment = defineSkill({
     key: "book_appointment",
     version: 1,
-    description: "Books an appointment for the person you are talking to, in a slot that find_slots returned.",
+    description:
+      "Books an appointment for the person you are talking to. starts_at and resource_id must be exactly those of a slot that find_slots returned; never invent a time (a time that is past, outside opening hours or not one of the slots is rejected as SlotUnavailableError: search slots again).",
     effectClass: "internal_write",
     defaultAutonomy: "draft",
     input: z.object({ service_id: uuid, resource_id: uuid, starts_at: instant }),
@@ -154,6 +170,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
       return { summary: `Reservar ${service}${resource ? ` con ${resource}` : ""} el ${localTime(input.starts_at, timezone)}` };
     },
     async execute(ctx, input) {
+      assertFuture(new Date(input.starts_at));
       const appointment = await booking.book({
         locationId: requireLocation(ctx),
         serviceId: input.service_id,
@@ -170,7 +187,8 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
   const rescheduleAppointment = defineSkill({
     key: "reschedule_appointment",
     version: 1,
-    description: "Moves an appointment of the person you are talking to to another free slot.",
+    description:
+      "Moves an appointment of the person you are talking to to another free slot: starts_at must be exactly the starts_at of a slot that find_slots returned (otherwise SlotUnavailableError).",
     effectClass: "internal_write",
     defaultAutonomy: "draft",
     input: z.object({ appointment_id: uuid, starts_at: instant, resource_id: uuid.optional() }),
@@ -187,6 +205,7 @@ export function createReceptionSkills({ booking, catalog }: { booking: BookingPr
       };
     },
     async execute(ctx, input) {
+      assertFuture(new Date(input.starts_at));
       const appointment = await booking.reschedule({
         appointmentId: input.appointment_id,
         contactId: requireContact(ctx),

@@ -55,7 +55,17 @@ export interface ToolSpec {
 }
 
 export type ModelMessage =
-  | { role: "system" | "user"; content: string }
+  | {
+      role: "system";
+      content: string;
+      /**
+       * Prefijo estable (PL-T3): no cambia de un turno a otro, así que el
+       * transporte pone ahí una marca de caché de prompt. Lo que cambia en cada
+       * turno (la hora) va en otro mensaje de sistema, después y sin la marca.
+       */
+      cacheable?: boolean;
+    }
+  | { role: "user"; content: string }
   | {
       role: "assistant";
       content: string;
@@ -113,8 +123,13 @@ export interface TransportResponse {
   /** Los mensajes del modelo tal como los devolvió el proveedor (JSON), para reenviarlos en el paso siguiente. */
   providerMessages?: readonly unknown[];
   model: string;
+  /** Toda la entrada, también la que se leyó o se escribió en la caché de prompt. */
   tokensIn: number;
   tokensOut: number;
+  /** De tokensIn, los que se leyeron de la caché de prompt (más baratos). */
+  cacheReadTokens?: number;
+  /** De tokensIn, los que se escribieron en la caché de prompt (algo más caros). */
+  cacheWriteTokens?: number;
   costEur: number;
 }
 

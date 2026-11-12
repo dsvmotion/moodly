@@ -79,6 +79,10 @@ export interface BookingProvider {
 export class SlotTakenError extends Error {
   override name = "SlotTakenError";
 }
+/** La hora no es un hueco libre: ya pasó, está fuera del horario del local o no cae en la cuadrícula de huecos (find_slots). */
+export class SlotUnavailableError extends Error {
+  override name = "SlotUnavailableError";
+}
 /** No existe, es de otra organización o de otro contacto: para quien pregunta, es lo mismo. */
 export class AppointmentNotFoundError extends Error {
   override name = "AppointmentNotFoundError";
