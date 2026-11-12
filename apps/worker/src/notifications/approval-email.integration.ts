@@ -7,7 +7,7 @@ import { BRAND_NAME, NOTIFICATION_EMAIL_FROM } from "@repo/config";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_EMAIL_HANDLER_KEY, EMAIL_UNAUTHORIZED_EVENT } from "./approval-email.ts";
 
 // M-02: de una aprobación nueva al email, pasando por approval.created en el
@@ -208,6 +208,7 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       RESEND_API_KEY: RESEND_KEY,
       WEB_APP_URL: WEB,
       FAKE_RESEND_URL: resendUrl,
