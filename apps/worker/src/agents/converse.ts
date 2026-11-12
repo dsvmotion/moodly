@@ -272,7 +272,7 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
         : [];
     // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
     // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
-    // organización, usage_records_worker, 20261112062000).
+    // organización, usage_records_worker, 20261112120000).
     const [spent] = await sql.query<{ day_eur: number; month_eur: number }>(
       `select coalesce(sum(cost_eur) filter (where occurred_at >= $1), 0)::float8 as day_eur,
               coalesce(sum(cost_eur) filter (where occurred_at >= $2), 0)::float8 as month_eur

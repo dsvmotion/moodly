@@ -33,7 +33,7 @@ select is(
   (select array_agg(distinct table_name::text order by table_name::text) from information_schema.role_table_grants
    where grantee = 'moodly_worker'),
   array['agent_runs', 'channel_accounts', 'conversation_summaries', 'conversations', 'locations', 'messages', 'org_model_settings', 'services', 'usage_records'],
-  'solo tiene privilegios sobre las tablas que lee el turno de conversación al prepararse (con su resumen, 20261112110000, y el gasto, 20261112062000)');
+  'solo tiene privilegios sobre las tablas que lee el turno de conversación al prepararse (con su resumen, 20261112110000, y el gasto, 20261112120000)');
 select is(
   (select array_agg(distinct privilege_type::text) from information_schema.role_table_grants where grantee = 'moodly_worker'),
   array['SELECT'], 'y solo de lectura');
