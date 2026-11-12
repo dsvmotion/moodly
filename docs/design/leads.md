@@ -65,7 +65,7 @@ La acción de servidor valida antes con Zod (el mismo esquema) y llama a la func
 - **`public.list_leads(p_status text default null, p_limit int default 50, p_before timestamptz default null)`**. Es `SECURITY DEFINER` y solo lee. Devuelve las columnas de la tabla salvo `ip_hash`.
 - **`public.set_lead_status(p_id uuid, p_status text)`**. Es `SECURITY DEFINER` y solo cambia `status`. Emite el evento de auditoría (ADR 0032).
 
-Ninguna de las dos puede ejecutarla `anon`. Las dos empiezan comprobando `private.session_is_active()`, `private.is_platform_staff()` y `private.session_is_aal2()`. Si falla cualquiera, lanzan un error sin datos.
+Ninguna de las dos puede ejecutarla `anon`. Postgres da `EXECUTE` a `PUBLIC` por defecto, así que la migración hace `revoke execute … from public, anon` en `list_leads`, `set_lead_status`, `purge_leads` y `erase_lead`. Después concede `EXECUTE` solo a quien lo necesita: `authenticated` en las dos de lectura y estado y en `erase_lead`; el rol del worker en `purge_leads`. `submit_lead` se concede a `anon` de forma explícita. Las dos empiezan comprobando `private.session_is_active()`, `private.is_platform_staff()` y `private.session_is_aal2()`. Si falla cualquiera, lanzan un error sin datos.
 
 `set_lead_status` es una función `SECURITY DEFINER` que escribe. Aunque `private.leads` no es una tabla de tenant, llevará tests en negativo: `anon`, un usuario normal y el equipo interno con aal1.
 
