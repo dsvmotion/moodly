@@ -38,12 +38,15 @@ export async function recordEmbeddingUsage(
       sql.query(
         `insert into public.usage_records (organization_id, location_id, run_id, agent_id, source, metric, quantity,
                                            tokens_in, tokens_out, cost_eur, provider, via, region, model, call_index)
-         values ($1, $2, $3, $4, 'embedding', 'embedding_tokens', $5, $5, 0, $6, $7, 'gateway', $8, $9, $10)`,
+         values ($1, $2, $3, $4, 'embedding', 'embedding_tokens', $5, $6, 0, $7, $8, 'gateway', $9, $10, $11)`,
+        // quantity (bigint) y tokens_in (integer), cada uno con su parámetro: uno
+        // compartido no tiene un tipo que Postgres pueda deducir (42P08).
         [
           db.organizationId,
           row.locationId,
           row.runId ?? null,
           row.agentId ?? null,
+          usage.tokens,
           usage.tokens,
           usage.costEur,
           route.provider,
