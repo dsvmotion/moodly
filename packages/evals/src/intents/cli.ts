@@ -11,7 +11,7 @@
 //   --list             enseña el set, sin llamar a nadie
 //
 // Códigos de salida, como eval:agents:
-//   0  pasa los umbrales (sensitive 100 % «other»; el resto, ≥ 90 %)
+//   0  pasa los umbrales (sensitive 100 % «other»; complex nunca «simple», 100 %; el resto, ≥ 90 %)
 //   1  por debajo de un umbral
 //   2  falla la vía del modelo: se para y no puntúa
 //   3  se corta por el tope de gasto: la corrida está incompleta
@@ -21,7 +21,7 @@ import type { ModelKey } from "@repo/config";
 import { RunBudgetError, metered } from "../conversations/runset.js";
 import { INTENT_CASES } from "./set.js";
 import type { IntentCase, IntentGroup } from "./set.js";
-import { LABEL_THRESHOLD, runIntentSet, scoreIntents } from "./score.js";
+import { COMPLEX_THRESHOLD, LABEL_THRESHOLD, runIntentSet, scoreIntents } from "./score.js";
 
 const HARD_MAX_EUR = 2;
 const HARD_MAX_REPEAT = 5;
@@ -92,6 +92,8 @@ async function main(): Promise<number> {
   out();
   out(`sensitive: ${score.sensitive.passed}/${score.sensitive.runs} «other» (umbral 100 %) ${score.sensitive.ok ? "OK" : "POR DEBAJO"}`);
   for (const failure of score.sensitive.failures) out(`  ✗ ${failure}`);
+  out(`complex: ${score.complex.passed}/${score.complex.runs} sin ir por el camino barato (umbral ${(COMPLEX_THRESHOLD * 100).toFixed(0)} %) ${score.complex.ok ? "OK" : "POR DEBAJO"}`);
+  for (const failure of score.complex.failures) out(`  ✗ ${failure}`);
   out(`etiquetas: ${score.labels.passed}/${score.labels.runs} (${(score.labels.rate * 100).toFixed(1)} %, umbral ${(LABEL_THRESHOLD * 100).toFixed(0)} %) ${score.labels.ok ? "OK" : "POR DEBAJO"}`);
   for (const failure of score.labels.failures) out(`  ✗ ${failure}`);
   if (score.cheapenedByMistake.length > 0) out(`abaratados sin deber (complex → simple): ${score.cheapenedByMistake.join(", ")}`);
@@ -100,7 +102,7 @@ async function main(): Promise<number> {
     out(`corrida incompleta (${result.stopped.reason} en ${result.stopped.caseId}: ${result.stopped.error}): no vale como resultado`);
     return result.stopped.reason === "budget" ? 3 : 2;
   }
-  return score.sensitive.ok && score.labels.ok ? 0 : 1;
+  return score.sensitive.ok && score.complex.ok && score.labels.ok ? 0 : 1;
 }
 
 // Solo cuando se ejecuta (node dist/intents/cli.js), no cuando un test importa parseIntentArgs.

@@ -29,15 +29,16 @@ En una sesión en la nube, la clave la inyecta el proxy: `AI_GATEWAY_API_KEY=pro
 
 **Umbrales:**
 - los **sensibles** dan `other` en el **100 %** de las corridas;
+- los **complex** no salen como «simple» (ninguna etiqueta distinta de `other`) en el **100 %** de las corridas: tolerancia 0, como los sensibles (producto, 2026-11-12). Antes, un complex→simple solo contaba dentro del 90 % general;
 - el resto acierta en el **90 %**, el mismo umbral que el comportamiento de las conversaciones (producto, 2026-11-09).
 
-Los `complex` que salen como simples se listan aparte: es el error que abarata un turno que no debía.
+Los `complex` que salen como simples se listan aparte y bloquean: es el error que abarata un turno que no debía.
 
 **Códigos de salida** (como `eval:agents`):
 
 | Código | Qué significa |
 | --- | --- |
-| 0 | Pasa los dos umbrales. |
+| 0 | Pasa los tres umbrales. |
 | 1 | Por debajo de un umbral. |
 | 2 | Falla la vía del modelo: se para y no puntúa. |
 | 3 | Se corta por el tope de gasto. |
