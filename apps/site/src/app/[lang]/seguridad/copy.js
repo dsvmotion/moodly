@@ -15,7 +15,8 @@ export const COPY = {
     foundations: [
       ["Datos en la UE", "Base de datos alojada en la Unión Europea (Supabase). La región de los modelos de IA, [por confirmar]."],
       ["Sin entrenamiento", "Usamos APIs empresariales de IA cuyos términos excluyen entrenar con tus datos [confirmar proveedor a proveedor]."],
-      ["Cifrado en reposo y en tránsito", "AES-256 en reposo y TLS 1.2+ en tránsito, hoy (Supabase y Vercel). En el piloto: tus claves de IA y los secretos de MCP, cifrados en una bóveda por organización, y los conectores de la plataforma a través de nuestro hub de conectores alojado en la UE."],
+      ["Cifrado en reposo y en tránsito", "AES-256 en reposo y TLS 1.2+ en tránsito, hoy, de nuestros proveedores (Supabase y Vercel)."],
+      ["Bóveda por organización", "Tus claves de IA y los secretos de MCP, cifrados en una bóveda con una clave por organización."],
     ],
     deployA: "Opciones de despliegue.", deployB: "De la nube compartida a una nube dedicada.",
     deploy: [
@@ -71,7 +72,8 @@ export const COPY = {
     foundations: [
       ["Data in the EU", "Database hosted in the European Union (Supabase). AI model region [to be confirmed]."],
       ["No training", "We use enterprise AI APIs whose terms exclude training on your data [to confirm provider by provider]."],
-      ["Encryption at rest and in transit", "AES-256 at rest and TLS 1.2+ in transit, today (Supabase and Vercel). In the pilot: your AI keys and MCP secrets, encrypted in a per-organization vault, and platform connectors through our EU-hosted connector hub."],
+      ["Encryption at rest and in transit", "AES-256 at rest and TLS 1.2+ in transit, today, from our providers (Supabase and Vercel)."],
+      ["Per-organization vault", "Your AI keys and MCP secrets, encrypted in a vault with one key per organization."],
     ],
     deployA: "Deployment options.", deployB: "From the shared cloud to a dedicated cloud.",
     deploy: [
@@ -127,7 +129,8 @@ export const COPY = {
     foundations: [
       ["Données dans l'UE", "Base de données hébergée dans l'Union européenne (Supabase). Région des modèles d'IA [à confirmer]."],
       ["Aucun entraînement", "Nous utilisons des API d'IA d'entreprise dont les conditions excluent l'entraînement avec vos données [à confirmer fournisseur par fournisseur]."],
-      ["Chiffrement au repos et en transit", "AES-256 au repos et TLS 1.2+ en transit, dès aujourd'hui (Supabase et Vercel). Dans le pilote : vos clés d'IA et les secrets MCP, chiffrés dans un coffre par organisation, et les connecteurs de la plateforme via notre hub de connecteurs hébergé dans l'UE."],
+      ["Chiffrement au repos et en transit", "AES-256 au repos et TLS 1.2+ en transit, dès aujourd'hui, chez nos fournisseurs (Supabase et Vercel)."],
+      ["Coffre par organisation", "Vos clés d'IA et les secrets MCP, chiffrés dans un coffre avec une clé par organisation."],
     ],
     deployA: "Options de déploiement.", deployB: "Du cloud partagé à un cloud dédié.",
     deploy: [
@@ -183,7 +186,8 @@ export const COPY = {
     foundations: [
       ["Daten in der EU", "Datenbank in der Europäischen Union gehostet (Supabase). Region der KI-Modelle [zu bestätigen]."],
       ["Kein Training", "Wir nutzen Enterprise-KI-APIs, deren Bedingungen das Training mit deinen Daten ausschließen [Anbieter für Anbieter zu bestätigen]."],
-      ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand und TLS 1.2+ bei der Übertragung, schon heute (Supabase und Vercel). Im Pilotprojekt: deine KI-Schlüssel und MCP-Secrets, verschlüsselt in einem Tresor pro Organisation, und die Plattform-Konnektoren über unseren in der EU gehosteten Konnektor-Hub."],
+      ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand und TLS 1.2+ bei der Übertragung, schon heute, durch unsere Anbieter (Supabase und Vercel)."],
+      ["Tresor pro Organisation", "Deine KI-Schlüssel und MCP-Secrets, verschlüsselt in einem Tresor mit einem Schlüssel pro Organisation."],
     ],
     deployA: "Bereitstellungsoptionen.", deployB: "Von der geteilten Cloud bis zur dedizierten Cloud.",
     deploy: [

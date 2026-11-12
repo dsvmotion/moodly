@@ -50,12 +50,13 @@
 - **`[M1][B-01]` Modelo por agente (producto, 2026-11-11; rama `claude/modelo-por-agente`):** cada agente conversa con la clave más barata que pasa sus evals (MANUAL §5.11): Atención al cliente pasa a `fast` y Recepción sigue en `smart`; manda lo que elija la organización en `org_model_settings`. Verificado con tests unitarios (`pnpm test`); falta una corrida de las evals con el modelo real sobre la rama y la prueba de extremo a extremo en staging, que hoy solo prueba Recepción.
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
   - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
-- **#197** (`[M1][R-02]`): el agente solo escribe en una conversación que lleva él (guarda en la base de datos, FOR SHARE); pgTAP, integración del worker y prueba en negativo en el PR.
-  - **#192** (V1, `[M0][D-01][D-02]`, mergeado en `2a42093`): se puede borrar a una persona del equipo que decidió o pidió algo, y la base de datos exige la aprobación antes de ejecutar (también a la service role); test pgTAP 40.
+- **#197** (`[M1][R-02]`, mergeado en `769e181`; con #236): el agente solo escribe en una conversación que lleva él (guarda en la base de datos, FOR SHARE); pgTAP 40 y 44, integración del worker y prueba en negativo en el PR.
+  - **D-01/D-02** (#192, #225): se puede borrar a una persona del equipo que decidió, pidió o escribió algo (las filas se quedan, con la columna a null). La base de datos, para todos los roles (también la service role): lo que se registró esperando a una persona solo pasa a `approved` o `executed` con su aprobación aprobada y el mismo hash; `executed`, `failed` y `rejected` son finales; y una ejecución no nace con más autonomía que el techo de su clase, así que lo financiero y lo destructivo nunca nacen ejecutados sin aprobación. Lo que no sabe la base de datos: si una skill de otra clase pedía aprobación (`requiresApproval`); eso lo sigue decidiendo el motor de políticas. La service role no borra runs, ejecuciones ni aprobaciones.
+- **M-10** (#216): la bandeja recibe avisos por Realtime (Broadcast privado `inbox:<org>:<local|org>`, solo identificadores; escucha quien ve ese local, con la sesión activa). Límites: la política se comprueba al unirse al canal y vale hasta que caduca el JWT; un aviso puede perderse (la web relee al reconectar); los canales públicos no reciben nada, y desactivar el acceso público de Realtime en el proyecto los cierra del todo (ajuste de producto).
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
-  - **#158** (V3, borrador): ADR 0046 en estado «propuesto». El plan pide revisarlo (reglas de privacidad del personal, permisos y gasto) antes de proponerlo para aceptar con el 0024 y el 0029.
+  - **#158** (V3, mergeado en `a64e482`): ADR 0046 revisado con la auditoría (privacidad del personal, permisos, gasto con línea propia en `PL-ledger`, evidencia y alcance que nunca sale del modelo), en estado «propuesto»: lo acepta producto con el 0024 y el 0029.
   - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
@@ -71,6 +72,13 @@
 - **Créditos y prueba de 7 días (B5/B6):** falta la cuenta de Stripe (la crea producto) y autorizar su conector.
 - **App móvil:** falta la prueba en un iPhone real (la hace producto).
 - **Cliente piloto:** sin elegir (MANUAL §18 #3).
+- **Regla de `main` (producto):** añadir los checks estrictos y «evals · modelo falso» (K-01) a la protección de `main`.
+- **Despliegue ordenado a staging (PL-deploy):** faltan los secretos `VERCEL_TOKEN` y `RAILWAY_TOKEN` en el entorno de staging, y la variable `STAGING_WEB_HEALTH_URL` para la alerta de salud.
+- **Realtime (M-10):** desactivar el acceso público de Realtime en el proyecto de Supabase (ajuste de producto).
+- **Worker con rol propio (PL-T1):** #238 y #239 necesitan los secretos de base de datos del worker en staging.
+- **Inferencia en la UE:** el AI Gateway no fija la región de los modelos (ADR 0051, propuesto); lo decide producto antes del primer dato real (condición 9, abajo).
+- **Sistemas de reservas del lote C (O-02):** Booksy, Treatwell, Koibox, Timp y Wilapp no están en Nango (#247): hay que confirmar si tienen API abierta o hace falta acuerdo de socio, antes de M4.
+- **ADR pendientes de aceptar:** 0049 a 0052 (#195) y el 0046 con el 0024 y el 0029; las seis preguntas del 0046.
 - **Datos reales:** ninguno hasta cumplir las condiciones de salida a producción (abajo).
 
 ### Próximo: hito M0, seguro para construir rápido
@@ -86,7 +94,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
   - #162 y #164;
   - la guarda desde la rama base (P-01);
   - el workflow de la Revisora (SE01), que espera la clave y una decisión;
-  - CI de `main` sin cancelación (P-04: #212 mergeado en `056b5c2`; faltan los checks estrictos en la regla de `main`) y el secreto de las evals fuera de los PRs (P-05, bloqueado: lo mueve producto);
+  - CI de `main` sin cancelación (P-04, hecho: #186, #193 y #212; los checks estrictos de la regla de `main` son de producto) y el secreto de las evals fuera de los PRs (P-05, no hecho, bloqueado: lo mueve producto);
   - G-03 y G-04 (hechos, #191); D-01 y D-02 (hechos, #192 mergeado en `2a42093`: borrar a una persona del equipo, máquina de estados de las ejecuciones y sin DELETE/TRUNCATE sobre `agent_runs`, `executions` ni `approvals`) y R-08 (hecho, #198 mergeado en `4a4ef82`);
   - los ADR de T1, T4, T6, T10 y del hub;
   - STATUS generado del registro (P-08).
@@ -117,12 +125,12 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 - **N-02:** en M0, los formularios dejan de fingir; en M1, el endpoint real.
 - **V5 (P-10):** sin marketplace. Lo necesario se copia en `.claude/` de `moodly` por PRs sensibles, con el commit del toolkit de origen. #166 no se mergea tal como está. `.claude/**` entra en la lista de P-01.
 - **Evals:** 30 $ al mes en M0 y M1, con el tope ya puesto en la clave, más 2 € por corrida.
+- **Plataforma de conectores (2026-11-11):** Nango autoalojado en la UE (ADR 0053, aceptado; modifica el 0034 y el 0036).
 
 **Siguen abiertas:**
 - **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
-- **Coach (V3):** las cuatro preguntas abiertas del ADR 0046, y aceptarlo con el 0024 y el 0029.
+- **Coach (V3):** las seis preguntas abiertas del ADR 0046 (nombre, cambios de cadena, recomendaciones por semana, patrones entre organizaciones, topes por defecto y grupo mínimo del equipo), y aceptarlo con el 0024 y el 0029.
 - **Web pública (V3):** los precios de los planes; la región del servicio `site` de Railway (hoy en EE. UU.).
-- **Plataforma de conectores** (M0–M1): Nango, Composio, Pipedream Connect, Paragon, Merge u otra, con residencia UE o autoalojada.
 - **Marca:** la comprobación legal de «Moodly», el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
 
 ### Condiciones de salida a producción (todas antes del primer dato real de un cliente)
@@ -135,10 +143,11 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 6. URLs de vuelta de Auth exactas en producción (sin comodines).
 7. Registro público cerrado hasta B5/B6 (método de pago y créditos).
 8. Claves por organización (T4) antes del primer mensaje real, y la revisión por la sesión revisora y por producto (decisión #7) en marcha.
+9. **Inferencia en la UE:** hoy los modelos no están fijados a la UE (el AI Gateway no fija la región; ADR 0051, propuesto). Producto decide antes del primer dato real de un cliente; hasta entonces, ninguna afirmación pública de «inferencia en la UE» (la web dice «región de los modelos por confirmar», #241).
 
 
 ## Hecho y verificado
-- Hecho de P-04 y P-05 (#186 y #193): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. Ninguna de las dos unidades está cerrada: P-04 espera solo a los checks estrictos de la regla de `main` (#212 ya está mergeado, `056b5c2`), y P-05 está **bloqueada** (ver Bloqueado: la clave la mueve producto).
+- Hecho de P-04 y P-05 (#186, #193 y #212): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; staging solo despliega el head actual de `main` con el CI en verde (#212, `056b5c2`); las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. **P-04 está hecho**; activar los checks estrictos en la regla de `main` es de producto (Bloqueado). **P-05 no está hecho:** sigue bloqueado hasta que producto mueva la clave (ver Bloqueado).
 - Scaffold del monorepo (Fase 0 · tarea 1): pnpm 11 + Turborepo, 13 workspaces vacíos `@repo/*` (`apps/{web,worker}`, `packages/*`), TypeScript strict, ESLint (typescript-eslint strict), Vitest con un test trivial, CI en GitHub Actions y comandos en `AGENTS.md`/`CLAUDE.md` — verificado con una instalación limpia en local (`pnpm install --frozen-lockfile`, `pnpm typecheck`/`lint`/`test`/`build`: 13/13 tareas OK, 1 test pasando), una prueba negativa de las tres puertas (tsc exit 2, eslint exit 1, vitest exit 1) y el CI en verde en el PR (run 36454243122, Node 24.21.0) — 2026-09-28 — https://github.com/dsvmotion/moodly/pull/1
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3
