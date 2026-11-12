@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261112064000_worker_executions_messages.sql. Antes,
+-- Vuelta atrás de 20261112140000_worker_executions_messages.sql. Antes,
 -- desplegar un worker que escriba ejecuciones y mensajes por PostgREST.
 revoke insert on public.messages from moodly_worker;
 revoke update on public.conversations from moodly_worker;

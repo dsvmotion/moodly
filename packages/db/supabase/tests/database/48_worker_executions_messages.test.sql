@@ -1,4 +1,4 @@
--- PL-T1, paso 3c-2 (20261112064000): moodly_worker guarda las ejecuciones del
+-- PL-T1, paso 3c-2 (20261112140000): moodly_worker guarda las ejecuciones del
 -- turno y escribe la respuesta del agente, solo de su organización y solo lo que
 -- necesita; no aprueba ni rechaza; solo escribe como el agente; las guardas de
 -- siempre actúan también para él; service_role queda igual.

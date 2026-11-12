@@ -35,7 +35,7 @@
 --   executions, ninguna. service_role queda igual.
 --
 -- Tests en 48_worker_executions_messages.
--- Vuelta atrás: rollbacks/20261112064000_worker_executions_messages.down.sql.
+-- Vuelta atrás: rollbacks/20261112140000_worker_executions_messages.down.sql.
 
 create function private.guard_worker_execution()
 returns trigger

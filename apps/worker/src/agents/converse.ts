@@ -381,7 +381,7 @@ async function recordExecution(
   now: Date,
 ): Promise<boolean> {
   if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
-  // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112064000): guardar,
+  // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112140000): guardar,
   // encontrar y, si hace falta, retener la ejecución, en una transacción.
   const target = execution.target;
   const saved = await db.transaction(async (sql) => {

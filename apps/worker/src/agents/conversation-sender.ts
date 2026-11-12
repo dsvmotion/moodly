@@ -31,7 +31,7 @@ export function isNotAgentMode(error: unknown): boolean {
 
 export function createConversationSender(db: TenantDb): ConversationSender {
   return {
-    // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112064000): solo mensajes
+    // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112140000): solo mensajes
     // del agente (guard_worker_message) y solo en su organización.
     async send({ conversationId, text, idempotencyKey }) {
       try {
