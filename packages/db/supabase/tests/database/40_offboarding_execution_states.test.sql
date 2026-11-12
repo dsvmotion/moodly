@@ -10,7 +10,7 @@
 -- 3. Ni la service role borra runs, ejecuciones ni aprobaciones.
 begin;
 \ir _fixtures/tenants.psql
-select plan(40);
+select plan(42);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 \set h1 '''a111111111111111111111111111111111111111111111111111111111111111'''
@@ -164,6 +164,10 @@ select throws_ok($$delete from public.agent_runs where id = 'e0000000-0000-4000-
   '42501', null, 'ni runs (que borrarían en cascada sus ejecuciones y aprobaciones)');
 select throws_ok($$truncate public.agent_runs cascade$$,
   '42501', null, 'ni los vacía');
+select throws_ok($$truncate public.executions$$,
+  '42501', null, 'ni vacía las ejecuciones');
+select throws_ok($$truncate public.approvals$$,
+  '42501', null, 'ni vacía las aprobaciones');
 reset role;
 
 -- ===========================================================================
