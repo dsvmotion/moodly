@@ -137,12 +137,14 @@ select isnt((select last_message_at from public.conversations where id = :'conv_
 select is((select count(*)::int from public.domain_events where type = 'message.received' and payload->>'conversation_id' = :'conv_web'), 0,
   'no emite message.received: no es del cliente, el agente no lo contesta');
 
--- Por WhatsApp queda pendiente: lo envía el worker por su canal.
+-- Por WhatsApp no: todavía nadie lo envía por ese canal (M-01, 20261112040700;
+-- antes quedaba pending para siempre). Cada canal, en 44_staff_reply_channels.
 select pg_temp.login(:a_staff1) as s \gset
 update public.conversations set mode = 'human' where id = :'conv_wa';
-insert into public.messages (organization_id, conversation_id, content) values (:org_a, :'conv_wa', 'Te escribo por WhatsApp');
+select throws_ok(
+  format($$insert into public.messages (organization_id, conversation_id, content) values (%L, %L, 'Te escribo por WhatsApp')$$, :org_a, :'conv_wa'),
+  '42501', null, 'por WhatsApp, el equipo todavía no escribe desde la bandeja (nadie lo enviaría)');
 reset role;
-select is((select status from public.messages where conversation_id = :'conv_wa'), 'pending', 'por WhatsApp, pendiente de enviar');
 
 select pg_temp.login(:a_staff2) as s \gset
 select throws_ok(

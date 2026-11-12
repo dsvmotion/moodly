@@ -16,10 +16,14 @@
 // Si la llamada es la del resumen continuo (PL-T3), lo apunta como «summary» y
 // contesta con un resumen que dice cuántos mensajes del cliente resumió.
 //
+// Si el cliente pide «un momento», el modelo se queda pensando hasta que exista
+// <archivo>.gate (lo crea el test después de tomar el control, R-02) y luego
+// contesta como siempre.
+//
 // El conocimiento, con embeddings falsos y deterministas: el mismo worker
 // indexa las fuentes (knowledge.ingest) y el agente busca en ellas, por una vía
 // como la del gateway (sin región UE garantizada).
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, rmSync } from "node:fs";
 import { SUMMARY_INSTRUCTIONS, SUMMARY_MARK, createFakeTransport, createModelRouter } from "@repo/agent-core";
 import type { RouteOrigin, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { createFakeEmbedder } from "@repo/knowledge";
@@ -52,7 +56,16 @@ function serviceIdFromPrompt(system: string | null, name: string): string {
   return new RegExp(`^- ${name} \\(\\d+ min\\): service_id (\\S+)$`, "m").exec(system ?? "")?.[1] ?? "no-esta-en-el-prompt";
 }
 
-function respond(request: TransportRequest): TransportResponse {
+/** Espera a que el test abra la puerta (R-02): mientras, el turno está a medias. */
+async function gated(response: TransportResponse): Promise<TransportResponse> {
+  const gate = `${effectsFile as string}.gate`;
+  effect({ step: "gate" });
+  while (!existsSync(gate)) await new Promise((resolve) => setTimeout(resolve, 50));
+  rmSync(gate, { force: true });
+  return response;
+}
+
+function respond(request: TransportRequest): TransportResponse | Promise<TransportResponse> {
   // El resumen continuo (PL-T3): otra llamada, con sus instrucciones fijas; se apunta aparte.
   if (request.messages[0]?.content === SUMMARY_INSTRUCTIONS) {
     const input = request.messages[1]?.content ?? "";
@@ -87,6 +100,7 @@ function respond(request: TransportRequest): TransportResponse {
     return call("join_waitlist", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00", until: "2030-06-10T00:00:00+02:00" });
   }
   if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
+  if (/un momento/i.test(customer)) return gated(say("Ya está, te lo confirmo ahora mismo."));
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");
   return say("Hola, soy el asistente de IA del centro.");

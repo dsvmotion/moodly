@@ -46,10 +46,11 @@
 **Staging en `c290ee3`:** sin comprobar todavía (paso 4 de la auditoría, en pausa con los mergeos).
 
 ### En curso
-- **[M0][R-08]** (PR #198): la hora de una cita de un agente se valida en SQL (futuro, horario, cuadrícula, recurso libre); pgTAP 40 y tests de skills en verde.
+- **[M0][R-08]** (hecho, PR #198 mergeado en `4a4ef82`): la hora de una cita de un agente se valida en SQL (futuro, horario, cuadrícula, recurso libre); pgTAP 40 y tests de skills en verde.
 - **`[M1][B-01]` Modelo por agente (producto, 2026-11-11; rama `claude/modelo-por-agente`):** cada agente conversa con la clave más barata que pasa sus evals (MANUAL §5.11): Atención al cliente pasa a `fast` y Recepción sigue en `smart`; manda lo que elija la organización en `org_model_settings`. Verificado con tests unitarios (`pnpm test`); falta una corrida de las evals con el modelo real sobre la rama y la prueba de extremo a extremo en staging, que hoy solo prueba Recepción.
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
   - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
+- **#197** (`[M1][R-02]`): el agente solo escribe en una conversación que lleva él (guarda en la base de datos, FOR SHARE); pgTAP, integración del worker y prueba en negativo en el PR.
   - **#192** (V1, `[M0][D-01][D-02]`, mergeado en `2a42093`): se puede borrar a una persona del equipo que decidió o pidió algo, y la base de datos exige la aprobación antes de ejecutar (también a la service role); test pgTAP 40.
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
@@ -85,8 +86,8 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
   - #162 y #164;
   - la guarda desde la rama base (P-01);
   - el workflow de la Revisora (SE01), que espera la clave y una decisión;
-  - CI de `main` sin cancelación (P-04, falta #212) y el secreto de las evals fuera de los PRs (P-05, bloqueado: lo mueve producto);
-  - G-03 y G-04 (hechos, #191); D-01 y D-02 (hechos, #192 mergeado en `2a42093`: borrar a una persona del equipo, máquina de estados de las ejecuciones y sin DELETE/TRUNCATE sobre `agent_runs`, `executions` ni `approvals`) y R-08 (#198, abierto);
+  - CI de `main` sin cancelación (P-04: #212 mergeado en `056b5c2`; faltan los checks estrictos en la regla de `main`) y el secreto de las evals fuera de los PRs (P-05, bloqueado: lo mueve producto);
+  - G-03 y G-04 (hechos, #191); D-01 y D-02 (hechos, #192 mergeado en `2a42093`: borrar a una persona del equipo, máquina de estados de las ejecuciones y sin DELETE/TRUNCATE sobre `agent_runs`, `executions` ni `approvals`) y R-08 (hecho, #198 mergeado en `4a4ef82`);
   - los ADR de T1, T4, T6, T10 y del hub;
   - STATUS generado del registro (P-08).
 - **V2:** G-02, M-07 y M-08.
@@ -137,7 +138,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 
 
 ## Hecho y verificado
-- Hecho de P-04 y P-05 (#186 y #193): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. Ninguna de las dos unidades está cerrada: P-04 espera a #212 y a los checks estrictos de la regla de main, y P-05 está **bloqueada** (ver Bloqueado: la clave la mueve producto).
+- Hecho de P-04 y P-05 (#186 y #193): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. Ninguna de las dos unidades está cerrada: P-04 espera solo a los checks estrictos de la regla de `main` (#212 ya está mergeado, `056b5c2`), y P-05 está **bloqueada** (ver Bloqueado: la clave la mueve producto).
 - Scaffold del monorepo (Fase 0 · tarea 1): pnpm 11 + Turborepo, 13 workspaces vacíos `@repo/*` (`apps/{web,worker}`, `packages/*`), TypeScript strict, ESLint (typescript-eslint strict), Vitest con un test trivial, CI en GitHub Actions y comandos en `AGENTS.md`/`CLAUDE.md` — verificado con una instalación limpia en local (`pnpm install --frozen-lockfile`, `pnpm typecheck`/`lint`/`test`/`build`: 13/13 tareas OK, 1 test pasando), una prueba negativa de las tres puertas (tsc exit 2, eslint exit 1, vitest exit 1) y el CI en verde en el PR (run 36454243122, Node 24.21.0) — 2026-09-28 — https://github.com/dsvmotion/moodly/pull/1
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3

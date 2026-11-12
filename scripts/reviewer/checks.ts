@@ -7,8 +7,13 @@ export interface CheckResult {
   detail: string;
 }
 
-/** `[M0][P-08] …` o `[M0][SE01][P-08] …`: el hito y al menos un id (WORKSTREAMS, regla 1). */
-const TITLE = /^\[M[0-5]\]((?:\[[A-Z]{1,3}-?\d{1,3}\])+)/;
+/**
+ * `[M0][P-08] …`, `[M0][SE01][P-08] …` o `[M1][PL-T3] …`: el hito y al menos un id
+ * (WORKSTREAMS, regla 1). El formato es amplio a propósito (los ids de docs/scope.yaml
+ * son como `P-08`, `PL-T3`, `PL-ledger`, `OA19` o `ch-whatsapp`); lo que manda es que
+ * cada id tenga su fila, que se comprueba aparte.
+ */
+const TITLE = /^\[M[0-5]\]((?:\[[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*\])+)/;
 
 export function idsFromTitle(title: string): string[] {
   const match = TITLE.exec(title.trim());

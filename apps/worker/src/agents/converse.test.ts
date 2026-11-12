@@ -9,6 +9,8 @@ import {
   agentSkills,
   bookableServices,
   createConverseHandler,
+  finalRunStatus,
+  holdsForPerson,
   runIdFor,
   runStatusFor,
   withSummaryUsage,
@@ -48,6 +50,26 @@ describe("el turno del agente en el worker", () => {
     expect(updated.status).toBe("replied");
     expect(withSummaryUsage(turn, { kind: "none" })).toBe(turn);
     expect(withSummaryUsage(turn, { kind: "skipped", reason: "budget" })).toBe(turn);
+  });
+
+  it("un mensaje del agente que iba a esperar aprobación se retiene si la conversación ya no la lleva él (R-02)", () => {
+    const conversation = { kind: "conversation", conversationId: "c-1", contactId: "k-1" } as const;
+    expect(holdsForPerson("external_message", conversation, "human")).toBe(true);
+    expect(holdsForPerson("external_message", conversation, "closed")).toBe(true);
+    expect(holdsForPerson("external_message", conversation, null)).toBe(true);
+    expect(holdsForPerson("external_message", conversation, "agent")).toBe(false);
+    // Una reserva en borrador sigue para el equipo: no es el agente hablando.
+    expect(holdsForPerson("internal_write", conversation, "human")).toBe(false);
+    expect(holdsForPerson("external_message", { kind: "none" }, "human")).toBe(false);
+  });
+
+  it("si lo que esperaba a una persona se retuvo, el run queda en manos de una persona y no esperando (R-02)", () => {
+    const drafted = { status: "reply_drafted", executions: [], usage } as TurnResult;
+    expect(finalRunStatus(drafted, true, false)).toBe("handed_off");
+    // Si algo más sigue esperando (una reserva en borrador), espera.
+    expect(finalRunStatus(drafted, true, true)).toBe("awaiting_approval");
+    expect(finalRunStatus(drafted, false, false)).toBe("awaiting_approval");
+    expect(finalRunStatus({ status: "replied", executions: [], usage } as TurnResult, true, false)).toBe("completed");
   });
 
   it("consume solo message.received, con una clave estable", () => {

@@ -11,23 +11,30 @@
 //   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
 //   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
 //   --intent-routing    con el enrutado por intención (PL-T3): las intenciones simples conversan con el camino barato
+//   --baseline <json>   la línea base (baseline.json): no cambia la puntuación; etiqueta los fallos conocidos (K-01)
+//   --report <json>     escribe el resultado (código, si el rojo es solo de fallos conocidos…) para el workflow
 //   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
 // no acierta ninguna, bloquea aunque la tasa pase el umbral.
 //
-// Sale con código 1 si algún set queda por debajo de su umbral, si un caso
-// falla en todas sus corridas o si se corta por el tope de gasto, y con 2 si
-// falla la vía del modelo (red, gateway): se para y ese turno no puntúa. Con
-// --compare, el código no depende de si cada modelo pasa (es para elegir): 1 si
-// se corta por el tope, 2 si falla la vía del modelo, 0 si no.
+// Códigos de salida:
+//   0  pasa los umbrales
+//   1  por debajo del umbral (también si es solo por fallos conocidos: --report lo dice)
+//   2  falla la vía del modelo (red, gateway, saldo): se para y ese turno no puntúa
+//   3  se corta por el tope de gasto: la corrida está incompleta
+// Con --compare, el código no depende de si cada modelo pasa (es para elegir):
+// 2 o 3 si se para, 0 si no.
+import { writeFileSync } from "node:fs";
 import { createGatewayTransport } from "@repo/agent-core";
 import { GATEWAY_MODELS } from "@repo/config";
 import type { ModelKey } from "@repo/config";
 import { conversationCases } from "./cases.js";
-import { CATEGORIES } from "./runner.js";
-import type { ConversationCase } from "./runner.js";
-import { comparisonTable, isMultiTurn, metered, runSet, summarize } from "./runset.js";
+import { CATEGORIES, score } from "./runner.js";
+import type { ConversationCase, Score, Severity } from "./runner.js";
+import { EMPTY_BASELINE, loadBaseline, readWithBaseline } from "./baseline.js";
+import type { BaselineReading } from "./baseline.js";
+import { comparisonTable, isMultiTurn, metered, runSet } from "./runset.js";
 import type { SetResult } from "./runset.js";
 
 /** Tope duro de una corrida (P-05): ningún argumento puede pasar de aquí, ni siquiera el del workflow. */
@@ -44,6 +51,8 @@ interface Options {
   model: ModelKey | null;
   compare: ModelKey[];
   intentRouting: boolean;
+  baseline: string | null;
+  report: string | null;
 }
 
 /** Una clave de modelo para conversar: cualquiera de GATEWAY_MODELS menos la de embeddings. */
@@ -55,7 +64,7 @@ function modelKey(key: string): ModelKey {
 }
 
 export function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], intentRouting: false };
+  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], intentRouting: false, baseline: null, report: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -75,6 +84,8 @@ export function parse(argv: readonly string[]): Options {
     else if (arg === "--list") options.list = true;
     else if (arg === "--intent-routing") options.intentRouting = true;
     else if (arg === "--model") options.model = modelKey(value());
+    else if (arg === "--baseline") options.baseline = value();
+    else if (arg === "--report") options.report = value();
     else if (arg === "--compare") options.compare = value().split(",").map((key) => modelKey(key.trim()));
     else throw new Error(`opción desconocida: ${arg}`);
   }
@@ -98,6 +109,16 @@ export function select(options: Options, all: readonly ConversationCase[] = conv
   );
 }
 
+/** Lo que lee el workflow de main: el código y si el rojo es solo de fallos conocidos (solo con código 1). */
+export function report(code: number, scores: Record<Severity, Score>, reading: BaselineReading) {
+  return {
+    code,
+    onlyKnown: code === 1 && reading.onlyKnown,
+    alwaysFailing: [...scores.safety.alwaysFailing, ...scores.behavior.alwaysFailing],
+    known: reading.known,
+  };
+}
+
 const out = (line = "") => process.stdout.write(`${line}\n`);
 
 async function main(): Promise<number> {
@@ -112,6 +133,7 @@ async function main(): Promise<number> {
     }
     return 0;
   }
+  const baseline = options.baseline ? loadBaseline(options.baseline, conversationCases) : EMPTY_BASELINE;
   const apiKey = process.env["AI_GATEWAY_API_KEY"];
   if (!apiKey) throw new Error("falta AI_GATEWAY_API_KEY");
 
@@ -132,22 +154,29 @@ async function main(): Promise<number> {
     out(`gasto total: ${spent.eur.toFixed(4)} €`);
     const stopped = results.find((result) => result.stopped !== null)?.stopped ?? null;
     if (stopped !== null) out("comparación incompleta: no vale como resultado");
-    return stopped === "infrastructure" ? 2 : stopped === "budget" ? 1 : 0;
+    return stopped === "infrastructure" ? 2 : stopped === "budget" ? 3 : 0;
   }
 
   const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out, intentRouting: options.intentRouting });
-  const summary = summarize(result);
+  const scores = score(result.runs);
   out();
-  for (const [severity, s] of Object.entries(summary.scores)) {
+  for (const [severity, s] of Object.entries(scores)) {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
+  const reading = readWithBaseline(result.runs, baseline);
+  for (const k of reading.known) {
+    out(`fallo conocido: ${k.id} ${k.passed}/${k.runs} — ${k.reason} (desde ${k.since}, ${k.tracking})`);
+    if (k.passed > 0) out(`  · acierta alguna vez: si sigue así, quítalo de la línea base (${options.baseline ?? "baseline.json"})`);
+  }
+  if (reading.onlyKnown) out("rojo solo por fallos conocidos de la línea base (sigue bloqueando)");
   // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
   const models = [...new Set(result.runs.flatMap((run) => (run.model ? [run.model] : [])))];
   out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
   if (result.stopped !== null) out("corrida incompleta: no vale como resultado");
-  if (result.stopped === "infrastructure") return 2;
-  return summary.scores.safety.ok && summary.scores.behavior.ok && result.stopped === null ? 0 : 1;
+  const code = result.stopped === "infrastructure" ? 2 : result.stopped === "budget" ? 3 : scores.safety.ok && scores.behavior.ok ? 0 : 1;
+  if (options.report) writeFileSync(options.report, `${JSON.stringify(report(code, scores, reading), null, 2)}\n`);
+  return code;
 }
 
 // Solo cuando se ejecuta (node dist/conversations/cli.js), no cuando un test importa parse/select.
