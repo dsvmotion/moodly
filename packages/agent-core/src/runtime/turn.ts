@@ -4,6 +4,8 @@ import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolC
 import { decide } from "../policy.js";
 import type { ConsentChecker, RejectReason, RunScope, SkillSettings } from "../policy.js";
 import type { SkillContext, SkillDefinition, SkillPreview, Target } from "../skill.js";
+import { classifyIntent, modelForIntent } from "./intent.js";
+import type { Classification, Intent } from "./intent.js";
 import { SUMMARY_MARK } from "./summary.js";
 
 // Un turno del agente (MANUAL §5.1, paso 4d): del mensaje del cliente a la
@@ -65,6 +67,8 @@ export interface TurnResult {
   error?: string;
   executions: TurnExecution[];
   usage: TurnUsage;
+  /** Con el enrutado por intención (PL-T3): qué intención vio y cómo lo decidió. */
+  intent?: { intent: Intent; by: Classification["by"] };
 }
 
 /** Una llamada al modelo del turno, tal como la anota el libro de consumo (usage_records, PL-ledger). */
@@ -151,6 +155,12 @@ export interface TurnParams {
   recordModelCall?: (call: TurnModelCall) => Promise<void>;
   maxSteps?: number;
   maxOutputTokens?: number;
+  /**
+   * Enrutado por intención (PL-T3): si está, se clasifica el último mensaje del
+   * cliente y las intenciones simples conversan con el camino barato. Apagado
+   * por defecto (INTENT_ROUTING_DEFAULT_ENABLED de @repo/config).
+   */
+  intentRouting?: boolean;
 }
 
 const DEFAULT_MAX_STEPS = 6;
@@ -218,6 +228,39 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       return converted ? [converted] : [];
     }),
   ];
+
+  // Anotar cada llamada es contabilidad: si falla, el turno sigue y el cliente
+  // tiene su respuesta (lo que costó sigue en usage, para quien cierre el run).
+  async function recordCall(call: TurnModelCall): Promise<void> {
+    if (!params.recordModelCall) return;
+    try {
+      await params.recordModelCall(call);
+    } catch (error) {
+      // Quien anota registra su propio fallo; un fallo del libro no para el turno.
+      if (!(error instanceof UsageRecordError)) throw error;
+    }
+  }
+
+  let routed: TurnResult["intent"];
+  let preferredModel: ReturnType<typeof modelForIntent>;
+  const lastCustomer = [...params.history].reverse().find((message) => message.author === "contact");
+  if (params.intentRouting && lastCustomer) {
+    const classification = await step(`intent:${scope.runId}`, () =>
+      classifyIntent({ organizationId: scope.organizationId, runId: scope.runId, message: lastCustomer.content, router, policy, spend: params.spend }),
+    );
+    if (classification.usage) {
+      usage.tokensIn += classification.usage.tokensIn;
+      usage.tokensOut += classification.usage.tokensOut;
+      usage.costEur += classification.usage.costEur;
+    }
+    if (classification.call) {
+      usage.calls.push(classification.call);
+      await recordCall(classification.call);
+    }
+    routed = { intent: classification.intent, by: classification.by };
+    preferredModel = modelForIntent(classification.intent);
+  }
+  const withIntent = <T extends Omit<TurnResult, "intent">>(result: T): TurnResult => (routed ? { ...result, intent: routed } : result);
 
   async function handle(call: ToolCall, stepIndex: number, index: number, final: boolean): Promise<TurnExecution> {
     const idempotencyKey = `${scope.runId}:${stepIndex}:${index}:${call.name}`;
@@ -291,6 +334,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             runId: scope.runId,
             task: "converse",
             ...(params.agentType ? { agentType: params.agentType } : {}),
+            ...(preferredModel ? { preferredModel } : {}),
             messages,
             tools,
             maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -304,8 +348,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
         ),
       );
     } catch (error) {
-      if (error instanceof BudgetExceededError) return { status: "handed_off", reason: "budget", executions, usage };
-      return { status: "handed_off", reason: "model_failed", error: errorNames(error), executions, usage };
+      if (error instanceof BudgetExceededError) return withIntent({ status: "handed_off", reason: "budget", executions, usage });
+      return withIntent({ status: "handed_off", reason: "model_failed", error: errorNames(error), executions, usage });
     }
     usage.tokensIn += result.tokensIn;
     usage.tokensOut += result.tokensOut;
@@ -323,36 +367,27 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       costEur: result.costEur,
       startedAt: result.startedAt,
     });
-    // El último anotado es el de esta llamada (index = stepIndex). Anotarla es
-    // contabilidad: si falla, el turno sigue y el cliente tiene su respuesta
-    // (lo que costó sigue en usage, para quien cierre el run).
+    // El último anotado es el de esta llamada (index = stepIndex).
     const recorded = usage.calls.at(-1);
-    if (recorded && params.recordModelCall) {
-      try {
-        await params.recordModelCall(recorded);
-      } catch (error) {
-        // Quien anota registra su propio fallo; un fallo del libro no para el turno.
-        if (!(error instanceof UsageRecordError)) throw error;
-      }
-    }
+    if (recorded) await recordCall(recorded);
 
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {
       const text = result.text.trim();
-      if (!text) return { status: "handed_off", reason: "empty_reply", executions, usage };
+      if (!text) return withIntent({ status: "handed_off", reason: "empty_reply", executions, usage });
       const reply = await settle({ id: `final:${stepIndex}`, name: REPLY_SKILL_KEY, args: { text } }, stepIndex, 0, true);
       switch (reply.status) {
         case "executed":
-          return { status: "replied", executions, usage };
+          return withIntent({ status: "replied", executions, usage });
         case "drafted":
         case "suggested":
-          return { status: "reply_drafted", executions, usage };
+          return withIntent({ status: "reply_drafted", executions, usage });
         case "needs_approval":
-          return { status: "awaiting_approval", executions, usage };
+          return withIntent({ status: "awaiting_approval", executions, usage });
         case "failed":
-          return { status: "handed_off", reason: "reply_failed", executions, usage };
+          return withIntent({ status: "handed_off", reason: "reply_failed", executions, usage });
         default:
-          return { status: "handed_off", reason: "reply_rejected", executions, usage };
+          return withIntent({ status: "handed_off", reason: "reply_rejected", executions, usage });
       }
     }
 
@@ -367,5 +402,5 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, content: toolResult(execution) });
     }
   }
-  return { status: "handed_off", reason: "max_steps", executions, usage };
+  return withIntent({ status: "handed_off", reason: "max_steps", executions, usage });
 }

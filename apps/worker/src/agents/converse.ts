@@ -83,6 +83,8 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
+  intentRouting?: boolean;
 }
 
 /** El id del run de un evento: siempre el mismo para la misma entrega (UUID de 128 bits del SHA-256). */
@@ -605,7 +607,7 @@ export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): T
   };
 }
 
-export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
+export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -648,6 +650,9 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       });
       // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
       const unrecorded: TurnModelCall[] = [];
+      // La bandera se guarda en un paso: si cambia con un turno a medias, al reanudarlo
+      // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
+      const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -668,6 +673,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
+        intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
         recordModelCall: async (call) => {
           const ok = await ctx.step(`usage:${call.index}`, () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call));
@@ -733,6 +739,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
           executions: finished.executions.length,
           costEur: finished.usage.costEur,
           summary: summarized.kind,
+          intent: finished.intent?.intent,
         },
         "turno del agente terminado",
       );

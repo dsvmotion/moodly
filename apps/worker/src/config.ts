@@ -1,3 +1,4 @@
+import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -23,6 +24,12 @@ export interface WorkerConfig {
    * respuesta (MANUAL §15.1). Nunca va a los logs.
    */
   aiGatewayApiKey: string | null;
+  /**
+   * Enrutado por intención (PL-T3): las intenciones simples conversan con el
+   * modelo barato. INTENT_ROUTING=on|off (o true/false, 1/0); por defecto, el de @repo/config
+   * (apagado hasta que lo midan las evals con el modelo real).
+   */
+  intentRouting: boolean;
   /** Puerto del endpoint de salud (PL-health). Railway da PORT; en local, 8080 por defecto. */
   healthPort: number;
 }
@@ -86,6 +93,12 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
+  // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
+  INTENT_ROUTING: z
+    .string()
+    .transform((value) => value.trim().toLowerCase())
+    .refine((value) => ["on", "off", "true", "false", "1", "0", ""].includes(value), "INTENT_ROUTING: on/off, true/false o 1/0")
+    .optional(),
 });
 
 export class WorkerConfigError extends Error {
@@ -107,6 +120,8 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
+    intentRouting: !parsed.data.INTENT_ROUTING ? INTENT_ROUTING_DEFAULT_ENABLED : ["on", "true", "1"].includes(parsed.data.INTENT_ROUTING),
     healthPort: Number(parsed.data.PORT ?? "8080"),
   };
 }

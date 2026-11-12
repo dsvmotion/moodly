@@ -32,6 +32,8 @@ export interface SetOptions {
   repeat: number;
   /** La clave con la que conversa el agente; null = la de cada agente. */
   model: ModelKey | null;
+  /** Enrutado por intención (PL-T3, --intent-routing): las intenciones simples conversan con el camino barato. */
+  intentRouting?: boolean;
   /** La vía del modelo; sin ella, el guion de cada caso (modelo falso). */
   transport?: ModelTransport;
   out: (line?: string) => void;
@@ -59,7 +61,10 @@ export async function runSet(cases: readonly ConversationCase[], options: SetOpt
   let stopped: SetResult["stopped"] = null;
 
   async function attempt(c: ConversationCase, label: string): Promise<boolean> {
-    const run = await runCase(c, options.transport, options.model ? { converseModel: options.model } : {});
+    const run = await runCase(c, options.transport, {
+      ...(options.model ? { converseModel: options.model } : {}),
+      ...(options.intentRouting ? { intentRouting: true } : {}),
+    });
     const failure = infrastructureError(run);
     if (failure?.includes("RunBudgetError")) {
       out(`· tope de gasto alcanzado: se para antes de ${c.id}`);
@@ -73,7 +78,8 @@ export async function runSet(cases: readonly ConversationCase[], options: SetOpt
     }
     runs.push(run);
     const ok = run.failures.length === 0;
-    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €`);
+    const intent = run.outcome.result.intent ? ` · intención ${run.outcome.result.intent.intent} (${run.outcome.result.intent.by}) · ${run.model ?? "—"}` : "";
+    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €${intent}`);
     out(`    herramientas: ${run.outcome.calls.map((e) => `${e.skillKey}(${e.status})`).join(", ") || "ninguna"}`);
     out(`    respuesta: ${run.outcome.reply === null ? "—" : `«${run.outcome.reply.replace(/\s+/g, " ")}»`}`);
     for (const failure of run.failures) out(`    ✗ ${failure.check}: ${failure.why}`);

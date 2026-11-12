@@ -91,6 +91,8 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
 export interface RunOptions {
   /** La clave de modelo para conversar, si no es la de cada agente (para comparar modelos). */
   converseModel?: ModelKey;
+  /** Enrutado por intención (PL-T3): clasifica el mensaje y las intenciones simples conversan con el camino barato. */
+  intentRouting?: boolean;
 }
 
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
@@ -114,6 +116,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
       ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0, monthEur: 0 },
+    ...(options.intentRouting ? { intentRouting: true } : {}),
   });
   const outcome: Outcome = {
     result,
