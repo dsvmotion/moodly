@@ -26,6 +26,18 @@ describe("deploy-staging: esquema antes que código, y solo la cabeza de main", 
     expect(fresh).toContain("current: ${{ steps.head.outputs.current }}");
   });
 
+  it("`fresh` decide con should-deploy.sh (el último commit en verde siempre se despliega) y puede leer el CI", () => {
+    const fresh = job("fresh");
+    expect(fresh).toContain("scripts/deploy/should-deploy.sh");
+    expect(fresh).toMatch(/permissions:\n\s+contents: read\n\s+actions: read/);
+    // Ya no exige ser la cabeza de main: eso dejaba sin desplegar si main se movía más deprisa que el CI.
+    expect(fresh).not.toMatch(/commits\/main/);
+  });
+
+  it("los despliegues nunca se solapan ni se cancelan a medias", () => {
+    expect(workflow).toMatch(/^concurrency:\n {2}group: deploy-staging\n {2}cancel-in-progress: false$/m);
+  });
+
   it("`migrations` espera a `fresh` y solo corre si es la cabeza de main", () => {
     const migrations = job("migrations");
     expect(migrations).toMatch(/^ {4}needs: fresh$/m);
