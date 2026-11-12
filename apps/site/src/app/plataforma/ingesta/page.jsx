@@ -16,8 +16,8 @@ const btnLight = { padding: "11px 18px", borderRadius: "800px", border: "1px sol
 const TABS = [{ id: "file", label: "Archivo" }, { id: "url", label: "Página web" }, { id: "text", label: "Pegar texto" }];
 const INITIAL = [
   { id: 1, name: "Precios y tratamientos 2026.pdf", meta: "PDF · 320 KB", status: "ready", chunks: 42, when: "hace 3 días" },
-  { id: 2, name: "clinicadentalsol.es/faq", meta: "Página web", status: "ready", chunks: 18, when: "hace 3 días" },
-  { id: 3, name: "Protocolo de urgencias.docx", meta: "Word · 88 KB", status: "ready", chunks: 11, when: "la semana pasada" },
+  { id: 2, name: "estudiobellezasol.es/faq", meta: "Página web", status: "ready", chunks: 18, when: "hace 3 días" },
+  { id: 3, name: "Política de cancelación.docx", meta: "Word · 88 KB", status: "ready", chunks: 11, when: "la semana pasada" },
 ];
 const STATUS = {
   uploading: { label: "Subiendo…", bg: "var(--slate-bg)", fg: "var(--slate-fg)" },

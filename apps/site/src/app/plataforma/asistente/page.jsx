@@ -18,7 +18,7 @@ const EXAMPLES = [
     buttons: [["Revisar", false], ["Aplicar", true]],
   },
   {
-    cat: "Operar", q: "Recuérdale por WhatsApp a los pacientes con cita mañana.",
+    cat: "Operar", q: "Recuérdale por WhatsApp a los clientes con cita mañana.",
     a: "Preparo 12 recordatorios para mañana con la plantilla aprobada «Recordatorio de cita 24 h».",
     chip: "Recepción", chipBg: "var(--green-bg)", chipFg: "var(--green-fg)",
     title: "Programar 12 recordatorios · mañana 09:00",

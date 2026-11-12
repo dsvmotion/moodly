@@ -14,11 +14,11 @@ const TAG = { agente: ["var(--green-bg)", "var(--green-fg)", "Agente"], persona:
 // [id, día (0 = hoy), hora, autor, tipo, acción, dónde, sede, ip, antes, después, enlace]
 const LOG = [
   ["a1", 0, "11:02", "Administración", "agente", "Preparó la factura F-0412 para Laura M. (75,00 €)", "Facturas", "Sede Centro", "—", null, "Borrador · pendiente de aprobación", "/plataforma/aprobaciones?i=f0412"],
-  ["a2", 0, "10:42", "Recepción", "agente", "Reservó una cita para Laura M. (jueves 10:30)", "WhatsApp → Calendar", "Sede Centro", "—", null, "Cita creada con la Dra. Ruiz", "/plataforma/conversaciones?c=Laura%20M."],
-  ["a3", 0, "10:31", "Recepción", "agente", "Atendió la llamada de Sara Pérez y reservó revisión", "Teléfono", "Sede Centro", "—", null, "Cita mar 9:30", "/plataforma/llamadas"],
+  ["a2", 0, "10:42", "Recepción", "agente", "Reservó una cita para Laura M. (jueves 10:30)", "WhatsApp → Calendar", "Sede Centro", "—", null, "Cita creada con Lucía Ruiz", "/plataforma/conversaciones?c=Laura%20M."],
+  ["a3", 0, "10:31", "Recepción", "agente", "Atendió la llamada de Sara Pérez y reservó retoque de color", "Teléfono", "Sede Centro", "—", null, "Cita mar 9:30", "/plataforma/llamadas"],
   ["a4", 0, "10:18", "Marta Ruiz", "persona", "Aprobó la respuesta a la reseña de Pedro G.", "Aprobaciones", "Sede Centro", "88.12.40.7", "Pendiente", "Aprobada y publicada", "/plataforma/aprobaciones?i=resena"],
   ["a5", 0, "09:58", "Administración", "agente", "Avisó de stock bajo de guantes de nitrilo", "Inventario", "Sede Centro", "—", null, "Pedido preparado: 10 cajas", "/plataforma/facturas"],
-  ["a6", 0, "09:40", "Comercial", "agente", "Preparó el presupuesto de ortodoncia de Javier R. (1.900 €)", "WhatsApp", "Sede Norte", "—", null, "Pendiente de aprobación", "/plataforma/aprobaciones?i=presu-javier"],
+  ["a6", 0, "09:40", "Comercial", "agente", "Preparó el presupuesto de keratina de Javier R. (480 €)", "WhatsApp", "Sede Norte", "—", null, "Pendiente de aprobación", "/plataforma/aprobaciones?i=presu-javier"],
   ["a7", 0, "07:12", "Sistema", "sistema", "Google Calendar perdió el permiso (token revocado)", "Integraciones", "Sede Centro", "—", "Conectada", "Necesita reconexión", "/plataforma/configuracion/integraciones/detalle?i=gcal"],
   ["a8", 1, "19:30", "Administración", "agente", "Registró el cobro de Iván Rubio (427,18 €)", "Holded", "Sede Centro", "—", "Pendiente", "Cobrada", "/plataforma/facturas"],
   ["a9", 1, "18:05", "Javier Soler", "persona", "Cambió la regla «Enviar factura» a Con aprobación", "Reglas", "Toda la organización", "81.40.12.33", "Solo", "Con aprobación", "/plataforma/reglas"],
