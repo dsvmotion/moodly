@@ -54,8 +54,8 @@ export interface WorkerOptions {
   eventHandlers: readonly EventHandler[] | ((services: WorkerServices) => readonly EventHandler[]);
   /**
    * Los canales que entran por la entrada de canales (ADR 0052 §2), cada uno
-   * con su adaptador y el secreto de la plataforma para comprobar la firma. Sin
-   * ninguno, o sin INGRESS_PORT, no se abre ningún puerto.
+   * con su adaptador y el secreto de la plataforma para comprobar la firma. Se
+   * sirven en el puerto de salud bajo /channels/ (channels); sin ninguno, 404.
    */
   channelAdapters?: readonly ChannelAdapter[];
   /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
