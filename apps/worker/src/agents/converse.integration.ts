@@ -834,6 +834,29 @@ describe("tomar el control a mitad del turno (R-02)", () => {
     return rows;
   }
 
+  /**
+   * La línea «turno del agente terminado» de un run, del log del worker. El
+   * worker la escribe al final del turno, después de cerrar el run (y del
+   * resumen continuo, que llama al modelo): el estado del run en la base de
+   * datos llega antes que ella, así que hay que esperarla a ella.
+   */
+  async function turnFinished(runId: string): Promise<Record<string, unknown>> {
+    const find = () =>
+      (worker?.output() ?? "")
+        .split("\n")
+        .flatMap((line) => {
+          // La última línea puede llegar a medias por la tubería: esa se ignora hasta que esté entera.
+          try {
+            return [JSON.parse(line) as Record<string, unknown>];
+          } catch {
+            return [];
+          }
+        })
+        .find((entry) => entry["runId"] === runId && entry["msg"] === "turno del agente terminado");
+    await waitFor(async () => find() !== undefined, "el worker apunta el final del turno");
+    return find() as Record<string, unknown>;
+  }
+
   async function mode(conversationId = ids.conversation): Promise<string | undefined> {
     const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversationId]);
     return rows[0]?.mode;
@@ -852,7 +875,8 @@ describe("tomar el control a mitad del turno (R-02)", () => {
       expect(executions.map((execution) => [execution.skill_key, execution.status])).toEqual([["reply", "failed"]]);
       // Sigue en manos de quien la tomó.
       expect(await mode()).toBe("human");
-      expect(worker?.output()).toContain('"reason":"conversation_not_agent_mode"');
+      // El motivo, en la línea de final de turno de este run (no en cualquiera del log).
+      expect(await turnFinished(run?.id ?? "")).toMatchObject({ reason: "conversation_not_agent_mode" });
     } finally {
       await setMode("agent");
     }
