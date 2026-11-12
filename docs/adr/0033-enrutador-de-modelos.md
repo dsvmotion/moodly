@@ -32,7 +32,7 @@ Este paso deja el contrato y sus reglas probadas. **No activa ningún proveedor:
    - **La primera vía de producción es Vercel AI Gateway** (Vercel AI SDK), con el proveedor y el modelo fijados por petición. Llegó con el primer agente (paso 4d-3, punto 7).
    - Para los tests hay un transporte falso (MANUAL §13: los tests unitarios nunca llaman a un proveedor real).
 3. **La política de cada organización (`ModelPolicy`) decide antes de llamar.** El enrutador:
-   - **Elige el modelo por tarea con claves lógicas** de `@repo/config` (`fast`, `smart` o `embedding`). El ID real de cada proveedor vive en la configuración del transporte, no en el código de negocio.
+   - **Elige el modelo por tarea con claves lógicas** de `@repo/config` (`fast`, `smart` o `embedding`; desde B-01, 2026-11-11, también `balanced`, entre `fast` y `smart`). El ID real de cada proveedor vive en la configuración del transporte, no en el código de negocio.
    - **Aplica la residencia:**
      - con «Solo UE», solo usa transportes que procesan en la UE, también en el respaldo;
      - si ninguno cumple, falla en vez de salir de la región;
