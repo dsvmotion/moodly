@@ -25,8 +25,12 @@ export interface BudgetEmailInput {
   budgetEur: number;
   /** El primer día del mes (AAAA-MM-01, UTC) al que se refiere el aviso. */
   month: string;
-  /** El enlace absoluto a los ajustes de modelos de la app. */
-  settingsUrl: string;
+  /**
+   * El enlace absoluto a la app (su inicio). No a los ajustes de modelos: esa
+   * página aún no existe, y un email no lleva enlaces rotos (V1, 2026-11-12).
+   * Cuando exista, el enlace irá allí.
+   */
+  appUrl: string;
 }
 
 type Copy = {
@@ -44,7 +48,7 @@ const COPY: Record<EmailLocale, Record<80 | 100, Copy>> = {
       intro: (org, spent, budget) => `${org} lleva gastados este mes ${spent} de los ${budget} de tope mensual de IA (el 80 %).`,
       consequence: (until) =>
         `Si llega al tope, los agentes dejan de llamar al modelo: cada conversación que necesite a un agente pasa a vuestro equipo hasta el ${until} o hasta que se suba el tope.`,
-      action: "Revisar el tope",
+      action: "Abrir la app",
       footer: (org, brand) => `Recibes este aviso porque administras ${org} en ${brand}.`,
     },
     100: {
@@ -52,7 +56,7 @@ const COPY: Record<EmailLocale, Record<80 | 100, Copy>> = {
       intro: (org, spent, budget) => `${org} ha gastado este mes ${spent} de los ${budget} de tope mensual de IA.`,
       consequence: (until) =>
         `Hasta el ${until} o hasta que se suba el tope, los agentes no llaman al modelo: cada conversación que necesite a un agente pasa a vuestro equipo y se queda con él hasta que se la devolváis al agente.`,
-      action: "Revisar el tope",
+      action: "Abrir la app",
       footer: (org, brand) => `Recibes este aviso porque administras ${org} en ${brand}.`,
     },
   },
@@ -62,7 +66,7 @@ const COPY: Record<EmailLocale, Record<80 | 100, Copy>> = {
       intro: (org, spent, budget) => `${org} has spent ${spent} of its ${budget} monthly AI cap this month (80%).`,
       consequence: (until) =>
         `If it reaches the cap, the agents stop calling the model: every conversation that needs an agent goes to your team until ${until} or until the cap is raised.`,
-      action: "Review the cap",
+      action: "Open the app",
       footer: (org, brand) => `You get this notice because you administer ${org} in ${brand}.`,
     },
     100: {
@@ -70,14 +74,14 @@ const COPY: Record<EmailLocale, Record<80 | 100, Copy>> = {
       intro: (org, spent, budget) => `${org} has spent ${spent} of its ${budget} monthly AI cap this month.`,
       consequence: (until) =>
         `Until ${until} or until the cap is raised, the agents don't call the model: every conversation that needs an agent goes to your team and stays with them until you hand it back to the agent.`,
-      action: "Review the cap",
+      action: "Open the app",
       footer: (org, brand) => `You get this notice because you administer ${org} in ${brand}.`,
     },
   },
 };
 
 export function renderBudgetEmail(input: BudgetEmailInput): RenderedEmail {
-  const url = appUrl(input.settingsUrl);
+  const url = appUrl(input.appUrl);
   const copy = COPY[input.locale][input.threshold];
   const org = oneLine(input.organizationName);
   const spent = euros(input.spentEur, input.locale);

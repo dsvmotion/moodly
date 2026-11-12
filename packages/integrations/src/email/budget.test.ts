@@ -12,7 +12,7 @@ const base: BudgetEmailInput = {
   spentEur: 240.5,
   budgetEur: 300,
   month: "2026-11-01",
-  settingsUrl: "https://staging.moodlycrm.com/app/settings/models",
+  appUrl: "https://staging.moodlycrm.com/app",
 };
 
 describe("renderBudgetEmail", () => {
@@ -22,7 +22,9 @@ describe("renderBudgetEmail", () => {
     expect(text).toContain("Clínica Demo lleva gastados este mes 240,50 € de los 300,00 € de tope mensual de IA (el 80 %).");
     expect(text).toContain("Si llega al tope, los agentes dejan de llamar al modelo");
     expect(text).toContain("hasta el 1 de diciembre o hasta que se suba el tope.");
-    expect(text).toContain(`Revisar el tope (${BRAND_NAME}): https://staging.moodlycrm.com/app/settings/models`);
+    // A la app, no a los ajustes de modelos, que aún no existen: ningún enlace roto.
+    expect(text).toContain(`Abrir la app (${BRAND_NAME}): https://staging.moodlycrm.com/app\n`);
+    expect(text).not.toContain("settings");
     expect(text).toContain(`Recibes este aviso porque administras Clínica Demo en ${BRAND_NAME}.`);
   });
 
@@ -58,9 +60,9 @@ describe("renderBudgetEmail", () => {
   });
 
   it("solo enlaces https a la app (o http local) y meses que empiezan en día 1", () => {
-    expect(() => renderBudgetEmail({ ...base, settingsUrl: "http://evil.test/app" })).toThrow();
-    expect(() => renderBudgetEmail({ ...base, settingsUrl: "javascript:alert(1)" })).toThrow();
-    expect(() => renderBudgetEmail({ ...base, settingsUrl: "http://127.0.0.1:3000/app/settings/models" })).not.toThrow();
+    expect(() => renderBudgetEmail({ ...base, appUrl: "http://evil.test/app" })).toThrow();
+    expect(() => renderBudgetEmail({ ...base, appUrl: "javascript:alert(1)" })).toThrow();
+    expect(() => renderBudgetEmail({ ...base, appUrl: "http://127.0.0.1:3000/app" })).not.toThrow();
     expect(() => renderBudgetEmail({ ...base, month: "2026-11-15" })).toThrow();
   });
 });

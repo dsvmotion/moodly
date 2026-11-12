@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { StepRetriesExhaustedError, type DomainEvent, type EventContext, type StepRetry } from "../events/handlers.ts";
 import { createLogger } from "../logger.ts";
 import { checkBudgetSafely } from "../usage/budget-check.ts";
-import { BUDGET_EMAIL_HANDLER_KEY, budgetSettingsUrl, buildBudgetEmails, createBudgetEmailHandler } from "./budget-email.ts";
+import { BUDGET_EMAIL_HANDLER_KEY, budgetLinkUrl, buildBudgetEmails, createBudgetEmailHandler } from "./budget-email.ts";
 import { SEND_RETRY } from "./send.ts";
 
 // El aviso por email del tope mensual (PL-ledger). Sin base de datos ni red:
@@ -91,7 +91,7 @@ describe("buildBudgetEmails", () => {
     ]);
     expect(emails[0]?.request.from).toEqual({ email: NOTIFICATION_EMAIL_FROM, name: BRAND_NAME });
     expect(emails.map((email) => email.request.idempotencyKey)).toEqual([`budget:${ORG}:2026-11-01:80:${ADMIN}`, `budget:${ORG}:2026-11-01:80:${ADMIN_2}`]);
-    expect(emails[0]?.request.text).toContain(`${WEB}/app/settings/models`);
+    expect(emails[0]?.request.text).toContain(`${WEB}/app\n`);
   });
 
   it("la misma persona dos veces recibe un solo email", () => {
@@ -99,8 +99,8 @@ describe("buildBudgetEmails", () => {
     expect(buildBudgetEmails(ORG, notification({ recipients: [one, one] }) as never, WEB)).toHaveLength(1);
   });
 
-  it("el enlace va a los ajustes de modelos de la web", () => {
-    expect(budgetSettingsUrl(WEB)).toBe("https://staging.moodlycrm.com/app/settings/models");
+  it("el enlace va al inicio de la app, no a unos ajustes que aún no existen", () => {
+    expect(budgetLinkUrl(WEB)).toBe("https://staging.moodlycrm.com/app");
   });
 });
 

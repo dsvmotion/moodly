@@ -341,7 +341,9 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
     expect(email?.body.subject).toBe("Habéis llegado al tope mensual de IA");
     expect(email?.body.from).toBe(`${BRAND_NAME} <${NOTIFICATION_EMAIL_FROM}>`);
     expect(email?.body.text).toContain(`${marker} Y ha gastado este mes 1,25 € de los 1,00 € de tope mensual de IA.`);
-    expect(email?.body.text).toContain(`${WEB}/app/settings/models`);
+    // El enlace, al inicio de la app: los ajustes de modelos aún no existen.
+    expect(email?.body.text).toContain(`${WEB}/app\n`);
+    expect(email?.body.text).not.toContain("/settings/");
 
     // Un solo evento, una sola entrega, terminada y por la cola de avisos.
     const { rows: events } = await admin.query<{ id: string }>(

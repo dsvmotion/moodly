@@ -40,15 +40,18 @@ const notificationSchema = z.object({
 
 type Notification = z.infer<typeof notificationSchema>;
 
-/** Los ajustes de modelos de la app, donde está el tope del mes. */
-export function budgetSettingsUrl(webAppUrl: string): string {
-  return new URL("/app/settings/models", webAppUrl).toString();
+/**
+ * El enlace del aviso: el inicio de la app. Los ajustes de modelos (donde irá el
+ * tope del mes) aún no existen, y un email no lleva enlaces rotos.
+ */
+export function budgetLinkUrl(webAppUrl: string): string {
+  return new URL("/app", webAppUrl).toString();
 }
 
 /** Un email por org_admin (sin repetir), en su idioma. Función pura: lo que se envía, sin enviarlo. */
 export function buildBudgetEmails(organizationId: string, notification: Notification, webAppUrl: string): NoticeEmail[] {
   const { notice } = notification;
-  const settingsUrl = budgetSettingsUrl(webAppUrl);
+  const link = budgetLinkUrl(webAppUrl);
   const seen = new Set<string>();
   const emails: NoticeEmail[] = [];
   for (const recipient of notification.recipients) {
@@ -61,7 +64,7 @@ export function buildBudgetEmails(organizationId: string, notification: Notifica
       spentEur: notice.spent_eur,
       budgetEur: notice.budget_eur,
       month: notice.month,
-      settingsUrl,
+      appUrl: link,
     });
     emails.push({
       userId: recipient.user_id,
