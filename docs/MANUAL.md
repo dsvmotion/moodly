@@ -689,7 +689,7 @@ El runtime pide por tarea (`classify`, `extract`, `converse`, `reason` o `embed`
 
 ### 5.12 Modo coach: capa de inteligencia del negocio **[DECIDIDO el concepto; diseño PROPUESTO]**
 
-> El copiloto y el modo coach están desarrollados en el **ADR 0046 (propuesto, borrador en #158; lo acepta producto)**. Mientras no esté aceptado, manda esta sección.
+> El copiloto y el modo coach están desarrollados en el **ADR 0046 (aceptado por producto el 2026-11-12)**. Si discrepan, manda el ADR.
 
 El coach no es un quinto agente. Es una **capa transversal** que observa el negocio, cruza datos internos con señales externas, detecta mejoras, debilidades, riesgos y oportunidades, y convierte cada propuesta en una tarea para uno de los 4 agentes o para una persona.
 
@@ -728,9 +728,9 @@ El coach no es un quinto agente. Es una **capa transversal** que observa el nego
 - **Competencia:** solo información pública, respetando las condiciones de uso de cada fuente. Nada de acceso a datos privados de terceros.
 - **Personas:** no hace perfiles de empleados ni evaluaciones de rendimiento individuales.
 
-### 5.13 Asistente de la plataforma **[PROPUESTO: ADR 0029]**
+### 5.13 Asistente de la plataforma **[DECIDIDO: ADR 0029, aceptado el 2026-11-12]**
 
-> El ADR 0046 (propuesto, borrador en #158) une el asistente y el coach en un solo punto de entrada. Mientras no esté aceptado, manda esta sección.
+> El ADR 0046 (aceptado el 2026-11-12) une el asistente y el coach en un solo punto de entrada. Si discrepan, manda el ADR.
 
 Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la plataforma por conversación (`/app/asistente`). No es un actor con permisos propios:
 
@@ -762,7 +762,7 @@ Meta-agente que ayuda al usuario a configurar, operar y diagnosticar la platafor
 La diferencia con el conocimiento: el conocimiento lo aporta el cliente; la memoria la **aprende el agente** de las interacciones (hechos, preferencias y patrones del negocio, de cada local y de cada cliente final).
 
 - **Extracción:** un job posterior a cada conversación o run propone memorias candidatas con un modelo ligero. No se escriben durante la conversación.
-- **Procedencia y envenenamiento [PROPUESTO: ADR 0024]:** toda memoria lleva `trust` (`owner`: lo dice una persona del negocio con permiso; `system`: datos verificables; `contact`: lo dice un cliente final). Lo que dice un cliente **solo vale para ese cliente** (`trust = contact` exige `scope = contact`, con un `CHECK` en la tabla) y solo se usa en sus propias conversaciones. Lo que un cliente diga sobre el negocio nunca es memoria: genera un `knowledge_request`. Las memorias de negocio solo nacen de personas o de agregados sobre muchos contactos, y la memoria nunca cambia precios, políticas ni autonomía: eso vive en datos estructurados, que ganan si hay contradicción.
+- **Procedencia y envenenamiento [DECIDIDO: ADR 0024, aceptado el 2026-11-12]:** toda memoria lleva `trust` (`owner`: lo dice una persona del negocio con permiso; `system`: datos verificables; `contact`: lo dice un cliente final). Lo que dice un cliente **solo vale para ese cliente** (`trust = contact` exige `scope = contact`, con un `CHECK` en la tabla) y solo se usa en sus propias conversaciones. Lo que un cliente diga sobre el negocio nunca es memoria: genera un `knowledge_request`. Las memorias de negocio solo nacen de personas o de agregados sobre muchos contactos, y la memoria nunca cambia precios, políticas ni autonomía: eso vive en datos estructurados, que ganan si hay contradicción.
 - **Validación:** según la configuración, una memoria entra como `active` directamente (baja criticidad, por ejemplo "este cliente prefiere citas por la tarde") o como `proposed` para que un humano la confirme (todo lo que cambie cómo actúa el agente con el negocio en general).
 - **Consolidación:** un job periódico fusiona duplicados, marca contradicciones y sustituye memorias viejas (`superseded_by`), en lugar de acumular versiones incompatibles.
 - **Uso:** la memoria relevante se recupera igual que el conocimiento (§5.3, capa 5) y siempre como datos, no como instrucciones.
@@ -1331,12 +1331,12 @@ Fuente: `docs/audits/2026-11-10-auditoria-preproduccion.md` §18.1 y §18.2, don
 
 | # | Pregunta | Decisión |
 |---|---|---|
-| 1 | Agentes del piloto | Los cuatro, más un **asistente del dueño** que orquesta y ayuda a gestionar la plataforma, más un **coach** que da recomendaciones con la historia, los datos y las noticias del negocio. Seis papeles. Piden aceptar los ADR 0024, 0029 y 0046 |
+| 1 | Agentes del piloto | Los cuatro, más un **asistente del dueño** que orquesta y ayuda a gestionar la plataforma, más un **coach** que da recomendaciones con la historia, los datos y las noticias del negocio. Seis papeles. Los ADR 0024, 0029 y 0046 están aceptados (2026-11-12) |
 | 2 | Integraciones | Todas las que sean posibles para el primer cliente piloto, también las que ofrecen heydiga y GuruSup, por oleadas (auditoría §18.8). El hub de integraciones va antes del piloto |
 | 3 | Marca y dominio | **Moodly.** El dominio será `moodly.com`; hasta entonces, `moodlycrm.com`. El dominio va como configuración para que el cambio sea barato (auditoría §18.9) |
 | 4 | Modelo por turno | Elegido por eval bajo un techo de coste, no el más caro para todo |
 | 5 | Qué es un crédito | 1 € de consumo medido a precio de lista más un margen fijo de plataforma |
-| 6 | Dónde procesan los modelos | **La UE por defecto**; EE. UU. también disponible; elige el cliente. La residencia por defecto pasa de `any` a `eu` y tiene que existir una ruta UE |
+| 6 | Dónde procesan los modelos | ~~La UE por defecto~~ **Sustituida el 2026-11-12 (§18.0 bis, ADR 0051):** inferencia global bajo un DPA con cada proveedor; sin afirmación pública de «inferencia en la UE»; la residencia por organización y la ruta UE quedan como opción posterior |
 | 7 | Quién revisa | Una sesión revisora independiente en todo; Diego en migraciones, RLS, auth y la guarda |
 | 8 | Sesiones en paralelo | Dos hasta que la guarda y la revisión estén arregladas; después, más |
 | 9 | Respuestas en borrador | Solo borradores la primera semana; después, respuestas autónomas para las de solo lectura |
@@ -1349,9 +1349,14 @@ Fuente: `docs/audits/2026-11-10-auditoria-preproduccion.md` §18.1 y §18.2, don
 
 **Arquitectura, stack y seguridad (auditoría §18.2):**
 - **Ya:** acceso del worker a Postgres con un rol ligado a la organización y RLS (T1); claves de cifrado por organización (T4); capa de canales (T10: WhatsApp, chat web, email, voz, Slack, Discord, Signal y los que se puedan; Instagram y Facebook a través de ManyChat o similar).
-- **Proveedores de modelos:** todos detrás del enrutador: modelos alojados en la UE, Amazon Bedrock, Google Vertex, Azure y el gateway actual. El cliente elige proveedor y región. **Sustituye a «sin Bedrock, Vertex ni Azure hasta que lo pida un cliente»** y cambia en parte los ADR 0033 y 0035 (residencia `eu` por defecto); lo fija el ADR de T6 del hito M0.
+- **Proveedores de modelos:** todos detrás del enrutador: modelos alojados en la UE, Amazon Bedrock, Google Vertex, Azure y el gateway actual. El cliente elige proveedor y región. **Sustituye a «sin Bedrock, Vertex ni Azure hasta que lo pida un cliente»** y cambia en parte los ADR 0033 y 0035; lo fija el ADR 0051 (aceptado el 2026-11-12), que **sustituye la residencia `eu` por defecto por inferencia global bajo DPA** (§18.0 bis).
 - **Aceptado para el plan:** *pipeline* híbrido (T3), enmascarado de datos personales (T5), trazas y puntuación nocturna (T7), tiempo real (T8) y resistencia a la inyección (T9).
 - **La seguridad como argumento de venta** (auditoría §17.4): todo.
+
+### 18.0 bis Decisiones de producto del 2026-11-12 **[DECIDIDO]**
+
+- **ADR aceptados:** 0023, 0024, 0029, 0046, 0049, 0050, 0051 y 0052 (con el 0053, aceptado el 2026-11-11). El 0046, con los valores por defecto que propone el propio ADR para sus seis preguntas abiertas, que valen hasta que producto los cambie.
+- **Inferencia de los modelos (ADR 0051):** global, bajo un acuerdo de tratamiento de datos (DPA) con cada proveedor, en lugar de fijarla a la UE. Consecuencias: ninguna afirmación pública de «inferencia en la UE»; DPAs con cada proveedor de modelos antes del primer dato real de un cliente (F10); la residencia por organización y la ruta UE siguen siendo posibles más adelante, como opción.
 
 ### 18.1 Decisiones abiertas
 
@@ -1412,13 +1417,13 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0020 | WhatsApp por Cloud API directa | aceptado |
 | 0021 | Equipo interno (`platform_staff`) y auditoría | en el PR #16 |
 | 0022 | Identidad, cuentas y permisos a escala enterprise | propuesto |
-| 0023 | Fuente de verdad única y vocabulario canónico | propuesto |
-| 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | propuesto |
+| 0023 | Fuente de verdad única y vocabulario canónico | aceptado (producto, 2026-11-12) |
+| 0024 | Memoria: procedencia, confianza y defensa contra el envenenamiento | aceptado (producto, 2026-11-12) |
 | 0025 | Búsqueda vectorial con muchas empresas en un solo Postgres | propuesto |
 | 0026 | Un solo Postgres al principio: reparto de cargas, umbrales y celdas | propuesto |
 | 0027 | Ejecución duradera con DBOS Transact sobre Postgres | aceptado (2026-10-23, tras el *spike*) |
 | 0028 | Portabilidad: Vercel y Supabase como implementación por defecto; qué significa «BYOC» | propuesto |
-| 0029 | Asistente: una interfaz que actúa con los permisos del usuario | propuesto |
+| 0029 | Asistente: una interfaz que actúa con los permisos del usuario | aceptado (producto, 2026-11-12) |
 | 0030 | Agentes y skills ampliables | aceptado (2026-10-23) |
 | 0031 | Construir frente a adoptar | aceptado |
 | 0032 | Observabilidad: logs JSON con pino, eventos de seguridad y Sentry (UE) | aceptado |
@@ -1428,13 +1433,13 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
 | 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
-| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (`docs/adr/0046-copiloto-y-modo-coach.md`, revisado con la auditoría en #158; lo acepta producto con el 0024 y el 0029) |
+| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | aceptado (producto, 2026-11-12; con los valores por defecto del propio ADR para sus seis preguntas abiertas, `docs/adr/0046-copiloto-y-modo-coach.md`) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 | 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
-| 0049 | Acceso del worker a los datos: transacciones SQL con un rol ligado a la organización y RLS (T1) | propuesto (#195) |
-| 0050 | Claves por organización: cifrado de sobre de los mensajes y los datos de contacto, y borrado destruyendo la clave (T4) | propuesto (#195) |
-| 0051 | Todos los proveedores de modelos detrás del enrutador, con la UE por defecto (T6) | propuesto (#195) |
-| 0052 | Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10) | propuesto (#195) |
+| 0049 | Acceso del worker a los datos: transacciones SQL con un rol ligado a la organización y RLS (T1) | aceptado (producto, 2026-11-12) |
+| 0050 | Claves por organización: cifrado de sobre de los mensajes y los datos de contacto, y borrado destruyendo la clave (T4) | aceptado (producto, 2026-11-12) |
+| 0051 | Todos los proveedores de modelos detrás del enrutador, con inferencia global bajo DPA con cada proveedor (T6) | aceptado (producto, 2026-11-12) |
+| 0052 | Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10) | aceptado (producto, 2026-11-12) |
 | 0053 | Hub de integraciones: gobierno propio para todas las conexiones y una plataforma de conectores para la amplitud (Nango autoalojado en la UE; modifica el 0034 y el 0036) | aceptado (producto, 2026-11-11) |
 
 ---

@@ -74,7 +74,7 @@ founder_tasks:
   - {id: "F10", name: "DPAs with each model provider, the connector platform and the Instagram partner", milestone: "M3", status: "planned", evidence: []}
   - {id: "F11", name: "Choose the connector platform from V1's comparison", milestone: "M0", status: "done", evidence: ["Elegida por producto el 2026-11-11: Nango autoalojado en la UE (ADR 0053, aceptado)"], note: "Quedan por confirmar la licencia (ELv2, uso interno; asesoría legal) y qué incluye la versión autoalojada gratuita"}
   - {id: "F12", name: "Book the independent penetration test", milestone: "M3", status: "planned", evidence: []}
-  - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "planned", evidence: [], note: "ADR 0053 aceptado el 2026-11-11; los ADR 0049 a 0052 siguen propuestos (#195), junto con el 0023, 0024, 0029 y 0046"}
+  - {id: "F13", name: "Accept or revise ADRs 0023, 0024, 0029 and 0046, and the ADRs for T1, T4, T6, T10 and the integration hub", milestone: "M0", status: "done", evidence: ["PR [M0][F13] Decisiones de producto del 2026-11-12"], note: "ADR 0053 aceptado el 2026-11-11; los ADR 0023, 0024, 0029, 0046, 0049, 0050, 0051 y 0052 aceptados el 2026-11-12 (0046 con los valores por defecto del ADR; 0051: inferencia global bajo DPA)"}
   - {id: "F14", name: "Security contact for SECURITY.md: contact@moodly.com, the only address in use", milestone: "M0", status: "done", evidence: ["Declared by the founder on 2026-11-10: the mailbox exists"]}
   - {id: "F15", name: "Protect main of dsvmotion/moodly-toolkit like main of moodly", milestone: "M0", status: "planned", evidence: [], note: "Decided by the founder on 2026-11-10 (P-10)"}
 

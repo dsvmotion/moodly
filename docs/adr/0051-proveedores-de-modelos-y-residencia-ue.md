@@ -1,11 +1,11 @@
-# 0051 — Todos los proveedores de modelos detrás del enrutador, con la UE por defecto (T6)
+# 0051 — Todos los proveedores de modelos detrás del enrutador, con inferencia global bajo acuerdos de tratamiento de datos (T6)
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12): inferencia global de los modelos bajo un acuerdo de tratamiento de datos (DPA) con cada proveedor, en lugar de fijarla a la UE. La residencia por organización y la ruta UE siguen siendo una opción posterior (ver «Decisión»).
 - **Fecha:** 2026-11-11
 - **Secciones del MANUAL afectadas:** §3.2, §5.11, §11, §15 (registro por llamada), §18.0 #4 y #6, §18.1 #5
 - **Relación:**
   - auditoría de preproducción §17.3 T6, §18.1 #4 y #6, §18.2 («Model providers»), §18.5 V1 #2 y #3, hallazgos H-01 y B-01;
-  - fija lo que los ADR 0033 y 0035 dejaron «cambiado en parte» el 2026-11-10: proveedores y residencia `eu` por defecto;
+  - fija lo que los ADR 0033 y 0035 dejaron «cambiado en parte» el 2026-11-10: proveedores y residencia (la propuesta de residencia `eu` por defecto queda sustituida por la decisión del 2026-11-12, abajo);
   - decisión de producto del 2026-11-11: los agentes usan el modelo más barato que pasa las evals;
   - unidades `PL-T6` (M1), `SE02` (M1) y `PL-ledger` (M1) de `docs/scope.yaml`; puerta de M1: «an `eu` organization completes a turn».
 
@@ -27,39 +27,39 @@
 | **B. Un transporte directo por proveedor y región** (Bedrock y Vertex en la UE, un proveedor alojado en la UE, Azure con zona de datos UE) **y el gateway para `us` y `any`** | Residencia comprobable con el contrato de cada proveedor; dos vías UE se respaldan entre sí; el enrutador ya lo admite | Más SDKs (cada uno, una dependencia revisada); precios y catálogos distintos por proveedor y región; un DPA por proveedor |
 | **C. Cambiar de agregador** (Cloudflare AI Gateway, OpenRouter…) | Igual de sencillo que A | El mismo problema que A con otro proveedor |
 
-## Decisión recomendada
+## Decisión
 
-**Opción B, por este orden:**
+**Decisión de producto, 2026-11-12: se acepta la inferencia global de los modelos bajo un acuerdo de tratamiento de datos (DPA) con cada proveedor, en lugar de fijar la inferencia a la UE.**
 
-1. **El modelo de datos:**
-   - `residency`: `eu` (por defecto), `us` o `any`, con su migración; las organizaciones de staging pasan a `eu`;
-   - cada transporte declara, además de la vía, el **proveedor real** (`anthropic`, `openai`, `mistral`, `google`…) y una región `eu`, `us` u `other`;
-   - `allowed_providers` se compara con el proveedor real;
-   - con `eu`, ni la llamada ni el respaldo salen de la UE (como hoy); con `us`, solo `us`; con `any`, cualquiera con DPA.
-2. **La primera ruta UE: Amazon Bedrock en la UE** (`eu-central-1` o el perfil de inferencia de la UE) con los mismos modelos de Anthropic que usan hoy las evals, para no perder la línea base. Los modelos concretos disponibles en esa región están por comprobar en el *spike*.
-3. **La segunda ruta UE, de respaldo: Google Vertex en una región europea**, con la misma familia de modelos si está disponible allí (a verificar). Un proveedor alojado en la UE (por ejemplo, Mistral) entra solo si pasa las evals. Azure, cuando un cliente lo pida o si gana en las evals (para Claude todavía no ofrecía zona de datos UE en octubre de 2026, según `docs/design/roadmap-enterprise.md` §4.1).
-4. **Embeddings en la UE:** un modelo de embeddings servido en la UE (en Bedrock u otra ruta UE), elegido con la eval de recall del ADR 0048. Cambiar de modelo obliga a reindexar (hallazgo K-04).
-5. **Qué modelo hace cada tarea:** el más barato que pasa las evals (producto, 2026-11-11), por ruta. La clave lógica (`fast`, `smart`…) se resuelve en cada transporte a su ID; la tabla de `@repo/config` dice qué modelo pasó las evals en cada ruta.
-6. **Registro por llamada:** proveedor real, vía, región, modelo, tokens y coste en `agent_runs` y, cuando exista, en el libro de consumo (`PL-ledger`). De ahí sale el informe de residencia (ADR 0035).
-7. **Cada proveedor** entra con su transporte en `models/transports/` (frontera de SDKs del ADR 0033 §4), su ficha (región, retención, DPA) en `@repo/config` y su línea en la lista de subencargados.
-8. **El gateway se queda** para `us` y `any`, y para comparar modelos en las evals.
+1. **Todos los proveedores de modelos van detrás del enrutador** (ADR 0033), cada uno con su transporte, su ficha (región, retención, DPA) en `@repo/config` y su línea en la lista de subencargados. Cada transporte declara el **proveedor real** (`anthropic`, `openai`, `mistral`, `google`…) además de la vía, y `allowed_providers` se compara con el proveedor real, no con el nombre de la vía.
+2. **La inferencia no se fija a la UE.** Vercel AI Gateway sigue siendo una vía válida para `any`, y la residencia por defecto de las organizaciones deja de ser `eu`: sigue siendo `any`, que es lo que ya hay en la base de datos.
+3. **Sin afirmación pública de «inferencia en la UE».** La web, el MANUAL y los materiales comerciales no dicen que los modelos se ejecutan en la UE. Lo que sí se puede decir: los datos de la plataforma están en la UE (ADR 0003) y la inferencia va a los proveedores con los que hay un DPA.
+4. **DPA firmado con cada proveedor de modelos antes del primer dato real de un cliente** (tarea de producto F10; condición de salida a producción 3 en `docs/STATUS.md`). Sin DPA firmado, un proveedor no se activa para organizaciones con datos reales.
+5. **La residencia por organización y la ruta UE siguen siendo posibles más adelante, como una opción** (ADR 0035): `residency = eu | us | any` con el filtro del enrutador, y las rutas UE de la opción B (Bedrock en la UE, Vertex en una región europea) cuando un cliente lo exija. No se construyen ahora; se construyen cuando un cliente concreto las pida.
+6. **Registro por llamada:** proveedor real, vía, región, modelo, tokens y coste en `agent_runs` y, cuando exista, en el libro de consumo (`PL-ledger`), para poder enseñar a cada cliente por dónde fue cada llamada.
+7. **Qué modelo hace cada tarea:** el más barato que pasa las evals (producto, 2026-11-11), con la clave lógica resuelta en cada transporte.
+
+### Alternativa descartada: fijar la inferencia a la UE (la recomendación original de este ADR)
+
+La opción B de la tabla, por este orden: `residency = eu` por defecto, con Amazon Bedrock en la UE como primera ruta, Google Vertex en una región europea como respaldo, y un modelo de embeddings servido en la UE (con la eval de recall del ADR 0048). Daba residencia comprobable con el contrato de cada proveedor y hacía que «Solo UE» funcionara y fuera lo normal. Producto la descarta por ahora a favor de la inferencia global con DPA: menos SDKs, menos catálogos y precios por región, y todos los modelos disponibles desde el primer día. Sigue disponible como opción posterior (punto 5).
 
 ## Consecuencias
 
-- **Se gana:** «Solo UE» funciona y es lo normal; dos rutas UE se respaldan entre sí; la residencia de cada llamada se puede enseñar al cliente; el coste baja eligiendo por eval.
-- **Coste:** un PR de dependencias por SDK (`@ai-sdk/amazon-bedrock`, `@ai-sdk/google-vertex` o equivalentes, versión exacta), un transporte y sus tests por proveedor, y la reindexación del conocimiento al cambiar de embeddings.
-- **Riesgos:** catálogos por región que van por detrás de los globales; precios distintos (la tabla de precios pasa a ser por ruta); la caché de prompt no funciona igual en todos los proveedores (a verificar por proveedor).
-- **Dependencias:** una cuenta de AWS (la misma del ADR 0034) con acceso a los modelos en Bedrock, y un proyecto de Google Cloud para Vertex. Son credenciales, no decisiones: se piden a producto cuando el PR esté listo para probarse.
+- **Se gana:** todos los modelos y proveedores disponibles desde el primer día, un solo camino de transporte que mantener y el coste por conversación elegido por eval.
+- **Se pierde:** la garantía de que los datos de una conversación no salen de la UE durante la inferencia. Hay que decirlo con claridad: la web (hoy, «región de los modelos por confirmar», #241) y cualquier contrato no afirman inferencia en la UE.
+- **Condición de salida a producción:** DPAs firmados con cada proveedor de modelos que trate datos de clientes (F10), y confirmar que el AI Gateway fija proveedor y modelo (o que su DPA cubre su propio tratamiento). Hasta entonces, solo datos de demo y de prueba.
+- **Lo que sigue pendiente de código** (unidad `PL-T6`, M1): `allowed_providers` contra el proveedor real; el registro de proveedor y región por llamada; el tipo de región de cada transporte. La residencia `eu` del enrutador sigue funcionando para quien la elija, pero hoy ningún transporte es `eu`, así que elegirla apaga la IA de esa organización (H-01): hasta que exista una ruta UE, la interfaz no debe ofrecerla como «lista para usar».
+- **Riesgos:** un cliente enterprise o regulado puede exigir la UE; es la razón de que la opción B se mantenga como camino abierto. Los subencargados nuevos (un proveedor por modelo) amplían la lista que hay que publicar.
 - **BYOK** (ADR 0034) usa los mismos transportes con las credenciales del cliente; sin cambios en la regla de no caer a las de Moodly.
 
-## Qué la haría «aceptada»
+## Qué quedaba por verificar
 
-1. Producto dice sí.
-2. Un *spike* demuestra:
-   - en tests del enrutador, una organización `eu` nunca llega a una ruta que no sea `eu`, tampoco en el respaldo, y `allowed_providers: ["anthropic"]` funciona;
-   - en staging, una organización `eu` completa un turno por Bedrock en la UE (puerta de M1), con proveedor y región registrados;
-   - las evals de Recepción y Atención al cliente pasan con la ruta UE y el modelo elegido, con el coste por conversación medido.
+Ya no hay un *spike* de residencia UE como condición de aceptación. Lo que cierra esta decisión con evidencia:
+
+1. Los DPAs firmados (F10), anotados en la lista de subencargados.
+2. En tests del enrutador, `allowed_providers: ["anthropic"]` funciona con el proveedor real.
+3. En staging, el registro de proveedor y región de cada llamada en `agent_runs`.
 
 ## Verificación
 
-Pendiente: es lo que pide el punto 2 de «Qué la haría aceptada».
+Pendiente: los tres puntos de «Qué quedaba por verificar». La decisión es de producto (2026-11-12); el código de `PL-T6` sigue en M1.
