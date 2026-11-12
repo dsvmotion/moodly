@@ -4,8 +4,8 @@
 // embeddings y guardar) la hace el worker (paso B20-1, ADR 0048).
 export { KnowledgeQueryError, MAX_K, MAX_QUERY_CHARS, SOURCE_TYPES, assertValidQuery } from "./retriever.js";
 export type { KnowledgeHit, KnowledgeQuery, KnowledgeRetriever, KnowledgeScope, SourceType } from "./retriever.js";
-export { EmbeddingError, assertEmbedding, createFakeEmbedder } from "./embedder.js";
-export type { Embedder } from "./embedder.js";
+export { EmbeddingError, assertEmbedding, createFakeEmbedder, spentBefore } from "./embedder.js";
+export type { EmbedResult, Embedder, EmbeddingUsage } from "./embedder.js";
 export { createPgvectorRetriever } from "./pgvector.js";
 export type { ChunkRow, ChunkSearch, PgvectorRetrieverOptions } from "./pgvector.js";
 export { MAX_CHUNK_CHARS, chunkText } from "./chunk.js";

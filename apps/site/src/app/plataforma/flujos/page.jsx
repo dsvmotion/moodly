@@ -11,10 +11,10 @@ const I = (t, d) => ({ k: 'if', title: t, detail: d });
 const D = (t, d) => ({ k: 'do', title: t, detail: d });
 const A = (t, d) => ({ k: 'ask', title: t, detail: d });
 const data = [
-{ id: 'espera', name: 'Hueco libre → lista de espera', meta: 'Recepción · se ha usado 23 veces este mes', steps: [W('Se cancela una cita', 'Por WhatsApp, llamada o desde la agenda'), I('Faltan menos de 48 h', 'Y hay pacientes en lista de espera para ese servicio'), D('Avisar por WhatsApp', 'Al primero de la lista, con 30 min para confirmar'), D('Si no confirma, avisar al siguiente', 'Hasta llenar el hueco')] },
-{ id: 'recordatorio', name: 'Recordatorio de cita', meta: 'Recepción · 24 h antes', steps: [W('Faltan 24 h para una cita', 'Todas las citas confirmadas'), D('Enviar recordatorio', 'Plantilla «Recordatorio 24 h»'), I('No responde en 6 h', ''), D('Llamar al paciente', 'Con el agente de voz')] },
+{ id: 'espera', name: 'Hueco libre → lista de espera', meta: 'Recepción · se ha usado 23 veces este mes', steps: [W('Se cancela una cita', 'Por WhatsApp, llamada o desde la agenda'), I('Faltan menos de 48 h', 'Y hay clientes en lista de espera para ese servicio'), D('Avisar por WhatsApp', 'Al primero de la lista, con 30 min para confirmar'), D('Si no confirma, avisar al siguiente', 'Hasta llenar el hueco')] },
+{ id: 'recordatorio', name: 'Recordatorio de cita', meta: 'Recepción · 24 h antes', steps: [W('Faltan 24 h para una cita', 'Todas las citas confirmadas'), D('Enviar recordatorio', 'Plantilla «Recordatorio 24 h»'), I('No responde en 6 h', ''), D('Llamar al cliente', 'Con el agente de voz')] },
 { id: 'resena', name: 'Pedir reseña tras la visita', meta: 'Comercial · al día siguiente', steps: [W('Termina una visita', 'Marcada como atendida en la agenda'), I('Es su primera o segunda visita', ''), D('Enviar enlace de Google', 'A las 11:00 del día siguiente')] },
-{ id: 'presupuesto', name: 'Seguimiento de presupuesto', meta: 'Comercial · 3 y 10 días después', steps: [W('Se envía un presupuesto', 'Ortodoncia, implantes o estética'), I('No hay respuesta en 3 días', ''), D('Preguntar si tiene dudas', 'Por WhatsApp, tono cercano'), A('Ofrecer pago a plazos', 'Lo aprueba la gerencia')] },
+{ id: 'presupuesto', name: 'Seguimiento de presupuesto', meta: 'Comercial · 3 y 10 días después', steps: [W('Se envía un presupuesto', 'Keratina, pack novia o coloración'), I('No hay respuesta en 3 días', ''), D('Preguntar si tiene dudas', 'Por WhatsApp, tono cercano'), A('Ofrecer pago a plazos', 'Lo aprueba la gerencia')] },
 { id: 'stock', name: 'Stock bajo → pedido', meta: 'Administración · pausado', steps: [W('Un material baja del mínimo', 'Según el inventario'), D('Preparar pedido al proveedor', 'Con las cantidades habituales'), A('Enviar pedido', 'Lo aprueba la gerencia')] }
 ];
 const s = this.state || {};
@@ -49,7 +49,7 @@ current: { name: cur.name, meta: cur.meta, steps: cur.steps.map((x, i) => ({ ...
 {(f.off) ? (<><button type="button" role="switch" aria-checked="false" aria-label={f.name} onClick={f.toggle} style={{ width: "40px", height: "24px", borderRadius: "800px", border: "0", background: "var(--track)", position: "relative", cursor: "pointer", flex: "none" }}><span style={{ position: "absolute", left: "3px", top: "3px", width: "18px", height: "18px", borderRadius: "800px", background: "var(--paper)" }}></span></button></>) : null}
 </div>
 </Fragment>))}
-<div style={{ padding: "14px 16px", fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>Plantillas para clínicas: <a href="#" data-demo="" style={{ color: "var(--blue-fg)" }}>ver 12 más</a></div>
+<div style={{ padding: "14px 16px", fontSize: "14px", lineHeight: "21px", color: "var(--muted)" }}>Plantillas para centros de belleza: <a href="#" data-demo="" style={{ color: "var(--blue-fg)" }}>ver 12 más</a></div>
 </section>
 
 <section style={{ flex: "3 1 460px", minWidth: "0", display: "flex", flexDirection: "column", gap: "16px" }}>

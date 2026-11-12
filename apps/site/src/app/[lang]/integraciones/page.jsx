@@ -124,7 +124,6 @@ const CATEGORIES = [
     ["thefork.png", "TheFork", "Reservas de restaurante [vía partner]."],
     ["bookingdotcom", "Booking.com", "Reservas y mensajes de huéspedes."],
     ["lightspeed", "Lightspeed", "TPV para hostelería y retail."],
-    ["doctoralia.png", "Doctoralia", "Citas de pacientes [vía partner]."],
   ]},
   { id: "rrhh", name: "RRHH y firma", items: [
     ["factorial.png", "Factorial", "Turnos, ausencias y fichajes."],

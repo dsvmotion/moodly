@@ -58,7 +58,7 @@
 "{0} · voz": "{0} · voice",
 "La voz se aplica a las llamadas y notas de voz del agente de {0}.": "The voice applies to calls and voice notes from the {0} agent.",
 "Tema: {0}": "Theme: {0}",
-"{n} de {n1} activas · Configuradas de serie para clínicas": "{n} of {n1} active · Set up out of the box for clinics",
+"{n} de {n1} activas · Configuradas de serie para centros de belleza": "{n} of {n1} active · Set up out of the box for beauty businesses",
 "Para «{0}» en «{1}». Las sedes sin valor propio heredan el de la organización.": "For «{0}» in «{1}». Locations without their own value inherit the organisation's.",
 "{0} conectado (BYOK)": "{0} connected (BYOK)",
 "Llamada de prueba correcta por {0} · {1}. Salud: operativo.": "Test call succeeded via {0} · {1}. Health: operational.",

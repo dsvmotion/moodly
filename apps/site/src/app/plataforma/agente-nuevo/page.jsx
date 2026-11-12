@@ -52,7 +52,7 @@ export default function AgenteNuevo() {
 
         {step === 1 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué agente creamos?</h1><span style={SUB}>Parte de una plantilla para <strong style={{ fontWeight: 500, color: "var(--ink)" }}>Clínicas</strong> y ajústalo luego. Puedes tener varios del mismo tipo por sede.</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué agente creamos?</h1><span style={SUB}>Parte de una plantilla para <strong style={{ fontWeight: 500, color: "var(--ink)" }}>Belleza</strong> y ajústalo luego. Puedes tener varios del mismo tipo por sede.</span></div>
             <div role="radiogroup" aria-label="Tipo de agente" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
               {TYPES.map((x) => {
                 const sel = type === x.id;
