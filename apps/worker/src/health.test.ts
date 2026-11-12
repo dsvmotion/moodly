@@ -106,8 +106,8 @@ describe("servidor de salud", () => {
     for (const server of servers.splice(0)) server.close();
   });
 
-  async function start(workerProbe: WorkerProbe) {
-    const server = createHealthServer({ ...base, probe: workerProbe, logger: pino({ level: "silent" }) });
+  async function start(workerProbe: WorkerProbe, channels?: Parameters<typeof createHealthServer>[0]["channels"]) {
+    const server = createHealthServer({ ...base, probe: workerProbe, logger: pino({ level: "silent" }), ...(channels ? { channels } : {}) });
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -143,5 +143,28 @@ describe("servidor de salud", () => {
     await fetch(`${url}/health`);
     await fetch(`${url}/health`);
     expect(pingDatabase).toHaveBeenCalledTimes(1);
+  });
+
+  it("con la entrada de canales montada, /channels/… va a ella y /health sigue igual: solo {status}", async () => {
+    const channels = vi.fn((_req: unknown, res: { writeHead: (status: number) => { end: (body: string) => void } }) => {
+      res.writeHead(202).end("canales");
+    });
+    const url = await start(probe(), channels as never);
+    const health = await fetch(`${url}/health`);
+    expect(health.status).toBe(200);
+    expect(await health.text()).toBe('{"status":"ok"}');
+    const webhook = await fetch(`${url}/channels/whatsapp/webhook`, { method: "POST", body: "{}" });
+    expect(webhook.status).toBe(202);
+    expect(await webhook.text()).toBe("canales");
+    expect(channels).toHaveBeenCalledTimes(1);
+    // Solo bajo /channels/: lo demás sigue siendo 404 y no llega a los canales.
+    expect((await fetch(`${url}/channels`)).status).toBe(404);
+    expect((await fetch(`${url}/`)).status).toBe(404);
+    expect(channels).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin entrada de canales, /channels/… es 404 como cualquier otra ruta", async () => {
+    const url = await start(probe());
+    expect((await fetch(`${url}/channels/whatsapp/webhook`, { method: "POST", body: "{}" })).status).toBe(404);
   });
 });

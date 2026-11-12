@@ -2,7 +2,7 @@ import { createFakeAdapter, fakeSignature } from "@repo/channels/testing";
 import type { ServiceDb } from "@repo/db/service";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
-import { receiveWebhook } from "./receive.ts";
+import { MAX_INBOUND_PAYLOAD_BYTES, receiveWebhook } from "./receive.ts";
 
 // La entrada de un webhook, sin base de datos: un ServiceDb falso que apunta
 // qué se resolvió y qué se insertó, y en qué organización.
@@ -29,23 +29,43 @@ function webhook(body: object, secret = SECRET) {
   return { headers: fakeSignature(secret, rawBody), rawBody };
 }
 
-function fakeDb(options: { account?: { id: string; organizationId: string; status: "active" | "pending" | "disabled" } | null; existingStatus?: string } = {}) {
+function fakeDb(
+  options: {
+    account?: { id: string; organizationId: string; status: "active" | "pending" | "disabled" } | null;
+    existingStatus?: string;
+    existingErrorCode?: string;
+    /** El error con el que falla el insert de un evento, por su providerEventId. */
+    insertErrors?: Record<string, string>;
+  } = {},
+) {
   const resolve = vi.fn().mockResolvedValue(options.account === undefined ? { id: "acc-1", organizationId: ORG, status: "active" } : options.account);
   const inserts: { org: string; row: unknown }[] = [];
   const forOrganization = vi.fn((org: string) => ({
     from: () => ({
-      insert: (row: unknown) => {
+      insert: (row: { provider_event_id: string }) => {
         inserts.push({ org, row });
+        const failure = options.insertErrors?.[row.provider_event_id];
         return {
           select: () => ({
             single: () =>
               Promise.resolve(
-                options.existingStatus ? { data: null, error: { code: "23505" } } : { data: { id: `ie-${inserts.length}` }, error: null },
+                failure
+                  ? { data: null, error: { code: failure } }
+                  : options.existingStatus
+                    ? { data: null, error: { code: "23505" } }
+                    : { data: { id: `ie-${inserts.length}` }, error: null },
               ),
           }),
         };
       },
-      select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: "ie-old", status: options.existingStatus }, error: null }) }) }) }),
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            single: () =>
+              Promise.resolve({ data: { id: "ie-old", status: options.existingStatus, error_code: options.existingErrorCode ?? null }, error: null }),
+          }),
+        }),
+      }),
     }),
   }));
   const db = { channelAccounts: { resolve }, forOrganization, outbox: {} } as unknown as ServiceDb;
@@ -139,5 +159,63 @@ describe("la entrada de un webhook (ADR 0052 §2)", () => {
     const second = deps(stuck.db);
     await expect(receiveWebhook("webchat", webhook({ messages: [message()] }), second.deps)).resolves.toMatchObject({ duplicates: 1 });
     expect(second.startIngest).toHaveBeenCalledWith({ organizationId: ORG, inboundEventId: "ie-old" });
+  });
+
+  it("un evento repetido que ya acabó en dead_letter no se vuelve a lanzar: lo mira una persona", async () => {
+    const dead = fakeDb({ existingStatus: "failed", existingErrorCode: "dead_letter" });
+    const { deps: d, startIngest } = deps(dead.db);
+    await expect(receiveWebhook("webchat", webhook({ messages: [message()] }), d)).resolves.toEqual({ status: 200, accepted: 0, duplicates: 1, ignored: 0 });
+    expect(startIngest).not.toHaveBeenCalled();
+  });
+
+  it("un mensaje que falla no tira el lote: lo pasajero da 500 al final (el proveedor repite), lo permanente se ignora", async () => {
+    const { db, inserts } = fakeDb({ insertErrors: { "evt-a": "08006", "evt-c": "23514" } });
+    const { deps: d, startIngest } = deps(db);
+    const body = {
+      messages: [
+        message({ providerEventId: "evt-a", providerMessageId: "m-a" }),
+        message({ providerEventId: "evt-b", providerMessageId: "m-b" }),
+        message({ providerEventId: "evt-c", providerMessageId: "m-c" }),
+      ],
+    };
+    const result = await receiveWebhook("webchat", webhook(body), d);
+    // Los tres se intentaron, uno detrás de otro, aunque el primero fallara.
+    expect(inserts.map((insert) => (insert.row as { provider_event_id: string }).provider_event_id)).toEqual(["evt-a", "evt-b", "evt-c"]);
+    expect(result).toEqual({ status: 500, accepted: 1, duplicates: 0, ignored: 1 });
+    expect(startIngest).toHaveBeenCalledTimes(1);
+  });
+
+  it("si solo hay errores permanentes, 200: reintentar no lo arregla", async () => {
+    const { db } = fakeDb({ insertErrors: { "evt-1": "23514" } });
+    const { deps: d, startIngest } = deps(db);
+    await expect(receiveWebhook("webchat", webhook({ messages: [message()] }), d)).resolves.toEqual({ status: 200, accepted: 0, duplicates: 0, ignored: 1 });
+    expect(startIngest).not.toHaveBeenCalled();
+  });
+
+  it("si no se puede arrancar el workflow de un mensaje, los demás siguen y al final 500 (lo guardado no se duplica)", async () => {
+    const { db } = fakeDb();
+    const { deps: d, startIngest } = deps(db);
+    startIngest.mockRejectedValueOnce(new Error("dbos caído"));
+    const body = { messages: [message({ providerEventId: "evt-a" }), message({ providerEventId: "evt-b", providerMessageId: "m-b" })] };
+    await expect(receiveWebhook("webchat", webhook(body), d)).resolves.toEqual({ status: 500, accepted: 1, duplicates: 0, ignored: 0 });
+    expect(startIngest).toHaveBeenCalledTimes(2);
+  });
+
+  it("un mensaje que no cabe en inbound_events (64 KB) se ignora antes de resolver nada; el resto del lote sigue", async () => {
+    const { db, resolve, inserts } = fakeDb();
+    const { deps: d, startIngest } = deps(db);
+    // Válido para el esquema, pero los caracteres de control se escapan (\u0001: 6 bytes) y pasa del límite.
+    const control = "\u0001".repeat(1024);
+    const huge = message({
+      providerEventId: "evt-big",
+      text: control.repeat(9),
+      attachments: Array.from({ length: 10 }, (_, index) => ({ kind: "image", providerRef: `ref-${index}`, caption: control })),
+    });
+    expect(Buffer.byteLength(JSON.stringify(huge), "utf8")).toBeGreaterThan(MAX_INBOUND_PAYLOAD_BYTES);
+    const result = await receiveWebhook("webchat", webhook({ messages: [huge, message({ providerEventId: "evt-ok" })] }), d);
+    expect(result).toEqual({ status: 200, accepted: 1, duplicates: 0, ignored: 1 });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(inserts).toHaveLength(1);
+    expect(startIngest).toHaveBeenCalledTimes(1);
   });
 });

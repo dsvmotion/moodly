@@ -1,9 +1,11 @@
 import { DBOS } from "@dbos-inc/dbos-sdk";
+import type { WorkflowStatusString } from "@dbos-inc/dbos-sdk";
 import { normalizedInboundSchema } from "@repo/channels";
 import type { NormalizedInbound } from "@repo/channels";
 import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { z } from "zod";
+import { DEAD_LETTER, runAttempts } from "./attempts.ts";
 
 // Lo que entra por un canal, ya guardado en inbound_events, se convierte en un
 // mensaje de su conversación (ADR 0052 §2, PL-T2). Un workflow de DBOS por
@@ -22,6 +24,25 @@ import { z } from "zod";
 
 export const INGEST_WORKFLOW = "channels.ingest";
 export const INGEST_QUEUE = "channels-ingest";
+export const SWEEP_WORKFLOW = "channels.ingest-sweep";
+export const SWEEP_SCHEDULE_NAME = "channels.ingest-sweep";
+/** Cada minuto, a los 23 s. */
+export const SWEEP_SCHEDULE = "23 * * * * *";
+/** Lo que se reanuda: los de las últimas 24 h; los más viejos se quedan para mirarlos. */
+const SWEEP_WINDOW_MS = 24 * 3_600_000;
+/**
+ * Los estados de DBOS de un workflow que se reanuda solo: ERROR, que aquí solo
+ * sale si no se pudo apuntar un intento en la base de datos (los fallos del
+ * mensaje se cuentan dentro, hasta el dead_letter). Al reanudarlo sigue desde
+ * su último paso, con sus intentos ya contados: el tope se mantiene.
+ */
+export const RESUMABLE_STATUSES: readonly WorkflowStatusString[] = ["ERROR"];
+/**
+ * Los que no se tocan y miran las personas: CANCELLED (lo paró alguien) y
+ * MAX_RECOVERY_ATTEMPTS_EXCEEDED (el proceso cayó con él demasiadas veces:
+ * reanudarlo lo volvería a tirar).
+ */
+export const PARKED_STATUSES: readonly WorkflowStatusString[] = ["CANCELLED", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"];
 
 export function ingestWorkflowId(inboundEventId: string): string {
   return `inbound:${inboundEventId}`;
@@ -36,7 +57,8 @@ export interface IngestInput {
 export type IngestResult =
   | { outcome: "processed"; conversationId: string; messageId: string; eventId: string | null }
   | { outcome: "skipped"; reason: "missing" | "already_settled" }
-  | { outcome: "ignored" | "failed"; reason: string };
+  | { outcome: "ignored" | "failed"; reason: string }
+  | { outcome: "dead_letter"; attempts: number; lastError: string };
 
 /** Lo que la entrega del outbox necesita de un evento de dominio. */
 export interface PendingEvent {
@@ -50,6 +72,19 @@ export interface IngestOptions {
   logger: Logger;
   /** Encola ya las entregas de un evento de dominio (las mismas que encolaría el publicador). */
   enqueueDeliveries: (event: PendingEvent) => Promise<number>;
+  /** Solo para tests: se llama al empezar cada intento; si lanza, el intento falla. */
+  beforeAttempt?: (input: IngestInput, attempt: number) => Promise<void>;
+  /** Solo para tests: la espera entre intentos (por defecto, la de attempts.ts). */
+  backoffMs?: readonly number[];
+}
+
+/**
+ * La clave del mensaje del cliente: el id del proveedor, o, si el canal no lo
+ * da, el del evento. Con ella, guardar el mensaje dos veces (un reintento del
+ * paso después de escribir) devuelve el mismo: un mensaje y un turno.
+ */
+export function inboundMessageKey(message: NormalizedInbound): string {
+  return message.providerMessageId ?? `evt:${message.providerEventId}`;
 }
 
 /** Las identidades que guarda contact_identities. */
@@ -151,21 +186,14 @@ async function ensureConversation(db: TenantDb, channelAccountId: string, contac
   return created.data.id;
 }
 
-/** El mensaje del cliente; si ya se guardó (reintento del paso), el mismo. */
+/** El mensaje del cliente; si ya se guardó (reintento del paso), el mismo, con o sin id del proveedor. */
 async function insertMessage(db: TenantDb, conversationId: string, message: NormalizedInbound): Promise<string> {
-  if (message.providerMessageId) {
-    const existing = check(
-      await db
-        .from("messages")
-        .select("id")
-        .eq("conversation_id", conversationId)
-        .eq("external_message_id", message.providerMessageId)
-        .limit(1)
-        .maybeSingle(),
-      "el mensaje ya guardado",
-    );
-    if (existing) return existing.id;
-  }
+  const key = inboundMessageKey(message);
+  const existing = check(
+    await db.from("messages").select("id").eq("conversation_id", conversationId).eq("external_message_id", key).limit(1).maybeSingle(),
+    "el mensaje ya guardado",
+  );
+  if (existing) return existing.id;
   const inserted = await db
     .from("messages")
     .insert({
@@ -174,7 +202,7 @@ async function insertMessage(db: TenantDb, conversationId: string, message: Norm
       author: "contact",
       content: message.text,
       attachments: message.attachments,
-      external_message_id: message.providerMessageId ?? null,
+      external_message_id: inboundMessageKey(message),
       status: "received",
     })
     .select("id")
@@ -183,10 +211,42 @@ async function insertMessage(db: TenantDb, conversationId: string, message: Norm
   return inserted.data.id;
 }
 
-export function registerIngest({ db, logger, enqueueDeliveries }: IngestOptions) {
+async function recordFailure(db: TenantDb, inboundEventId: string, attempt: number, code: string): Promise<void> {
+  const { error } = await db
+    .from("inbound_events")
+    .update({ status: "failed", attempts: attempt, error_code: code.slice(0, 100) })
+    .eq("id", inboundEventId)
+    .in("status", ["received", "failed"]);
+  if (error) throw new Error(`no se pudo apuntar el intento fallido (${error.code})`);
+}
+
+export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, backoffMs }: IngestOptions) {
   const log = logger.child({ component: "ingress" });
 
   async function ingest(input: IngestInput): Promise<IngestResult> {
+    const tenant = db.forOrganization(input.organizationId);
+    const outcome = await runAttempts(
+      async (attempt) => {
+        if (beforeAttempt) await DBOS.runStep(() => beforeAttempt(input, attempt), { name: `attempt-${attempt}:test` });
+        return processOnce(input);
+      },
+      {
+        recordFailure: (attempt, code) =>
+          DBOS.runStep(() => recordFailure(tenant, input.inboundEventId, attempt, code), { name: `attempt-${attempt}:failed`, ...DB_STEP }),
+        sleep: (ms) => DBOS.sleep(ms),
+      },
+      undefined,
+      backoffMs,
+    );
+    if (outcome.ok) return outcome.value;
+    log.error(
+      { organizationId: input.organizationId, inboundEventId: input.inboundEventId, attempts: outcome.attempts, error: outcome.lastError, reason: DEAD_LETTER },
+      "evento de entrada sin procesar tras agotar los intentos",
+    );
+    return { outcome: "dead_letter", attempts: outcome.attempts, lastError: outcome.lastError };
+  }
+
+  async function processOnce(input: IngestInput): Promise<IngestResult> {
     const tenant = db.forOrganization(input.organizationId);
     const fields = { organizationId: input.organizationId, inboundEventId: input.inboundEventId };
     const loaded = await DBOS.runStep(() => load(tenant, input.inboundEventId), { name: "load", ...DB_STEP });
@@ -244,20 +304,48 @@ export function registerIngest({ db, logger, enqueueDeliveries }: IngestOptions)
   }
 
   const workflow = DBOS.registerWorkflow(ingest, { name: INGEST_WORKFLOW });
+
+  // Lo que DBOS dejó en ERROR (no se pudo apuntar un intento) se reanuda donde
+  // iba; lo cancelado o lo que tiró el proceso demasiadas veces se cuenta en el
+  // log y se queda para una persona. Solo mira el esquema de DBOS, nunca datos
+  // de las organizaciones: la organización ya va en la entrada del workflow,
+  // que se guardó al arrancarlo.
+  async function sweep(): Promise<void> {
+    const since = new Date(Date.now() - SWEEP_WINDOW_MS).toISOString();
+    const list = (status: readonly WorkflowStatusString[]) =>
+      DBOS.listWorkflows({ workflowName: INGEST_WORKFLOW, status: [...status], startTime: since, limit: 100, loadInput: false, loadOutput: false });
+    const stuck = await DBOS.runStep(async () => (await list(RESUMABLE_STATUSES)).map((status) => status.workflowID), { name: "stuck", ...DB_STEP });
+    for (const workflowID of stuck) {
+      await DBOS.runStep(() => DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE }).then(() => undefined), { name: `resume:${workflowID}` });
+    }
+    if (stuck.length > 0) log.warn({ resumed: stuck.length }, "eventos de entrada parados, reanudados");
+    const parked = await DBOS.runStep(async () => (await list(PARKED_STATUSES)).length, { name: "parked", ...DB_STEP });
+    if (parked > 0) log.error({ parked, reason: DEAD_LETTER }, "eventos de entrada parados que no se reanudan solos: hay que mirarlos");
+  }
+  const sweepWorkflow = DBOS.registerWorkflow(sweep, { name: SWEEP_WORKFLOW });
+
   return {
     workflow,
-    /** Arranca (o devuelve, si ya existe) el workflow de un evento de entrada. */
+    sweep: sweepWorkflow,
+    /**
+     * Arranca el workflow de un evento de entrada. Si ya existe y sigue vivo,
+     * terminó o está apartado para una persona, no hace nada (el mismo id); si
+     * quedó en ERROR, lo reanuda.
+     */
     async start(input: IngestInput): Promise<void> {
-      await DBOS.startWorkflow(workflow, {
-        workflowID: ingestWorkflowId(input.inboundEventId),
-        queueName: INGEST_QUEUE,
-        workflowIDReusePolicy: "return-existing",
-      })(input);
+      const workflowID = ingestWorkflowId(input.inboundEventId);
+      const status = await DBOS.getWorkflowStatus(workflowID);
+      if (status && (RESUMABLE_STATUSES as readonly string[]).includes(status.status)) {
+        await DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE });
+        return;
+      }
+      await DBOS.startWorkflow(workflow, { workflowID, queueName: INGEST_QUEUE, workflowIDReusePolicy: "return-existing" })(input);
     },
   };
 }
 
-/** La cola de la entrada vive en la base de datos: después de DBOS.launch(). */
-export async function startIngestQueue(): Promise<void> {
+/** La cola y el barrido de la entrada viven en la base de datos: después de DBOS.launch(). */
+export async function startIngestQueue(sweep: () => Promise<void>): Promise<void> {
   await DBOS.registerQueue(INGEST_QUEUE, { workerConcurrency: 4 });
+  await DBOS.applySchedules([{ scheduleName: SWEEP_SCHEDULE_NAME, workflowFn: sweep, schedule: SWEEP_SCHEDULE }]);
 }

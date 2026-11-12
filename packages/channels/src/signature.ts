@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 // Firmas de los webhooks (ADR 0052 §2): HMAC-SHA256 del cuerpo exacto, con el
 // secreto de la plataforma para ese canal (variables del worker, nunca en los
@@ -24,4 +24,25 @@ export function verifyHmacSha256(secret: string, rawBody: string, signatureHex: 
 export function verifyMetaSignature(appSecret: string, rawBody: string, header: string | undefined): boolean {
   if (!header?.startsWith("sha256=")) return false;
   return verifyHmacSha256(appSecret, rawBody, header.slice("sha256=".length));
+}
+
+/** Si dos secretos son iguales, en tiempo constante y sin dejar ver la longitud (compara sus SHA-256). */
+export function secretEquals(expected: string, given: string | null | undefined): boolean {
+  if (!expected || typeof given !== "string") return false;
+  const a = createHash("sha256").update(expected, "utf8").digest();
+  const b = createHash("sha256").update(given, "utf8").digest();
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * La verificación del webhook de Meta (GET con hub.mode=subscribe,
+ * hub.verify_token y hub.challenge): si el token es el nuestro, el challenge
+ * que hay que devolver tal cual; si no, null. El token se compara en tiempo
+ * constante y el challenge solo se devuelve si es corto y sin caracteres raros.
+ */
+export function metaHandshake(verifyToken: string, query: URLSearchParams): string | null {
+  if (query.get("hub.mode") !== "subscribe") return null;
+  if (!secretEquals(verifyToken, query.get("hub.verify_token"))) return null;
+  const challenge = query.get("hub.challenge");
+  return challenge && /^[\w.-]{1,128}$/.test(challenge) ? challenge : null;
 }

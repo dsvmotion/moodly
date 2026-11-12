@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
 import { ingestWorkflowId } from "./ingest.ts";
+import { MAX_INBOUND_PAYLOAD_BYTES } from "./receive.ts";
 
 // La entrada de canales de punta a punta (ADR 0052 §2, O-01): un webhook firmado
 // llega al worker de verdad (HTTP, DBOS y Supabase local) y se convierte en un
@@ -71,8 +72,16 @@ async function post(body: { messages: { accountExternalId: string }[] }, signWit
 }
 
 async function eventsOf(providerEventId: string) {
-  const { rows } = await admin.query<{ id: string; status: string; organization_id: string; conversation_id: string | null; message_id: string | null }>(
-    "select id, status, organization_id, conversation_id, message_id from public.inbound_events where provider_event_id = $1",
+  const { rows } = await admin.query<{
+    id: string;
+    status: string;
+    organization_id: string;
+    conversation_id: string | null;
+    message_id: string | null;
+    attempts: number;
+    error_code: string | null;
+  }>(
+    "select id, status, organization_id, conversation_id, message_id, attempts, error_code from public.inbound_events where provider_event_id = $1",
     [providerEventId],
   );
   return rows;
@@ -127,14 +136,14 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
-      INGRESS_PORT: String(port),
+      PORT: String(port),
       INGRESS_TEST_SECRET: secret,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
   child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
-  await waitFor(async () => output.includes("entrada de canales abierta"), "la entrada de canales se abre", 60_000);
+  await waitFor(async () => output.includes("entrada de canales abierta") && output.includes("worker arrancado"), "la entrada de canales se abre", 60_000);
 }, 90_000);
 
 afterAll(async () => {
@@ -151,6 +160,12 @@ afterAll(async () => {
 });
 
 describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
+  it("comparte el puerto con /health, que sigue respondiendo solo {status}", async () => {
+    const response = await fetch(`${base}/health`);
+    expect(Object.keys((await response.json()) as object)).toEqual(["status"]);
+    expect((await fetch(`${base}/channels/whatsapp/webhook`, { method: "POST", body: "{}" })).status).toBe(404);
+  });
+
   it("un webhook firmado se convierte en un mensaje del cliente en una conversación nueva, de la organización de la cuenta", async () => {
     const message = inbound();
     await expect(post({ messages: [message] })).resolves.toEqual({ status: 200, body: { accepted: 1, duplicates: 0, ignored: 0 } });
@@ -231,4 +246,63 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(await eventsOf(disabled.providerEventId)).toEqual([]);
     expect(await eventsOf(unknown.providerEventId)).toEqual([]);
   });
+
+  it("un fallo pasajero se reintenta dentro del workflow: a la tercera, procesado, con sus intentos apuntados", async () => {
+    const message = inbound({ providerEventId: `fail-twice-${randomUUID()}` });
+    await expect(post({ messages: [message] })).resolves.toEqual({ status: 200, body: { accepted: 1, duplicates: 0, ignored: 0 } });
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "se procesa al tercer intento");
+    const [event] = await eventsOf(message.providerEventId);
+    expect(event).toMatchObject({ attempts: 2, error_code: null });
+    expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
+    expect(await workflowStatus(ingestWorkflowId(event?.id ?? ""))).toBe("SUCCESS");
+  });
+
+  it("si falla siempre, se para en el tope: failed con dead_letter, sin mensaje, y un reintento del proveedor no lo relanza", async () => {
+    const message = inbound({ providerEventId: `fail-always-${randomUUID()}` });
+    await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.error_code === "dead_letter", "acaba en dead_letter");
+    const [event] = await eventsOf(message.providerEventId);
+    expect(event).toMatchObject({ status: "failed", attempts: 5, message_id: null });
+    expect(await messagesFrom(message.providerMessageId)).toEqual([]);
+    await waitFor(async () => (await workflowStatus(ingestWorkflowId(event?.id ?? ""))) === "SUCCESS", "el workflow termina (con dead_letter)");
+    await expect(post({ messages: [message] })).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 1, ignored: 0 } });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect((await eventsOf(message.providerEventId))[0]).toMatchObject({ status: "failed", attempts: 5, error_code: "dead_letter" });
+  });
+
+  it("sin id del mensaje en el proveedor, la clave sale del evento: un reintento no duplica el mensaje", async () => {
+    const withoutId: Partial<ReturnType<typeof inbound>> & { providerEventId: string; accountExternalId: string } = inbound();
+    delete withoutId.providerMessageId;
+    await expect(post({ messages: [withoutId] })).resolves.toMatchObject({ status: 200 });
+    await waitFor(async () => (await eventsOf(withoutId.providerEventId))[0]?.status === "processed", "se procesa sin id del mensaje");
+    const key = `evt:${withoutId.providerEventId}`;
+    expect(await messagesFrom(key)).toHaveLength(1);
+    await expect(post({ messages: [withoutId] })).resolves.toMatchObject({ status: 200, body: { duplicates: 1 } });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(await messagesFrom(key)).toHaveLength(1);
+  });
+
+  it("un mensaje que no cabe en inbound_events se ignora con 200, y el resto del lote se guarda", async () => {
+    const control = "\u0001".repeat(1024);
+    const huge = inbound({
+      text: control.repeat(9),
+      attachments: Array.from({ length: 10 }, (_, index) => ({ kind: "image", providerRef: `ref-${index}`, caption: control })),
+    });
+    expect(Buffer.byteLength(JSON.stringify(huge), "utf8")).toBeGreaterThan(MAX_INBOUND_PAYLOAD_BYTES);
+    const small = inbound();
+    await expect(post({ messages: [huge, small] })).resolves.toEqual({ status: 200, body: { accepted: 1, duplicates: 0, ignored: 1 } });
+    expect(await eventsOf(huge.providerEventId)).toEqual([]);
+    await waitFor(async () => (await eventsOf(small.providerEventId))[0]?.status === "processed", "el pequeño se procesa");
+  });
+
+  it("el barrido reanuda un workflow que quedó en ERROR, desde donde iba: no duplica nada", async () => {
+    const [event] = await eventsOf(ids.firstEvent ?? "");
+    const workflowId = ingestWorkflowId(event?.id ?? "");
+    expect(await workflowStatus(workflowId)).toBe("SUCCESS");
+    await admin.query("update dbos.workflow_status set status = 'ERROR' where workflow_uuid = $1", [workflowId]);
+    // El barrido corre cada minuto (a los 23 s).
+    await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el barrido lo reanuda", 75_000);
+    expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
+    expect(output).toContain("eventos de entrada parados, reanudados");
+  }, 90_000);
 });

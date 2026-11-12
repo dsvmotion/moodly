@@ -2,7 +2,7 @@ import { ChannelSendError } from "./adapter.js";
 import type { ChannelAdapter, ChannelCapabilities, ParsedWebhook, RawWebhook, SendResult, VerifiedSender } from "./adapter.js";
 import type { Channel, NormalizedOutbound } from "./message.js";
 import { normalizedInboundSchema } from "./message.js";
-import { hmacSha256Hex, verifyHmacSha256 } from "./signature.js";
+import { hmacSha256Hex, metaHandshake, verifyHmacSha256 } from "./signature.js";
 
 // Un adaptador de prueba: firma HMAC-SHA256 en una cabecera (como los de
 // verdad, en tiempo constante), cuerpo JSON ya normalizado. Con scope
@@ -23,6 +23,8 @@ export function createFakeAdapter(options: {
   channel?: Channel;
   secret: string;
   scope?: "platform" | "account";
+  /** Con él, el adaptador contesta la comprobación del alta como Meta (hub.challenge). */
+  verifyToken?: string;
   capabilities?: Partial<ChannelCapabilities>;
 }): FakeAdapter {
   const sent: NormalizedOutbound[] = [];
@@ -51,6 +53,9 @@ export function createFakeAdapter(options: {
       }
       return Promise.resolve(verifyHmacSha256(options.secret, webhook.rawBody, signature) ? { scope: "platform" } : null);
     },
+    ...(options.verifyToken === undefined
+      ? {}
+      : { handshake: (query: URLSearchParams) => metaHandshake(options.verifyToken ?? "", query) }),
     parse(webhook: RawWebhook): ParsedWebhook {
       const body = JSON.parse(webhook.rawBody) as { messages?: unknown[]; statuses?: ParsedWebhook["statuses"] };
       return {

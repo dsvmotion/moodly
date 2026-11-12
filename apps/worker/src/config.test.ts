@@ -22,7 +22,6 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
-      ingressPort: null,
       resendApiKey: null,
       webAppUrl: null,
       intentRouting: false,
@@ -30,11 +29,10 @@ describe("loadConfig", () => {
     });
   });
 
-  it("el puerto de la entrada de canales es opcional, y solo un puerto válido", () => {
-    expect(loadConfig({ ...valid, INGRESS_PORT: "8080" }).ingressPort).toBe(8080);
-    for (const bad of ["0", "80a", "70000", "-1", "8080 ", ""]) {
-      expect(() => loadConfig({ ...valid, INGRESS_PORT: bad }), bad).toThrow(/INGRESS_PORT/);
-    }
+  it("la entrada de canales no tiene puerto propio: va en el de salud (PORT), y INGRESS_PORT ya no se lee", () => {
+    const config = loadConfig({ ...valid, INGRESS_PORT: "9999", PORT: "3001" });
+    expect(config).not.toHaveProperty("ingressPort");
+    expect(config.healthPort).toBe(3001);
   });
 
   it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {

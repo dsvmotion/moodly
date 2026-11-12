@@ -566,13 +566,13 @@ isOneToOne: false
                   ]
                 },"inbound_events": {
                   Row: {
-                    "channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
+                    "attempts": number,"channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
                   }
                   Insert: {
-                    "channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
+                    "attempts"?: number,"channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
                   }
                   Update: {
-                    "channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
+                    "attempts"?: number,"channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
                   }
                   Relationships: [
                     {

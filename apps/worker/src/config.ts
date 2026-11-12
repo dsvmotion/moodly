@@ -25,11 +25,6 @@ export interface WorkerConfig {
    */
   aiGatewayApiKey: string | null;
   /**
-   * El puerto de la entrada de canales (ADR 0052 §2). Sin él, o sin ningún
-   * canal configurado, el worker no abre ningún puerto.
-   */
-  ingressPort: number | null;
-  /**
    * La clave de Resend para los emails de aviso (M-02). Opcional: sin ella no
    * se envía ningún aviso (se registra y se sigue). Nunca va a los logs.
    */
@@ -105,11 +100,6 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
-  INGRESS_PORT: z
-    .string()
-    .regex(/^[1-9][0-9]{1,4}$/, "INGRESS_PORT: un puerto de 10 a 65535")
-    .refine((value) => Number(value) <= 65535, "INGRESS_PORT: un puerto de 10 a 65535")
-    .optional(),
   // Las claves de Resend empiezan por re_. Vacía cuenta como ausente.
   RESEND_API_KEY: z
     .string()
@@ -155,7 +145,6 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
-    ingressPort: parsed.data.INGRESS_PORT ? Number(parsed.data.INGRESS_PORT) : null,
     resendApiKey: parsed.data.RESEND_API_KEY || null,
     webAppUrl: parsed.data.WEB_APP_URL || null,
     // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).

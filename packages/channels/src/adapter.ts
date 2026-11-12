@@ -67,6 +67,12 @@ export interface ChannelAdapter {
    * chat web: solo valen los mensajes de esa cuenta).
    */
   verify(webhook: RawWebhook): Promise<VerifiedSender | null>;
+  /**
+   * La comprobación del webhook que hacen algunos proveedores al darlo de alta
+   * (p. ej. el GET de Meta con hub.challenge): la respuesta en texto si la
+   * petición es buena, null si no. Los canales sin ella no la definen.
+   */
+  handshake?(query: URLSearchParams): string | null;
   /** Traduce un webhook ya verificado. Lo que no entiende lo ignora; nunca inventa un tenant. */
   parse(webhook: RawWebhook): ParsedWebhook;
   /** Envía un mensaje ya validado. Idempotente con message.idempotencyKey cuando el proveedor lo permite. */

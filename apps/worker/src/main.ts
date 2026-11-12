@@ -69,6 +69,8 @@ const worker = createWorker(config, logger, {
 const health = createHealthServer({
   probe: worker.probe,
   logger,
+  // La entrada de canales comparte el puerto (Railway publica uno): 404 mientras no haya ningún canal.
+  channels: worker.channels,
 });
 health.on("error", (err) => logger.error({ err }, "el endpoint de salud no pudo escuchar"));
 health.listen(config.healthPort, () => logger.info({ port: config.healthPort }, "endpoint de salud escuchando"));

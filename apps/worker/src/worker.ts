@@ -1,4 +1,4 @@
-import type { Server } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { DBOS, type DLogger } from "@dbos-inc/dbos-sdk";
 import type { ChannelAdapter } from "@repo/channels";
 import { createServiceDb, type ServiceDb } from "@repo/db/service";
@@ -8,9 +8,9 @@ import type { WorkerConfig } from "./config.ts";
 import { createEventRegistry, type EventHandler } from "./events/handlers.ts";
 import type { WorkerProbe, WorkerPhase } from "./health.ts";
 import { registerOutboxWorkflows, startOutbox } from "./events/outbox.ts";
-import { registerIngest, startIngestQueue } from "./ingress/ingest.ts";
+import { registerIngest, startIngestQueue, type IngestOptions } from "./ingress/ingest.ts";
 import { receiveWebhook } from "./ingress/receive.ts";
-import { createIngressServer } from "./ingress/server.ts";
+import { createIngressHandler, type RequestHandler } from "./ingress/server.ts";
 import { acquireExecutorLease, type ExecutorLease } from "./lease.ts";
 import { redactConnectionStrings } from "./logger.ts";
 import { registerSmokeQueue, registerSmokeWorkflow } from "./smoke.ts";
@@ -29,6 +29,12 @@ export interface Worker {
   stop(): Promise<void>;
   /** Lo que mira el endpoint de salud (health.ts). */
   probe: WorkerProbe;
+  /**
+   * La entrada de canales (/channels/…), que se monta en el servidor de salud
+   * (el único puerto público del servicio). 503 hasta que el worker está en
+   * marcha (el proveedor reintenta) y 404 si no hay ningún canal.
+   */
+  channels: RequestHandler;
 }
 
 export interface WorkerOptions {
@@ -52,6 +58,8 @@ export interface WorkerOptions {
    * ninguno, o sin INGRESS_PORT, no se abre ningún puerto.
    */
   channelAdapters?: readonly ChannelAdapter[];
+  /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
+  ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "backoffMs">;
 }
 
 /** Lo que el worker comparte con los consumidores que registran workflows propios. */
@@ -82,11 +90,23 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   const registry = createEventRegistry(handlers);
   let lease: ExecutorLease | undefined;
   let pool: pg.Pool | undefined;
-  let server: Server | undefined;
+  let ingress: RequestHandler | undefined;
   let launched = false;
   const adapters = new Map((options.channelAdapters ?? []).map((adapter) => [adapter.channel as string, adapter]));
   let phase: WorkerPhase = "waiting-lease";
+  function channels(request: IncomingMessage, response: ServerResponse): void {
+    if (adapters.size === 0) {
+      response.writeHead(404, { "content-type": "application/json" }).end("{}");
+      return;
+    }
+    if (phase !== "running" || !ingress) {
+      response.writeHead(503, { "content-type": "application/json", "retry-after": "5" }).end("{}");
+      return;
+    }
+    ingress(request, response);
+  }
   return {
+    channels,
     probe: {
       phase: () => phase,
       async pingDatabase() {
@@ -106,7 +126,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       phase = "launching";
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
-      const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries });
+      const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries, ...options.ingestTesting });
       // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
       // (system-db-pool.ts). La URL se le sigue pasando: DBOS la usa (sin
       // contraseña) en su log de arranque y en sus mensajes de error.
@@ -141,18 +161,14 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
       await startOutbox(outbox);
-      await startIngestQueue();
-      if (config.ingressPort !== null && adapters.size > 0) {
-        const port = config.ingressPort;
-        server = createIngressServer(
+      await startIngestQueue(ingest.sweep);
+      if (adapters.size > 0) {
+        ingress = createIngressHandler(
           (channel, webhook) => receiveWebhook(channel, webhook, { db, adapters, startIngest: ingest.start, logger }),
           logger,
+          (channel, query) => adapters.get(channel)?.handshake?.(query) ?? null,
         );
-        await new Promise<void>((resolve, reject) => {
-          server?.once("error", reject);
-          server?.listen(port, () => resolve());
-        });
-        logger.info({ port, channels: [...adapters.keys()] }, "entrada de canales abierta");
+        logger.info({ channels: [...adapters.keys()] }, "entrada de canales abierta");
       }
       phase = "running";
       logger.info(
@@ -168,8 +184,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       phase = "stopping";
       // DBOS primero: el lock se suelta cuando ya no queda nada en marcha. Su
       // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
-      // La entrada primero: lo que ya llegó termina de guardarse; lo nuevo, el proveedor lo reintenta.
-      if (server) await new Promise<void>((resolve) => server?.close(() => resolve()));
+      // Desde aquí, la entrada responde 503 (phase «stopping»): lo nuevo, el proveedor lo reintenta.
       if (launched) await DBOS.shutdown();
       await pool?.end();
       await lease?.release();
