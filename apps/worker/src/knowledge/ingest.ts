@@ -3,9 +3,10 @@ import { policyAllows, policyFromSettings } from "@repo/agent-core";
 import type { RouteOrigin } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
 import { assertEmbedding, chunkText, spentBefore } from "@repo/knowledge";
-import type { EmbedResult, Embedder, EmbeddingUsage } from "@repo/knowledge";
+import type { EmbedResult, Embedder } from "@repo/knowledge";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { checkBudgetSafely } from "../usage/budget-check.ts";
+import { EMBEDDING_CALL_INDEX, recordEmbeddingUsage } from "../usage/embedding-usage.ts";
 
 // La ingesta de las fuentes de conocimiento de texto (paso B20-1, MANUAL §6.1,
 // ADR 0037 y ADR 0048).
@@ -33,12 +34,8 @@ import { checkBudgetSafely } from "../usage/budget-check.ts";
 
 export const INGEST_HANDLER_KEY = "knowledge.ingest";
 
-/**
- * El orden de las llamadas de embeddings en el libro de consumo (PL-ledger),
- * lejos de los pasos de un turno (0, 1, …), del resumen (1000) y de la
- * clasificación (2000). La ingesta no tiene run: solo dice qué fila es.
- */
-export const EMBEDDING_CALL_INDEX = 3000;
+// El orden de su llamada en el libro (3000), con las de las consultas, en usage/embedding-usage.ts.
+export { EMBEDDING_CALL_INDEX } from "../usage/embedding-usage.ts";
 
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
   if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
@@ -88,35 +85,6 @@ async function finishProcessing(db: TenantDb, sourceId: string, status: "ready" 
   if (error) throw new Error(`no se pudo marcar la fuente (${error.code})`);
 }
 
-/** Una llamada de embeddings en el libro de consumo. Devuelve el error (el código), sin lanzar. */
-async function recordEmbeddingUsage(
-  db: TenantDb,
-  locationId: string | null,
-  embedder: Embedder,
-  route: RouteOrigin,
-  usage: EmbeddingUsage,
-): Promise<string | null> {
-  try {
-    const { error } = await db.from("usage_records").insert({
-      location_id: locationId,
-      source: "embedding",
-      metric: "embedding_tokens",
-      quantity: usage.tokens,
-      tokens_in: usage.tokens,
-      tokens_out: 0,
-      cost_eur: usage.costEur,
-      provider: route.provider,
-      via: "gateway",
-      region: route.region,
-      model: embedder.model,
-      call_index: EMBEDDING_CALL_INDEX,
-    });
-    return error ? `usage_records(${error.code})` : null;
-  } catch (error) {
-    return (error as Error).name;
-  }
-}
-
 /** Los vectores y, si el embedder los cuenta, los tokens y el coste. */
 async function embedAll(embedder: Embedder, texts: readonly string[]): Promise<EmbedResult | { vectors: number[][]; usage: null }> {
   if (embedder.embedWithUsage) return embedder.embedWithUsage(texts);
@@ -140,14 +108,14 @@ export async function ingestSource(db: TenantDb, sourceId: string, { embedder, r
   let ledgerError: string | null = null;
   try {
     const embedded = await embedAll(embedder, chunks);
-    if (embedded.usage) ledgerError = await recordEmbeddingUsage(db, source.location_id, embedder, route, embedded.usage);
+    if (embedded.usage) ledgerError = await recordEmbeddingUsage(db, embedder, route, { locationId: source.location_id, callIndex: EMBEDDING_CALL_INDEX }, embedded.usage);
     vectors = embedded.vectors;
     if (vectors.length !== chunks.length) throw new Error("no hay un embedding por trozo");
     for (const vector of vectors) assertEmbedding(vector, embedder.dim);
   } catch (error) {
     // Si la llamada falló después de lotes ya pagados, lo gastado va igual al libro.
     const spent = spentBefore(error);
-    if (spent) ledgerError = await recordEmbeddingUsage(db, source.location_id, embedder, route, spent);
+    if (spent) ledgerError = await recordEmbeddingUsage(db, embedder, route, { locationId: source.location_id, callIndex: EMBEDDING_CALL_INDEX }, spent);
     await finishProcessing(db, sourceId, "error");
     return { kind: "error", error: (error as Error).name, ...(ledgerError ? { ledgerError } : {}) };
   }

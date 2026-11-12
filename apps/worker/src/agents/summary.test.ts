@@ -112,6 +112,10 @@ describe("resumen continuo en el worker: fallos de la base de datos", () => {
         .filter((call) => call.table === "sql" && /conversation_summaries/.test(call.ops[0] ?? ""))
         .map((call) => /^\s*(\w+)/.exec(call.ops[0] ?? "")?.[1]),
     ).toEqual(["update", "insert"]);
+    // Un resumen que cubre hasta antes que el guardado no lo pisa (llega fuera de orden).
+    expect(db.calls.find((call) => call.table === "sql" && /^\s*update public\.conversation_summaries/.test(call.ops[0] ?? ""))?.ops[0]).toMatch(
+      /covered_until <= \$3/,
+    );
     expect(await bookSummaryUsage(db, "run-1", { tokensIn: 110, tokensOut: 22, costEur: 0.011 })).toBeNull();
   });
 });

@@ -116,15 +116,18 @@ export async function summarizeStep(params: RefreshParams): Promise<SummaryStep>
 export async function saveSummary(db: TenantDb, conversationId: string, step: Extract<SummaryStep, { kind: "updated" }>): Promise<string | null> {
   try {
     // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): poner al día la
-    // fila de la conversación o, si no hay, crearla, en una transacción.
+    // fila de la conversación o, si no hay, crearla, en una transacción. Solo la
+    // pisa un resumen que cubre hasta igual o más tarde: si dos turnos terminan
+    // fuera de orden, el resumen viejo no pisa al nuevo (revisión de V10).
     await db.transaction(async (sql) => {
       const updated = await sql.query(
         `update public.conversation_summaries set summary = $2, covered_until = $3, model = $4
-         where conversation_id = $1 returning conversation_id`,
+         where conversation_id = $1 and covered_until <= $3 returning conversation_id`,
         [conversationId, step.summary, step.coveredUntil, step.usage.model],
       );
       if (updated.length > 0) return;
-      // on conflict: otro turno la creó entre medias; se queda la suya, el siguiente la pone al día.
+      // Sin fila pisada: no la había, o la que hay cubre hasta más tarde (on conflict: se queda esa).
+      // on conflict: ya la había (más nueva, u otro turno la creó entre medias); se queda la suya.
       await sql.query(
         `insert into public.conversation_summaries (conversation_id, organization_id, summary, covered_until, model)
          values ($1, $5, $2, $3, $4) on conflict do nothing`,

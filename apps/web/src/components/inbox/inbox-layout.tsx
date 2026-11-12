@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { cn } from "@repo/ui/lib/utils";
-import { InboxRefresh } from "./inbox-refresh";
+import { getScopeContext } from "@/lib/scope-data";
+import { InboxLive } from "./inbox-live";
 
 /**
  * La bandeja en dos columnas (P2 + P3): la lista a la izquierda y la
@@ -9,7 +10,7 @@ import { InboxRefresh } from "./inbox-refresh";
  * vez: la lista, o la conversación con un enlace para volver.
  */
 export async function InboxLayout({ list, detail, hasSelection }: { list: ReactNode; detail: ReactNode; hasSelection: boolean }) {
-  const t = await getTranslations("inboxPage");
+  const [t, { organization }] = await Promise.all([getTranslations("inboxPage"), getScopeContext()]);
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4">
       {/* Con una conversación abierta en el móvil, el título sigue ahí para los lectores de pantalla. */}
@@ -21,7 +22,8 @@ export async function InboxLayout({ list, detail, hasSelection }: { list: ReactN
         <div className={cn(hasSelection && "hidden lg:block")}>{list}</div>
         <div className={cn(!hasSelection && "hidden lg:block")}>{detail}</div>
       </div>
-      <InboxRefresh />
+      {/* En vivo (M-10, ADR 0054); con otra organización activa, otra conexión. */}
+      <InboxLive key={organization?.id ?? "none"} />
     </div>
   );
 }

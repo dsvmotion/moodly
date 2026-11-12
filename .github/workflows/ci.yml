@@ -142,10 +142,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Solo lo que usa la app: Postgres, Auth (gotrue), PostgREST y Kong.
+      # Solo lo que usa la app: Postgres, Auth (gotrue), PostgREST, Kong y
+      # Realtime (la bandeja en vivo, M-10 y ADR 0054).
       - name: Supabase local (mínimo)
         working-directory: packages/db
-        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        run: supabase start -x storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       # Diagnóstico del e2e intermitente (P-04; run 43121121515, 2026-11-11):
       # Auth no contestó a tiempo durante ~70 s y en local no se reproduce. Desde
