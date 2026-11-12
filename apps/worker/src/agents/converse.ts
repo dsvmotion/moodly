@@ -40,6 +40,7 @@ import { createConversationSender, isNotAgentMode } from "./conversation-sender.
 import { createReceptionCatalog } from "./reception-catalog.ts";
 import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
 import { checkBudgetSafely } from "../usage/budget-check.ts";
+import { meteredSearchEmbedder, type SearchUsageContext } from "../usage/embedding-usage.ts";
 import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
@@ -310,11 +311,16 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
  * organización. search_knowledge solo con un embedder (que la política de la
  * organización deje usar): sin él no existe y no se ofrece.
  */
-export function codeSkills(db: TenantDb, options: { embedder?: Embedder | null } = {}): Map<string, SkillDefinition<unknown>> {
+export function codeSkills(
+  db: TenantDb,
+  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext } = {},
+): Map<string, SkillDefinition<unknown>> {
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
-  const knowledge = options.embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, options.embedder) })] : [];
+  // En un turno, cada consulta va al libro de consumo con su run (PL-ledger).
+  const embedder = options.embedder && options.searchUsage ? meteredSearchEmbedder(db, options.embedder, options.searchUsage) : options.embedder;
+  const knowledge = embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, embedder) })] : [];
   const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
 }
@@ -672,7 +678,14 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       // La consulta sale hacia el proveedor de embeddings: solo si la política de la organización deja usar esa vía (ADR 0048).
       const knowledgeAllowed = knowledge !== undefined && policyAllows(policy, knowledge.route);
       if (knowledge && !knowledgeAllowed) ctx.logger.info({ runId }, "la política de modelos de la organización no deja buscar en el conocimiento");
-      const { skills, settings } = agentSkills(codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null }), context.skills, ctx.logger);
+      const searchUsage = knowledgeAllowed
+        ? { route: knowledge.route, runId, agentId: conversation.agent_id, locationId: conversation.location_id, logger: ctx.logger }
+        : undefined;
+      const { skills, settings } = agentSkills(
+        codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null, ...(searchUsage ? { searchUsage } : {}) }),
+        context.skills,
+        ctx.logger,
+      );
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
       let heldAny = false;
       const prompt = composeSystemPromptParts({
