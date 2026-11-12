@@ -1,4 +1,4 @@
--- Los intentos de un evento de entrada (20261112080000): empiezan en 0, solo
+-- Los intentos de un evento de entrada (20261112180000): empiezan en 0, solo
 -- crecen, tienen techo, y los cambia el worker, nadie de la app.
 begin;
 \ir _fixtures/tenants.psql

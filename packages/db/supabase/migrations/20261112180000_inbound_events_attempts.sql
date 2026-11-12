@@ -6,7 +6,7 @@
 --   crece (guard_inbound_event_attempts, para cualquier rol) y empieza en 0.
 -- - Sin funciones security definer.
 --
--- Vuelta atrás: rollbacks/20261112080000_inbound_events_attempts.down.sql.
+-- Vuelta atrás: rollbacks/20261112180000_inbound_events_attempts.down.sql.
 
 alter table public.inbound_events
   add column attempts smallint not null default 0 check (attempts between 0 and 20);

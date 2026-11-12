@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261112080000_inbound_events_attempts.sql: fuera el contador
+-- Vuelta atrás de 20261112180000_inbound_events_attempts.sql: fuera el contador
 -- de intentos de los eventos de entrada, su guarda y su permiso de columna.
 -- El worker de esa versión escribe attempts: se vuelve atrás junto con él.
 
