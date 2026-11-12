@@ -17,8 +17,8 @@
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
 //   filtro. Las excepciones son searchKnowledge, findBookingSlots,
-//   agentTurnContext y approvalNotification: funciones con nombre a las que
-//   tenantDb les pasa la organización.
+//   agentTurnContext, approvalNotification y usageSpend: funciones con nombre
+//   a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 import { WorkerSqlError, type TenantSql, type WorkerSql } from "./worker-sql.ts";
@@ -173,6 +173,25 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
   }
 
   /**
+   * Lo gastado desde el comienzo del día y desde el del mes (usage_spend,
+   * PL-ledger), sumado en la base de datos: lo que el enrutador compara con los
+   * topes antes de llamar. Con la organización de este acceso.
+   */
+  async function usageSpend(params: UsageSpendParams): Promise<UsageSpend> {
+    if (!(params.dayStart instanceof Date) || Number.isNaN(params.dayStart.getTime()) || Number.isNaN(params.monthStart.getTime())) {
+      throw new TenantScopeError("tenantDb: dayStart y monthStart tienen que ser fechas");
+    }
+    const { data, error } = await untyped.rpc("usage_spend", {
+      p_organization_id: organizationId,
+      p_day_start: params.dayStart.toISOString(),
+      p_month_start: params.monthStart.toISOString(),
+    });
+    if (error) throw new Error(`usage_spend: ${error.message}`);
+    const row = (data ?? {}) as { day_eur?: number | string; month_eur?: number | string };
+    return { dayEur: Number(row.day_eur ?? 0), monthEur: Number(row.month_eur ?? 0) };
+  }
+
+  /**
    * Una transacción SQL bajo RLS con el rol moodly_worker y esta organización
    * fijada (ADR 0049, PL-T1). Lo que se lea o escriba dentro solo puede ser de
    * esta organización, aunque la consulta se equivoque de filtro. Solo existe si
@@ -183,7 +202,7 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return workerSql.inOrganization(organizationId, fn);
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, transaction };
+  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, transaction };
 }
 
 /** Tal como lo devuelve approval_notification; quien lo usa lo valida antes de fiarse. */
@@ -194,6 +213,16 @@ export interface ApprovalNotification {
   location: { name: string; timezone: string } | null;
   /** Quien puede decidirla: de la base de datos, nunca del evento ni del modelo. */
   recipients: { user_id: string; email: string; locale: string }[];
+}
+
+export interface UsageSpendParams {
+  dayStart: Date;
+  monthStart: Date;
+}
+
+export interface UsageSpend {
+  dayEur: number;
+  monthEur: number;
 }
 
 /** Tal como lo devuelve agent_turn_context; quien lo usa lo valida antes de fiarse. */

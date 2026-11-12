@@ -19,7 +19,7 @@ export const TYPES = {
 export const CATALOG = [
   {
     region: "Operado en la UE",
-    note: "Si fijas residencia «solo UE», el enrutador se queda aquí.",
+    note: "Residencia «solo UE»: en hoja de ruta.",
     providers: [
       {
         name: "Mistral AI", logo: "mistralai", models: [

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createWorkerModels } from "./model-router.ts";
 
 const call = { organizationId: "org-1", runId: "run-1", task: "converse" as const, messages: [{ role: "user" as const, content: "hola" }], maxOutputTokens: 100 };
-const spend = { runEur: 0, dayEur: 0 };
+const spend = { runEur: 0, dayEur: 0, monthEur: 0 };
 
 describe("vías de modelo del worker", () => {
   it("con la clave del gateway, el enrutador usa el gateway con esa clave", async () => {

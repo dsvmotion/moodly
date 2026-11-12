@@ -22,6 +22,8 @@ export {
   type TenantInsert,
   type TenantTable,
   type TenantUpdate,
+  type UsageSpend,
+  type UsageSpendParams,
 } from "./tenant-db.ts";
 
 export interface ServiceDb {

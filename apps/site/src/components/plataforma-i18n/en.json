@@ -1663,7 +1663,6 @@
 "Sesiones abiertas": "Open sessions",
 "Si": "If",
 "Si activas un proveedor o una región nueva (p. ej. BYOC o «solo EE. UU.»), la lista y el DPA se actualizan y puede requerirse volver a aceptar.": "If you enable a new provider or region (e.g. BYOC or «US only»), the list and the DPA are updated and you may need to accept again.",
-"Si fijas residencia «solo UE», el enrutador se queda aquí.": "If you set «EU only» residency, the router stays here.",
 "Si la aceptáis, decirlo en la web y en el agente podría traer nuevos pacientes.": "If you accept it, saying so on the website and in the agent could bring new patients.",
 "Si me paso del consumo incluido…": "If I go over the included usage…",
 "Si ningún modelo cumple la política →": "If no model meets the policy →",
@@ -2194,5 +2193,7 @@
 "✓ Verificación en dos pasos activada": "✓ Two-step verification enabled",
 "✦ Asistente de Moodly": "✦ Moodly assistant",
 "⬆ Subir audio (mp3, m4a, wav)": "⬆ Upload audio (mp3, m4a, wav)",
-"🔒 Bloqueado": "🔒 Locked"
+"🔒 Bloqueado": "🔒 Locked",
+"Residencia «solo UE»: en hoja de ruta.": "«EU only» residency: on the roadmap.",
+"En hoja de ruta": "On the roadmap"
 }
