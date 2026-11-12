@@ -66,8 +66,8 @@ async function status(sourceId: string): Promise<string> {
 
 /** Las filas de embeddings del libro de consumo (PL-ledger) de un local (o de toda la organización) desde un momento. */
 async function ledger(locationId: string | null, since: Date) {
-  const { rows } = await admin.query<{ source: string; metric: string; quantity: string; tokens_in: number; tokens_out: number; cost_eur: string; provider: string; via: string; region: string; model: string; run_id: string | null }>(
-    `select source, metric, quantity::text, tokens_in, tokens_out, cost_eur::text, provider, via, region, model, run_id
+  const { rows } = await admin.query<{ source: string; metric: string; quantity: string; tokens_in: number; tokens_out: number; cost_eur: string; provider: string; via: string; region: string; model: string; run_id: string | null; call_index: number | null }>(
+    `select source, metric, quantity::text, tokens_in, tokens_out, cost_eur::text, provider, via, region, model, run_id, call_index
        from public.usage_records
       where organization_id = $1 and location_id is not distinct from $2 and source = 'embedding' and model = 'fake-hash-16' and occurred_at >= $3
       order by occurred_at`,
@@ -206,6 +206,7 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
         region: "other",
         model: "fake-hash-16",
         run_id: null,
+        call_index: 3000,
       },
     ]);
 

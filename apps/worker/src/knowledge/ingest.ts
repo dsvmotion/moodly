@@ -32,6 +32,13 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 
 export const INGEST_HANDLER_KEY = "knowledge.ingest";
 
+/**
+ * El orden de las llamadas de embeddings en el libro de consumo (PL-ledger),
+ * lejos de los pasos de un turno (0, 1, …), del resumen (1000) y de la
+ * clasificación (2000). La ingesta no tiene run: solo dice qué fila es.
+ */
+export const EMBEDDING_CALL_INDEX = 3000;
+
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
   if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
   return result.data;
@@ -101,6 +108,7 @@ async function recordEmbeddingUsage(
       via: "gateway",
       region: route.region,
       model: embedder.model,
+      call_index: EMBEDDING_CALL_INDEX,
     });
     return error ? `usage_records(${error.code})` : null;
   } catch (error) {
