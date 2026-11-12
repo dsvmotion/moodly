@@ -37,7 +37,7 @@ export default function Detalle() {
       <style>{`@keyframes mo-spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion: reduce){.mo-spin{animation:none!important}}`}</style>
 
       <section style={{ ...card, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ width: "48px", height: "48px", borderRadius: "12px", background: "var(--canvas)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><img src={`/logos/${it.logo}`} alt="" width="28" height="28" /></span>
+        <span style={{ width: "48px", height: "48px", borderRadius: "12px", background: "var(--canvas)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: "18px", fontWeight: 500 }}>{it.logo ? <img src={`/logos/${it.logo}`} alt="" width="28" height="28" /> : it.name[0]}</span>
         <div style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: "2px" }}>
           <span style={{ fontSize: "16px", fontWeight: 500 }}>{it.use}</span>
           <span style={muted}>Lo usan: {it.agents} · {connected ? `Conectada el ${d.since} por ${d.by} · última sincronización ${phase === "done" ? "ahora mismo" : d.lastSync}` : "No conectada"}</span>

@@ -64,6 +64,23 @@ async function status(sourceId: string): Promise<string> {
   return rows[0]?.status ?? "missing";
 }
 
+/** Las filas de embeddings del libro de consumo (PL-ledger) de un local (o de toda la organización) desde un momento. */
+async function ledger(locationId: string | null, since: Date) {
+  const { rows } = await admin.query<{ source: string; metric: string; quantity: string; tokens_in: number; tokens_out: number; cost_eur: string; provider: string; via: string; region: string; model: string; run_id: string | null; call_index: number | null }>(
+    `select source, metric, quantity::text, tokens_in, tokens_out, cost_eur::text, provider, via, region, model, run_id, call_index
+       from public.usage_records
+      where organization_id = $1 and location_id is not distinct from $2 and source = 'embedding' and model = 'fake-hash-16' and occurred_at >= $3
+      order by occurred_at`,
+    [ids.org, locationId, since.toISOString()],
+  );
+  return rows;
+}
+
+/** Los tokens que cuenta el embedder falso del worker de prueba: una palabra, un token. */
+function fakeTokens(texts: readonly string[]): number {
+  return texts.reduce((sum, text) => sum + (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).length, 0);
+}
+
 async function chunks(sourceId: string) {
   const { rows } = await admin.query<{
     organization_id: string;
@@ -140,6 +157,8 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
   if (policySet) await admin.query("delete from public.org_model_settings where organization_id = $1", [ids.org]);
+  // El libro es solo de añadir para la plataforma; el superusuario de la prueba limpia lo suyo.
+  if (ids.org) await admin.query("delete from public.usage_records where organization_id = $1 and source = 'embedding' and model = 'fake-hash-16'", [ids.org]);
   if (ids.location) {
     await admin.query(
       "delete from public.domain_events where type = 'knowledge_source.pending' and payload->>'source_id' in (select id::text from public.knowledge_sources where title like $1)",
@@ -172,6 +191,26 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
     const [expected] = await embedder.embed([rows[0]?.content ?? ""]);
     const stored = JSON.parse(rows[0]?.embedding ?? "[]") as number[];
     stored.forEach((value, i) => expect(value).toBeCloseTo(expected?.[i] ?? Number.NaN, 5));
+
+    // Lo que costó, en el libro de consumo: una fila por llamada, del local de la fuente, sin run.
+    const tokens = fakeTokens(rows.map((row) => row.content));
+    // cost_eur como número: la precisión de la columna no forma parte de lo que se comprueba.
+    expect((await ledger(ids.location as string, new Date(0))).map((row) => ({ ...row, cost_eur: Number(row.cost_eur) }))).toEqual([
+      {
+        source: "embedding",
+        metric: "embedding_tokens",
+        quantity: String(tokens),
+        tokens_in: tokens,
+        tokens_out: 0,
+        cost_eur: Math.round(tokens * 0.02) / 1_000_000,
+        provider: "vercel-ai-gateway",
+        via: "gateway",
+        region: "other",
+        model: "fake-hash-16",
+        run_id: null,
+        call_index: 3000,
+      },
+    ]);
 
     const hits = await search("aparcamiento gratuito rampa azul");
     expect(hits[0]?.source_id).toBe(id);
@@ -240,10 +279,14 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
   });
 
   it("una fuente de toda la organización se indexa sin local, y una sin texto (de archivo) se queda en pending", async () => {
+    const since = new Date(Date.now() - 1000);
     const orgWide = await source("Política de cancelación", "Cancela con 24 horas de antelación sin coste.", { orgWide: true });
     const file = await source("Folleto", null, { storagePath: `${marker}/folleto.pdf` });
     await waitFor(async () => (await status(orgWide)) === "ready", "la de la organización queda ready");
     expect((await chunks(orgWide)).map((row) => row.location_id)).toEqual([null]);
+    // Su coste también va al libro, sin local.
+    const orgWideTokens = fakeTokens((await chunks(orgWide)).map((row) => row.content));
+    expect((await ledger(null, since)).map((row) => row.tokens_in)).toContain(orgWideTokens);
 
     await waitFor(async () => (await deliveries(file)).join() === "SUCCESS", "la entrega de la de archivo termina");
     expect([await status(file), await chunks(file)]).toEqual(["pending", []]);

@@ -7,7 +7,7 @@ import { PlatformLangSelect } from "@/components/plataforma-i18n";
 // Ajustes (móvil): los avisos son interruptores reales; «Sede activa» cambia la
 // sede de toda la plataforma (la misma que el selector de escritorio).
 // TODO(backend): preferencias de notificación por usuario + push (PWA).
-const NOTIFS = [["aprob", "Algo espera tu aprobación", true], ["urg", "Urgencias y quejas", true], ["integ", "Integración desconectada", true], ["semanal", "Resumen semanal", false]];
+const NOTIFS = [["aprob", "Algo espera tu aprobación", true], ["urg", "Quejas y asuntos urgentes", true], ["integ", "Integración desconectada", true], ["semanal", "Resumen semanal", false]];
 const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "12px 14px", color: "var(--ink)", textDecoration: "none", width: "100%", border: 0, background: "transparent", font: "inherit", cursor: "pointer", textAlign: "left", boxSizing: "border-box" };
 const card = { background: "var(--paper)", borderRadius: "12px", overflow: "hidden" };
 const label = { fontSize: "12px", color: "var(--muted-2)", padding: "8px 4px 0" };

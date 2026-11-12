@@ -20,24 +20,24 @@ const A = (t) => ({ t, user: false });
 
 export const VERTICALS = [
   {
-    id: "salud", name: "Clínicas y belleza", kw: "Agente de IA para clínicas, centros de estética y peluquerías", text: "Clínicas, estética, peluquerías, veterinaria.", color: "#a3c2a7", on: "#000000",
-    subsectors: ["Clínicas dentales", "Fisioterapia", "Estética y belleza", "Peluquerías", "Veterinaria", "Psicología"],
-    h1: "Tu centro atendido, aunque estés con un paciente",
-    sub: "Moodly contesta WhatsApp y llamadas, reserva y recuerda citas y prepara facturas. Tu equipo se ocupa de las personas.",
+    id: "belleza", name: "Belleza y estética", kw: "Agente de IA para centros de estética, peluquerías y barberías", text: "Estética, peluquerías, barberías, uñas.", color: "#a3c2a7", on: "#000000",
+    subsectors: ["Estética y belleza", "Peluquerías", "Barberías", "Uñas", "Pestañas y cejas"],
+    h1: "Tu centro atendido, aunque tengas las manos ocupadas",
+    sub: "Moodly contesta WhatsApp y reserva y recuerda citas. Tu equipo se ocupa de las personas.",
     chatHead: "WhatsApp · 22:47", chatMeta: "Fuera de horario",
-    chat: [U("Hola, me duele una muela desde ayer. ¿Mañana podéis verme?"), A("Siento que te duela, Marcos. Mañana tengo urgencias a las 9:15 o a las 12:40. ¿Cuál prefieres?"), U("9:15"), A("Reservado. Si el dolor empeora esta noche, llama al 112.")],
-    side: [["Agenda · mañana", "9:15 · Urgencia · Marcos R.", "Dra. Ruiz · reservada por Recepción"], ["Ficha del paciente", "Motivo: dolor de muela", "Sin datos clínicos: solo lo que dijo el paciente"], ["Aviso al equipo · 8:00", "Urgencia nueva para la Dra. Ruiz", "Por la app y WhatsApp"]],
-    pains: [calls, { n: "15 %", t: "de ausencia media en clínicas dentales, con rangos del 4 % al 30 %" }, { n: "−23 %", t: "de ausencias al pasar a recordatorios automáticos" }],
-    source: `Fuentes: ${SRC.calls}; benchmarks del sector dental recogidos por Arini; estudio de 1,6 M de citas en 64 clínicas publicado por Dental Tribune.`,
+    chat: [U("Hola, ¿tenéis hueco para corte y color el sábado?"), A("¡Hola, Marta! El sábado tengo a las 10:00 con Lucía o a las 12:30 con Andrea. ¿Cuál te viene mejor?"), U("10:00"), A("Reservado: sábado a las 10:00, corte y color con Lucía. Te lo recuerdo el viernes.")],
+    side: [["Agenda · sábado", "10:00 · Corte y color · Marta G.", "Lucía · reservada por Recepción"], ["Ficha de la clienta", "Servicio: corte y color", "Solo lo que dijo la clienta"], ["Aviso al equipo · 9:00", "Cita nueva para Lucía", "Por la app"]],
+    pains: [calls, callsLost, reviews],
+    source: `Fuentes: ${SRC.calls}; ${SRC.reviews}.`,
     skills: {
-      recepcion: ["Reservar, mover y cancelar citas", "Recordatorio 24 h antes", "Lista de espera automática", "Llamadas de voz fuera de horario"],
-      atencion: ["Precios, horarios y aseguradoras", "Instrucciones antes de la cita", "Deriva cualquier duda médica", "Pide reseña tras la visita"],
-      comercial: ["Seguimiento de presupuestos de tratamiento", "Bonos y paquetes de estética", "Reactivar pacientes inactivos"],
-      administracion: ["Facturas a pacientes y aseguradoras", "Aviso de material bajo mínimos", "Cobros pendientes"],
+      recepcion: ["Reservar, mover y cancelar citas", "Recordatorio 24 h antes", "Lista de espera automática", "Reserva por profesional y servicio"],
+      atencion: ["Precios, horarios y servicios", "Indicaciones antes de la cita", "Pasa a tu equipo lo que no sabe", "Pide reseña tras la visita"],
+      comercial: ["Seguimiento de presupuestos", "Bonos y paquetes", "Reactivar clientes inactivos"],
+      administracion: ["Facturas a clientes", "Señal o pago al reservar", "Cobros pendientes"],
     },
-    custom: ["Profesionales, cabinas y duración de cada servicio", "Aseguradoras y tarifas", "Protocolos de urgencia", "Tono: cercano o formal"],
-    special: ["Pensado para datos de salud.", "Tus pacientes confían en ti; tú puedes confiar en Moodly.", ["Nunca diagnostica ni da consejo médico", "Solo guarda lo necesario para la cita, no historia clínica", "Cada persona del equipo ve solo lo suyo", "[Alojamiento de datos y certificaciones: por confirmar]"]],
-    faq: [["¿Funciona con mi programa de gestión?", "Con Google Calendar, Outlook, Doctoralia [vía partner] y [programas compatibles]. Si usas otro, lo valoramos al empezar."], ["¿Qué pasa si preguntan algo médico?", "El agente no responde y te lo pasa. En urgencias indica llamar al 112."]],
+    custom: ["Profesionales, cabinas y duración de cada servicio", "Servicios y tarifas", "Política de cancelación", "Tono: cercano o formal"],
+    special: ["Tu agenda, sin dobles reservas.", "Cada cita sale de tus horarios, tus profesionales y la duración real de cada servicio.", ["Reserva solo en huecos libres de verdad", "Respeta la duración de cada servicio", "Cada persona del equipo ve solo lo suyo", "Si no está seguro, pregunta al equipo"]],
+    faq: [["¿Funciona con mi programa de reservas?", "Con Google Calendar y Outlook, que llegan con el piloto. Si usas otro, lo valoramos al empezar."], ["¿Qué pasa si preguntan algo que no sabe?", "El agente no se lo inventa: te lo pasa a ti o a tu equipo."]],
   },
   {
     id: "hosteleria", name: "Hostelería y turismo", kw: "Agente de IA para restaurantes, hoteles y apartamentos turísticos", text: "Restaurantes, hoteles, apartamentos, experiencias.", color: "#ff6301", on: "#000000",
@@ -190,13 +190,12 @@ export const AGENT_KEYS = [
 
 // Por subsector: plural, «tu …» y titular propio. Las secciones de /sectores se adaptan al elegido.
 export const SUBSECTORS = {
-  salud: [
-    ["Clínicas dentales", "clínicas dentales", "tu clínica dental", "Tu clínica dental atendida, aunque estés con un paciente"],
-    ["Fisioterapia", "centros de fisioterapia", "tu centro de fisioterapia", "Tu centro de fisio con la agenda llena y sin huecos perdidos"],
+  belleza: [
     ["Estética y belleza", "centros de estética", "tu centro de estética", "Tu centro de estética reservando citas mientras trabajas"],
     ["Peluquerías", "peluquerías", "tu peluquería", "Tu peluquería contesta WhatsApp sin soltar las tijeras"],
-    ["Veterinaria", "clínicas veterinarias", "tu clínica veterinaria", "Tu clínica veterinaria con recordatorios de vacunas automáticos"],
-    ["Psicología", "consultas de psicología", "tu consulta", "Tu consulta organizada, con la discreción que exige"],
+    ["Barberías", "barberías", "tu barbería", "Tu barbería con la agenda llena y sin llamadas a mitad de corte"],
+    ["Uñas", "centros de uñas", "tu centro de uñas", "Tu centro de uñas reserva y recuerda citas solo"],
+    ["Pestañas y cejas", "estudios de pestañas y cejas", "tu estudio", "Tu estudio de pestañas y cejas sin huecos perdidos"],
   ],
   hosteleria: [
     ["Restaurantes", "restaurantes", "tu restaurante", "Tu restaurante reserva mesas aunque estés en pleno servicio"],
@@ -257,10 +256,10 @@ export const SUBSECTORS = {
 // Traducción de los nombres, subsectores y resumen de cada vertical (home + nav).
 // El contenido rico de cada sector (h1, sub, chat, etc.) se localiza en la página /sectores.
 const VERT_LOC = {
-  salud: {
-    en: { name: "Clinics & beauty", text: "Clinics, aesthetics, salons, veterinary.", subsectors: ["Dental clinics", "Physiotherapy", "Aesthetics & beauty", "Hair salons", "Veterinary", "Psychology"] },
-    fr: { name: "Cliniques et beauté", text: "Cliniques, esthétique, coiffure, vétérinaire.", subsectors: ["Cliniques dentaires", "Kinésithérapie", "Esthétique et beauté", "Salons de coiffure", "Vétérinaire", "Psychologie"] },
-    de: { name: "Praxen & Beauty", text: "Praxen, Ästhetik, Friseure, Tierarzt.", subsectors: ["Zahnarztpraxen", "Physiotherapie", "Ästhetik & Beauty", "Friseursalons", "Tierarzt", "Psychologie"] },
+  belleza: {
+    en: { name: "Beauty & aesthetics", text: "Aesthetics, hair salons, barbers, nails.", subsectors: ["Aesthetics & beauty", "Hair salons", "Barbers", "Nails", "Lashes & brows"] },
+    fr: { name: "Beauté et esthétique", text: "Esthétique, coiffure, barbiers, ongles.", subsectors: ["Esthétique et beauté", "Salons de coiffure", "Barbiers", "Ongles", "Cils et sourcils"] },
+    de: { name: "Beauty & Kosmetik", text: "Kosmetik, Friseure, Barbiere, Nägel.", subsectors: ["Ästhetik & Beauty", "Friseursalons", "Barbiere", "Nägel", "Wimpern & Brauen"] },
   },
   hosteleria: {
     en: { name: "Hospitality & tourism", text: "Restaurants, hotels, rentals, experiences.", subsectors: ["Restaurants", "Hotels", "Holiday rentals", "Property managers", "Hostels", "Experiences & tourism"] },
