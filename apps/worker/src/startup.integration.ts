@@ -55,4 +55,28 @@ describe("arranque del worker", () => {
     expect(output).toContain('"msg":"worker parado"');
     expect(output, output).not.toContain("DeprecationWarning");
   });
+
+  it("sin poder entrar como moodly_worker no arranca (ni toma el lock ni lanza DBOS) y no enseña la contraseña", async () => {
+    const api = localSupabaseApi();
+    const url = new URL(localWorkerDatabaseUrl());
+    url.password = `mal-${randomUUID()}`;
+    const env = {
+      ...process.env,
+      WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_EXECUTOR_ID: `test-${randomUUID().slice(0, 8)}`,
+      WORKER_APP_VERSION: "test-startup",
+      LOG_LEVEL: "info",
+      SUPABASE_URL: api.url,
+      SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: url.toString(),
+    };
+
+    const { code, output } = await run(["start", `testing:startup:${randomUUID()}`, join(dir, "effects-bad.jsonl")], env);
+
+    expect(code, output).not.toBe(0);
+    expect(output).toContain("no se pudo entrar como moodly_worker");
+    expect(output).not.toContain(url.password);
+    expect(output).not.toContain('"msg":"worker arrancado"');
+    expect(output).not.toContain("lock del executor tomado");
+  });
 });

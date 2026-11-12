@@ -33,7 +33,7 @@ import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
-import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { DB_STEP, type DomainEvent, type EventContext, type EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
 import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
@@ -184,7 +184,8 @@ interface ConversationRow extends Conversation {
   channel_account_id: string;
 }
 
-async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
+// Exportada para el test de integración que comprueba que no lee conversaciones de otra organización.
+export async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
   const first = await db.transaction(async (sql) => {
     const [conversation] = await sql.query<ConversationRow>(
       "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
@@ -551,7 +552,10 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       }
       // Un «sí» a una oferta viva de la lista de espera: la reserva, sin modelo (4f-3).
       if (await acceptOffer(event, ctx, conversationId, messageId)) return;
-      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId));
+      // Con reintentos: si moodly_worker no entra un momento (el pooler, un
+      // reinicio), el mensaje no se pierde; si no entra nunca, el worker no
+      // habría arrancado (worker.ts, verifyWorkerConnection).
+      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId), DB_STEP);
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");
         return;
