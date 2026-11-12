@@ -1,4 +1,4 @@
--- PL-T1, paso 3 (20261112052000): private.worker_agent_turn_context(agente) da
+-- PL-T1, paso 3 (20261112061000): private.worker_agent_turn_context(agente) da
 -- a moodly_worker el contexto del turno con la organización de la transacción,
 -- sin que quien llama pueda elegir otra. Lo mismo que agent_turn_context para su
 -- organización; nada para otra o sin organización; nadie más la ejecuta.

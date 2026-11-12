@@ -25,7 +25,7 @@
 -- conversation_summaries_worker ya existe (de esa migración); faltaba el
 -- privilegio. Solo lectura: el resumen lo sigue guardando la plataforma.
 --
--- Vuelta atrás: rollbacks/20261112052000_worker_agent_turn_context.down.sql.
+-- Vuelta atrás: rollbacks/20261112061000_worker_agent_turn_context.down.sql.
 
 create function private.worker_agent_turn_context(p_agent_id uuid)
 returns jsonb
