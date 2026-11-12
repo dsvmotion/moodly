@@ -13,6 +13,9 @@ test.describe.configure({ mode: "serial" });
 const A2_REPLY = "Responder: «Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?»";
 const A2_BOOKING = "Reservar Primera visita el lunes, 3 de junio de 2030, 9:00";
 const A1_REPLY = "Responder: «Buenas tardes, le confirmamos la cita del martes.»";
+// Pide un encargado (seed a2_manager): el staff de A2 la ve por RLS, pero no la
+// decide, así que ni le sale en la lista ni le cuenta (M-02, revisión de V10).
+const A2_MANAGER = "Responder: «Le enviamos el presupuesto que nos pidió.»";
 const A2_REPLY_ID = "5eed0009-0000-4000-8000-0000000000a1";
 const A2_BOOKING_ID = "5eed0009-0000-4000-8000-0000000000a2";
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -28,6 +31,27 @@ test("el equipo de un local ve lo que espera en su local, y nada de otro", async
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
   const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
+});
+
+test("cada persona ve y cuenta solo lo que puede decidir: la que pide un encargado, al encargado de la región", async ({ page, browser }) => {
+  // Antes de decidir nada en este archivo (va en orden y es el único que decide las de Demo A).
+  await signIn(page, "a_staff");
+  await page.goto("/app/approvals");
+  await expect(page.getByTestId("approval-summary")).toHaveText([A2_REPLY, A2_BOOKING]);
+  await expect(page.getByText(A2_MANAGER)).toHaveCount(0);
+  await expect(page.getByTestId("approvals-count")).toHaveText("2 pendientes");
+  await expect(page.getByTestId("nav-approvals")).toHaveAccessibleDescription("2 aprobaciones pendientes");
+  await page.goto("/app");
+  await expect(page.getByTestId("home-task-approvals")).toContainText("2 aprobaciones esperan tu decisión");
+
+  const manager = await (await browser.newContext()).newPage();
+  await signIn(manager, "a_region_manager");
+  await manager.goto("/app/approvals");
+  const summaries = await manager.getByTestId("approval-summary").allInnerTexts();
+  expect([...summaries].sort()).toEqual([A1_REPLY, A2_BOOKING, A2_MANAGER, A2_REPLY].sort());
+  await expect(manager.getByTestId("approvals-count")).toHaveText("4 pendientes");
+  await expect(manager.getByTestId("nav-approvals")).toHaveAccessibleDescription("4 aprobaciones pendientes");
+  await manager.close();
 });
 
 test("aprobar la respuesta la decide con la sesión de quien aprueba y la saca de pendientes", async ({ page, request }) => {
