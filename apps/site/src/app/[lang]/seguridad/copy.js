@@ -15,9 +15,9 @@ export const COPY = {
     foundations: [
       ["Datos en la UE", "Plataforma y base de datos alojadas en la Unión Europea [por confirmar región y proveedor]."],
       ["Sin entrenamiento", "Usamos APIs empresariales de IA cuyos términos excluyen entrenar con tus datos [confirmar proveedor a proveedor]."],
-      ["Cifrado de extremo a extremo", "AES-256 en reposo, TLS 1.2+ en tránsito y credenciales de integraciones en una bóveda cifrada."],
+      ["Cifrado en reposo y en tránsito", "AES-256 en reposo, TLS 1.2+ en tránsito y claves propias por cliente para las credenciales de las integraciones."],
     ],
-    deployA: "Opciones de despliegue.", deployB: "De la nube compartida a tus propios servidores.",
+    deployA: "Opciones de despliegue.", deployB: "De la nube compartida a una nube dedicada.",
     deploy: [
       ["Nube compartida", "Para pymes. Aislamiento por organización con políticas a nivel de fila en la base de datos.", "Estándar"],
       ["Nube dedicada", "Instancia separada para tu empresa.", "Enterprise"],
@@ -50,11 +50,10 @@ export const COPY = {
     docLinks: [["Política de privacidad", "/privacidad"], ["Términos del servicio", "/terminos"], ["Contrato de encargo (DPA)", "/contacto"], ["Lista de subencargados", "/contacto"]],
     faqTitle: "Preguntas frecuentes",
     faq: [
-      ["¿Dónde se guardan mis datos?", "En la Unión Europea [por confirmar región]. Para Enterprise ofrecemos nube dedicada, tu propia nube o tus servidores."],
-      ["¿Los modelos de IA aprenden de mis datos o de mis clientes?", "No. Usamos APIs empresariales que excluyen el entrenamiento con datos de clientes [confirmar proveedor a proveedor]."],
+      ["¿Dónde se guardan mis datos?", "En la Unión Europea [por confirmar región]. La nube dedicada para Enterprise está en hoja de ruta."],
       ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "Sí, con todos los clientes, antes de empezar."],
       ["¿Qué pasa si un agente se equivoca?", "Defines qué puede hacer solo y qué necesita aprobación. Todo queda registrado y puedes corregirlo o revertirlo."],
-      ["¿Cómo informo de una vulnerabilidad?", "Escribe a [security@moodlycrm.com]. Respondemos en [72 horas] y no emprendemos acciones contra investigaciones de buena fe."],
+      ["¿Cómo informo de una vulnerabilidad?", "Escribe a contact@moodly.com. Respondemos en menos de 3 días laborables y no emprendemos acciones contra investigaciones de buena fe."],
     ],
   },
   en: {
@@ -72,9 +71,9 @@ export const COPY = {
     foundations: [
       ["Data in the EU", "Platform and database hosted in the European Union [region and provider to be confirmed]."],
       ["No training", "We use enterprise AI APIs whose terms exclude training on your data [to confirm provider by provider]."],
-      ["End-to-end encryption", "AES-256 at rest, TLS 1.2+ in transit and integration credentials in an encrypted vault."],
+      ["Encryption at rest and in transit", "AES-256 at rest, TLS 1.2+ in transit and per-customer keys for integration credentials."],
     ],
-    deployA: "Deployment options.", deployB: "From the shared cloud to your own servers.",
+    deployA: "Deployment options.", deployB: "From the shared cloud to a dedicated cloud.",
     deploy: [
       ["Shared cloud", "For SMBs. Isolation per organization with row-level policies in the database.", "Standard"],
       ["Dedicated cloud", "A separate instance for your company.", "Enterprise"],
@@ -107,11 +106,10 @@ export const COPY = {
     docLinks: [["Privacy policy", "/privacidad"], ["Terms of service", "/terminos"], ["Data Processing Agreement (DPA)", "/contacto"], ["Sub-processor list", "/contacto"]],
     faqTitle: "Frequently asked questions",
     faq: [
-      ["Where is my data stored?", "In the European Union [region to be confirmed]. For Enterprise we offer a dedicated cloud, your own cloud or your servers."],
-      ["Do the AI models learn from my data or my customers'?", "No. We use enterprise APIs that exclude training on customer data [to confirm provider by provider]."],
+      ["Where is my data stored?", "In the European Union [region to be confirmed]. A dedicated cloud for Enterprise is on the roadmap."],
       ["Do you sign a data processing agreement (DPA)?", "Yes, with all customers, before we start."],
       ["What if an agent makes a mistake?", "You define what it can do alone and what needs approval. Everything is logged and you can correct or revert it."],
-      ["How do I report a vulnerability?", "Write to [security@moodlycrm.com]. We respond within [72 hours] and take no action against good-faith research."],
+      ["How do I report a vulnerability?", "Write to contact@moodly.com. We respond within 3 working days and take no action against good-faith research."],
     ],
   },
   fr: {
@@ -129,9 +127,9 @@ export const COPY = {
     foundations: [
       ["Données dans l'UE", "Plateforme et base de données hébergées dans l'Union européenne [région et fournisseur à confirmer]."],
       ["Aucun entraînement", "Nous utilisons des API d'IA d'entreprise dont les conditions excluent l'entraînement avec vos données [à confirmer fournisseur par fournisseur]."],
-      ["Chiffrement de bout en bout", "AES-256 au repos, TLS 1.2+ en transit et identifiants d'intégration dans un coffre chiffré."],
+      ["Chiffrement au repos et en transit", "AES-256 au repos, TLS 1.2+ en transit et clés propres à chaque client pour les identifiants d'intégration."],
     ],
-    deployA: "Options de déploiement.", deployB: "Du cloud partagé à vos propres serveurs.",
+    deployA: "Options de déploiement.", deployB: "Du cloud partagé à un cloud dédié.",
     deploy: [
       ["Cloud partagé", "Pour les PME. Isolation par organisation avec des politiques au niveau des lignes dans la base de données.", "Standard"],
       ["Cloud dédié", "Une instance séparée pour votre entreprise.", "Enterprise"],
@@ -164,11 +162,10 @@ export const COPY = {
     docLinks: [["Politique de confidentialité", "/privacidad"], ["Conditions d'utilisation", "/terminos"], ["Contrat de sous-traitance (DPA)", "/contacto"], ["Liste des sous-traitants", "/contacto"]],
     faqTitle: "Questions fréquentes",
     faq: [
-      ["Où mes données sont-elles stockées ?", "Dans l'Union européenne [région à confirmer]. Pour Enterprise, nous proposons un cloud dédié, votre propre cloud ou vos serveurs."],
-      ["Les modèles d'IA apprennent-ils de mes données ou de celles de mes clients ?", "Non. Nous utilisons des API d'entreprise qui excluent l'entraînement avec les données clients [à confirmer fournisseur par fournisseur]."],
+      ["Où mes données sont-elles stockées ?", "Dans l'Union européenne [région à confirmer]. Le cloud dédié pour Enterprise est sur la feuille de route."],
       ["Signez-vous un contrat de sous-traitance (DPA) ?", "Oui, avec tous les clients, avant de commencer."],
       ["Que se passe-t-il si un agent se trompe ?", "Vous définissez ce qu'il peut faire seul et ce qui nécessite une validation. Tout est enregistré et vous pouvez le corriger ou l'annuler."],
-      ["Comment signaler une vulnérabilité ?", "Écrivez à [security@moodlycrm.com]. Nous répondons sous [72 heures] et n'engageons aucune action contre les recherches de bonne foi."],
+      ["Comment signaler une vulnérabilité ?", "Écrivez à contact@moodly.com. Nous répondons sous 3 jours ouvrables et n'engageons aucune action contre les recherches de bonne foi."],
     ],
   },
   de: {
@@ -186,9 +183,9 @@ export const COPY = {
     foundations: [
       ["Daten in der EU", "Plattform und Datenbank in der Europäischen Union gehostet [Region und Anbieter zu bestätigen]."],
       ["Kein Training", "Wir nutzen Enterprise-KI-APIs, deren Bedingungen das Training mit deinen Daten ausschließen [Anbieter für Anbieter zu bestätigen]."],
-      ["Ende-zu-Ende-Verschlüsselung", "AES-256 im Ruhezustand, TLS 1.2+ bei der Übertragung und Integrationsdaten in einem verschlüsselten Tresor."],
+      ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand, TLS 1.2+ bei der Übertragung und eigene Schlüssel pro Kunde für die Zugangsdaten der Integrationen."],
     ],
-    deployA: "Bereitstellungsoptionen.", deployB: "Von der geteilten Cloud bis zu deinen eigenen Servern.",
+    deployA: "Bereitstellungsoptionen.", deployB: "Von der geteilten Cloud bis zur dedizierten Cloud.",
     deploy: [
       ["Geteilte Cloud", "Für KMU. Isolation pro Organisation mit Zeilenebene-Richtlinien in der Datenbank.", "Standard"],
       ["Dedizierte Cloud", "Eine separate Instanz für dein Unternehmen.", "Enterprise"],
@@ -221,11 +218,10 @@ export const COPY = {
     docLinks: [["Datenschutzerklärung", "/privacidad"], ["Nutzungsbedingungen", "/terminos"], ["Auftragsverarbeitungsvertrag (AVV)", "/contacto"], ["Liste der Unterauftragsverarbeiter", "/contacto"]],
     faqTitle: "Häufige Fragen",
     faq: [
-      ["Wo werden meine Daten gespeichert?", "In der Europäischen Union [Region zu bestätigen]. Für Enterprise bieten wir eine dedizierte Cloud, deine eigene Cloud oder deine Server."],
-      ["Lernen die KI-Modelle aus meinen Daten oder denen meiner Kunden?", "Nein. Wir nutzen Enterprise-APIs, die das Training mit Kundendaten ausschließen [Anbieter für Anbieter zu bestätigen]."],
+      ["Wo werden meine Daten gespeichert?", "In der Europäischen Union [Region zu bestätigen]. Eine dedizierte Cloud für Enterprise steht auf der Roadmap."],
       ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "Ja, mit allen Kunden, bevor wir beginnen."],
       ["Was passiert, wenn ein Agent einen Fehler macht?", "Du legst fest, was er allein darf und was eine Freigabe braucht. Alles wird protokolliert und du kannst es korrigieren oder rückgängig machen."],
-      ["Wie melde ich eine Schwachstelle?", "Schreibe an [security@moodlycrm.com]. Wir antworten innerhalb von [72 Stunden] und gehen nicht gegen gutgläubige Forschung vor."],
+      ["Wie melde ich eine Schwachstelle?", "Schreibe an contact@moodly.com. Wir antworten innerhalb von 3 Werktagen und gehen nicht gegen gutgläubige Forschung vor."],
     ],
   },
 };
