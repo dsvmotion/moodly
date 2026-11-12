@@ -346,17 +346,20 @@ export function agentSkills(available: Map<string, SkillDefinition<unknown>>, co
   return { skills, settings };
 }
 
+// Las escrituras del run y del consumo van por SQL bajo RLS como moodly_worker
+// (ADR 0049, PL-T1 3c-1, 20261112063000): solo de esta organización, solo las
+// columnas que concede la migración y, por guard_worker_agent_run, el run nace
+// «running» y su estado solo sale de «running».
 async function startRun(db: TenantDb, runId: string, conversation: Conversation, messageId: string): Promise<void> {
-  const { error } = await db.from("agent_runs").insert({
-    id: runId,
-    location_id: conversation.location_id,
-    agent_id: conversation.agent_id,
-    trigger: "inbound_message",
-    trigger_ref: messageId,
-    status: "running",
-  });
-  // 23505: el run ya existía (la entrega se reanudó después de crearlo).
-  if (error && error.code !== "23505") throw new Error(`no se pudo crear el run (${error.code})`);
+  // on conflict: el run ya existía (la entrega se reanudó después de crearlo).
+  await db.transaction((sql) =>
+    sql.query(
+      `insert into public.agent_runs (id, organization_id, location_id, agent_id, trigger, trigger_ref, status)
+       values ($1, $2, $3, $4, 'inbound_message', $5, 'running')
+       on conflict (id) do nothing`,
+      [runId, db.organizationId, conversation.location_id, conversation.agent_id, messageId],
+    ),
+  );
 }
 
 /**
@@ -458,27 +461,33 @@ export async function recordUsageSafely(
 }
 
 async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
-  const { error } = await db.from("usage_records").insert(
-    {
-      location_id: conversation.location_id,
-      run_id: runId,
-      agent_id: conversation.agent_id,
-      source: "agent_turn",
-      metric: "llm_tokens",
-      quantity: call.tokensIn + call.tokensOut,
-      tokens_in: call.tokensIn,
-      tokens_out: call.tokensOut,
-      cost_eur: call.costEur,
-      provider: call.provider,
-      via: call.via,
-      region: call.region,
-      model: call.model,
-      model_key: call.modelKey,
-      call_index: call.index,
-      occurred_at: call.startedAt,
-    },
+  // on conflict: la llamada ya estaba anotada (run, orden y hora la hacen única).
+  await db.transaction((sql) =>
+    sql.query(
+      `insert into public.usage_records (organization_id, location_id, run_id, agent_id, source, metric, quantity,
+                                         tokens_in, tokens_out, cost_eur, provider, via, region, model, model_key,
+                                         call_index, occurred_at)
+       values ($1, $2, $3, $4, 'agent_turn', 'llm_tokens', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       on conflict do nothing`,
+      [
+        db.organizationId,
+        conversation.location_id,
+        runId,
+        conversation.agent_id,
+        call.tokensIn + call.tokensOut,
+        call.tokensIn,
+        call.tokensOut,
+        call.costEur,
+        call.provider,
+        call.via,
+        call.region,
+        call.model,
+        call.modelKey,
+        call.index,
+        call.startedAt,
+      ],
+    ),
   );
-  if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
 }
 
 /**
@@ -509,17 +518,17 @@ async function finishRun(db: TenantDb, runId: string, conversationId: string, re
     const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
     if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
   }
-  const { error } = await db
-    .from("agent_runs")
-    .update({
-      status,
-      model: result.usage.model,
-      tokens_in: result.usage.tokensIn,
-      tokens_out: result.usage.tokensOut,
-      cost_eur: result.usage.costEur,
-    })
-    .eq("id", runId);
-  if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
+  // El estado solo cambia si el run sigue en marcha: si el paso se repite cuando
+  // otra cosa ya lo movió (una aprobación), no lo pisa; el uso se apunta igual.
+  await db.transaction((sql) =>
+    sql.query(
+      `update public.agent_runs
+       set status = case when status = 'running' then $2 else status end,
+           model = $3, tokens_in = $4, tokens_out = $5, cost_eur = $6
+       where id = $1`,
+      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
+    ),
+  );
 }
 
 /** Lo que decidió el motor para la reserva al aceptar una oferta. Serializable: es el resultado de un paso. */

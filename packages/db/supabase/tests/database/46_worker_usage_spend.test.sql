@@ -11,16 +11,19 @@ values
   (:org_a, 'agent_turn', 'llm_tokens', 10, 8, 2, 0.75, 'anthropic', 'gateway', 'eu', 'fake/a', now() - interval '40 days'),
   (:org_b, 'agent_turn', 'llm_tokens', 10, 8, 2, 9.00, 'anthropic', 'gateway', 'eu', 'fake/b', now());
 
+-- Desde 20261112063000 (3c-1) la política es FOR ALL y el worker también
+-- anota (47_worker_runs_usage); aquí, que siempre es por la organización de la
+-- transacción y que lo anotado no se cambia ni se borra.
 select is(
-  (select cmd || ' | ' || qual from pg_policies
+  (select cmd || ' | ' || qual || ' | ' || with_check from pg_policies
    where schemaname = 'public' and tablename = 'usage_records' and roles = array['moodly_worker']::name[]),
-  'SELECT | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))',
-  'la política del worker es solo de lectura y por la organización de la transacción');
+  'ALL | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
+    || ' | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))',
+  'la política del worker es por la organización de la transacción, al leer y al escribir');
 select ok(has_table_privilege('moodly_worker', 'public.usage_records', 'select')
-          and not has_table_privilege('moodly_worker', 'public.usage_records', 'insert')
           and not has_table_privilege('moodly_worker', 'public.usage_records', 'update')
           and not has_table_privilege('moodly_worker', 'public.usage_records', 'delete'),
-  'el worker lee el libro de consumo y no lo escribe');
+  'el worker lee el libro de consumo y no cambia ni borra lo anotado');
 
 -- Como moodly_worker (solo para este test; ver 42_worker_role).
 grant moodly_worker to postgres with set true;
@@ -36,8 +39,8 @@ select is((select sum(cost_eur) from public.usage_records where occurred_at >= n
   'y el gasto del día es el de A, sin el de B');
 select throws_ok(
   format($$insert into public.usage_records (organization_id, source, metric, quantity, tokens_in, tokens_out, cost_eur, provider, via, region, model)
-           values (%L, 'agent_turn', 'llm_tokens', 0, 0, 0, 0, 'anthropic', 'gateway', 'eu', 'x')$$, :org_a),
-  '42501', null, 'no puede anotar consumo');
+           values (%L, 'agent_turn', 'llm_tokens', 0, 0, 0, 0, 'anthropic', 'gateway', 'eu', 'x')$$, :org_b),
+  '42501', null, 'no puede anotar consumo de otra organización');
 
 select set_config('moodly.organization_id', :org_b, true) as _org \gset
 select is((select sum(cost_eur) from public.usage_records), 9.00::numeric, 'con B fijada, el de B');
