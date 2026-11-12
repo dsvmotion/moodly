@@ -1,4 +1,4 @@
-import { GATEWAY_EMBEDDING } from "@repo/config";
+import { GATEWAY_EMBEDDING, USD_TO_EUR } from "@repo/config";
 import type { GatewayEmbeddingModel } from "@repo/config";
 import { createGateway, embedMany } from "ai";
 import type { EmbeddingModel } from "ai";
@@ -30,6 +30,15 @@ export interface GatewayEmbedder {
   /** Por dónde va: lo que mira la política de la organización (policyAllows), como en el enrutador. */
   readonly route: RouteOrigin;
   embed(texts: readonly string[]): Promise<number[][]>;
+  /** Lo mismo, con los tokens y lo que costó (el libro de consumo, PL-ledger). */
+  embedWithUsage(texts: readonly string[]): Promise<{ vectors: number[][]; usage: { tokens: number; costEur: number } }>;
+}
+
+/** El coste que da el gateway (USD), si viene; si no, null. */
+function gatewayCostUsd(metadata: unknown): number | null {
+  const gateway = (metadata as { gateway?: { cost?: unknown } } | undefined)?.gateway;
+  const cost = typeof gateway?.cost === "string" || typeof gateway?.cost === "number" ? Number(gateway.cost) : NaN;
+  return Number.isFinite(cost) && cost >= 0 ? cost : null;
 }
 
 /** Como el transporte del gateway (gateway.ts): con las claves de la plataforma y sin región garantizada. */
@@ -45,32 +54,44 @@ export function createGatewayEmbedder(options: GatewayEmbedderOptions): GatewayE
   const batchSize = options.batchSize ?? DEFAULT_BATCH;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
+  async function embedWithUsage(texts: readonly string[]) {
+    const vectors: number[][] = [];
+    let tokens = 0;
+    let costUsd = 0;
+    for (let start = 0; start < texts.length; start += batchSize) {
+      const values = texts.slice(start, start + batchSize);
+      const result = await embedMany({
+        model: embeddingModel(model.id),
+        values: [...values],
+        // Un solo reintento por fallos de red: quien llama ya reintenta el paso entero.
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(timeoutMs),
+      });
+      // Lo que costó la llamada se cuenta aunque luego no valga: se pagó igual.
+      const batchTokens = Number.isFinite(result.usage?.tokens) ? Math.max(0, Math.round(result.usage.tokens)) : 0;
+      tokens += batchTokens;
+      costUsd += gatewayCostUsd(result.providerMetadata) ?? (batchTokens * model.inputUsdPerMTok) / 1_000_000;
+      const { embeddings } = result;
+      if (embeddings.length !== values.length) {
+        throw new GatewayEmbeddingError(`el gateway devolvió ${embeddings.length} vectores para ${values.length} textos`);
+      }
+      for (const vector of embeddings) {
+        if (vector.length !== model.dim || !vector.every(Number.isFinite)) {
+          throw new GatewayEmbeddingError(`un vector no tiene las ${model.dim} dimensiones del modelo o no es finito`);
+        }
+        vectors.push([...vector]);
+      }
+    }
+    return { vectors, usage: { tokens, costEur: costUsd * USD_TO_EUR } };
+  }
+
   return {
     model: model.id,
     dim: model.dim,
     route: GATEWAY_ROUTE,
     async embed(texts) {
-      const vectors: number[][] = [];
-      for (let start = 0; start < texts.length; start += batchSize) {
-        const values = texts.slice(start, start + batchSize);
-        const { embeddings } = await embedMany({
-          model: embeddingModel(model.id),
-          values: [...values],
-          // Un solo reintento por fallos de red: quien llama ya reintenta el paso entero.
-          maxRetries: 1,
-          abortSignal: AbortSignal.timeout(timeoutMs),
-        });
-        if (embeddings.length !== values.length) {
-          throw new GatewayEmbeddingError(`el gateway devolvió ${embeddings.length} vectores para ${values.length} textos`);
-        }
-        for (const vector of embeddings) {
-          if (vector.length !== model.dim || !vector.every(Number.isFinite)) {
-            throw new GatewayEmbeddingError(`un vector no tiene las ${model.dim} dimensiones del modelo o no es finito`);
-          }
-          vectors.push([...vector]);
-        }
-      }
-      return vectors;
+      return (await embedWithUsage(texts)).vectors;
     },
+    embedWithUsage,
   };
 }

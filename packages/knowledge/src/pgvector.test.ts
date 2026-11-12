@@ -105,4 +105,12 @@ describe("createFakeEmbedder", () => {
     expect(cos(a, b)).toBeGreaterThan(cos(a, c));
     expect(Math.hypot(...(a ?? []))).toBeCloseTo(1);
   });
+
+  it("con embedWithUsage, los mismos vectores y una palabra por token, sin coste", async () => {
+    const embedder = createFakeEmbedder(32);
+    const texts = ["precio láser centro", "horario de verano"];
+    const result = await embedder.embedWithUsage?.(texts);
+    expect(result?.vectors).toEqual(await embedder.embed(texts));
+    expect(result?.usage).toEqual({ tokens: 6, costEur: 0 });
+  });
 });
