@@ -14,17 +14,17 @@ const KPIS = [
 
 // `shares`: qué comparte cada franquiciado. "agg" = solo agregados; "full" = agregados + conversaciones.
 const FRANCHISEES = [
-  { name: "Dental Sol Centro", owner: "Marta Ruiz", sedes: 3, agents: 4, convs: "2.140", compliance: 100, shares: "full", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
-  { name: "Dental Sol Norte", owner: "Javier Pons", sedes: 2, agents: 4, convs: "1.580", compliance: 96, shares: "full", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
-  { name: "Clínica Vallès", owner: "Núria Camps", sedes: 4, agents: 3, convs: "—", compliance: 88, shares: "agg", status: "Revisar plantilla", statusColor: "var(--amber-fg)", statusBg: "var(--amber-bg)" },
+  { name: "Sol Centro", owner: "Marta Ruiz", sedes: 3, agents: 4, convs: "2.140", compliance: 100, shares: "full", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
+  { name: "Sol Norte", owner: "Javier Pons", sedes: 2, agents: 4, convs: "1.580", compliance: 96, shares: "full", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
+  { name: "Belleza Vallès", owner: "Núria Camps", sedes: 4, agents: 3, convs: "—", compliance: 88, shares: "agg", status: "Revisar plantilla", statusColor: "var(--amber-fg)", statusBg: "var(--amber-bg)" },
   { name: "SonrisaMar", owner: "Luis Ferrer", sedes: 5, agents: 4, convs: "3.010", compliance: 72, shares: "full", status: "Fuera de política", statusColor: "var(--rose-fg)", statusBg: "var(--rose-bg-3)" },
-  { name: "Dental Sol Levante", owner: "Ana Gil", sedes: 6, agents: 2, convs: "—", compliance: 91, shares: "agg", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
+  { name: "Sol Levante", owner: "Ana Gil", sedes: 6, agents: 2, convs: "—", compliance: 91, shares: "agg", status: "Al día", statusColor: "var(--green-fg)", statusBg: "var(--green-bg)" },
 ];
 
 // Lo que la central fija para toda la red (claves bloqueadas: el franquiciado no las relaja).
 const POLICIES = [
   { t: "Tono y lenguaje de marca", locked: true },
-  { t: "Nunca dar consejo clínico por chat", locked: true },
+  { t: "Nunca prometer resultados por chat", locked: true },
   { t: "Techo de autonomía: dinero siempre con aprobación", locked: true },
   { t: "Horario de atención", locked: false },
   { t: "Catálogo de servicios y precios", locked: false },
@@ -37,7 +37,7 @@ export default function Screen() {
 
       <main style={{ flex: "999 1 560px", minWidth: "0", padding: "32px clamp(16px, 3vw, 40px) 48px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Red. <span style={{ color: "var(--muted)" }}>Grupo Dental Sol · 12 franquiciados · 34 sedes.</span></h1>
+          <h1 style={{ margin: "0", fontSize: "32px", lineHeight: "35.2px", fontWeight: "400", letterSpacing: "-0.64px" }}>Red. <span style={{ color: "var(--muted)" }}>Grupo Belleza Sol · 12 franquiciados · 34 sedes.</span></h1>
           <div style={{ display: "flex", gap: "8px" }}>
             <button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)" }}>Publicar plantilla</button>
             <button data-demo="" type="button" style={{ padding: "11px 18px", borderRadius: "800px", border: "0", background: "var(--ink)", color: "var(--on-ink)", font: "500 14px/14px var(--font-display)" }}>Invitar franquiciado</button>

@@ -65,7 +65,7 @@ export default function Integraciones() {
           {connected.map((i) => (
             <div key={i.id} style={{ background: "var(--paper)", borderRadius: "12px", padding: "20px", display: "flex", flexDirection: "column", gap: "10px", boxShadow: state[i.id] === "error" ? "inset 0 0 0 1px var(--rose-fg)" : "none" }}>
               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ width: "40px", height: "40px", borderRadius: "12px", background: "var(--canvas)", display: "flex", alignItems: "center", justifyContent: "center" }}><img src={`/logos/${i.logo}`} alt="" width="24" height="24" style={{ objectFit: "contain", borderRadius: "4px" }} /></span>
+                <span style={{ width: "40px", height: "40px", borderRadius: "12px", background: "var(--canvas)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px", fontWeight: 500 }}>{i.logo ? <img src={`/logos/${i.logo}`} alt="" width="24" height="24" style={{ objectFit: "contain", borderRadius: "4px" }} /> : i.name[0]}</span>
                 {state[i.id] === "error"
                   ? <span style={{ padding: "2px 10px", borderRadius: "800px", background: "var(--rose-bg)", color: "var(--rose-fg)", fontSize: "12px" }}>× Desconectada</span>
                   : <span style={{ padding: "2px 10px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", fontSize: "12px" }}>● Conectada</span>}
@@ -95,7 +95,7 @@ export default function Integraciones() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "12px" }}>
           {available.map((i) => (
             <div key={i.id} style={{ background: "var(--paper)", border: "1px solid var(--line-soft)", borderRadius: "12px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
-              <img src={`/logos/${i.logo}`} alt="" width="26" height="26" style={{ objectFit: "contain", borderRadius: "4px", flex: "none" }} />
+              {i.logo ? <img src={`/logos/${i.logo}`} alt="" width="26" height="26" style={{ objectFit: "contain", borderRadius: "4px", flex: "none" }} /> : <span aria-hidden="true" style={{ width: "26px", height: "26px", borderRadius: "4px", background: "var(--sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 500, flex: "none" }}>{i.name[0]}</span>}
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}><span style={{ fontWeight: 500 }}>{i.name}</span><span style={{ fontSize: "12px", color: "var(--muted-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.actions}</span></span>
               <button type="button" onClick={() => set(i.id, "on")} style={{ ...btn(false), flex: "none", padding: "7px 12px" }}>Conectar</button>
             </div>

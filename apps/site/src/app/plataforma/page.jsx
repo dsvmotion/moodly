@@ -51,7 +51,7 @@ export default function Screen() {
         {sede !== "Sede Norte" && (
           <a href="/plataforma/tomar" style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap", borderRadius: "12px", background: "var(--rose-bg)", color: "var(--rose-fg)", padding: "14px 18px", textDecoration: "none", fontSize: "14px", lineHeight: "21px" }}>
             <span aria-hidden="true" style={{ width: "10px", height: "10px", borderRadius: "800px", background: "#a30042", flex: "none" }} />
-            <span style={{ flex: "1 1 260px" }}><strong style={{ fontWeight: 500 }}>Laura Martín pide hablar con una persona.</strong> Molestias tras un implante · WhatsApp · hace 2 min</span>
+            <span style={{ flex: "1 1 260px" }}><strong style={{ fontWeight: 500 }}>Laura Martín pide hablar con una persona.</strong> Color más oscuro de lo pedido · WhatsApp · hace 2 min</span>
             <span style={{ fontWeight: 500 }}>Atender →</span>
           </a>
         )}
