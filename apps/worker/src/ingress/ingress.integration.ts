@@ -316,4 +316,19 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
     expect(await workflowStatus(ingestWorkflowId(event?.id ?? ""))).toBe("SUCCESS");
   }, 120_000);
+
+  it("y si sigue fallando después de rebobinar, la cuenta sigue hasta el tope: dead_letter con 5 intentos y un solo rebobinado", async () => {
+    const message = inbound({ providerEventId: `fail-recdead-${randomUUID()}` });
+    await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.error_code === "dead_letter", "acaba en dead_letter tras rebobinar", 100_000);
+    const [event] = await eventsOf(message.providerEventId);
+    expect(event).toMatchObject({ status: "failed", attempts: 5, message_id: null });
+    const workflowId = ingestWorkflowId(event?.id ?? "");
+    await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el workflow termina (con dead_letter)");
+    // Un barrido más, para ver que no lo vuelve a rebobinar.
+    await new Promise((resolve) => setTimeout(resolve, 65_000));
+    const rewinds = output.split("\n").filter((line) => line.includes("rebobinado") && line.includes(workflowId));
+    expect(rewinds).toHaveLength(1);
+    expect(await workflowStatus(workflowId)).toBe("SUCCESS");
+  }, 200_000);
 });

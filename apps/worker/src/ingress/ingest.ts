@@ -362,7 +362,10 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
       { name: "stuck", ...DB_STEP },
     );
     // Desde el workflow, no desde un paso (DBOS no lo deja): cada llamada de DBOS se guarda como un paso propio.
-    for (const workflowID of stuck) await rewindFailed(workflowID);
+    for (const workflowID of stuck) {
+      await rewindFailed(workflowID);
+      log.warn({ workflowID }, "evento de entrada en ERROR, rebobinado");
+    }
     if (stuck.length > 0) log.warn({ rewound: stuck.length }, "eventos de entrada parados, vueltos a intentar");
     const parked = await DBOS.runStep(
       async () => {

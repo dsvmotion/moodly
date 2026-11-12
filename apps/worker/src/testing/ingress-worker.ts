@@ -39,17 +39,22 @@ const worker = createWorker(config, logger, {
       const data = { provider_event_id: await providerEventId(input) };
       const id = data.provider_event_id;
       const failing =
-        id.startsWith("fail-always-") || (id.startsWith("fail-twice-") && attempt <= 2) || (id.startsWith("fail-record-") && attempt <= 3);
+        id.startsWith("fail-always-") ||
+        id.startsWith("fail-recdead-") ||
+        (id.startsWith("fail-twice-") && attempt <= 2) ||
+        (id.startsWith("fail-record-") && attempt <= 3);
       if (failing) throw Object.assign(new Error("fallo inyectado"), { code: "injected" });
     },
-    // «fail-record-…»: el apunte del tercer intento falla las 4 veces que lo intenta DBOS (el workflow
-    // queda en ERROR con dos intentos ya apuntados); después de rebobinarlo, sale bien.
+    // «fail-record-…» y «fail-recdead-…»: el apunte del tercer intento falla las 4 veces que lo
+    // intenta DBOS (el workflow queda en ERROR con dos intentos ya apuntados); después de rebobinarlo,
+    // sale bien. «fail-record-» acierta al cuarto intento; «fail-recdead-» falla siempre (dead_letter).
     async beforeRecordFailure(input, attempt) {
       if (attempt !== 3) return;
       const key = `${input.inboundEventId}:${attempt}`;
       const seen = recordFailures.get(key) ?? 0;
       recordFailures.set(key, seen + 1);
-      if (seen < 4 && (await providerEventId(input)).startsWith("fail-record-")) throw new Error("apunte inyectado que falla");
+      const id = await providerEventId(input);
+      if (seen < 4 && (id.startsWith("fail-record-") || id.startsWith("fail-recdead-"))) throw new Error("apunte inyectado que falla");
     },
   },
   eventHandlers: [logHandler],
