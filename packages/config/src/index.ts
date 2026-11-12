@@ -114,32 +114,72 @@ export type SimpleIntent = (typeof SIMPLE_INTENTS)[number];
 /** La clave del camino barato. */
 export const SIMPLE_INTENT_MODEL: ModelKey = "fast";
 
-export interface GatewayModel {
-  /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
-  id: string;
-  /** Precio en USD por millón de tokens, para estimar antes de llamar (el coste real lo da el gateway). */
+/** Precios en USD por millón de tokens de una ruta del gateway. */
+export interface ModelPrices {
+  /** Para estimar antes de llamar y como respaldo si el gateway no da el coste real. */
   inputUsdPerMTok: number;
   outputUsdPerMTok: number;
   /**
-   * Caché de prompt (PL-T3): leer de la caché y escribir en ella, en USD por
-   * millón de tokens. Sin ellos, el transporte cobra la entrada entera a precio
-   * normal (nunca se queda corto).
+   * Caché de prompt (PL-T3): leer de la caché y escribir en ella. Sin ellos, el
+   * transporte cobra la entrada entera a precio normal (nunca se queda corto).
    */
   cacheReadUsdPerMTok?: number;
   cacheWriteUsdPerMTok?: number;
 }
 
+/** Las regiones con precio propio en el catálogo del gateway (inferencia fijada en la región). */
+export type PriceRegion = "eu" | "us";
+
+export interface GatewayModel extends ModelPrices {
+  /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
+  id: string;
+  /**
+   * Precio con la inferencia fijada en una región (ADR 0051): el catálogo cobra
+   * un 10 % más en cada línea. Lo usa la ruta que declara esa región; sin
+   * región fijada, el precio de arriba. Una región sin precio aquí no tiene
+   * ruta: el transporte no la usa nunca a precio global.
+   */
+  regional?: Partial<Record<PriceRegion, ModelPrices>>;
+  /**
+   * Contexto largo: por encima de tantos tokens de entrada (con la caché), cada
+   * línea se cobra por `multiplier` (Haiku 5.5: ×5 desde 100 001 tokens).
+   */
+  longContext?: { aboveInputTokens: number; multiplier: number };
+}
+
 /**
  * Qué modelo sirve cada clave por Vercel AI Gateway (ADR 0033). Cambiar de
- * modelo es cambiar esta tabla, nunca el código de negocio.
+ * modelo es cambiar esta tabla, nunca el código de negocio. Precios del
+ * catálogo del gateway (2026-11-12), también los de la caché y los de la UE.
  */
 export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> = {
-  // Caché, del catálogo del gateway (2026-11-12): escribir (5 minutos) cuesta el 125 % de la entrada;
-  // leer, el 10 % en Haiku 5.5 y el 5 % en Opus 5.5.
-  fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5, cacheReadUsdPerMTok: 0.01, cacheWriteUsdPerMTok: 0.125 },
-  // Precios del catálogo de Vercel AI Gateway (2026-11-11), también los de la caché: Sonnet 5.5 lee a 0,1 $/M (el 5 % de la entrada) y escribe a 2,5 $/M (el 125 %).
-  balanced: { id: "anthropic/claude-sonnet-5.5", inputUsdPerMTok: 2, outputUsdPerMTok: 10, cacheReadUsdPerMTok: 0.1, cacheWriteUsdPerMTok: 2.5 },
-  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20, cacheReadUsdPerMTok: 0.2, cacheWriteUsdPerMTok: 5 },
+  // Caché de Anthropic: leer cuesta el 10 % de la entrada y escribir (5 minutos), el 125 %.
+  fast: {
+    id: "anthropic/claude-haiku-5.5",
+    inputUsdPerMTok: 0.1,
+    outputUsdPerMTok: 0.5,
+    cacheReadUsdPerMTok: 0.01,
+    cacheWriteUsdPerMTok: 0.125,
+    regional: { eu: { inputUsdPerMTok: 0.11, outputUsdPerMTok: 0.55, cacheReadUsdPerMTok: 0.011, cacheWriteUsdPerMTok: 0.1375 } },
+    longContext: { aboveInputTokens: 100_001, multiplier: 5 },
+  },
+  // Sonnet 5.5 lee de la caché a 0,1 $/M (el 5 % de la entrada) y escribe a 2,5 $/M (el 125 %).
+  balanced: {
+    id: "anthropic/claude-sonnet-5.5",
+    inputUsdPerMTok: 2,
+    outputUsdPerMTok: 10,
+    cacheReadUsdPerMTok: 0.1,
+    cacheWriteUsdPerMTok: 2.5,
+    regional: { eu: { inputUsdPerMTok: 2.2, outputUsdPerMTok: 11, cacheReadUsdPerMTok: 0.11, cacheWriteUsdPerMTok: 2.75 } },
+  },
+  smart: {
+    id: "anthropic/claude-opus-5.5",
+    inputUsdPerMTok: 4,
+    outputUsdPerMTok: 20,
+    cacheReadUsdPerMTok: 0.2,
+    cacheWriteUsdPerMTok: 5,
+    regional: { eu: { inputUsdPerMTok: 4.4, outputUsdPerMTok: 22, cacheReadUsdPerMTok: 0.22, cacheWriteUsdPerMTok: 5.5 } },
+  },
 };
 
 export interface GatewayEmbeddingModel {
