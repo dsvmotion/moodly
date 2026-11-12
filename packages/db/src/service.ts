@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 import { outbox, type Outbox } from "./outbox.ts";
 import { tenantDb, type TenantDb } from "./tenant-db.ts";
-import { createWorkerSql } from "./worker-sql.ts";
+import { WorkerSqlError, createWorkerSql } from "./worker-sql.ts";
 
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
 export { WorkerSqlError, type TenantSql } from "./worker-sql.ts";
@@ -28,6 +28,12 @@ export interface ServiceDb {
   forOrganization(organizationId: string): TenantDb;
   /** El publicador del outbox: metadatos de los eventos pendientes de todas las organizaciones (ADR 0009). */
   outbox: Outbox;
+  /**
+   * Comprueba que la conexión de moodly_worker funciona (login, rol, sin
+   * BYPASSRLS). El worker la llama al arrancar: si falla, no arranca, en vez de
+   * fallar después en cada turno.
+   */
+  verifyWorkerConnection(): Promise<void>;
   /** Cierra las conexiones SQL del rol moodly_worker, si las hay. */
   end(): Promise<void>;
 }
@@ -50,6 +56,10 @@ export function createServiceDb(options: {
   return {
     forOrganization: (organizationId) => tenantDb(client, organizationId, workerSql),
     outbox: outbox(client),
+    verifyWorkerConnection: async () => {
+      if (!workerSql) throw new WorkerSqlError("sin WORKER_DATABASE_URL no hay conexión de moodly_worker");
+      await workerSql.verify();
+    },
     end: async () => {
       await workerSql?.end();
     },

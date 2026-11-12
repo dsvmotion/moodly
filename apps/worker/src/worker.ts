@@ -79,7 +79,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let lease: ExecutorLease | undefined;
   let pool: pg.Pool | undefined;
   let launched = false;
-  let phase: WorkerPhase = "waiting-lease";
+  let phase: WorkerPhase = "checking";
   return {
     probe: {
       phase: () => phase,
@@ -90,6 +90,16 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       oldestPendingEventAt: () => db.outbox.oldestPendingAt(),
     },
     async start() {
+      // Antes del lock y de DBOS: sin moodly_worker, cada turno fallaría después
+      // (ADR 0049). Si no entra, el worker no arranca y /health no dice «ok».
+      try {
+        await db.verifyWorkerConnection();
+      } catch (err) {
+        throw new Error(`WORKER_DATABASE_URL: no se pudo entrar como moodly_worker (${redactConnectionStrings((err as Error).message)})`, {
+          cause: err,
+        });
+      }
+      phase = "waiting-lease";
       lease = await acquireExecutorLease({
         connectionString: config.systemDatabaseUrl,
         executorId: config.executorId,

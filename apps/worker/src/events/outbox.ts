@@ -2,7 +2,7 @@ import { DBOS } from "@dbos-inc/dbos-sdk";
 import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { isEventType, parsePayload } from "./catalog.ts";
-import type { DomainEvent, EventRegistry } from "./handlers.ts";
+import { DB_STEP, type DomainEvent, type EventRegistry } from "./handlers.ts";
 
 // Publicador y entregas del outbox (MANUAL §5.8, ADR 0009, ADR 0027):
 //
@@ -53,8 +53,6 @@ export interface OutboxOptions {
   logger: Logger;
 }
 
-// Lecturas de la base de datos: reintentos cortos, por si PostgREST falla un momento.
-const DB_STEP = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 } as const;
 
 interface EventRow {
   id: string;
@@ -111,7 +109,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     await handler.handle(event, {
       db: tenant,
       logger: log.child({ eventId: event.id, type: event.type, organizationId: event.organizationId, handler: handler.key }),
-      step: (name, fn) => DBOS.runStep(fn, { name: `${handler.key}:${name}` }),
+      step: (name, fn, retries) => DBOS.runStep(fn, { name: `${handler.key}:${name}`, ...retries }),
     });
     return "delivered";
   }

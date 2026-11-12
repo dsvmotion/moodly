@@ -28,8 +28,19 @@ export interface EventContext {
    * no se repite. Si se interrumpe a medias, se repite entero (regla 2): lo que
    * haga fuera de la base de datos tiene que ser idempotente.
    */
-  step<T>(name: string, fn: () => Promise<T>): Promise<T>;
+  step<T>(name: string, fn: () => Promise<T>, options?: StepRetries): Promise<T>;
 }
+
+/** Reintentos de un paso (DBOS.runStep). Sin ellos, un fallo termina la entrega en ERROR. */
+export interface StepRetries {
+  retriesAllowed: boolean;
+  maxAttempts: number;
+  intervalSeconds: number;
+  backoffRate: number;
+}
+
+/** Lecturas de la base de datos: reintentos cortos, por si PostgREST o el pooler fallan un momento. */
+export const DB_STEP: StepRetries = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 };
 
 export interface EventHandler {
   /** Estable y único: forma parte del ID de cada entrega. Cambiarlo vuelve a entregar. */
