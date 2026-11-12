@@ -175,48 +175,55 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
 }
 
 // Las lecturas del turno van por SQL bajo RLS, con el rol moodly_worker (ADR
-// 0049, PL-T1 paso 2b): la organización la fija forOrganization y Postgres no
-// deja ver filas de otra aunque una consulta se olvide de filtrar. Son dos
-// transacciones, antes y después del contexto del agente, que sigue por su
-// función con nombre (agent_turn_context) hasta el paso 3.
+// 0049, PL-T1): la organización la fija forOrganization y Postgres no deja ver
+// filas de otra aunque una consulta se olvide de filtrar. Todo en una
+// transacción: el contexto del agente sale de private.worker_agent_turn_context
+// (paso 3), que toma la organización de la transacción.
 interface ConversationRow extends Conversation {
   mode: string;
   channel_account_id: string;
 }
 
+type Loaded =
+  | { kind: "skip"; reason: string }
+  | {
+      kind: "turn";
+      conversation: ConversationRow;
+      context: TurnContext;
+      books: boolean;
+      messages: { author: string; content: string }[];
+      location: { name: string; timezone: string } | null;
+      modelSettings: unknown;
+      serviceRows: ServiceRow[];
+      dayEur: number;
+    };
+
 async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
-  const first = await db.transaction(async (sql) => {
+  const now = new Date();
+  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  const loaded = await db.transaction(async (sql): Promise<Loaded> => {
     const [conversation] = await sql.query<ConversationRow>(
       "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
       [conversationId],
     );
-    if (!conversation || conversation.mode !== "agent") return { conversation, latestId: null };
+    if (!conversation) return { kind: "skip", reason: "conversation_missing" };
+    if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
     const [latest] = await sql.query<{ id: string }>(
       "select id from public.messages where conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
       [conversationId],
     );
-    return { conversation, latestId: latest?.id ?? null };
-  });
-  const conversation = first.conversation;
-  if (!conversation) return { kind: "skip", reason: "conversation_missing" };
-  if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
-  if (first.latestId !== messageId) return { kind: "skip", reason: "newer_message" };
+    if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
 
-  const raw = await db.agentTurnContext(conversation.agent_id);
-  if (!raw) return { kind: "skip", reason: "agent_missing" };
-  const context = contextSchema.parse(raw);
-  // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
-  const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
-  const now = new Date();
-  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-
-  const rest = await db.transaction(async (sql) => {
+    const [turn] = await sql.query<{ context: unknown }>("select private.worker_agent_turn_context($1) as context", [conversation.agent_id]);
+    if (!turn?.context) return { kind: "skip", reason: "agent_missing" };
+    const context = contextSchema.parse(turn.context);
     if (!ANSWERING.has(context.agent.status)) {
       const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
         conversation.channel_account_id,
       ]);
-      if (!agentAnswers(context.agent.status, account?.channel ?? null)) return null;
+      if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
     }
+
     const messages = await sql.query<{ author: string; content: string }>(
       "select author, content from public.messages where conversation_id = $1 order by created_at desc limit $2",
       [conversationId, HISTORY_LIMIT],
@@ -230,6 +237,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur
        from public.org_model_settings limit 1`,
     );
+    // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
+    const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
     const serviceRows =
       books && conversation.location_id
         ? await sql.query<ServiceRow>(
@@ -243,10 +252,20 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
       "select coalesce(sum(cost_eur), 0)::float8 as total from public.agent_runs where created_at >= $1",
       [startOfDay],
     );
-    return { messages, location: location ?? null, modelSettings: modelSettings ?? null, serviceRows, dayEur: today?.total ?? 0 };
+    return {
+      kind: "turn",
+      conversation,
+      context,
+      books,
+      messages,
+      location: location ?? null,
+      modelSettings: modelSettings ?? null,
+      serviceRows,
+      dayEur: today?.total ?? 0,
+    };
   });
-  if (!rest) return { kind: "skip", reason: "agent_not_answering" };
-  const { messages, location, modelSettings, serviceRows, dayEur } = rest;
+  if (loaded.kind === "skip") return loaded;
+  const { conversation, context, books, messages, location, modelSettings, serviceRows, dayEur } = loaded;
   const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
@@ -577,7 +596,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         knowledge: searchesKnowledge,
       });
       const result = await runAgentTurn({
-        // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
+        // El tipo del agente sale de su fila (worker_agent_turn_context), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
         agentType: context.agent.type_key,
         scope: {

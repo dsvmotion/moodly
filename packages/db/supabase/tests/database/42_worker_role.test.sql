@@ -41,8 +41,8 @@ select is(
   (select array_agg(p.proname::text order by p.proname) from pg_proc p
    where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
      and has_function_privilege('moodly_worker', p.oid, 'execute')),
-  array['worker_organization_id'],
-  'de public y private solo puede ejecutar worker_organization_id');
+  array['worker_agent_turn_context', 'worker_organization_id'],
+  'de public y private solo puede ejecutar worker_organization_id y worker_agent_turn_context (20261112041000)');
 
 -- ===========================================================================
 -- 2. Datos (como la plataforma): una conversación con un mensaje en A y en B
