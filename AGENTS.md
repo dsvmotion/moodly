@@ -116,7 +116,7 @@ Solo se mergea si se cumple **todo** lo siguiente. Si algo falla o hay dudas, **
 
 Cómo:
 - **Con `gh` autenticado:** `scripts/safe-merge.sh <n>`, que hace los tres pasos.
-- **Sin `gh` (sesiones en la nube):** los mismos pasos con el conector de GitHub: leer los check runs y los commit statuses del head, ejecutar el `check-sensitive.sh` de `origin/main` (nunca el del PR) sobre los archivos y el diff del PR, guardados en archivos, y no mergear si el status `sensitive-paths` más reciente del head publicado por `github-actions[bot]` no está en `success` (un status lo puede publicar cualquiera con permiso de escritura; solo vale el de la guarda); después, mergear con `merge_method: squash` y `expectedHeadSha` = el commit comprobado. Nunca mergear sin `expectedHeadSha`.
+- **Sin `gh` (sesiones en la nube):** los mismos pasos con el conector de GitHub: leer los check runs y los commit statuses del head, ejecutar el `check-sensitive.sh` de `origin/main` (nunca el del PR) sobre los archivos y el diff del PR, guardados en archivos (y, si el PR toca `packages/evals/baseline.json`, sus dos versiones, la del merge-base y la del head, con `git show <commit>:packages/evals/baseline.json`, vacía si no existe), y no mergear si el status `sensitive-paths` más reciente del head publicado por `github-actions[bot]` no está en `success` (un status lo puede publicar cualquiera con permiso de escritura; solo vale el de la guarda); después, mergear con `merge_method: squash` y `expectedHeadSha` = el commit comprobado. Nunca mergear sin `expectedHeadSha`.
 
 Antes de mergear, publica en el PR un comentario con el resumen, la evidencia (tests ejecutados, prueba en negativo si aplica) y la lista de archivos tocados.
 

@@ -40,7 +40,13 @@ case "$1 ${2:-}" in
   "repo view") echo '{"nameWithOwner":"acme/moodly"}' ;;
   "api "*)
     [[ -f "$f/api-fail" ]] && { echo "HTTP 502" >&2; exit 1; }
-    if [[ "$2" == *"/statuses"* ]]; then cat "$f/statuses.json"; else cat "$f/check-runs.json"; fi ;;
+    if [[ "$*" == *"/compare/"* ]]; then cat "$f/merge-base"
+    elif [[ "$*" == *"/contents/packages/evals/baseline.json?ref="* ]]; then
+      # La línea base en un commit: baseline-<commit>.json, o 404 si no hay.
+      all="$*"; ref="${all##*ref=}"; ref="${ref%% *}"
+      [[ -f "$f/contents-fail" ]] && { echo "gh: Server Error (HTTP 500)" >&2; exit 1; }
+      if [[ -f "$f/baseline-$ref.json" ]]; then cat "$f/baseline-$ref.json"; else echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
+    elif [[ "$2" == *"/statuses"* ]]; then cat "$f/statuses.json"; else cat "$f/check-runs.json"; fi ;;
   "pr diff")
     if [[ "$*" == *"--name-only"* ]]; then cat "$f/files.txt"; else cat "$f/diff.patch"; fi ;;
   "pr merge") echo "$*" > "$f/merged" ;;
@@ -179,6 +185,31 @@ setup deleted-test; printf '%s\n' "diff --git a/apps/web/e2e/roles.e2e.ts b/apps
 echo "apps/web/e2e/roles.e2e.ts" >> "$FAKE_DIR/files.txt"
 expect_refused "test borrado"
 
+# La línea base de las evals (K-01): safe-merge lee sus dos versiones por la
+# API y la guarda compara las claves. Con la lista activa (vacía), como hoy.
+merge_base_sha="1111111111111111111111111111111111111111"
+setup_baseline() { # nombre json-antes json-después
+  setup "$1"
+  echo "$merge_base_sha" > "$FAKE_DIR/merge-base"
+  [[ -n "$2" ]] && printf '%s\n' "$2" > "$FAKE_DIR/baseline-$merge_base_sha.json"
+  [[ -n "$3" ]] && printf '%s\n' "$3" > "$FAKE_DIR/baseline-$sha.json"
+  echo "packages/evals/baseline.json" >> "$FAKE_DIR/files.txt"
+}
+known_a='{"knownFailures": {"recepcion-no-duplica-solicitud": {"reason": "r"}}}'
+known_ab='{"knownFailures": {"recepcion-no-duplica-solicitud": {"reason": "r"}, "recepcion-reservar": {"reason": "r"}}}'
+(
+  unset SENSITIVE_PATTERNS
+  setup_baseline baseline-added "$known_a" "$known_ab"
+  expect_refused "la línea base gana un fallo conocido"
+  setup_baseline baseline-removed "$known_ab" "$known_a"
+  expect_merged "la línea base pierde un fallo conocido (se arregló)"
+  setup_baseline baseline-new-file "" "$known_a"
+  expect_refused "la línea base aparece con un fallo conocido (antes no existía: 404)"
+  setup_baseline baseline-api-error "$known_a" "$known_a"; touch "$FAKE_DIR/contents-fail"
+  expect_refused "la API no da la línea base (error que no es 404)"
+  [[ $failed -eq 0 ]]
+) && passed=$((passed + 4)) || failed=$((failed + 1))
+
 setup draft; jq '.isDraft = true' "$FAKE_DIR/pr.json" > "$FAKE_DIR/p" && mv "$FAKE_DIR/p" "$FAKE_DIR/pr.json"
 expect_refused "PR en borrador"
 
@@ -257,15 +288,59 @@ procsub_case "una ruta sensible que no es la del primer patrón" 1 "docs/STATUS.
 procsub_case "un archivo de test borrado" 1 "apps/web/src/x.test.ts\n" "diff --git a/apps/web/src/x.test.ts b/apps/web/src/x.test.ts\ndeleted file mode 100644\n"
 procsub_case "nada sensible" 0 "docs/STATUS.md\n" "diff --git a/docs/STATUS.md b/docs/STATUS.md\n+x\n"
 
-echo "== fallos conocidos nuevos en la línea base de las evals (K-01)"
+echo "== fallos conocidos nuevos en la línea base de las evals (K-01): se leen como JSON"
 bl="packages/evals/baseline.json"
-bl_head="diff --git a/$bl b/$bl\n--- a/$bl\n+++ b/$bl\n"
-procsub_case "un caso nuevo en knownFailures" 1 "$bl\n" "${bl_head}+    \"recepcion-reservar\": {\n+      \"reason\": \"x\",\n"
-procsub_case "el archivo nuevo con un caso" 1 "$bl\n" "diff --git a/$bl b/$bl\nnew file mode 100644\n--- /dev/null\n+++ b/$bl\n+{\n+  \"knownFailures\": {\n+    \"recepcion-no-duplica-solicitud\": {\n"
-procsub_case "cambiar el motivo de un caso que ya estaba" 0 "$bl\n" "${bl_head}-      \"reason\": \"viejo\",\n+      \"reason\": \"nuevo\",\n"
-procsub_case "reformatear: el mismo caso sale y vuelve a entrar" 0 "$bl\n" "${bl_head}-    \"recepcion-no-duplica-solicitud\": { \"reason\": \"x\" },\n+    \"recepcion-no-duplica-solicitud\": {\n"
-procsub_case "quitar un caso (se arregló)" 0 "$bl\n" "${bl_head}-    \"recepcion-no-duplica-solicitud\": {\n"
-procsub_case "lo mismo en otro archivo no cuenta" 0 "docs/x.json\n" "diff --git a/docs/x.json b/docs/x.json\n+    \"recepcion-reservar\": {\n"
+bl_case() { # descripción exit-esperado rutas antes después [sin-versiones]
+  local desc="$1" want="$2" paths="$3" before="$4" after="$5" status=0
+  if [[ "${6:-}" == "sin-versiones" ]]; then
+    bash "$check_sensitive" <(printf '%b' "$paths") <(printf 'diff --git a/x b/x\n') > "$tmp/bl.out" || status=$?
+  else
+    bash "$check_sensitive" <(printf '%b' "$paths") <(printf 'diff --git a/x b/x\n') <(printf '%s' "$before") <(printf '%s' "$after") > "$tmp/bl.out" || status=$?
+  fi
+  if [[ $status -eq $want ]]; then echo "✓ $desc → $status $(head -n1 "$tmp/bl.out")"; passed=$((passed + 1))
+  else echo "✗ $desc → $status (esperado $want)"; sed 's/^/    /' "$tmp/bl.out"; failed=$((failed + 1)); fi
+}
+one='{"knownFailures": {"recepcion-no-duplica-solicitud": {"reason": "viejo", "since": "2026-11-09", "tracking": "#155"}}}'
+one_pretty="$(jq . <<< "$one")"
+two='{"knownFailures": {"recepcion-no-duplica-solicitud": {"reason": "viejo", "since": "2026-11-09", "tracking": "#155"}, "recepcion-reservar": {"reason": "x"}}}'
+bl_case "un caso nuevo en knownFailures" 1 "$bl\n" "$one_pretty" "$(jq . <<< "$two")"
+bl_case "un caso nuevo, todo en una línea (el diff por líneas no lo veía)" 1 "$bl\n" "$one_pretty" "$(jq -c . <<< "$two")"
+bl_case "un caso nuevo con un id que no es kebab-case" 1 "$bl\n" "$one_pretty" '{"knownFailures": {"recepcion-no-duplica-solicitud": {}, "Recepcion_Reservar": {}}}'
+bl_case "el archivo nuevo con un caso (antes no existía)" 1 "$bl\n" "" "$one_pretty"
+bl_case "el archivo nuevo sin casos" 0 "$bl\n" "" '{"knownFailures": {}}'
+bl_case "cambiar el motivo de un caso que ya estaba" 0 "$bl\n" "$one_pretty" "$(jq '.knownFailures[].reason = "nuevo"' <<< "$one")"
+bl_case "reformatear y reordenar: los mismos casos" 0 "$bl\n" "$(jq . <<< "$two")" "$(jq -cS . <<< "$two")"
+bl_case "quitar un caso (se arregló)" 0 "$bl\n" "$(jq . <<< "$two")" "$one_pretty"
+bl_case "borrar el archivo" 0 "$bl\n" "$one_pretty" ""
+bl_case "después no es JSON: bloquea" 1 "$bl\n" "$one_pretty" '{"knownFailures": {'
+bl_case "knownFailures no es un objeto: bloquea" 1 "$bl\n" "$one_pretty" '{"knownFailures": ["recepcion-reservar"]}'
+bl_case "no es un objeto: bloquea" 1 "$bl\n" "$one_pretty" '["recepcion-reservar"]'
+bl_case "el PR la toca y no llegan sus dos versiones: bloquea" 1 "$bl\n" "" "" sin-versiones
+bl_case "lo mismo en otro archivo no cuenta" 0 "docs/x.json\n" "" "" sin-versiones
+bl_case "con versiones distintas pero sin tocar el archivo, no cuenta" 0 "docs/x.json\n" "$one_pretty" "$(jq . <<< "$two")"
+if grep -q 'FALLO CONOCIDO AÑADIDO (packages/evals/baseline.json): "recepcion-reservar"' < <(bash "$check_sensitive" <(printf '%b' "$bl\n") <(printf 'diff --git a/x b/x\n') <(printf '%s' "$one") <(printf '%s' "$two") || true); then
+  echo "✓ dice qué caso se añadió"; passed=$((passed + 1))
+else echo "✗ no dice qué caso se añadió"; failed=$((failed + 1)); fi
+
+echo "== baseline-versions.sh (las dos versiones de la línea base, por la API)"
+versions="$root/scripts/merge-guard/baseline-versions.sh"
+bv_case() { # descripción exit-esperado [antes-esperado después-esperado]
+  local desc="$1" want="$2" status=0
+  mkdir -p "$FAKE_DIR/out"
+  PATH="$tmp/bin:$PATH" bash "$versions" acme/moodly main "$sha" "$FAKE_DIR/out" > /dev/null 2>&1 || status=$?
+  if [[ $status -eq $want ]] && { [[ $want -ne 0 ]] || { [[ "$(cat "$FAKE_DIR/out/baseline-before.json")" == "$3" ]] && [[ "$(cat "$FAKE_DIR/out/baseline-after.json")" == "$4" ]]; }; }; then
+    echo "✓ $desc → $status"; passed=$((passed + 1))
+  else echo "✗ $desc → $status (esperado $want)"; failed=$((failed + 1)); fi
+}
+bv_setup() { export FAKE_DIR="$tmp/bv-$1"; rm -rf "$FAKE_DIR"; mkdir -p "$FAKE_DIR"; echo "$merge_base_sha" > "$FAKE_DIR/merge-base"; }
+bv_setup both; echo '{"a":1}' > "$FAKE_DIR/baseline-$merge_base_sha.json"; echo '{"b":2}' > "$FAKE_DIR/baseline-$sha.json"
+bv_case "lee la del merge-base y la del head" 0 '{"a":1}' '{"b":2}'
+bv_setup new; echo '{"b":2}' > "$FAKE_DIR/baseline-$sha.json"
+bv_case "si no existe en el merge-base (404), la deja vacía" 0 "" '{"b":2}'
+bv_setup error; touch "$FAKE_DIR/contents-fail"
+bv_case "otro error de la API: falla" 1
+bv_setup bad-base; echo "null" > "$FAKE_DIR/merge-base"
+bv_case "merge-base que no es un commit: falla" 1
 
 echo "== el workflow de la guarda corre desde la rama base (P-01)"
 workflow="$root/.github/workflows/sensitive-paths.yml"
@@ -290,6 +365,7 @@ wf_case "las etiquetas salen de la API, no del evento" bash -c 'grep -Fq "issues
 wf_case "solo da por buenos PRs contra la rama por defecto" grep -Fq 'if [[ "$BASE" != "$DEFAULT_BRANCH" ]]; then' "$workflow"
 gate_base_status=0; bash "$root/scripts/merge-guard/sensitive-gate.sh" base labeled true > /dev/null || gate_base_status=$?
 wf_case "con otra base, el veredicto es fail aunque lleve la etiqueta" test "$gate_base_status" -eq 1
+wf_case "lee las dos versiones de la línea base y se las pasa a la guarda" bash -c 'grep -Fq "baseline-versions.sh" "$1" && grep -Fq "baseline-before.json" "$1" && grep -Fq "baseline-after.json" "$1"' _ "$workflow"
 wf_case "el resultado de la guarda no pasa por una tubería" bash -c '! grep -Eq "check-sensitive\.sh[^|]*\| *tee" "$1"' _ "$workflow"
 
 echo "== el workflow de la Revisora corre desde la rama base y no ejecuta el PR (SE01)"
