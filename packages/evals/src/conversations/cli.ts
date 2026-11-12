@@ -10,6 +10,7 @@
 //   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1; nunca más de 2, P-05)
 //   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
 //   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
+//   --intent-routing    con el enrutado por intención (PL-T3): las intenciones simples conversan con el camino barato
 //   --baseline <json>   la línea base (baseline.json): no cambia la puntuación; etiqueta los fallos conocidos (K-01)
 //   --report <json>     escribe el resultado (código, si el rojo es solo de fallos conocidos…) para el workflow
 //   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
@@ -49,6 +50,7 @@ interface Options {
   list: boolean;
   model: ModelKey | null;
   compare: ModelKey[];
+  intentRouting: boolean;
   baseline: string | null;
   report: string | null;
 }
@@ -62,7 +64,7 @@ function modelKey(key: string): ModelKey {
 }
 
 export function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], baseline: null, report: null };
+  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], intentRouting: false, baseline: null, report: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -80,6 +82,7 @@ export function parse(argv: readonly string[]): Options {
     } else if (arg === "--repeat") options.repeat = Number(value());
     else if (arg === "--max-eur") options.maxEur = Number(value());
     else if (arg === "--list") options.list = true;
+    else if (arg === "--intent-routing") options.intentRouting = true;
     else if (arg === "--model") options.model = modelKey(value());
     else if (arg === "--baseline") options.baseline = value();
     else if (arg === "--report") options.report = value();
@@ -142,7 +145,7 @@ async function main(): Promise<number> {
     const results: SetResult[] = [];
     for (const model of options.compare) {
       out(`== ${model} (${GATEWAY_MODELS[model]?.id ?? "?"})`);
-      const result = await runSet(cases, { repeat: options.repeat, model, transport, out });
+      const result = await runSet(cases, { repeat: options.repeat, model, transport, out, intentRouting: options.intentRouting });
       results.push(result);
       if (result.stopped !== null) break;
     }
@@ -154,7 +157,7 @@ async function main(): Promise<number> {
     return stopped === "infrastructure" ? 2 : stopped === "budget" ? 3 : 0;
   }
 
-  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out });
+  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out, intentRouting: options.intentRouting });
   const scores = score(result.runs);
   out();
   for (const [severity, s] of Object.entries(scores)) {
