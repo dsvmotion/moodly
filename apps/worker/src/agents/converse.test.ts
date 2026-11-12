@@ -14,6 +14,7 @@ import {
   recordUsageSafely,
   runIdFor,
   runStatusFor,
+  withSummaryUsage,
 } from "./converse.ts";
 import type { TurnContext } from "./converse.ts";
 
@@ -36,6 +37,21 @@ describe("el turno del agente en el worker", () => {
     const drafted = { status: "drafted", skillKey: "book_appointment" } as TurnResult["executions"][number];
     expect(status({ status: "replied", executions: [drafted] })).toBe("awaiting_approval");
     expect(status({ status: "handed_off", reason: "max_steps", executions: [drafted] })).toBe("handed_off");
+  });
+
+  it("el run cuenta lo que costó el resumen continuo, y nada si no se hizo (PL-T3)", () => {
+    const turn = { status: "replied", executions: [], usage: { tokensIn: 100, tokensOut: 10, costEur: 0.01, model: "m/smart", calls: [] } } as TurnResult;
+    const updated = withSummaryUsage(turn, {
+      kind: "updated",
+      summary: "s",
+      coveredUntil: "2030-06-03T09:00:00Z",
+      usage: { tokensIn: 50, tokensOut: 5, costEur: 0.001, model: "m/fast" },
+      call: { index: 1000, provider: "p", via: "gateway", region: "other", model: "m/fast", modelKey: "fast", tokensIn: 50, tokensOut: 5, costEur: 0.001, startedAt: "2030-06-03T09:00:00.000Z" },
+    });
+    expect(updated.usage).toEqual({ tokensIn: 150, tokensOut: 15, costEur: 0.011, model: "m/smart", calls: [] });
+    expect(updated.status).toBe("replied");
+    expect(withSummaryUsage(turn, { kind: "none" })).toBe(turn);
+    expect(withSummaryUsage(turn, { kind: "skipped", reason: "budget" })).toBe(turn);
   });
 
   it("un mensaje del agente que iba a esperar aprobación se retiene si la conversación ya no la lleva él (R-02)", () => {

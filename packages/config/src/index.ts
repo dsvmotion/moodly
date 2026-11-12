@@ -120,11 +120,12 @@ export interface GatewayModel {
  * modelo es cambiar esta tabla, nunca el código de negocio.
  */
 export const GATEWAY_MODELS: Readonly<Partial<Record<ModelKey, GatewayModel>>> = {
-  // Caché de Anthropic: leer cuesta el 10 % de la entrada y escribir (5 minutos), el 125 %.
+  // Caché, del catálogo del gateway (2026-11-12): escribir (5 minutos) cuesta el 125 % de la entrada;
+  // leer, el 10 % en Haiku 5.5 y el 5 % en Opus 5.5.
   fast: { id: "anthropic/claude-haiku-5.5", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5, cacheReadUsdPerMTok: 0.01, cacheWriteUsdPerMTok: 0.125 },
   // Precios del catálogo de Vercel AI Gateway (2026-11-11), también los de la caché: Sonnet 5.5 lee a 0,1 $/M (el 5 % de la entrada) y escribe a 2,5 $/M (el 125 %).
   balanced: { id: "anthropic/claude-sonnet-5.5", inputUsdPerMTok: 2, outputUsdPerMTok: 10, cacheReadUsdPerMTok: 0.1, cacheWriteUsdPerMTok: 2.5 },
-  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20, cacheReadUsdPerMTok: 0.4, cacheWriteUsdPerMTok: 5 },
+  smart: { id: "anthropic/claude-opus-5.5", inputUsdPerMTok: 4, outputUsdPerMTok: 20, cacheReadUsdPerMTok: 0.2, cacheWriteUsdPerMTok: 5 },
 };
 
 export interface GatewayEmbeddingModel {

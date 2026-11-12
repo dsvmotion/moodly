@@ -38,6 +38,8 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
 import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
+import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
 // message.received y ejecuta runAgentTurn con pasos de DBOS.
@@ -160,6 +162,10 @@ type Prepared =
       conversation: Conversation;
       context: TurnContext;
       history: HistoryMessage[];
+      /** El resumen de lo anterior a `history` (PL-T3), y hasta dónde llega. */
+      summary: { summary: string; coveredUntil: string } | null;
+      /** Si no se pudo leer el resumen: el turno va con la historia entera. */
+      summaryError: string | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       /** Lo gastado hoy y este mes (UTC), del libro de consumo: lo compara el enrutador con los topes. */
@@ -209,15 +215,12 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
   }
 
-  const messages = check(
-    await db
-      .from("messages")
-      .select("author, content, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT),
-    "el historial",
-  );
+  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido.
+  // Si no se puede leer, sin resumen: la historia entera, como antes (nunca un turno sin contestar).
+  const { summary, error: summaryError } = await loadSummary(db, conversationId);
+  let history = db.from("messages").select("author, content, created_at").eq("conversation_id", conversationId);
+  if (summary) history = history.gt("created_at", summary.coveredUntil);
+  const messages = check(await history.order("created_at", { ascending: false }).limit(HISTORY_LIMIT), "el historial");
   const location = conversation.location_id
     ? check(await db.from("locations").select("name, timezone").eq("id", conversation.location_id).maybeSingle(), "el local")
     : null;
@@ -255,6 +258,8 @@ async function prepare(db: TenantDb, conversationId: string, messageId: string):
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
     history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    summary,
+    summaryError,
     location,
     modelSettings,
     dayEur: spent.dayEur,
@@ -586,6 +591,20 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
   return true;
 }
 
+/** El run cuenta también lo que costó el resumen: así el gasto del día y los topes lo ven. */
+export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): TurnResult {
+  if (summarized.kind !== "updated") return result;
+  return {
+    ...result,
+    usage: {
+      ...result.usage,
+      tokensIn: result.usage.tokensIn + summarized.usage.tokensIn,
+      tokensOut: result.usage.tokensOut + summarized.usage.tokensOut,
+      costEur: result.usage.costEur + summarized.usage.costEur,
+    },
+  };
+}
+
 export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
@@ -643,6 +662,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         systemPrompt: prompt.stable,
         systemContext: prompt.volatile,
         history: prepared.history,
+        summary: prepared.summary?.summary ?? null,
         skills,
         settings,
         router,
@@ -671,19 +691,48 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       });
       // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
       const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
+      // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
       await ctx.step("run:finish", async () => {
         // Lo que no se pudo anotar durante el turno, otra vez (sin lanzar tampoco).
         for (const call of unrecorded) await recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call);
         await finishRun(ctx.db, runId, conversation.id, result, heldAny);
       });
+      if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
+      // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
+      const summarized = await ctx.step("summary:model", () =>
+        summarizeStep({
+          db: ctx.db,
+          organizationId: event.organizationId,
+          runId,
+          conversationId: conversation.id,
+          previous: prepared.summary,
+          router,
+          policy,
+          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur, monthEur: prepared.monthEur + result.usage.costEur },
+        }),
+      );
+      // La llamada del resumen, al libro de consumo (PL-ledger), también si no dio resumen: se pagó igual.
+      const summaryCall = summarized.kind === "none" ? undefined : summarized.call;
+      if (summaryCall) await ctx.step("summary:ledger", () => recordUsageSafely(ctx.db, ctx.logger, runId, conversation, summaryCall));
+      const finished = withSummaryUsage(result, summarized);
+      if (summarized.kind === "updated") {
+        // Primero el coste (se gastó aunque no se guarde), después el resumen.
+        const booked = await ctx.step("summary:usage", () => bookSummaryUsage(ctx.db, runId, finished.usage));
+        if (booked) ctx.logger.warn({ runId, error: booked }, "no se pudo apuntar el coste del resumen en el run");
+        const saved = await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
+        if (saved) ctx.logger.warn({ runId, error: saved }, "no se pudo guardar el resumen");
+      } else if (summarized.kind === "skipped") {
+        ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
+      }
       ctx.logger.info(
         {
           runId,
-          status: result.status,
-          reason: notAgentMode ? HELD_NOT_AGENT_MODE : result.reason,
-          error: result.error,
-          executions: result.executions.length,
-          costEur: result.usage.costEur,
+          status: finished.status,
+          reason: notAgentMode ? HELD_NOT_AGENT_MODE : finished.reason,
+          error: finished.error,
+          executions: finished.executions.length,
+          costEur: finished.usage.costEur,
+          summary: summarized.kind,
         },
         "turno del agente terminado",
       );

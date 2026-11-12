@@ -4,6 +4,7 @@ import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolC
 import { decide } from "../policy.js";
 import type { ConsentChecker, RejectReason, RunScope, SkillSettings } from "../policy.js";
 import type { SkillContext, SkillDefinition, SkillPreview, Target } from "../skill.js";
+import { SUMMARY_MARK } from "./summary.js";
 
 // Un turno del agente (MANUAL §5.1, paso 4d): del mensaje del cliente a la
 // respuesta, pasando por el motor de políticas en cada herramienta.
@@ -82,6 +83,15 @@ export interface TurnModelCall {
   startedAt: string;
 }
 
+/**
+ * Un fallo del libro de consumo (PL-ledger) al anotar una llamada. Es lo único
+ * que el turno deja pasar de recordModelCall: lo demás (p. ej. que el motor
+ * cancele el paso) se propaga.
+ */
+export class UsageRecordError extends Error {
+  override name = "UsageRecordError";
+}
+
 export interface TurnUsage {
   tokensIn: number;
   tokensOut: number;
@@ -117,6 +127,12 @@ export interface TurnParams {
   /** Lo del sistema que cambia en cada turno (la hora): va después y fuera de la caché. */
   systemContext?: string;
   history: readonly HistoryMessage[];
+  /**
+   * El resumen de los mensajes anteriores a `history` (PL-T3), si lo hay: entra
+   * antes de la historia, marcado como dato (lo escribió un modelo a partir de
+   * lo que dijo el cliente).
+   */
+  summary?: string | null;
   /** Las skills activas del agente, con la de responder (REPLY_SKILL_KEY). */
   skills: ReadonlyMap<string, SkillDefinition<unknown>>;
   settings: ReadonlyMap<string, SkillSettings>;
@@ -129,6 +145,8 @@ export interface TurnParams {
   /**
    * Cada llamada al modelo, justo después de hacerla (el libro de consumo,
    * PL-ledger): si algo falla más tarde en el turno, lo que costó ya está anotado.
+   * Un fallo al anotar se señala con UsageRecordError y el turno sigue; cualquier
+   * otro error para el turno.
    */
   recordModelCall?: (call: TurnModelCall) => Promise<void>;
   maxSteps?: number;
@@ -194,6 +212,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
   const messages: ModelMessage[] = [
     { role: "system", content: params.systemPrompt, cacheable: true },
     ...(params.systemContext ? [{ role: "system" as const, content: params.systemContext }] : []),
+    ...(params.summary?.trim() ? [{ role: "user" as const, content: `${SUMMARY_MARK}\n${params.summary.trim()}` }] : []),
     ...params.history.flatMap((message) => {
       const converted = toModelMessage(message);
       return converted ? [converted] : [];
@@ -311,8 +330,9 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     if (recorded && params.recordModelCall) {
       try {
         await params.recordModelCall(recorded);
-      } catch {
-        // Quien anota registra su propio fallo; aquí no se para el turno.
+      } catch (error) {
+        // Quien anota registra su propio fallo; un fallo del libro no para el turno.
+        if (!(error instanceof UsageRecordError)) throw error;
       }
     }
 

@@ -54,7 +54,7 @@ export type { GatewayTransportOptions } from "./models/transports/gateway.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
 export type { ModelSettingsRow } from "./models/settings.js";
-export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, runAgentTurn } from "./runtime/turn.js";
+export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, UsageRecordError, runAgentTurn } from "./runtime/turn.js";
 export type {
   ExecutionStatus,
   HandOffReason,
@@ -68,4 +68,6 @@ export type {
   TurnUsage,
 } from "./runtime/turn.js";
 export { PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts } from "./runtime/prompt.js";
+export { RECENT_MESSAGES, SUMMARY_CALL_INDEX, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./runtime/summary.js";
+export type { SummarizeParams, SummarizeResult, SummaryMessage, SummaryPlan } from "./runtime/summary.js";
 export type { BookableService, PromptContext, SystemPromptParts } from "./runtime/prompt.js";

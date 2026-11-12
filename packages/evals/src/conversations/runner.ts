@@ -47,6 +47,8 @@ export interface ConversationCase {
   /** Lo que se prueba, en una frase. */
   description: string;
   history: readonly HistoryMessage[];
+  /** El resumen continuo de lo anterior a `history` (PL-T3), como lo guardaría el worker. */
+  summary?: string;
   /** El negocio de prueba (por defecto, el centro de estética AURORA). */
   business?: Business;
   /** Lo que ha escrito el negocio, si no es el suyo de serie. */
@@ -101,6 +103,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     systemPrompt: world.systemPromptParts.stable,
     systemContext: world.systemPromptParts.volatile,
     history: testCase.history,
+    ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
     settings: world.settings,
     router: createModelRouter([model]),
