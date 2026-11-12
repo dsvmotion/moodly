@@ -141,7 +141,7 @@ select ok(has_table_privilege('moodly_worker', 'public.conversation_summaries', 
           and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'insert')
           and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'update')
           and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'delete'),
-  'el worker solo lee la tabla (el turno carga el resumen, 20261112061000); escribir llega con el módulo que lo use');
+  'el worker solo lee la tabla (el turno carga el resumen, 20261112110000); escribir llega con el módulo que lo use');
 -- Con un privilegio solo dentro del test, la política deja ver lo de su organización y nada más.
 grant select on public.conversation_summaries to moodly_worker;
 grant moodly_worker to postgres with set true;
