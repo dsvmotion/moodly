@@ -91,8 +91,8 @@ export const COPY = {
     priceChainDesc: "Implantación con presupuesto cerrado y contrato, con SSO, auditoría y soporte dedicado.",
     priceChainCta: "Hablar con ventas",
     demoH2: "Pon tu primer agente a trabajar.",
-    demoFine1: "Te respondemos en menos de 24 h. O ",
-    demoFineLink: "habla con ventas",
+    demoFine1: "Al pedirla se abre tu correo con el mensaje escrito. O ",
+    demoFineLink: "escríbenos desde Contacto",
     demoFine2: ".",
   },
   en: {
@@ -186,8 +186,8 @@ export const COPY = {
     priceChainDesc: "Setup with a fixed quote and a contract, with SSO, audit and dedicated support.",
     priceChainCta: "Talk to sales",
     demoH2: "Put your first agent to work.",
-    demoFine1: "We reply in under 24 h. Or ",
-    demoFineLink: "talk to sales",
+    demoFine1: "Requesting it opens your email app with the message written. Or ",
+    demoFineLink: "write to us from Contact",
     demoFine2: ".",
   },
   fr: {
@@ -281,8 +281,8 @@ export const COPY = {
     priceChainDesc: "Mise en place sur devis ferme et contrat, avec SSO, audit et support dédié.",
     priceChainCta: "Parler aux ventes",
     demoH2: "Mettez votre premier agent au travail.",
-    demoFine1: "Nous répondons en moins de 24 h. Ou ",
-    demoFineLink: "parlez aux ventes",
+    demoFine1: "La demande ouvre votre messagerie avec le message rédigé. Ou ",
+    demoFineLink: "écrivez-nous depuis Contact",
     demoFine2: ".",
   },
   de: {
@@ -376,8 +376,8 @@ export const COPY = {
     priceChainDesc: "Einrichtung zum Festpreis und Vertrag, mit SSO, Audit und dediziertem Support.",
     priceChainCta: "Mit dem Vertrieb sprechen",
     demoH2: "Bring deinen ersten Agenten zum Arbeiten.",
-    demoFine1: "Wir antworten in unter 24 h. Oder ",
-    demoFineLink: "sprich mit dem Vertrieb",
+    demoFine1: "Die Anfrage öffnet dein E-Mail-Programm mit fertiger Nachricht. Oder ",
+    demoFineLink: "schreib uns über Kontakt",
     demoFine2: ".",
   },
 };

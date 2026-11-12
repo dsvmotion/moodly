@@ -66,9 +66,43 @@ export interface TurnResult {
    */
   error?: string;
   executions: TurnExecution[];
-  usage: { tokensIn: number; tokensOut: number; costEur: number; model: string | null };
+  usage: TurnUsage;
   /** Con el enrutado por intención (PL-T3): qué intención vio y cómo lo decidió. */
   intent?: { intent: Intent; by: Classification["by"] };
+}
+
+/** Una llamada al modelo del turno, tal como la anota el libro de consumo (usage_records, PL-ledger). */
+export interface TurnModelCall {
+  /** El orden de la llamada en el turno (el paso del modelo). */
+  index: number;
+  provider: string;
+  via: string;
+  region: string;
+  model: string;
+  modelKey: string;
+  tokensIn: number;
+  tokensOut: number;
+  costEur: number;
+  /** Cuándo empezó (ISO), del resultado guardado del paso: igual al reanudar. */
+  startedAt: string;
+}
+
+/**
+ * Un fallo del libro de consumo (PL-ledger) al anotar una llamada. Es lo único
+ * que el turno deja pasar de recordModelCall: lo demás (p. ej. que el motor
+ * cancele el paso) se propaga.
+ */
+export class UsageRecordError extends Error {
+  override name = "UsageRecordError";
+}
+
+export interface TurnUsage {
+  tokensIn: number;
+  tokensOut: number;
+  costEur: number;
+  model: string | null;
+  /** Cada llamada, también las de un turno que acabó pasando a una persona. */
+  calls: TurnModelCall[];
 }
 
 export type Step = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
@@ -112,6 +146,13 @@ export interface TurnParams {
   consent?: ConsentChecker;
   step?: Step;
   record?: (execution: TurnExecution) => Promise<void>;
+  /**
+   * Cada llamada al modelo, justo después de hacerla (el libro de consumo,
+   * PL-ledger): si algo falla más tarde en el turno, lo que costó ya está anotado.
+   * Un fallo al anotar se señala con UsageRecordError y el turno sigue; cualquier
+   * otro error para el turno.
+   */
+  recordModelCall?: (call: TurnModelCall) => Promise<void>;
   maxSteps?: number;
   maxOutputTokens?: number;
   /**
@@ -168,7 +209,7 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
   const step = params.step ?? identityStep;
   const maxSteps = params.maxSteps ?? DEFAULT_MAX_STEPS;
   const executions: TurnExecution[] = [];
-  const usage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null as string | null };
+  const usage: TurnUsage = { tokensIn: 0, tokensOut: 0, costEur: 0, model: null, calls: [] };
 
   const tools: ToolSpec[] = [...skills.values()]
     .filter((skill) => skill.key !== REPLY_SKILL_KEY && settings.get(skill.key)?.enabled)
@@ -188,6 +229,18 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     }),
   ];
 
+  // Anotar cada llamada es contabilidad: si falla, el turno sigue y el cliente
+  // tiene su respuesta (lo que costó sigue en usage, para quien cierre el run).
+  async function recordCall(call: TurnModelCall): Promise<void> {
+    if (!params.recordModelCall) return;
+    try {
+      await params.recordModelCall(call);
+    } catch (error) {
+      // Quien anota registra su propio fallo; un fallo del libro no para el turno.
+      if (!(error instanceof UsageRecordError)) throw error;
+    }
+  }
+
   let routed: TurnResult["intent"];
   let preferredModel: ReturnType<typeof modelForIntent>;
   const lastCustomer = [...params.history].reverse().find((message) => message.author === "contact");
@@ -199,6 +252,10 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       usage.tokensIn += classification.usage.tokensIn;
       usage.tokensOut += classification.usage.tokensOut;
       usage.costEur += classification.usage.costEur;
+    }
+    if (classification.call) {
+      usage.calls.push(classification.call);
+      await recordCall(classification.call);
     }
     routed = { intent: classification.intent, by: classification.by };
     preferredModel = modelForIntent(classification.intent);
@@ -283,7 +340,11 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           },
           policy,
-          { runEur: params.spend.runEur + usage.costEur, dayEur: params.spend.dayEur + usage.costEur },
+          {
+            runEur: params.spend.runEur + usage.costEur,
+            dayEur: params.spend.dayEur + usage.costEur,
+            monthEur: params.spend.monthEur + usage.costEur,
+          },
         ),
       );
     } catch (error) {
@@ -294,6 +355,21 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     usage.tokensOut += result.tokensOut;
     usage.costEur += result.costEur;
     usage.model = result.model;
+    usage.calls.push({
+      index: stepIndex,
+      provider: result.provider,
+      via: result.via,
+      region: result.region,
+      model: result.model,
+      modelKey: result.modelKey,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      costEur: result.costEur,
+      startedAt: result.startedAt,
+    });
+    // El último anotado es el de esta llamada (index = stepIndex).
+    const recorded = usage.calls.at(-1);
+    if (recorded) await recordCall(recorded);
 
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {

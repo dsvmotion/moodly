@@ -2,7 +2,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { PLATFORM_MODEL_POLICY, createModelRouter } from "../router.js";
 import type { ModelMessage, TransportRequest } from "../router.js";
-import { CACHE_BREAKPOINT, ModelOutputTruncatedError, ModelRefusalError, createGatewayTransport, toSdkMessages } from "./gateway.js";
+import { CACHE_BREAKPOINT, ModelOutputTruncatedError, ModelRefusalError, createGatewayTransport, priceEur, pricesFor, toSdkMessages } from "./gateway.js";
 
 // El transporte de Vercel AI Gateway con el modelo de prueba oficial del AI SDK:
 // sin red ni clave. Se comprueba lo que llega al modelo y lo que vuelve al
@@ -260,9 +260,47 @@ describe("transporte de Vercel AI Gateway", () => {
       router.generate(
         { organizationId: "org-1", runId: "run-1", task: "converse", messages: [{ role: "user", content: "hola" }], maxOutputTokens: 100 },
         { ...PLATFORM_MODEL_POLICY, residency: "eu" },
-        { runEur: 0, dayEur: 0 },
+        { runEur: 0, dayEur: 0, monthEur: 0 },
       ),
     ).rejects.toThrow(/residencia eu/);
+  });
+});
+
+describe("priceEur: región y contexto largo", () => {
+  const regional = {
+    id: "test/regional",
+    inputUsdPerMTok: 2,
+    outputUsdPerMTok: 10,
+    cacheReadUsdPerMTok: 0.1,
+    cacheWriteUsdPerMTok: 2.5,
+    regional: { eu: { inputUsdPerMTok: 2.2, outputUsdPerMTok: 11, cacheReadUsdPerMTok: 0.11, cacheWriteUsdPerMTok: 2.75 } },
+  };
+  const tokens = { input: 1_000_000, cacheRead: 1_000_000, cacheWrite: 1_000_000, output: 1_000_000 };
+
+  it("sin región, el precio global; con la UE, el de la UE en cada línea (un 10 % más)", () => {
+    expect(priceEur(regional, tokens)).toBeCloseTo(2 + 0.1 + 2.5 + 10, 10);
+    expect(priceEur(regional, tokens, "eu")).toBeCloseTo(2.2 + 0.11 + 2.75 + 11, 10);
+  });
+
+  it("una región sin precio falla en vez de cobrar a precio global", () => {
+    expect(() => pricesFor(regional, "us")).toThrow(/no tiene precio en la región «us»/);
+    expect(() => priceEur({ id: "test/plain", inputUsdPerMTok: 1, outputUsdPerMTok: 1 }, tokens, "eu")).toThrow(/región «eu»/);
+  });
+
+  it("contexto largo: desde el umbral (con la caché), cada línea por el multiplicador; por debajo, normal", () => {
+    const haiku = { id: "test/haiku", inputUsdPerMTok: 0.1, outputUsdPerMTok: 0.5, longContext: { aboveInputTokens: 100_001, multiplier: 5 } };
+    const below = { input: 50_000, cacheRead: 50_000, cacheWrite: 0, output: 1_000 };
+    const at = { ...below, cacheWrite: 1 };
+    expect(priceEur(haiku, below)).toBeCloseTo((100_000 * 0.1 + 1_000 * 0.5) / 1e6, 12);
+    expect(priceEur(haiku, at)).toBeCloseTo((5 * (100_001 * 0.1 + 1_000 * 0.5)) / 1e6, 12);
+  });
+
+  it("el transporte del gateway no fija región: estima y cobra a precio global", async () => {
+    const { transport } = transportWith(
+      { content: [{ type: "text", text: "x" }], finishReason: { unified: "stop", raw: "end_turn" }, usage: usage(1_000_000, 0), warnings: [] },
+      { smart: regional },
+    );
+    expect((await transport.generate(request())).costEur).toBeCloseTo(2, 8);
   });
 });
 

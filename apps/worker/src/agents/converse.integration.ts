@@ -258,6 +258,27 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     expect(Number(run?.tokens_in)).toBe(240);
     expect(Number(run?.cost_eur)).toBeCloseTo(0.0008, 6);
 
+    // El libro de consumo (PL-ledger): una fila por llamada al modelo, de la
+    // organización de la fila, con su orden, vía y coste; sumadas dan lo del run.
+    const { rows: usage } = await admin.query<{
+      organization_id: string;
+      agent_id: string;
+      source: string;
+      call_index: number;
+      provider: string;
+      model: string;
+      tokens_in: number;
+      tokens_out: number;
+      cost_eur: string;
+    }>(
+      "select organization_id, agent_id, source, call_index, provider, model, tokens_in, tokens_out, cost_eur from public.usage_records where run_id = $1 order by call_index",
+      [run?.id],
+    );
+    expect(usage.map((row) => row.call_index)).toEqual([0, 1]);
+    expect(usage.every((row) => row.organization_id === ids.org && row.source === "agent_turn" && row.model === "fake/fast")).toBe(true);
+    expect(usage.reduce((sum, row) => sum + row.tokens_in, 0)).toBe(240);
+    expect(usage.reduce((sum, row) => sum + Number(row.cost_eur), 0)).toBeCloseTo(0.0008, 6);
+
     const executions = await executionsOf(run?.id ?? "");
     expect(executions.map((execution) => [execution.skill_key, execution.status, execution.autonomy_applied])).toEqual([
       ["find_slots", "executed", "autonomous"],
@@ -751,6 +772,20 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     expect(summaries).toEqual([{ organization_id: ids.org, summary: "Customer said: 2 mensajes.", covered: true, model: "fake/fast" }]);
     // El run cuenta también el resumen: el turno y el resumen, 0,0004 € cada uno.
     expect(Number((await runFor(lastId))[0]?.cost_eur)).toBeCloseTo(0.0008, 6);
+    // Y el libro de consumo (PL-ledger): la llamada del turno y la del resumen, cada una en su fila.
+    const runId = (await runFor(lastId))[0]?.id as string;
+    await waitFor(
+      async () => ((await admin.query("select 1 from public.usage_records where run_id = $1 and call_index = 1000", [runId])).rowCount ?? 0) > 0,
+      "la llamada del resumen queda en el libro de consumo",
+    );
+    const { rows: ledger } = await admin.query<{ organization_id: string; call_index: number; model_key: string; cost_eur: string }>(
+      "select organization_id, call_index, model_key, cost_eur::text from public.usage_records where run_id = $1 order by call_index",
+      [runId],
+    );
+    expect(ledger.map((row) => ({ ...row, cost_eur: Number(row.cost_eur) }))).toEqual([
+      expect.objectContaining({ organization_id: ids.org, call_index: 0 }),
+      { organization_id: ids.org, call_index: 1000, model_key: "fast", cost_eur: 0.0004 },
+    ]);
 
     const next = await customerSays("¿Sigues ahí?", ids.summaryConversation);
     await waitFor(async () => (await runFor(next))[0]?.status === "completed", "el agente contesta otra vez");

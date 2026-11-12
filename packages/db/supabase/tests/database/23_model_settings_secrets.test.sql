@@ -90,7 +90,7 @@ update public.org_model_settings set residency = residency where organization_id
 select set_eq(
   $$select action, actor_type, metadata -> 'changed' from public.audit_logs
     where action like 'model_settings.%'$$,
-  format($$values ('model_settings.insert', 'user', '{"residency": "eu", "connection": "managed", "model_by_task": {}, "allowed_providers": ["anthropic", "mistral"], "budget_per_day_eur": 20.0000, "budget_per_run_eur": 0.5000}'::jsonb),
+  format($$values ('model_settings.insert', 'user', '{"residency": "eu", "connection": "managed", "model_by_task": {}, "allowed_providers": ["anthropic", "mistral"], "budget_per_day_eur": 20.0000, "budget_per_run_eur": 0.5000, "budget_per_month_eur": 300.0000}'::jsonb),
                   ('model_settings.update', 'user', '{"residency": "any", "budget_per_day_eur": 50.0000}'::jsonb),
                   ('model_settings.update', 'user', '{"model_by_task": {"converse": "smart"}}'::jsonb),
                   ('model_settings.update', 'system', '{"connection": "byok"}'::jsonb)$$),

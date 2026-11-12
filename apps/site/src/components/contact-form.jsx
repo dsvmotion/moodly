@@ -1,8 +1,11 @@
 "use client";
 import LangLink from "@/components/lang-link";
 import { useState } from "react";
+import { FORM_TEXT, mailtoContact, withContact } from "./contact";
+import { useLang } from "./use-lang";
 
-// Formulario de contacto. TODO(backend): enviar a un endpoint de leads (Supabase o CRM).
+// Formulario de contacto. Sin endpoint de leads todavía (llega en M1): un envío válido
+// abre el programa de correo con el mensaje escrito y la web lo dice (N-02, ver contact.js).
 const TOPICS = ["Pedir una demo", "Precios e implantación", "Enterprise / multisede", "Soporte", "Prensa o colaboración"];
 const SIZES = ["1–10 personas", "11–50", "51–250", "Más de 250"];
 const field = { width: "100%", boxSizing: "border-box", padding: "12px 16px", borderRadius: "10px", border: "1px solid #0000001a", background: "#ffffff", font: "400 15px/22px var(--font-display)", color: "#000000" };
@@ -12,23 +15,26 @@ export default function ContactForm() {
   const [data, setData] = useState({ name: "", email: "", company: "", size: SIZES[0], topic: TOPICS[0], message: "", consent: false });
   const [errors, setErrors] = useState({});
   const [sent, setSent] = useState(false);
+  const t = FORM_TEXT[useLang()] || FORM_TEXT.es;
   const set = (k) => (e) => setData({ ...data, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
   const submit = (e) => {
     e.preventDefault();
     const next = {};
     if (!data.name.trim()) next.name = "Escribe tu nombre.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) next.email = "Escribe un email válido.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) next.email = t.invalidEmail;
     if (!data.consent) next.consent = "Necesitamos tu permiso para responderte.";
     setErrors(next);
-    if (Object.keys(next).length === 0) setSent(true);
+    if (Object.keys(next).length > 0) return;
+    setSent(true);
+    const body = [`${data.name} · ${data.email}`, [data.company, data.size].filter(Boolean).join(" · "), "", data.message].join("\n");
+    window.location.href = mailtoContact(data.topic, body);
   };
 
   if (sent) {
     return (
-      <div role="status" style={{ borderRadius: "12px", background: "#dcebdd", color: "#004c39", padding: "32px", display: "flex", flexDirection: "column", gap: "8px" }}>
-        <strong style={{ fontSize: "20px", lineHeight: "26px", fontWeight: 500 }}>Gracias, {data.name.split(" ")[0]}.</strong>
-        <span style={{ fontSize: "16px", lineHeight: "24px" }}>Te escribimos a {data.email} en menos de 24 horas laborables.</span>
+      <div role="status" data-form-status="opened-mail" style={{ borderRadius: "12px", background: "#e8edff", color: "#1d3a9e", padding: "32px", fontSize: "16px", lineHeight: "24px" }}>
+        {withContact(t.opened)}
       </div>
     );
   }

@@ -100,10 +100,10 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext) y la transacción bajo RLS", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, usageSpend) y la transacción bajo RLS", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "findBookingSlots", "from", "organizationId", "searchKnowledge", "transaction"]);
+    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "findBookingSlots", "from", "organizationId", "searchKnowledge", "transaction", "usageSpend"]);
   });
 
   it("sin WORKER_DATABASE_URL no hay transacciones bajo RLS (no cae al acceso sin RLS)", async () => {
@@ -198,6 +198,21 @@ describe("tenantDb.agentTurnContext (paso 4d-2)", () => {
 
   it("rechaza un agente que no es un UUID, sin llamar", async () => {
     await expect(db.agentTurnContext(`${AGENT},x`)).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb.usageSpend (PL-ledger)", () => {
+  it("llama a usage_spend con la organización de este acceso y los comienzos del día y del mes", async () => {
+    await db.usageSpend({ dayStart: new Date("2026-11-12T00:00:00Z"), monthStart: new Date("2026-11-01T00:00:00Z") });
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/usage_spend");
+    expect(body).toEqual({ p_organization_id: ORG, p_day_start: "2026-11-12T00:00:00.000Z", p_month_start: "2026-11-01T00:00:00.000Z" });
+  });
+
+  it("rechaza una fecha que no lo es, sin llamar", async () => {
+    await expect(db.usageSpend({ dayStart: new Date("x"), monthStart: new Date() })).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });

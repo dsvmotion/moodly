@@ -1,6 +1,6 @@
 import { BudgetExceededError } from "../models/router.js";
 import type { ModelPolicy, ModelRouter, Spend } from "../models/router.js";
-import type { HistoryMessage } from "./turn.js";
+import type { HistoryMessage, TurnModelCall } from "./turn.js";
 
 // Resumen continuo de una conversación (PL-T3, punto 2). En vez de mandar al
 // modelo los últimos 20 mensajes en cada turno, el turno lleva el resumen de lo
@@ -20,6 +20,11 @@ export const RECENT_MESSAGES = 6;
 /** Tope del resumen guardado (la columna admite 4000). */
 export const SUMMARY_MAX_CHARS = 2000;
 const SUMMARY_MAX_OUTPUT_TOKENS = 1500;
+/**
+ * El orden de la llamada del resumen en el libro de consumo (PL-ledger): uno por
+ * turno, lejos de los pasos del turno (0, 1, …).
+ */
+export const SUMMARY_CALL_INDEX = 1000;
 
 export const SUMMARY_INSTRUCTIONS = [
   "You keep a running summary of a conversation between a business's AI assistant and a customer, so the assistant can continue it without the full history.",
@@ -88,8 +93,9 @@ export interface SummarizeParams {
 }
 
 export type SummarizeResult =
-  | { status: "updated"; summary: string; usage: { tokensIn: number; tokensOut: number; costEur: number; model: string } }
-  | { status: "skipped"; reason: "budget" | "empty" | "model_failed"; error?: string };
+  | { status: "updated"; summary: string; usage: { tokensIn: number; tokensOut: number; costEur: number; model: string }; call: TurnModelCall }
+  /** `call` si se llegó a llamar al modelo: lo que costó se anota aunque no haya resumen. */
+  | { status: "skipped"; reason: "budget" | "empty" | "model_failed"; error?: string; call?: TurnModelCall };
 
 export async function summarizeConversation(params: SummarizeParams): Promise<SummarizeResult> {
   if (!params.messages.some((message) => SPEAKER[message.author] !== null)) return { status: "skipped", reason: "empty" };
@@ -113,7 +119,19 @@ export async function summarizeConversation(params: SummarizeParams): Promise<Su
     if (error instanceof BudgetExceededError) return { status: "skipped", reason: "budget" };
     return { status: "skipped", reason: "model_failed", error: error instanceof Error ? error.name : "Error" };
   }
+  const call: TurnModelCall = {
+    index: SUMMARY_CALL_INDEX,
+    provider: result.provider,
+    via: result.via,
+    region: result.region,
+    model: result.model,
+    modelKey: result.modelKey,
+    tokensIn: result.tokensIn,
+    tokensOut: result.tokensOut,
+    costEur: result.costEur,
+    startedAt: result.startedAt,
+  };
   const summary = result.text.trim().slice(0, SUMMARY_MAX_CHARS).trim();
-  if (!summary) return { status: "skipped", reason: "empty" };
-  return { status: "updated", summary, usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut, costEur: result.costEur, model: result.model } };
+  if (!summary) return { status: "skipped", reason: "empty", call };
+  return { status: "updated", summary, usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut, costEur: result.costEur, model: result.model }, call };
 }
