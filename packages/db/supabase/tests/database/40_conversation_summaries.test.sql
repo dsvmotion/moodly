@@ -137,9 +137,11 @@ select is(
   'ALL | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
     || ' | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))',
   'la política del worker filtra por la organización de la transacción, al leer y al escribir');
-select ok(not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'select')
-          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'insert'),
-  'el worker todavía no tiene privilegios sobre la tabla (llegan con el módulo que los use)');
+select ok(has_table_privilege('moodly_worker', 'public.conversation_summaries', 'select')
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'insert')
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'update')
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'delete'),
+  'el worker solo lee la tabla (el turno carga el resumen, 20261112052000); escribir llega con el módulo que lo use');
 -- Con un privilegio solo dentro del test, la política deja ver lo de su organización y nada más.
 grant select on public.conversation_summaries to moodly_worker;
 grant moodly_worker to postgres with set true;
