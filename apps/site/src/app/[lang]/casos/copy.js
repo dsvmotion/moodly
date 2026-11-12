@@ -2,9 +2,9 @@
 export const COPY = {
   es: {
     h1: "Negocios que ya trabajan con Moodly",
-    filters: ["Todos", "Clínicas", "Restaurantes", "Gestorías", "Inmobiliarias", "Agencias"],
-    heroBadge: "Clínica dental · [Ciudad]",
-    heroTitle: "Cómo [Clínica] dejó de perder llamadas en horas de consulta",
+    filters: ["Todos", "Belleza", "Restaurantes", "Gestorías", "Inmobiliarias", "Agencias"],
+    heroBadge: "Centro de estética · [Ciudad]",
+    heroTitle: "Cómo [Centro] dejó de perder llamadas con las manos ocupadas",
     heroQuote: "“[Cita del cliente sobre el cambio en su recepción.]” — [Nombre], [Cargo]",
     stat1: "menos ausencias", stat2: "ahorradas al mes",
     cards: [
@@ -16,9 +16,9 @@ export const COPY = {
   },
   en: {
     h1: "Businesses already working with Moodly",
-    filters: ["All", "Clinics", "Restaurants", "Accounting firms", "Real estate", "Agencies"],
-    heroBadge: "Dental clinic · [City]",
-    heroTitle: "How [Clinic] stopped missing calls during consultation hours",
+    filters: ["All", "Beauty", "Restaurants", "Accounting firms", "Real estate", "Agencies"],
+    heroBadge: "Aesthetics center · [City]",
+    heroTitle: "How [Center] stopped missing calls with its hands full",
     heroQuote: "“[Customer quote about the change in their reception.]” — [Name], [Role]",
     stat1: "fewer no-shows", stat2: "saved per month",
     cards: [
@@ -30,9 +30,9 @@ export const COPY = {
   },
   fr: {
     h1: "Des entreprises qui travaillent déjà avec Moodly",
-    filters: ["Tous", "Cliniques", "Restaurants", "Cabinets comptables", "Immobilier", "Agences"],
-    heroBadge: "Clinique dentaire · [Ville]",
-    heroTitle: "Comment [Clinique] a cessé de manquer des appels pendant les consultations",
+    filters: ["Tous", "Beauté", "Restaurants", "Cabinets comptables", "Immobilier", "Agences"],
+    heroBadge: "Institut de beauté · [Ville]",
+    heroTitle: "Comment [Institut] a cessé de manquer des appels, les mains occupées",
     heroQuote: "« [Témoignage du client sur le changement à sa réception.] » — [Nom], [Poste]",
     stat1: "d'absences en moins", stat2: "économisées par mois",
     cards: [
@@ -44,9 +44,9 @@ export const COPY = {
   },
   de: {
     h1: "Unternehmen, die schon mit Moodly arbeiten",
-    filters: ["Alle", "Praxen", "Restaurants", "Kanzleien", "Immobilien", "Agenturen"],
-    heroBadge: "Zahnarztpraxis · [Stadt]",
-    heroTitle: "Wie [Praxis] während der Sprechzeiten keine Anrufe mehr verpasst",
+    filters: ["Alle", "Beauty", "Restaurants", "Kanzleien", "Immobilien", "Agenturen"],
+    heroBadge: "Kosmetikstudio · [Stadt]",
+    heroTitle: "Wie [Studio] mit vollen Händen keine Anrufe mehr verpasst",
     heroQuote: "„[Kundenzitat über die Veränderung am Empfang.]“ — [Name], [Position]",
     stat1: "weniger Ausfälle", stat2: "pro Monat gespart",
     cards: [

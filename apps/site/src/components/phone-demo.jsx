@@ -14,13 +14,13 @@ import { useEffect, useRef, useState } from "react";
 
 // Guion. type: 'in' (cliente), 'out' (agente), 'chips', 'typing'. ms = espera antes.
 const SCRIPT = [
-  { type: "in", text: "Hola, ¿tenéis hueco para una limpieza dental esta semana?", ms: 700 },
+  { type: "in", text: "Hola, ¿tenéis hueco para un corte esta semana?", ms: 700 },
   { type: "typing", ms: 900 },
   { type: "out", text: "¡Hola, Laura! Tengo el jueves a las 10:30 o el viernes a las 17:00. ¿Cuál te viene mejor?", ms: 500 },
   { type: "in", text: "El jueves perfecto", ms: 1100 },
-  { type: "chips", chips: [["Calendar · Cita creada", "#9dbecc"], ["CRM · Ficha actualizada", "#a3c2a7"]], ms: 800 },
+  { type: "chips", chips: [["Calendar · Cita creada", "#9dbecc"], ["Ficha de la clienta · Actualizada", "#a3c2a7"]], ms: 800 },
   { type: "typing", ms: 700 },
-  { type: "out", text: "Hecho: jueves a las 10:30 con la Dra. Ruiz. Te enviaré un recordatorio el día antes.", ms: 500 },
+  { type: "out", text: "Hecho: jueves a las 10:30 con Lucía. Te enviaré un recordatorio el día antes.", ms: 500 },
 ];
 const RESET_MS = 3200;
 

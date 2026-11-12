@@ -2,7 +2,7 @@
 export const COPY = {
   es: {
     bannerNew: "Nuevo",
-    banner: "Agentes de IA listos para clínicas, hostelería, inmobiliarias, despachos, tiendas, reformas, talleres y academias.",
+    banner: "Agentes de IA listos para centros de belleza, hostelería, inmobiliarias, despachos, tiendas, reformas, talleres y academias.",
     bannerCta: "Ver sectores →",
     heroH1: "Agentes de IA que ya saben cómo funciona tu negocio",
     heroSub: "Se conectan a WhatsApp, Gmail, Calendar, tu CRM y tu facturación, y hacen el trabajo repetitivo. Tú decides qué aprueban.",
@@ -97,7 +97,7 @@ export const COPY = {
   },
   en: {
     bannerNew: "New",
-    banner: "AI agents ready for clinics, hospitality, real estate, professional services, shops, trades, workshops and academies.",
+    banner: "AI agents ready for beauty salons, hospitality, real estate, professional services, shops, trades, workshops and academies.",
     bannerCta: "See industries →",
     heroH1: "AI agents that already know how your business works",
     heroSub: "They connect to WhatsApp, Gmail, Calendar, your CRM and your invoicing, and handle the repetitive work. You decide what they get approved.",
@@ -192,7 +192,7 @@ export const COPY = {
   },
   fr: {
     bannerNew: "Nouveau",
-    banner: "Des agents IA prêts pour les cliniques, l'hôtellerie, l'immobilier, les cabinets, les commerces, les métiers du bâtiment, les garages et les académies.",
+    banner: "Des agents IA prêts pour les instituts de beauté, l'hôtellerie, l'immobilier, les cabinets, les commerces, les métiers du bâtiment, les garages et les académies.",
     bannerCta: "Voir les secteurs →",
     heroH1: "Des agents IA qui savent déjà comment fonctionne votre entreprise",
     heroSub: "Ils se connectent à WhatsApp, Gmail, Calendar, votre CRM et votre facturation, et font le travail répétitif. C'est vous qui décidez de ce qu'ils peuvent valider.",
@@ -287,7 +287,7 @@ export const COPY = {
   },
   de: {
     bannerNew: "Neu",
-    banner: "KI-Agenten für Praxen, Gastgewerbe, Immobilien, Kanzleien, Geschäfte, Handwerk, Werkstätten und Akademien.",
+    banner: "KI-Agenten für Beauty-Studios, Gastgewerbe, Immobilien, Kanzleien, Geschäfte, Handwerk, Werkstätten und Akademien.",
     bannerCta: "Branchen ansehen →",
     heroH1: "KI-Agenten, die schon wissen, wie dein Geschäft funktioniert",
     heroSub: "Sie verbinden sich mit WhatsApp, Gmail, Calendar, deinem CRM und deiner Rechnungsstellung und erledigen die wiederkehrende Arbeit. Du entscheidest, was sie freigeben.",
