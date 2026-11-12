@@ -42,7 +42,7 @@ select is(
    where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
      and has_function_privilege('moodly_worker', p.oid, 'execute')),
   array['worker_agent_turn_context', 'worker_organization_id'],
-  'de public y private solo puede ejecutar worker_organization_id y worker_agent_turn_context (20261112041000)');
+  'de public y private solo puede ejecutar worker_organization_id y worker_agent_turn_context (20261112052000)');
 
 -- ===========================================================================
 -- 2. Datos (como la plataforma): una conversación con un mensaje en A y en B

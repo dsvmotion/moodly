@@ -20,7 +20,7 @@
 -- worker (recordatorios, lista de espera, skills programadas), que se mudan con
 -- su paso.
 --
--- Vuelta atrás: rollbacks/20261112041000_worker_agent_turn_context.down.sql.
+-- Vuelta atrás: rollbacks/20261112052000_worker_agent_turn_context.down.sql.
 
 create function private.worker_agent_turn_context(p_agent_id uuid)
 returns jsonb
