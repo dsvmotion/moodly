@@ -48,15 +48,23 @@ interface ModelCall {
   lastRole?: string;
   customer?: string;
   system?: string | null;
+  /** El mensaje del resumen continuo, si lo llevaba (PL-T3). */
+  summary?: string | null;
+  messages?: number;
+  modelKey?: string;
+  input?: string;
 }
-function modelCalls(): ModelCall[] {
+function effects(step: string): ModelCall[] {
   if (!existsSync(effectsFile)) return [];
   return readFileSync(effectsFile, "utf8")
     .trim()
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line) as ModelCall)
-    .filter((entry) => entry.step === "model");
+    .filter((entry) => entry.step === step);
+}
+function modelCalls(): ModelCall[] {
+  return effects("model");
 }
 
 async function setAutonomy(skillKey: string, autonomy: string): Promise<void> {
@@ -221,8 +229,9 @@ afterAll(async () => {
       [ids.agent, ids.location],
     );
     await admin.query("delete from public.agent_runs where agent_id = $1 and location_id = $2", [ids.agent, ids.location]);
-    await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
-    await admin.query("delete from public.conversations where id = any($1)", [[ids.conversation, ids.testConversation ?? ids.conversation]]);
+    const conversations = [ids.conversation, ids.testConversation ?? ids.conversation, ids.summaryConversation ?? ids.conversation];
+    await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [conversations]);
+    await admin.query("delete from public.conversations where id = any($1)", [conversations]);
   }
   if (ids.testChannel) await admin.query("delete from public.channel_accounts where id = $1", [ids.testChannel]);
   await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
@@ -699,6 +708,57 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     await waitFor(async () => (await runFor(messageId))[0]?.status === "completed", "el agente contesta");
     expect(modelCalls().length).toBeGreaterThan(modelBefore);
     expect((await agentMessages()).some((message) => message.idempotency_key === `opt-out:${messageId}`)).toBe(false);
+  });
+
+  it("resumen continuo (PL-T3): lo antiguo lo resume el modelo barato al acabar el turno, y el turno siguiente lo lleva en vez de esos mensajes", async () => {
+    ids.summaryConversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    // Ocho mensajes antiguos y el nuevo del cliente, en una sola sentencia: solo contesta al último.
+    const { rows } = await admin.query<{ id: string; created_at: string }>(
+      `insert into public.messages (organization_id, conversation_id, direction, author, content, created_at)
+       select $1, $2, case when i % 2 = 0 then 'in' else 'out' end, case when i % 2 = 0 then 'contact' else 'agent' end,
+              'mensaje antiguo ' || i, now() - make_interval(mins => 20 - i)
+       from generate_series(0, 8) as i
+       returning id, created_at::text`,
+      [ids.org, ids.summaryConversation],
+    );
+    const sorted = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const lastId = sorted.at(-1)?.id as string;
+    const summariesBefore = effects("summary").length;
+    await waitFor(async () => (await runFor(lastId))[0]?.status === "completed", "el agente contesta");
+    // El run se cierra antes de resumir; el resumen se guarda después de apuntar su coste.
+    await waitFor(
+      async () => ((await admin.query("select 1 from public.conversation_summaries where conversation_id = $1", [ids.summaryConversation])).rowCount ?? 0) > 0,
+      "el resumen se guarda",
+    );
+
+    // Tras el turno hay 10 mensajes sin resumir (los 9 y la respuesta): entran los 4 más antiguos, 2 del cliente.
+    const calls = effects("summary").slice(summariesBefore);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.modelKey).toBe("fast");
+    // Cada mensaje con su autor, de la fila: JSON, así un texto no se hace pasar por otro.
+    expect(JSON.parse(calls[0]?.input ?? "{}")).toEqual({
+      previous_summary: null,
+      messages: [0, 1, 2, 3].map((i) => ({ speaker: i % 2 === 0 ? "contact" : "assistant", text: `mensaje antiguo ${i}` })),
+    });
+    const { rows: summaries } = await admin.query<{ organization_id: string; summary: string; covered: boolean; model: string }>(
+      `select organization_id, summary, covered_until = (select created_at from public.messages where id = $2) as covered, model
+       from public.conversation_summaries where conversation_id = $1`,
+      [ids.summaryConversation, sorted[3]?.id],
+    );
+    expect(summaries).toEqual([{ organization_id: ids.org, summary: "Customer said: 2 mensajes.", covered: true, model: "fake/fast" }]);
+    // El run cuenta también el resumen: el turno y el resumen, 0,0004 € cada uno.
+    expect(Number((await runFor(lastId))[0]?.cost_eur)).toBeCloseTo(0.0008, 6);
+
+    const next = await customerSays("¿Sigues ahí?", ids.summaryConversation);
+    await waitFor(async () => (await runFor(next))[0]?.status === "completed", "el agente contesta otra vez");
+    const turn = modelCalls().filter((entry) => entry.customer?.includes("¿Sigues ahí?")).at(-1);
+    expect(turn?.summary).toContain("Customer said: 2 mensajes.");
+    // Sistema estable, hora, resumen y solo los mensajes que el resumen no cubre: 5 antiguos, la respuesta y el nuevo.
+    expect(turn?.messages).toBe(2 + 1 + 7);
   });
 });
 

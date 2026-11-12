@@ -37,6 +37,8 @@ import { DB_STEP, type DomainEvent, type EventContext, type EventHandler } from 
 import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
 import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
+import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
+import type { SummaryStep } from "./summary.ts";
 
 // El turno del agente en el worker (paso 4d-2, MANUAL §5.1): consume
 // message.received y ejecuta runAgentTurn con pasos de DBOS.
@@ -80,6 +82,8 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
+  intentRouting?: boolean;
 }
 
 /** El id del run de un evento: siempre el mismo para la misma entrega (UUID de 128 bits del SHA-256). */
@@ -159,6 +163,10 @@ type Prepared =
       conversation: Conversation;
       context: TurnContext;
       history: HistoryMessage[];
+      /** El resumen de lo anterior a `history` (PL-T3), y hasta dónde llega. */
+      summary: { summary: string; coveredUntil: string } | null;
+      /** Si no se pudo leer el resumen: el turno va con la historia entera. */
+      summaryError: string | null;
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       dayEur: number;
@@ -211,6 +219,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
   const now = new Date();
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 
+  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido. Si no
+  // se puede leer, sin resumen: la historia entera (nunca un turno sin contestar).
+  // El resumen sigue por PostgREST hasta que moodly_worker tenga su privilegio.
+  const { summary, error: summaryError } = await loadSummary(db, conversationId);
+
   const rest = await db.transaction(async (sql) => {
     if (!ANSWERING.has(context.agent.status)) {
       const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
@@ -219,8 +232,10 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
       if (!agentAnswers(context.agent.status, account?.channel ?? null)) return null;
     }
     const messages = await sql.query<{ author: string; content: string }>(
-      "select author, content from public.messages where conversation_id = $1 order by created_at desc limit $2",
-      [conversationId, HISTORY_LIMIT],
+      `select author, content from public.messages
+       where conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
+       order by created_at desc limit $2`,
+      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null],
     );
     const [location] = conversation.location_id
       ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where id = $1", [
@@ -255,6 +270,8 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
     history: [...messages].reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    summary,
+    summaryError,
     location,
     modelSettings,
     dayEur,
@@ -536,7 +553,21 @@ async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId
   return true;
 }
 
-export function createConverseHandler({ router, knowledge }: ConverseOptions): EventHandler {
+/** El run cuenta también lo que costó el resumen: así el gasto del día y los topes lo ven. */
+export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): TurnResult {
+  if (summarized.kind !== "updated") return result;
+  return {
+    ...result,
+    usage: {
+      ...result.usage,
+      tokensIn: result.usage.tokensIn + summarized.usage.tokensIn,
+      tokensOut: result.usage.tokensOut + summarized.usage.tokensOut,
+      costEur: result.usage.costEur + summarized.usage.costEur,
+    },
+  };
+}
+
+export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -580,6 +611,9 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
       });
+      // La bandera se guarda en un paso: si cambia con un turno a medias, al reanudarlo
+      // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
+      const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
       const result = await runAgentTurn({
         // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
@@ -594,11 +628,13 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         systemPrompt: prompt.stable,
         systemContext: prompt.volatile,
         history: prepared.history,
+        summary: prepared.summary?.summary ?? null,
         skills,
         settings,
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur },
+        intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
         record: async (execution) => {
           if (execution.status === "rejected") {
@@ -618,15 +654,42 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
       });
       // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
       const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
+      // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
       await ctx.step("run:finish", () => finishRun(ctx.db, runId, conversation.id, result, heldAny));
+      if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
+      // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
+      const summarized = await ctx.step("summary:model", () =>
+        summarizeStep({
+          db: ctx.db,
+          organizationId: event.organizationId,
+          runId,
+          conversationId: conversation.id,
+          previous: prepared.summary,
+          router,
+          policy,
+          spend: { runEur: result.usage.costEur, dayEur: prepared.dayEur + result.usage.costEur },
+        }),
+      );
+      const finished = withSummaryUsage(result, summarized);
+      if (summarized.kind === "updated") {
+        // Primero el coste (se gastó aunque no se guarde), después el resumen.
+        const booked = await ctx.step("summary:usage", () => bookSummaryUsage(ctx.db, runId, finished.usage));
+        if (booked) ctx.logger.warn({ runId, error: booked }, "no se pudo apuntar el coste del resumen en el run");
+        const saved = await ctx.step("summary:save", () => saveSummary(ctx.db, conversation.id, summarized));
+        if (saved) ctx.logger.warn({ runId, error: saved }, "no se pudo guardar el resumen");
+      } else if (summarized.kind === "skipped") {
+        ctx.logger.warn({ runId, reason: summarized.reason, error: summarized.error }, "no se pudo poner al día el resumen");
+      }
       ctx.logger.info(
         {
           runId,
-          status: result.status,
-          reason: notAgentMode ? HELD_NOT_AGENT_MODE : result.reason,
-          error: result.error,
-          executions: result.executions.length,
-          costEur: result.usage.costEur,
+          status: finished.status,
+          reason: notAgentMode ? HELD_NOT_AGENT_MODE : finished.reason,
+          error: finished.error,
+          executions: finished.executions.length,
+          costEur: finished.usage.costEur,
+          summary: summarized.kind,
+          intent: finished.intent?.intent,
         },
         "turno del agente terminado",
       );
