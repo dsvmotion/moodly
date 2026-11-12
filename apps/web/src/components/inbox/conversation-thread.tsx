@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Badge } from "@repo/ui/components/badge";
 import { cn } from "@repo/ui/lib/utils";
-import { messageSide, THREAD_LIMIT } from "@/lib/inbox";
+import { canReplyOn, messageSide, THREAD_LIMIT } from "@/lib/inbox";
 import type { InboxMessage, InboxThread } from "@/lib/inbox-data";
 import { LocalTime } from "../local-time";
 import { ConversationControls } from "./conversation-controls";
@@ -77,18 +77,19 @@ export async function ConversationThread({
       ) : (
         <ol className="flex flex-col gap-3" data-testid="inbox-messages" aria-live="polite">
           {messages.map((message) => (
-            <Message
-              key={message.id}
-              message={message}
-              agentLabel={agentLabel}
-              timeZone={timeZone}
-            />
+            <Message key={message.id} message={message} agentLabel={agentLabel} timeZone={timeZone} />
           ))}
         </ol>
       )}
 
       {conversation.mode === "human" ? (
-        <StaffComposer id={conversation.id} contactName={contactName} />
+        canReplyOn(conversation.channel) ? (
+          <StaffComposer id={conversation.id} contactName={contactName} />
+        ) : (
+          <p className="text-muted-foreground border-t pt-3 text-sm" data-testid="inbox-composer-unavailable">
+            {t("composerUnavailable", { name: contactName })}
+          </p>
+        )
       ) : conversation.mode === "agent" ? (
         <p className="text-muted-foreground border-t pt-3 text-sm" data-testid="inbox-composer-hint">
           {t("composerHint")}

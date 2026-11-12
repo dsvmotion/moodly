@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_EMAIL_HANDLER_KEY, EMAIL_UNAUTHORIZED_EVENT } from "./approval-email.ts";
+import { BUDGET_EMAIL_HANDLER_KEY } from "./budget-email.ts";
 
 // M-02: de una aprobación nueva al email, pasando por approval.created en el
 // outbox, el publicador y el consumidor notify.approval_email, con el cliente de
@@ -166,6 +167,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
+  // La política de modelos de Y (el aviso del tope) dejó su fila en audit_logs, que no se borra en cascada:
+  // el superusuario de la prueba la quita antes (para la plataforma es solo inserción).
+  await admin.query("delete from public.audit_logs where organization_id = any($1::uuid[])", [[ids.orgX, ids.orgY, ids.orgZ]]);
   await admin.query("delete from public.organizations where id = any($1::uuid[])", [[ids.orgX, ids.orgY, ids.orgZ]]);
   await admin.query("delete from auth.users where id = any($1::uuid[])", [Object.values(userIds)]);
   await admin.end();
@@ -288,5 +292,73 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
     worker.child.kill("SIGTERM");
     expect(await worker.exited, worker.output()).toBe(0);
   });
+});
 
+describe("aviso por email del tope mensual (PL-ledger)", () => {
+  it("al pasar el tope, solo los org_admin reciben el aviso, una sola vez aunque la comprobación se repita y Resend falle", async () => {
+    const worker = startWorker({
+      ...process.env,
+      WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_EXECUTOR_ID: `test-budget-email-${process.pid}`,
+      WORKER_APP_VERSION: "test-budget-email",
+      LOG_LEVEL: "info",
+      SUPABASE_URL: api.url,
+      SUPABASE_SECRET_KEY: api.secretKey,
+      RESEND_API_KEY: RESEND_KEY,
+      WEB_APP_URL: WEB,
+      FAKE_RESEND_URL: resendUrl,
+    });
+
+    // Y: tope de 1 € al mes, ya gastado. Resend cae dos veces para su org_admin.
+    await admin.query(
+      "insert into public.org_model_settings (organization_id, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur) values ($1, 0.5, 1, 1)",
+      [ids.orgY],
+    );
+    await admin.query(
+      `insert into public.usage_records (organization_id, source, metric, quantity, tokens_in, tokens_out, cost_eur, provider, via, region, model)
+       values ($1, 'agent_turn', 'llm_tokens', 2, 1, 1, 1.25, 'fake', 'gateway', 'other', 'budget-test')`,
+      [ids.orgY],
+    );
+    failTimes.set(`:100:${userIds.yAdmin}`, 2);
+    const before = served503;
+
+    // Como el worker tras cada turno, dos veces (un paso que se repite, dos turnos a la vez): un solo evento.
+    const { rows: first } = await admin.query<{ notified: number[] }>("select public.check_budget_thresholds($1) as notified", [ids.orgY]);
+    const { rows: second } = await admin.query<{ notified: number[] }>("select public.check_budget_thresholds($1) as notified", [ids.orgY]);
+    expect([first[0]?.notified, second[0]?.notified]).toEqual([[100], []]);
+
+    const month = (await admin.query<{ month: string }>("select to_char(date_trunc('month', now() at time zone 'UTC'), 'YYYY-MM-DD') as month")).rows[0]?.month;
+    const key = `budget:${ids.orgY}:${month}:100:${userIds.yAdmin}`;
+    const forBudget = () => received.filter((r) => String(r.headers["idempotency-key"]).startsWith(`budget:${ids.orgY}:`));
+    await waitFor(() => forBudget().length === 3 && served503 === before + 2, "el aviso del tope, con los 2 reintentos", worker.output);
+    // Margen para que un envío de más (o a quien no toca) llegara también.
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+
+    // Solo el org_admin (no el staff), una sola clave: los dos 503 y el 200, siempre la misma.
+    expect(forBudget().map((r) => String(r.headers["idempotency-key"]))).toEqual([key, key, key]);
+    expect(new Set(forBudget().map((r) => r.body.to[0]))).toEqual(new Set([emailOf("yAdmin")]));
+    const email = forBudget().at(-1);
+    expect(email?.body.subject).toBe("Habéis llegado al tope mensual de IA");
+    expect(email?.body.from).toBe(`${BRAND_NAME} <${NOTIFICATION_EMAIL_FROM}>`);
+    expect(email?.body.text).toContain(`${marker} Y ha gastado este mes 1,25 € de los 1,00 € de tope mensual de IA.`);
+    // El enlace, al inicio de la app: los ajustes de modelos aún no existen.
+    expect(email?.body.text).toContain(`${WEB}/app\n`);
+    expect(email?.body.text).not.toContain("/settings/");
+
+    // Un solo evento, una sola entrega, terminada y por la cola de avisos.
+    const { rows: events } = await admin.query<{ id: string }>(
+      "select id from public.domain_events where organization_id = $1 and type = 'usage.budget_threshold'",
+      [ids.orgY],
+    );
+    expect(events).toHaveLength(1);
+    const { rows } = await admin.query<{ status: string; queue_name: string }>(
+      "select status, queue_name from dbos.workflow_status where workflow_uuid = $1",
+      [deliveryWorkflowId(events[0]?.id as string, BUDGET_EMAIL_HANDLER_KEY)],
+    );
+    expect(rows).toEqual([{ status: "SUCCESS", queue_name: "notifications" }]);
+    expect(worker.output()).not.toContain("@demo.test");
+
+    worker.child.kill("SIGTERM");
+    expect(await worker.exited, worker.output()).toBe(0);
+  });
 });

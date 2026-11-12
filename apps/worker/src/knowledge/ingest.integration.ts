@@ -201,7 +201,7 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
         quantity: String(tokens),
         tokens_in: tokens,
         tokens_out: 0,
-        cost_eur: Math.round(tokens * 0.02) / 1_000_000,
+        cost_eur: Number(((tokens * 0.02) / 1_000_000).toFixed(9)),
         provider: "vercel-ai-gateway",
         via: "gateway",
         region: "other",
@@ -257,6 +257,15 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
     await rewrite(id, "El precio de la limpieza facial es de 45 euros.");
     await waitFor(async () => (await status(id)) === "ready", "la fuente corregida queda ready");
     expect((await chunks(id)).map((row) => row.content)).toEqual([`${marker} Precios\nEl precio de la limpieza facial es de 45 euros.`]);
+  });
+
+  it("si falla un lote posterior, lo ya pagado del primero queda en el libro y la fuente en error (nota de V10)", async () => {
+    const since = new Date(Date.now() - 1000);
+    const id = await source("Bonos", "Bono de cinco sesiones de láser a 200 euros. FALLA-LOTE-2");
+    await waitFor(async () => (await status(id)) === "error" && (await deliveries(id)).join() === "SUCCESS", "la fuente queda en error y la entrega termina");
+    expect(await chunks(id)).toEqual([]);
+    const rows = await ledger(ids.location as string, since);
+    expect(rows.map((row) => [row.tokens_in, Number(row.cost_eur)])).toContainEqual([7, (7 * 0.02) / 1_000_000]);
   });
 
   it("con «Solo UE», el texto no sale hacia el proveedor: la fuente queda en error, sin fragmentos", async () => {

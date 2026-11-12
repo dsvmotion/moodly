@@ -17,7 +17,8 @@
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
 //   filtro. Las excepciones son searchKnowledge, findBookingSlots,
-//   agentTurnContext, approvalNotification y usageSpend: funciones con nombre
+//   agentTurnContext, approvalNotification, usageSpend, checkBudgetThresholds y
+//   budgetNotification: funciones con nombre
 //   a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
@@ -192,6 +193,30 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
   }
 
   /**
+   * Los avisos del tope mensual (check_budget_thresholds, PL-ledger): compara lo
+   * gastado en el mes con el tope de esta organización y escribe, una sola vez,
+   * el evento de cada umbral que acaba de pasar. Devuelve esos umbrales.
+   */
+  async function checkBudgetThresholds(): Promise<number[]> {
+    const { data, error } = await untyped.rpc("check_budget_thresholds", { p_organization_id: organizationId });
+    if (error) throw new Error(`check_budget_thresholds: ${error.message}`);
+    return ((data ?? []) as unknown[]).map(Number);
+  }
+
+  /**
+   * Lo que necesita el email de un aviso del tope (budget_notification): el aviso
+   * y sus destinatarios (los org_admin). Con la organización de este acceso; un
+   * aviso de otra, o del que no se avisó, no existe (null).
+   */
+  async function budgetNotification(month: string, threshold: number): Promise<BudgetNotification | null> {
+    if (!/^\d{4}-\d{2}-01$/.test(month)) throw new TenantScopeError("tenantDb: month tiene que ser el primer día de un mes (AAAA-MM-01)");
+    if (threshold !== 80 && threshold !== 100) throw new TenantScopeError("tenantDb: threshold tiene que ser 80 o 100");
+    const { data, error } = await untyped.rpc("budget_notification", { p_organization_id: organizationId, p_month: month, p_threshold: threshold });
+    if (error) throw new Error(`budget_notification: ${error.message}`);
+    return (data ?? null) as BudgetNotification | null;
+  }
+
+  /**
    * Una transacción SQL bajo RLS con el rol moodly_worker y esta organización
    * fijada (ADR 0049, PL-T1). Lo que se lea o escriba dentro solo puede ser de
    * esta organización, aunque la consulta se equivoque de filtro. Solo existe si
@@ -202,7 +227,18 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return workerSql.inOrganization(organizationId, fn);
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, transaction };
+  return {
+    organizationId,
+    from,
+    searchKnowledge,
+    findBookingSlots,
+    agentTurnContext,
+    approvalNotification,
+    usageSpend,
+    checkBudgetThresholds,
+    budgetNotification,
+    transaction,
+  };
 }
 
 /** Tal como lo devuelve approval_notification; quien lo usa lo valida antes de fiarse. */
@@ -212,6 +248,14 @@ export interface ApprovalNotification {
   organization: { default_locale: string };
   location: { name: string; timezone: string } | null;
   /** Quien puede decidirla: de la base de datos, nunca del evento ni del modelo. */
+  recipients: { user_id: string; email: string; locale: string }[];
+}
+
+/** Tal como lo devuelve budget_notification; quien lo usa lo valida antes de fiarse. */
+export interface BudgetNotification {
+  organization: { name: string; default_locale: string };
+  notice: { month: string; threshold: number; spent_eur: number; budget_eur: number; created_at: string };
+  /** Los org_admin: de la base de datos, nunca del evento. */
   recipients: { user_id: string; email: string; locale: string }[];
 }
 

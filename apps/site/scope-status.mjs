@@ -5,12 +5,13 @@
 //
 // El registro escribe cada unidad en una línea, como mapa YAML en flujo:
 //   - {id: "int-gmail", name: "Gmail", ..., milestone: "M2", ..., status: "planned", ...}
-// Se leen solo id, milestone y status de esas líneas, sin dependencias nuevas.
+// Se leen solo id, milestone, status y, en las integraciones, connect (auditoría §18.8),
+// sin dependencias nuevas.
 import { readFileSync } from "node:fs";
 
 const field = (line, key) => line.match(new RegExp(`[{,]\\s*${key}:\\s*"([^"]*)"`))?.[1];
 
-/** @returns {Record<string, {m: string, s: string}>} id → hito y estado */
+/** @returns {Record<string, {m: string, s: string, c?: string}>} id → hito, estado y cómo se conecta */
 export function parseScopeStatus(text) {
   const out = {};
   for (const line of text.split("\n")) {
@@ -18,7 +19,8 @@ export function parseScopeStatus(text) {
     const id = field(line, "id");
     const m = field(line, "milestone");
     const s = field(line, "status");
-    if (id && m && s) out[id] = { m, s };
+    const c = field(line, "connect");
+    if (id && m && s) out[id] = c ? { m, s, c } : { m, s };
   }
   return out;
 }

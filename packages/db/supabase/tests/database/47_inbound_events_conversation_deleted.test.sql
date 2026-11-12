@@ -1,5 +1,5 @@
 -- Borrar una conversación que tiene eventos de entrada procesados
--- (20261112070000): la clave externa deja el evento sin conversación (set
+-- (20261112170000): la clave externa deja el evento sin conversación (set
 -- null) y, con la conversación, se borran sus mensajes; el evento se queda
 -- también sin message_id, en vez de que el guarda rechace el borrado.
 begin;

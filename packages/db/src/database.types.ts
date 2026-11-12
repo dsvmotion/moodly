@@ -1183,6 +1183,12 @@ isOneToOne: false
 "approval_notification":
 { Args: { "p_approval_id": string,"p_organization_id": string }; Returns: Json
                            },
+"budget_notification":
+{ Args: { "p_month": string,"p_organization_id": string,"p_threshold": number }; Returns: Json
+                           },
+"check_budget_thresholds":
+{ Args: { "p_organization_id": string }; Returns: (number)[]
+                           },
 "close_test_conversation":
 { Args: { "p_conversation_id": string }; Returns: undefined
                            },

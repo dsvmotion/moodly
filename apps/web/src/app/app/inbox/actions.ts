@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Database } from "@repo/db";
 import { requireUser } from "@/lib/auth/session";
-import { inboxErrorFor, MESSAGE_MAX_LENGTH, type InboxActionError } from "@/lib/inbox";
+import { canReplyOn, inboxErrorFor, MESSAGE_MAX_LENGTH, type InboxActionError } from "@/lib/inbox";
 import { logger, securityEvent } from "@/lib/observability/logger";
 import { createClient } from "@/lib/supabase/server";
 import { idSchema } from "@/lib/validation";
@@ -76,7 +76,7 @@ export async function sendStaffMessage(_prev: InboxActionState, formData: FormDa
   // La organización sale de la conversación (leída con RLS), nunca del formulario.
   const { data: conversation, error: readError } = await supabase
     .from("conversations")
-    .select("organization_id, mode")
+    .select("organization_id, mode, channel")
     .eq("id", id)
     .maybeSingle();
   if (readError) {
@@ -84,6 +84,8 @@ export async function sendStaffMessage(_prev: InboxActionState, formData: FormDa
     return { error: "failed", doneAt: null };
   }
   if (!conversation || conversation.mode !== "human") return { error: "not_allowed", doneAt: null };
+  // Por un canal sin envío el mensaje no llegaría nunca (M-01): ni se guarda.
+  if (!canReplyOn(conversation.channel)) return { error: "channel_unavailable", doneAt: null };
 
   // La app solo puede escribir estas tres columnas (grant insert de la
   // migración); con cualquier otra, Postgres rechaza el insert. El tipo generado

@@ -18,6 +18,7 @@ export {
   TenantScopeError,
   type AgentTurnContext,
   type ApprovalNotification,
+  type BudgetNotification,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,
