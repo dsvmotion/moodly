@@ -193,14 +193,15 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
 
     // Lo que costó, en el libro de consumo: una fila por llamada, del local de la fuente, sin run.
     const tokens = fakeTokens(rows.map((row) => row.content));
-    expect(await ledger(ids.location as string, new Date(0))).toEqual([
+    // cost_eur como número: la precisión de la columna no forma parte de lo que se comprueba.
+    expect((await ledger(ids.location as string, new Date(0))).map((row) => ({ ...row, cost_eur: Number(row.cost_eur) }))).toEqual([
       {
         source: "embedding",
         metric: "embedding_tokens",
         quantity: String(tokens),
         tokens_in: tokens,
         tokens_out: 0,
-        cost_eur: (Math.round(tokens * 0.02) / 1_000_000).toFixed(6),
+        cost_eur: Math.round(tokens * 0.02) / 1_000_000,
         provider: "vercel-ai-gateway",
         via: "gateway",
         region: "other",
