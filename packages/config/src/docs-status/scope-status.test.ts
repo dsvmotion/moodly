@@ -71,6 +71,29 @@ describe("parseScope", () => {
   });
 });
 
+describe("connect en las integraciones (auditoría §18.8)", () => {
+  const withInt = (row: string) =>
+    SAMPLE.replace(
+      '      - {id: "I1", name: "Sistema", milestone: "after", owner: "V1", status: "planned", evidence: []}',
+      `      - {id: "I1", name: "Sistema", milestone: "after", owner: "V1", status: "planned", evidence: []}\n      ${row}`,
+    );
+  it("una fila int-* con un valor de la lista se lee con su connect", () => {
+    const scope = parseScope(withInt('- {id: "int-x", name: "X", milestone: "after", owner: "V1", status: "planned", connect: "needs_api_key", evidence: []}'));
+    expect(scope.items.find((i) => i.id === "int-x")?.connect).toBe("needs_api_key");
+  });
+  it("una fila int-* sin connect falla", () => {
+    expect(() => parseScope(withInt('- {id: "int-x", name: "X", milestone: "after", owner: "V1", status: "planned", evidence: []}'))).toThrow(/int-x\): falta connect/);
+  });
+  it("un connect fuera de la lista falla, también fuera de int-*", () => {
+    expect(() => parseScope(withInt('- {id: "int-x", name: "X", milestone: "after", owner: "V1", status: "planned", connect: "soon", evidence: []}'))).toThrow(/connect no válido «soon»/);
+    expect(() => parseScope(SAMPLE.replace('{id: "F01", name: "Reglas", milestone: "M0", status: "planned"', '{id: "F01", name: "Reglas", milestone: "M0", status: "planned", connect: "yes"'))).toThrow(/F01\): connect no válido «yes»/);
+  });
+  it("todas las filas int-* del registro real llevan connect", () => {
+    const result = validateScope();
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("findProblems y renderStatus", () => {
   it("marca done sin evidencia y hitos desconocidos", () => {
     const scope = parseScope(
