@@ -348,7 +348,7 @@ export function agentSkills(available: Map<string, SkillDefinition<unknown>>, co
 }
 
 // Las escrituras del run y del consumo van por SQL bajo RLS como moodly_worker
-// (ADR 0049, PL-T1 3c-1, 20261112063000): solo de esta organización, solo las
+// (ADR 0049, PL-T1 3c-1, 20261112130000): solo de esta organización, solo las
 // columnas que concede la migración y, por guard_worker_agent_run, el run nace
 // «running» y su estado solo sale de «running».
 async function startRun(db: TenantDb, runId: string, conversation: Conversation, messageId: string): Promise<void> {
