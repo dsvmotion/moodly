@@ -394,7 +394,7 @@ async function main(): Promise<void> {
       location_id: approval.locationId,
       effect_class: approval.effectClass,
       input_hash: inputHash,
-      required_role: "staff",
+      required_role: approval.requiredRole ?? "staff",
       reason: approval.summary,
       expires_at: expiresAt,
     });
