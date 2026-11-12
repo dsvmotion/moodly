@@ -25,8 +25,8 @@ export class RunBudgetError extends Error {
   override name = "RunBudgetError";
 }
 
-/** Los casos de varios turnos: la conversación ya trae algo antes del último mensaje. */
-export const isMultiTurn = (c: ConversationCase) => c.history.length > 1;
+/** Los casos de varios turnos: la conversación ya trae algo antes del último mensaje, en el historial o en el resumen (PL-T3). */
+export const isMultiTurn = (c: ConversationCase) => c.history.length > 1 || Boolean(c.summary?.trim());
 
 export interface SetOptions {
   repeat: number;

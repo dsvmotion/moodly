@@ -11,11 +11,13 @@ import { comparisonTable, isMultiTurn, runSet, summarize } from "./runset.js";
 const quiet = () => undefined;
 
 describe("elegir los casos", () => {
-  it("--turns multi: los 13 de varios turnos de Recepción; single, el resto (también los de los sectores)", () => {
+  it("--turns multi: los 13 de varios turnos de Recepción y los 7 con resumen (PL-T3); single, el resto (también los de los sectores)", () => {
     const multi = select(parse(["--agent", "reception", "--turns", "multi"]));
-    expect(multi).toHaveLength(13);
+    expect(multi).toHaveLength(20);
     expect(multi.every(isMultiTurn)).toBe(true);
     expect(multi.map((c) => c.id)).toEqual(expect.arrayContaining(["recepcion-cambia-de-idea", "recepcion-turnos-la-segunda", "recepcion-turnos-medico-tras-reservar"]));
+    expect(multi.filter((c) => c.history.length > 1)).toHaveLength(13);
+    expect(multi.filter((c) => c.summary?.trim()).map((c) => c.id)).toEqual(expect.arrayContaining(["recepcion-resumen-no-confirma", "recepcion-resumen-inyectado"]));
     const single = select(parse(["--agent", "reception", "--turns", "single"]));
     expect(single.length + multi.length).toBe(conversationCases.filter((c) => c.agent === "reception").length);
     expect(single.some(isMultiTurn)).toBe(false);
