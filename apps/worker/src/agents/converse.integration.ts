@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
@@ -698,5 +698,208 @@ describe("la baja de los recordatorios contestando (paso 4e-3)", () => {
     await waitFor(async () => (await runFor(messageId))[0]?.status === "completed", "el agente contesta");
     expect(modelCalls().length).toBeGreaterThan(modelBefore);
     expect((await agentMessages()).some((message) => message.idempotency_key === `opt-out:${messageId}`)).toBe(false);
+  });
+});
+
+describe("tomar el control a mitad del turno (R-02)", () => {
+  const gate = `${effectsFile}.gate`;
+
+  function gateCalls(): number {
+    if (!existsSync(effectsFile)) return 0;
+    return readFileSync(effectsFile, "utf8")
+      .trim()
+      .split("\n")
+      .filter((line) => line.includes('"step":"gate"')).length;
+  }
+
+  async function setMode(mode: "agent" | "human", conversationId = ids.conversation): Promise<void> {
+    await admin.query("update public.conversations set mode = $2 where id = $1", [conversationId, mode]);
+  }
+
+  /** Un mensaje que deja al modelo pensando; mientras, alguien del equipo toma el control. */
+  async function takeOverMidTurn(content: string): Promise<string> {
+    const gatesBefore = gateCalls();
+    const messageId = await customerSays(content);
+    await waitFor(async () => gateCalls() > gatesBefore, "el modelo está pensando");
+    await setMode("human");
+    writeFileSync(gate, "");
+    await waitFor(async () => {
+      const status = (await runFor(messageId))[0]?.status;
+      return status !== undefined && status !== "running";
+    }, "el turno termina");
+    return messageId;
+  }
+
+  async function executionsOfRun(runId: string) {
+    const { rows } = await admin.query<{ id: string; skill_key: string; status: string; output: Record<string, unknown> | null; approvals: number }>(
+      `select e.id, e.skill_key, e.status, e.output, (select count(*)::int from public.approvals a where a.execution_id = e.id) as approvals
+       from public.executions e where e.run_id = $1 order by e.created_at`,
+      [runId],
+    );
+    return rows;
+  }
+
+  async function mode(conversationId = ids.conversation): Promise<string | undefined> {
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversationId]);
+    return rows[0]?.mode;
+  }
+
+  it("con la respuesta autónoma, el mensaje del agente no se guarda: la base de datos lo rechaza", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "autonomous");
+    const before = (await agentMessages()).length;
+    try {
+      const messageId = await takeOverMidTurn("Un momento, ¿sigues ahí?");
+      const run = (await runFor(messageId))[0];
+      expect(run?.status).toBe("handed_off");
+      expect(await agentMessages()).toHaveLength(before);
+      const executions = await executionsOfRun(run?.id ?? "");
+      expect(executions.map((execution) => [execution.skill_key, execution.status])).toEqual([["reply", "failed"]]);
+      // Sigue en manos de quien la tomó.
+      expect(await mode()).toBe("human");
+      expect(worker?.output()).toContain('"reason":"conversation_not_agent_mode"');
+    } finally {
+      await setMode("agent");
+    }
+  });
+
+  it("con la respuesta en borrador, no pide aprobación: se retiene y el run no queda esperando", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "draft");
+    const before = (await agentMessages()).length;
+    try {
+      const messageId = await takeOverMidTurn("Un momento, por favor");
+      const run = (await runFor(messageId))[0];
+      expect(run?.status).toBe("handed_off");
+      const executions = await executionsOfRun(run?.id ?? "");
+      expect(executions).toEqual([
+        expect.objectContaining({ skill_key: "reply", status: "failed", output: { held: "conversation_not_agent_mode" }, approvals: 0 }),
+      ]);
+      expect(await agentMessages()).toHaveLength(before);
+    } finally {
+      await setAutonomy("reply", "autonomous");
+      await setMode("agent");
+    }
+  });
+
+  it("un borrador que se aprueba después de tomar el control no sale", async () => {
+    await setMode("agent");
+    await setAutonomy("reply", "draft");
+    try {
+      const messageId = await customerSays("Hola, ¿me atendéis?");
+      await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+      const run = (await runFor(messageId))[0];
+      const pending = (await executionsOfRun(run?.id ?? "")).find((execution) => execution.skill_key === "reply");
+      if (!pending || pending.approvals !== 1) throw new Error("no hay respuesta pendiente");
+      const approvalId = await one("select id from public.approvals where execution_id = $1", [pending.id]);
+      const before = (await agentMessages()).length;
+
+      await setMode("human");
+      // Lo que deja la base de datos cuando una persona aprueba (como en «las aprobaciones del agente»).
+      await admin.query("begin");
+      await admin.query("set local session_replication_role = replica");
+      await admin.query("update public.approvals set status = 'approved', decided_at = now() where id = $1", [approvalId]);
+      await admin.query("set local session_replication_role = origin");
+      const eventId = await one(
+        `insert into public.domain_events (organization_id, location_id, type, payload)
+         select a.organization_id, a.location_id, 'approval.decided',
+                jsonb_build_object('approval_id', a.id, 'execution_id', a.execution_id, 'run_id', e.run_id, 'decision', a.status)
+         from public.approvals a join public.executions e on e.id = a.execution_id where a.id = $1
+         returning id`,
+        [approvalId],
+      );
+      await admin.query("commit");
+      await waitFor(async () => {
+        const { rows } = await admin.query<{ status: string }>("select status from dbos.workflow_status where workflow_uuid = $1", [
+          deliveryWorkflowId(eventId, APPROVAL_HANDLER_KEY),
+        ]);
+        return rows[0]?.status === "SUCCESS";
+      }, "la aprobación se entrega");
+
+      expect(await agentMessages()).toHaveLength(before);
+      const settled = (await executionsOfRun(run?.id ?? "")).find((execution) => execution.id === pending.id);
+      expect(settled).toMatchObject({ status: "failed", output: { held: "conversation_not_agent_mode" } });
+    } finally {
+      await setAutonomy("reply", "autonomous");
+      await setMode("agent");
+    }
+  });
+
+  describe("tomar el control y el mensaje del agente a la vez (dos conexiones)", () => {
+    const other = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+    let conversationId = "";
+
+    beforeAll(async () => {
+      await other.connect();
+      conversationId = await one(
+        `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+      );
+    });
+    afterAll(async () => {
+      await other.end();
+      if (conversationId) await admin.query("delete from public.conversations where id = $1", [conversationId]);
+    });
+
+    function agentInsert(client: pg.Client, key: string) {
+      return client.query(
+        `insert into public.messages (organization_id, conversation_id, direction, author, content, status, idempotency_key)
+         values ($1, $2, 'out', 'agent', 'Te lo confirmo', 'sent', $3)`,
+        [ids.org, conversationId, key],
+      );
+    }
+
+    async function blocked(client: pg.Client): Promise<boolean> {
+      const pid = (client as unknown as { processID: number }).processID;
+      const { rows } = await admin.query<{ wait_event_type: string | null }>("select wait_event_type from pg_stat_activity where pid = $1", [pid]);
+      return rows[0]?.wait_event_type === "Lock";
+    }
+
+    it("si la toma va primero, el mensaje del agente espera a que termine y no se guarda", async () => {
+      await setMode("agent", conversationId);
+      const key = `race-${randomUUID()}`;
+      await other.query("begin");
+      await other.query("update public.conversations set mode = 'human' where id = $1", [conversationId]);
+      const agent = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+      await agent.connect();
+      try {
+        const insert = agentInsert(agent, key).then(
+          () => null,
+          (error: { code?: string }) => error.code ?? "sin código",
+        );
+        await waitFor(() => blocked(agent), "el mensaje del agente espera a la toma", 10_000);
+        await other.query("commit");
+        expect(await insert).toBe("55000");
+        const { rows } = await admin.query("select id from public.messages where idempotency_key = $1", [key]);
+        expect(rows).toEqual([]);
+      } finally {
+        await agent.end();
+        await setMode("agent", conversationId);
+      }
+    });
+
+    it("si el mensaje del agente va primero, la toma espera a que se guarde y queda después", async () => {
+      await setMode("agent", conversationId);
+      const key = `race-${randomUUID()}`;
+      const agent = new pg.Client({ connectionString: localAdminDatabaseUrl() });
+      await agent.connect();
+      try {
+        await agent.query("begin");
+        await agentInsert(agent, key);
+        const takeover = other.query("update public.conversations set mode = 'human' where id = $1", [conversationId]);
+        await waitFor(() => blocked(other), "la toma espera al mensaje del agente", 10_000);
+        await agent.query("commit");
+        await takeover;
+        const { rows } = await admin.query("select id from public.messages where idempotency_key = $1", [key]);
+        expect(rows).toHaveLength(1);
+        expect(await mode(conversationId)).toBe("human");
+        // Y a partir de ahí, ya no escribe.
+        await expect(agentInsert(admin, `race-${randomUUID()}`)).rejects.toMatchObject({ code: "55000" });
+      } finally {
+        await agent.end();
+        await setMode("agent", conversationId);
+      }
+    });
   });
 });
