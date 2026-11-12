@@ -195,6 +195,43 @@ describe("un turno sin herramientas", () => {
     ]);
   });
 
+  it("enrutado por intención (PL-T3): apagado, no clasifica y conversa con el modelo del agente", async () => {
+    const transport = scripted([() => text("Hola")]);
+    const result = await runAgentTurn(params(transport, { agentType: "reception" }));
+    expect(transport.calls.map((call) => call.modelKey)).toEqual(["smart"]);
+    expect(result.intent).toBeUndefined();
+  });
+
+  it("enrutado por intención (PL-T3): una intención simple conversa con el camino barato y el clasificador cuenta en el gasto", async () => {
+    const transport = scripted([() => text("slots"), () => text("Tengo hueco a las 9.")]);
+    const result = await runAgentTurn(params(transport, { agentType: "reception", intentRouting: true }));
+    expect(transport.calls.map((call) => [call.messages[0]?.content.startsWith("Classify"), call.modelKey])).toEqual([
+      [true, "fast"],
+      [false, "fast"],
+    ]);
+    expect(result).toMatchObject({ status: "replied", intent: { intent: "slots", by: "model" } });
+    expect(result.usage.costEur).toBeCloseTo(0.002, 10);
+  });
+
+  it("enrutado por intención (PL-T3): la conversación abierta sigue con el modelo del agente; un saludo, sin clasificador", async () => {
+    const open = scripted([() => text("other"), () => text("Claro, te explico.")]);
+    const result = await runAgentTurn(params(open, { agentType: "reception", intentRouting: true, history: [{ author: "contact", content: "Quiero cambiar mi cita y saber el precio" }] }));
+    expect(open.calls.map((call) => call.modelKey)).toEqual(["fast", "smart"]);
+    expect(result.intent).toEqual({ intent: "other", by: "model" });
+
+    const hello = scripted([() => text("¡Hola! Soy el asistente de IA.")]);
+    const greeted = await runAgentTurn(params(hello, { agentType: "reception", intentRouting: true, history: [{ author: "contact", content: "Hola!" }] }));
+    expect(hello.calls.map((call) => call.modelKey)).toEqual(["fast"]);
+    expect(greeted.intent).toEqual({ intent: "greeting", by: "rule" });
+  });
+
+  it("enrutado por intención (PL-T3): con el modelo elegido por la organización, manda el suyo", async () => {
+    const transport = scripted([() => text("slots"), () => text("Tengo hueco.")]);
+    const policy = { ...PLATFORM_MODEL_POLICY, modelOverrides: { converse: "smart" as const } };
+    await runAgentTurn(params(transport, { agentType: "reception", intentRouting: true, policy }));
+    expect(transport.calls.map((call) => call.modelKey)).toEqual(["fast", "smart"]);
+  });
+
   it("resumen continuo (PL-T3): va después del sistema y antes de la historia, marcado como dato", async () => {
     const transport = scripted([() => text("Hola")]);
     await runAgentTurn(params(transport, { summary: "  Ana reservó láser el lunes.  ", history: [{ author: "contact", content: "¿Y el martes?" }] }));

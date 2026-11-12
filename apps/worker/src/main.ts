@@ -44,7 +44,11 @@ const worker = createWorker(config, logger, {
   // knowledge.ingest: cada fuente de conocimiento nueva o cambiada, troceada e indexada (B20-1).
   eventHandlers: ({ db }) => [
     logHandler,
-    createConverseHandler({ router: models.router, ...(embedder ? { knowledge: { embedder, route: embedder.route } } : {}) }),
+    createConverseHandler({
+      router: models.router,
+      intentRouting: config.intentRouting,
+      ...(embedder ? { knowledge: { embedder, route: embedder.route } } : {}),
+    }),
     createApprovalHandler({ skills: codeSkills }),
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),

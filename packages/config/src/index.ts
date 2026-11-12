@@ -106,6 +106,20 @@ export function converseModelForAgentType(agentTypeKey: string): ModelKey | unde
     : undefined;
 }
 
+/**
+ * Enrutado por intención (PL-T3, punto 3): antes de conversar, un clasificador
+ * (determinista o con la tarea `classify`) mira el último mensaje del cliente;
+ * las intenciones simples van por el camino barato y la conversación abierta,
+ * con el modelo del agente. Apagado hasta que las evals con el modelo real
+ * demuestren que el camino barato las contesta bien (V4; AGENTS.md → Evals).
+ */
+export const INTENT_ROUTING_DEFAULT_ENABLED = false;
+/** Las intenciones simples, que puede atender el camino barato. */
+export const SIMPLE_INTENTS = ["greeting", "opening_hours", "slots"] as const;
+export type SimpleIntent = (typeof SIMPLE_INTENTS)[number];
+/** La clave del camino barato. */
+export const SIMPLE_INTENT_MODEL: ModelKey = "fast";
+
 export interface GatewayModel {
   /** El modelo en Vercel AI Gateway (`proveedor/modelo`). */
   id: string;

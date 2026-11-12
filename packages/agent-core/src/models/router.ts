@@ -92,6 +92,12 @@ export interface ModelCall {
    * modelo de ese tipo de agente.
    */
   agentType?: string;
+  /**
+   * La clave que pide el runtime para esta llamada (el camino barato del
+   * enrutado por intención, PL-T3). La elección explícita de la organización
+   * manda sobre ella; ella, sobre la del agente y la de la tarea.
+   */
+  preferredModel?: ModelKey;
   messages: readonly ModelMessage[];
   /** Tope de tokens de salida: con él se estima el coste antes de llamar. */
   maxOutputTokens: number;
@@ -195,13 +201,15 @@ export function eligibleTransports(policy: ModelPolicy, modelKey: ModelKey, tran
 /**
  * Qué clave de modelo atiende una tarea (MANUAL §5.11; producto, 2026-11-11):
  * 1. la que eligió la organización a propósito para esa tarea;
- * 2. para conversar, la del tipo de agente (la más barata que pasa sus evals);
- * 3. la de la tarea en la política (por defecto de plataforma), también para
+ * 2. la que pide el runtime para esta llamada (enrutado por intención, PL-T3);
+ * 3. para conversar, la del tipo de agente (la más barata que pasa sus evals);
+ * 4. la de la tarea en la política (por defecto de plataforma), también para
  *    un tipo de agente sin clave propia.
  */
-export function resolveModelKey(policy: ModelPolicy, task: ModelTask, agentType?: string): ModelKey {
+export function resolveModelKey(policy: ModelPolicy, task: ModelTask, agentType?: string, preferred?: ModelKey): ModelKey {
   const chosen = policy.modelOverrides[task];
   if (chosen !== undefined) return chosen;
+  if (preferred !== undefined) return preferred;
   const byAgent = task === "converse" && agentType !== undefined ? converseModelForAgentType(agentType) : undefined;
   return byAgent ?? policy.modelByTask[task];
 }
@@ -218,7 +226,7 @@ export interface ModelRouter {
 export function createModelRouter(transports: readonly ModelTransport[], now: () => number = Date.now): ModelRouter {
   return {
     async generate(call, policy, spend) {
-      const modelKey = resolveModelKey(policy, call.task, call.agentType);
+      const modelKey = resolveModelKey(policy, call.task, call.agentType, call.preferredModel);
       const candidates = eligibleTransports(policy, modelKey, transports).slice(0, 2);
       if (candidates.length === 0) {
         throw new NoEligibleTransportError(
