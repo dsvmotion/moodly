@@ -21,10 +21,12 @@ writeFileSync(
     `SUPABASE_URL=${api.url}`,
     `SUPABASE_SECRET_KEY=${api.secretKey}`,
     `WORKER_DATABASE_URL=${localWorkerDatabaseUrl()}`,
+    // Los enlaces de los avisos por email, a la web local. Sin RESEND_API_KEY no se envían.
+    "WEB_APP_URL=http://127.0.0.1:3000",
     "",
   ].join("\n"),
   { mode: 0o600 },
 );
 console.log(
-  "apps/worker/.env.local escrito (WORKER_SYSTEM_DATABASE_URL, WORKER_EXECUTOR_ID, WORKER_APP_VERSION, LOG_LEVEL, SUPABASE_URL, SUPABASE_SECRET_KEY, WORKER_DATABASE_URL)",
+  "apps/worker/.env.local escrito (WORKER_SYSTEM_DATABASE_URL, WORKER_EXECUTOR_ID, WORKER_APP_VERSION, LOG_LEVEL, SUPABASE_URL, SUPABASE_SECRET_KEY, WORKER_DATABASE_URL, WEB_APP_URL)",
 );
