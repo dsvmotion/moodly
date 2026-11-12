@@ -602,5 +602,88 @@
       "invalid": "Revisa los campos: el título puede tener hasta 200 caracteres y el texto hasta 20.000.",
       "not_allowed": "No puedes cambiar el conocimiento de esta organización."
     }
+  },
+  "goalsPage": {
+    "title": "Objetivos",
+    "description": "Lo que quieres conseguir, medido y con fecha. Los agentes lo tendrán en cuenta para priorizar y el coach revisará cómo vas.",
+    "mfaRequired": "Para crear o cambiar objetivos necesitas la verificación en dos pasos.",
+    "mfaLink": "Actívala en Seguridad",
+    "emptyTitle": "Todavía no hay objetivos",
+    "empty": "Define qué quieres conseguir: citas al mes, leads cualificados, tiempo de respuesta…",
+    "emptyReadOnly": "Cuando alguien que los gestiona defina objetivos para tu alcance, aparecerán aquí.",
+    "add": "Nuevo objetivo",
+    "newTitle": "Nuevo objetivo",
+    "newDescription": "Elige dónde se aplica, qué mide y a qué valor quieres llegar.",
+    "wholeOrganization": "Toda la organización",
+    "fields": {
+      "title": "Título",
+      "appliesTo": "Se aplica a",
+      "metric": "Métrica",
+      "direction": "Se cumple con",
+      "target": "Meta",
+      "period": "Periodo",
+      "dueDate": "Fecha límite",
+      "startsOn": "Empieza",
+      "status": "Estado"
+    },
+    "metrics": {
+      "appointmentsBooked": "Citas reservadas",
+      "leadsQualified": "Leads cualificados",
+      "resolvedAutonomously": "Conversaciones resueltas sin una persona (%)",
+      "firstReplyMinutes": "Tiempo hasta la primera respuesta",
+      "outstandingInvoices": "Facturación pendiente de cobro"
+    },
+    "otherMetric": "Otra: {key}",
+    "directions": {
+      "at_least": "Al menos",
+      "at_most": "Como mucho"
+    },
+    "targetLabel": {
+      "count": "Valor",
+      "percent": "Valor (%)",
+      "minutes": "Valor (minutos)",
+      "eur": "Valor (€)"
+    },
+    "units": {
+      "count": "{value}",
+      "percent": "{value} %",
+      "minutes": "{value} min",
+      "eur": "{value} €"
+    },
+    "periods": {
+      "week": "Cada semana",
+      "month": "Cada mes",
+      "quarter": "Cada trimestre",
+      "year": "Cada año",
+      "once": "Una vez, con fecha límite"
+    },
+    "periodSuffix": {
+      "week": "a la semana",
+      "month": "al mes",
+      "quarter": "al trimestre",
+      "year": "al año",
+      "once": "antes del {date}"
+    },
+    "statuses": {
+      "active": "Activo",
+      "paused": "En pausa",
+      "achieved": "Conseguido",
+      "missed": "No conseguido",
+      "archived": "Archivado"
+    },
+    "progressHelp": "El progreso se medirá con los datos de tus agentes y de tus integraciones. Todavía no hay mediciones.",
+    "readOnly": "Solo puede cambiarlo quien gestiona su alcance.",
+    "create": "Crear",
+    "save": "Guardar",
+    "saved": "Guardado.",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "delete": "Borrar",
+    "deleteTitle": "¿Borrar este objetivo?",
+    "deleteDescription": "Se borra con sus mediciones. Si solo quieres dejar de seguirlo, cámbialo a «Archivado». No se puede deshacer.",
+    "errors": {
+      "invalid": "Revisa los campos: el título puede tener hasta 200 caracteres, el valor es un número (un porcentaje, hasta 100) y la fecha límite no puede ser anterior al inicio.",
+      "not_allowed": "No puedes gestionar objetivos en ese alcance."
+    }
   }
 }

@@ -7,6 +7,18 @@ import DemoForm from "@/components/demo-form";
 import { AGENT_KEYS, getVerticals, getSubsectors } from "@/components/verticals";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
+
+// Unidad de docs/scope.yaml de las habilidades que dependen de algo concreto (N-01): mismo
+// índice que skills[agente] en los cuatro idiomas; null = sin etiqueta. Empieza por el sector
+// de belleza (revisión de V10 en #246); los demás sectores se etiquetan en su propio PR.
+const SKILL_UNITS = {
+  belleza: { atencion: [null, null, null, "CU5"], administracion: ["AD2", "AD1", "AD3"] },
+};
+for (const lang of ["es", "en", "fr", "de"]) for (const v of getVerticals(lang)) for (const [k, u] of Object.entries(SKILL_UNITS[v.id] || {})) {
+  if (v.skills[k].length !== u.length) throw new Error(`sectores: ${lang}.${v.id}.skills.${k} tiene ${v.skills[k].length} y SKILL_UNITS ${u.length}`);
+}
+const unitOf = (id, agent, i) => SKILL_UNITS[id]?.[agent]?.[i] ?? null;
 
 const wrap = { maxWidth: "1232px", margin: "0 auto" };
 const pad = { padding: "clamp(88px, 10vw, 144px) clamp(16px, 4vw, 40px) 0" };
@@ -103,7 +115,7 @@ export default function Sectores() {
             </div>
             <div style={{ borderRadius: "12px", background: ag[2], color: ag[3], padding: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
               <span style={{ fontSize: "12px", opacity: 0.7 }}>{t.s4(t.agents[agent])}</span>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "20px" }}>{v.skills[agent].map((x) => (<li key={x} style={{ display: "flex", gap: "8px" }}><span aria-hidden="true">✓</span>{x}</li>))}</ul>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", lineHeight: "20px" }}>{v.skills[agent].map((x, i) => (<li key={x} style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px", alignItems: "center" }}><span aria-hidden="true">✓</span>{x}{unitOf(v.id, agent, i) && <span><AvailabilityBadge id={unitOf(v.id, agent, i)} lang={lang} /></span>}</li>))}</ul>
             </div>
             <div style={{ borderRadius: "12px", background: "#000000", color: "#ffffff", padding: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
               <span style={{ fontSize: "12px", opacity: 0.6 }}>{t.s5}</span>
@@ -120,7 +132,7 @@ export default function Sectores() {
             {AGENT_KEYS.map(([k, , bg, fg]) => (
               <div key={k} style={{ minHeight: "260px", borderRadius: "12px", background: bg, color: fg, padding: "32px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>
                 <span style={{ fontSize: "20px", lineHeight: "24px", letterSpacing: "-0.4px" }}>{t.agents[k]}</span>
-                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px", fontSize: "15px", lineHeight: "22px", opacity: 0.85 }}>{v.skills[k].map((x) => (<li key={x}>· {x}</li>))}</ul>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px", fontSize: "15px", lineHeight: "22px", opacity: 0.85 }}>{v.skills[k].map((x, i) => (<li key={x}>· {x}{unitOf(v.id, k, i) && <> <AvailabilityBadge id={unitOf(v.id, k, i)} lang={lang} /></>}</li>))}</ul>
               </div>
             ))}
           </div>
@@ -147,7 +159,7 @@ export default function Sectores() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", textAlign: "center" }}>
           <h2 style={{ ...h2s, fontSize: "clamp(32px, 3.6vw, 48px)", maxWidth: "560px" }}>{t.demoH2(subTu)}</h2>
           <DemoForm id="sector-email" />
-          <p style={{ margin: 0, fontSize: "12px", lineHeight: "18px", ...muted }}>{t.fine}</p>
+          <p style={{ margin: 0, fontSize: "12px", lineHeight: "18px", ...muted }}>{t.fine} <AvailabilityBadge id="PL-billing" lang={lang} /></p>
         </div>
       </section>
       <SiteFooter />

@@ -22,7 +22,41 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
+      resendApiKey: null,
+      webAppUrl: null,
+      intentRouting: false,
+      healthPort: 8080,
     });
+  });
+
+  it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {
+    const key = `re_${"r".repeat(30)}`;
+    expect(loadConfig({ ...valid, RESEND_API_KEY: key }).resendApiKey).toBe(key);
+    expect(loadConfig({ ...valid, RESEND_API_KEY: ` ${key}\n` }).resendApiKey).toBe(key);
+    expect(loadConfig({ ...valid, RESEND_API_KEY: "" }).resendApiKey).toBeNull();
+    const bad = "sk_no_es_de_resend_123456";
+    expect(() => loadConfig({ ...valid, RESEND_API_KEY: bad })).toThrow(/RESEND_API_KEY/);
+    expect(() => loadConfig({ ...valid, RESEND_API_KEY: bad })).not.toThrow(new RegExp(bad));
+  });
+
+  it("WEB_APP_URL: https sin ruta (sin barra final); http solo en local; vacía cuenta como ausente", () => {
+    expect(loadConfig({ ...valid, WEB_APP_URL: "https://staging.moodlycrm.com/" }).webAppUrl).toBe("https://staging.moodlycrm.com");
+    expect(loadConfig({ ...valid, WEB_APP_URL: "http://127.0.0.1:3000" }).webAppUrl).toBe("http://127.0.0.1:3000");
+    expect(loadConfig({ ...valid, WEB_APP_URL: "" }).webAppUrl).toBeNull();
+    for (const bad of ["http://staging.moodlycrm.com", "https://staging.moodlycrm.com/app", "https://u:p@staging.moodlycrm.com", "https://x.com?a=1", "staging"]) {
+      expect(() => loadConfig({ ...valid, WEB_APP_URL: bad })).toThrow(/WEB_APP_URL/);
+    }
+  });
+
+  it("el puerto de salud sale de PORT (Railway) y se valida", () => {
+    expect(loadConfig({ ...valid, PORT: "3001" }).healthPort).toBe(3001);
+    for (const port of ["0", "70000", "abc", "80 80"]) expect(() => loadConfig({ ...valid, PORT: port })).toThrow(WorkerConfigError);
+  });
+
+  it("el enrutado por intención (PL-T3) está apagado salvo que INTENT_ROUTING lo encienda", () => {
+    for (const on of ["on", "true", "1", " ON ", "True"]) expect(loadConfig({ ...valid, INTENT_ROUTING: on }).intentRouting).toBe(true);
+    for (const off of ["off", "false", "0", "", "  "]) expect(loadConfig({ ...valid, INTENT_ROUTING: off }).intentRouting).toBe(false);
+    expect(() => loadConfig({ ...valid, INTENT_ROUTING: "yes" })).toThrow(/INTENT_ROUTING: on\/off, true\/false o 1\/0/);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

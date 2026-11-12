@@ -136,20 +136,21 @@ async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60
   throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
 }
 
-// Rol del worker (migración dbos_worker_role): nace sin login. En local, el
-// seed se lo da con una contraseña que se reutiliza entre ejecuciones, como las
-// claves de servidor, para no invalidar apps/worker/.env.local.
-async function enableWorkerDbLogin(dbUrl: string, password: string): Promise<void> {
+// Roles del worker (migraciones dbos_worker_role y worker_role): nacen sin
+// login. En local, el seed se lo da con una contraseña que se reutiliza entre
+// ejecuciones, como las claves de servidor, para no invalidar
+// apps/worker/.env.local.
+async function enableWorkerDbLogin(dbUrl: string, password: string, role: "dbos_worker" | "moodly_worker" = "dbos_worker"): Promise<void> {
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
   try {
     // ALTER ROLE no admite parámetros: format(%L) entrecomilla la contraseña.
     const { rows } = await client.query<{ stmt: string }>(
-      "select format('alter role dbos_worker with login password %L', $1::text) as stmt",
-      [password],
+      "select format('alter role %I with login password %L', $1::text, $2::text) as stmt",
+      [role, password],
     );
     const stmt = rows[0]?.stmt;
-    if (!stmt) throw new Error("no se pudo preparar el ALTER ROLE de dbos_worker");
+    if (!stmt) throw new Error(`no se pudo preparar el ALTER ROLE de ${role}`);
     await client.query(stmt);
   } finally {
     await client.end();
@@ -175,6 +176,8 @@ function readServerKeys(): Record<string, string> {
 }
 
 async function main(): Promise<void> {
+  // Las aprobaciones que crea el seed: sus approval.created se marcan como publicados al final.
+  const seededApprovalIds: string[] = [];
   const local = readLocalSupabase();
   const { apiUrl, secretKey } = local;
   await waitForServices(apiUrl, secretKey);
@@ -233,9 +236,16 @@ async function main(): Promise<void> {
   mkdirSync(dirname(serverKeysFile), { recursive: true });
   const workerDbPassword = serverKeys.worker_db_password ?? randomBytes(24).toString("base64url");
   await enableWorkerDbLogin(local.dbUrl, workerDbPassword);
+  // El rol de los datos de las organizaciones bajo RLS (ADR 0049, PL-T1).
+  const workerRlsPassword = serverKeys.worker_rls_password ?? randomBytes(24).toString("base64url");
+  await enableWorkerDbLogin(local.dbUrl, workerRlsPassword, "moodly_worker");
   writeFileSync(
     serverKeysFile,
-    JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword }, null, 2),
+    JSON.stringify(
+      { ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword, worker_rls_password: workerRlsPassword },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
 
@@ -384,11 +394,12 @@ async function main(): Promise<void> {
       location_id: approval.locationId,
       effect_class: approval.effectClass,
       input_hash: inputHash,
-      required_role: "staff",
+      required_role: approval.requiredRole ?? "staff",
       reason: approval.summary,
       expires_at: expiresAt,
     });
     check("approvals", pending.error);
+    seededApprovalIds.push(approval.approvalId);
   }
 
   // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
@@ -630,6 +641,7 @@ async function main(): Promise<void> {
         })),
       );
       check(`approvals (${label})`, approvals.error);
+      seededApprovalIds.push(...items.map((a) => a.approvalId));
     };
     await pendingApprovals(
       "F1",
@@ -641,6 +653,25 @@ async function main(): Promise<void> {
       })),
     );
     await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
+  }
+
+  // Cada aprobación nueva deja un approval.created para el aviso por email (M-02).
+  // Las del seed son datos de demo, no aprobaciones nuevas: se marcan como
+  // publicadas, como los mensajes, para que un worker en marcha (la integración
+  // del CI) no avise a nadie ni tenga que abrirse paso entre cientos de ellas.
+  // Solo los de las aprobaciones que acaba de crear el seed, por id y de 100 en 100.
+  for (let i = 0; i < seededApprovalIds.length; i += 100) {
+    const quietApprovals = await admin
+      .from("domain_events")
+      .update({ published_at: new Date().toISOString() })
+      .in(
+        "organization_id",
+        seedOrganizations.map((organization) => organization.id),
+      )
+      .eq("type", "approval.created")
+      .is("published_at", null)
+      .in("payload->>approval_id", seededApprovalIds.slice(i, i + 100));
+    check("domain_events (aprobaciones)", quietApprovals.error);
   }
 
   mkdirSync(dirname(credentialsFile), { recursive: true });

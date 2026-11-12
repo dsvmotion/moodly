@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { policyAllows, policyFromSettings } from "@repo/agent-core";
 import type { RouteOrigin } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
-import { assertEmbedding, chunkText } from "@repo/knowledge";
-import type { Embedder } from "@repo/knowledge";
+import { assertEmbedding, chunkText, spentBefore } from "@repo/knowledge";
+import type { EmbedResult, Embedder, EmbeddingUsage } from "@repo/knowledge";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 
 // La ingesta de las fuentes de conocimiento de texto (paso B20-1, MANUAL §6.1,
@@ -24,8 +24,20 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 //   mitad la devuelve a pending (guard_knowledge_source) y ahí se queda.
 // - Embeddings y escritura van en el mismo paso: los vectores no se guardan en
 //   la base de datos de DBOS, y si el paso se repite, se reemplaza todo otra vez.
+// - Lo que costó cada llamada de embeddings va al libro de consumo
+//   (usage_records, source «embedding», PL-ledger) en cuanto vuelve, también si
+//   luego no se escribe nada: se pagó igual. Si el paso se repite, la llamada se
+//   repite y se paga otra vez, así que es otra fila. Un fallo al anotarla no
+//   para la indexación: se registra en el log.
 
 export const INGEST_HANDLER_KEY = "knowledge.ingest";
+
+/**
+ * El orden de las llamadas de embeddings en el libro de consumo (PL-ledger),
+ * lejos de los pasos de un turno (0, 1, …), del resumen (1000) y de la
+ * clasificación (2000). La ingesta no tiene run: solo dice qué fila es.
+ */
+export const EMBEDDING_CALL_INDEX = 3000;
 
 function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
   if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
@@ -37,10 +49,10 @@ function hashOf(text: string): string {
 }
 
 export type IngestResult =
-  | { kind: "skip"; reason: "source_missing" | "no_text" | "changed" }
-  | { kind: "ready"; chunks: number }
+  | { kind: "skip"; reason: "source_missing" | "no_text" | "changed"; ledgerError?: string }
+  | { kind: "ready"; chunks: number; ledgerError?: string }
   | { kind: "blocked" }
-  | { kind: "error"; error: string };
+  | { kind: "error"; error: string; ledgerError?: string };
 
 /** Quién saca los embeddings y por dónde van (lo que mira la política de la organización). */
 export interface IngestOptions {
@@ -49,7 +61,7 @@ export interface IngestOptions {
 }
 
 async function readSource(db: TenantDb, sourceId: string) {
-  return check(await db.from("knowledge_sources").select("id, title, body").eq("id", sourceId).maybeSingle(), "la fuente");
+  return check(await db.from("knowledge_sources").select("id, title, body, location_id").eq("id", sourceId).maybeSingle(), "la fuente");
 }
 
 /** La política de modelos de la organización (org_model_settings), o la de plataforma si no tiene. */
@@ -57,7 +69,7 @@ async function loadPolicy(db: TenantDb) {
   const row = check(
     await db
       .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur")
+      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur")
       .maybeSingle(),
     "la política de modelos",
   );
@@ -75,6 +87,41 @@ async function finishProcessing(db: TenantDb, sourceId: string, status: "ready" 
   if (error) throw new Error(`no se pudo marcar la fuente (${error.code})`);
 }
 
+/** Una llamada de embeddings en el libro de consumo. Devuelve el error (el código), sin lanzar. */
+async function recordEmbeddingUsage(
+  db: TenantDb,
+  locationId: string | null,
+  embedder: Embedder,
+  route: RouteOrigin,
+  usage: EmbeddingUsage,
+): Promise<string | null> {
+  try {
+    const { error } = await db.from("usage_records").insert({
+      location_id: locationId,
+      source: "embedding",
+      metric: "embedding_tokens",
+      quantity: usage.tokens,
+      tokens_in: usage.tokens,
+      tokens_out: 0,
+      cost_eur: usage.costEur,
+      provider: route.provider,
+      via: "gateway",
+      region: route.region,
+      model: embedder.model,
+      call_index: EMBEDDING_CALL_INDEX,
+    });
+    return error ? `usage_records(${error.code})` : null;
+  } catch (error) {
+    return (error as Error).name;
+  }
+}
+
+/** Los vectores y, si el embedder los cuenta, los tokens y el coste. */
+async function embedAll(embedder: Embedder, texts: readonly string[]): Promise<EmbedResult | { vectors: number[][]; usage: null }> {
+  if (embedder.embedWithUsage) return embedder.embedWithUsage(texts);
+  return { vectors: await embedder.embed(texts), usage: null };
+}
+
 /** Indexa el texto actual de una fuente: trozos, embeddings y fragmentos nuevos en lugar de los viejos. */
 export async function ingestSource(db: TenantDb, sourceId: string, { embedder, route }: IngestOptions): Promise<IngestResult> {
   const source = await readSource(db, sourceId);
@@ -89,17 +136,23 @@ export async function ingestSource(db: TenantDb, sourceId: string, { embedder, r
 
   const chunks = chunkText(source.title, source.body);
   let vectors: number[][];
+  let ledgerError: string | null = null;
   try {
-    vectors = await embedder.embed(chunks);
+    const embedded = await embedAll(embedder, chunks);
+    if (embedded.usage) ledgerError = await recordEmbeddingUsage(db, source.location_id, embedder, route, embedded.usage);
+    vectors = embedded.vectors;
     if (vectors.length !== chunks.length) throw new Error("no hay un embedding por trozo");
     for (const vector of vectors) assertEmbedding(vector, embedder.dim);
   } catch (error) {
+    // Si la llamada falló después de lotes ya pagados, lo gastado va igual al libro.
+    const spent = spentBefore(error);
+    if (spent) ledgerError = await recordEmbeddingUsage(db, source.location_id, embedder, route, spent);
     await finishProcessing(db, sourceId, "error");
-    return { kind: "error", error: (error as Error).name };
+    return { kind: "error", error: (error as Error).name, ...(ledgerError ? { ledgerError } : {}) };
   }
 
   const current = await readSource(db, sourceId);
-  if (!current?.body || hashOf(current.body) !== hash) return { kind: "skip", reason: "changed" };
+  if (!current?.body || hashOf(current.body) !== hash) return { kind: "skip", reason: "changed", ...(ledgerError ? { ledgerError } : {}) };
 
   const removed = await db.from("knowledge_chunks").delete().eq("source_id", sourceId);
   if (removed.error) throw new Error(`no se pudieron quitar los fragmentos viejos (${removed.error.code})`);
@@ -117,7 +170,7 @@ export async function ingestSource(db: TenantDb, sourceId: string, { embedder, r
     if (error) throw new Error(`no se pudieron guardar los fragmentos (${error.code})`);
   }
   await finishProcessing(db, sourceId, "ready");
-  return { kind: "ready", chunks: chunks.length };
+  return { kind: "ready", chunks: chunks.length, ...(ledgerError ? { ledgerError } : {}) };
 }
 
 export function createIngestHandler(options: IngestOptions): EventHandler {
@@ -127,6 +180,9 @@ export function createIngestHandler(options: IngestOptions): EventHandler {
     async handle(event: DomainEvent, ctx: EventContext) {
       const sourceId = String(event.payload["source_id"]);
       const result = await ctx.step("index", () => ingestSource(ctx.db, sourceId, options));
+      if ("ledgerError" in result && result.ledgerError) {
+        ctx.logger.error({ sourceId, error: result.ledgerError }, "no se pudo anotar el coste de los embeddings en el libro de consumo");
+      }
       if (result.kind === "ready") ctx.logger.info({ sourceId, chunks: result.chunks, model: options.embedder.model }, "fuente de conocimiento indexada");
       else if (result.kind === "blocked") ctx.logger.warn({ sourceId, provider: options.route.provider }, "la política de modelos de la organización no deja indexar la fuente");
       else if (result.kind === "error") ctx.logger.warn({ sourceId, error: result.error }, "la fuente de conocimiento no se pudo indexar");

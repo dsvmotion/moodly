@@ -24,10 +24,11 @@ const catalog: ReceptionCatalog = {
 };
 const scope: RunScope = { organizationId: ORG, locationId: LOC, runId: RUN, conversation: { id: "conv-1", contactId: ANA } };
 
-function setup() {
+function setup(hours: { openHour?: number; closeHour?: number } = {}) {
   const booking = createFakeBookingProvider({
     services: [{ id: LASER, durationMinutes: 30, locationId: null }],
     resources: [{ id: CAB1, locationId: LOC, serviceIds: [LASER] }],
+    ...hours,
     now: () => new Date("2030-06-01T00:00:00Z"),
   });
   const sender = createFakeConversationSender();
@@ -57,7 +58,7 @@ function turn(script: (() => TransportResponse)[], message: string) {
     settings: env.settings,
     router: createModelRouter([transport]),
     policy: PLATFORM_MODEL_POLICY,
-    spend: { runEur: 0, dayEur: 0 },
+    spend: { runEur: 0, dayEur: 0, monthEur: 0 },
   });
   return { ...env, transport, result };
 }
@@ -117,7 +118,8 @@ describe("Recepción el primer día", () => {
   });
 
   it("con la autonomía subida, reserva para quien escribe y responde sin esperar", async () => {
-    const env = setup();
+    // El local abre de 9:00 a 14:00 en Madrid (UTC+2): de 7 a 12 UTC; el calendario de prueba solo reserva dentro de horario.
+    const env = setup({ openHour: 7, closeHour: 12 });
     env.settings.set("book_appointment", { enabled: true, autonomy: "execute" });
     env.settings.set("reply", { enabled: true, autonomy: "autonomous" });
     let index = 0;
@@ -134,7 +136,7 @@ describe("Recepción el primer día", () => {
       settings: env.settings,
       router: createModelRouter([transport]),
       policy: PLATFORM_MODEL_POLICY,
-      spend: { runEur: 0, dayEur: 0 },
+      spend: { runEur: 0, dayEur: 0, monthEur: 0 },
     });
     expect(result.status).toBe("replied");
     expect(env.booking.appointments.map((appointment) => [appointment.contactId, appointment.startsAt.toISOString()])).toEqual([

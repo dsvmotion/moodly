@@ -16,11 +16,12 @@
 // - Sin recursos embebidos en select ("tabla(...)"): se resuelven por clave
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
-//   filtro. Las excepciones son searchKnowledge, findBookingSlots y
-//   agentTurnContext: funciones con nombre a las que tenantDb les pasa la
-//   organización.
+//   filtro. Las excepciones son searchKnowledge, findBookingSlots,
+//   agentTurnContext, approvalNotification y usageSpend: funciones con nombre
+//   a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
+import { WorkerSqlError, type TenantSql, type WorkerSql } from "./worker-sql.ts";
 
 type PublicSchema = Database["public"];
 type PublicTables = PublicSchema["Tables"];
@@ -52,7 +53,7 @@ function assertColumns(columns: string | undefined): void {
   }
 }
 
-export function tenantDb(client: SupabaseClient<Database>, organizationId: string) {
+export function tenantDb(client: SupabaseClient<Database>, organizationId: string, workerSql?: WorkerSql) {
   if (!UUID.test(organizationId)) {
     throw new TenantScopeError("tenantDb: organization_id no es un UUID");
   }
@@ -156,7 +157,72 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return (data ?? null) as AgentTurnContext | null;
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext };
+  /**
+   * Lo que necesita el aviso de una aprobación nueva (approval_notification,
+   * M-02): la aprobación, su agente y su local, y a quién se le envía (quien
+   * puede decidirla, con la regla de can_decide_approval). Con la organización
+   * de este acceso: una aprobación de otra no existe (null).
+   */
+  async function approvalNotification(approvalId: string): Promise<ApprovalNotification | null> {
+    if (!UUID.test(approvalId)) {
+      throw new TenantScopeError("tenantDb: approval_id no es un UUID");
+    }
+    const { data, error } = await untyped.rpc("approval_notification", { p_organization_id: organizationId, p_approval_id: approvalId });
+    if (error) throw new Error(`approval_notification: ${error.message}`);
+    return (data ?? null) as ApprovalNotification | null;
+  }
+
+  /**
+   * Lo gastado desde el comienzo del día y desde el del mes (usage_spend,
+   * PL-ledger), sumado en la base de datos: lo que el enrutador compara con los
+   * topes antes de llamar. Con la organización de este acceso.
+   */
+  async function usageSpend(params: UsageSpendParams): Promise<UsageSpend> {
+    if (!(params.dayStart instanceof Date) || Number.isNaN(params.dayStart.getTime()) || Number.isNaN(params.monthStart.getTime())) {
+      throw new TenantScopeError("tenantDb: dayStart y monthStart tienen que ser fechas");
+    }
+    const { data, error } = await untyped.rpc("usage_spend", {
+      p_organization_id: organizationId,
+      p_day_start: params.dayStart.toISOString(),
+      p_month_start: params.monthStart.toISOString(),
+    });
+    if (error) throw new Error(`usage_spend: ${error.message}`);
+    const row = (data ?? {}) as { day_eur?: number | string; month_eur?: number | string };
+    return { dayEur: Number(row.day_eur ?? 0), monthEur: Number(row.month_eur ?? 0) };
+  }
+
+  /**
+   * Una transacción SQL bajo RLS con el rol moodly_worker y esta organización
+   * fijada (ADR 0049, PL-T1). Lo que se lea o escriba dentro solo puede ser de
+   * esta organización, aunque la consulta se equivoque de filtro. Solo existe si
+   * el worker tiene WORKER_DATABASE_URL; mientras tanto, from() sigue igual.
+   */
+  async function transaction<T>(fn: (sql: TenantSql) => Promise<T>): Promise<T> {
+    if (!workerSql) throw new WorkerSqlError("tenantDb: sin WORKER_DATABASE_URL no hay transacciones bajo RLS");
+    return workerSql.inOrganization(organizationId, fn);
+  }
+
+  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, transaction };
+}
+
+/** Tal como lo devuelve approval_notification; quien lo usa lo valida antes de fiarse. */
+export interface ApprovalNotification {
+  approval: { id: string; status: string; reason: string | null; created_at: string; expires_at: string; location_id: string | null };
+  agent: { display_name: string | null; type_key: string; type_name: string };
+  organization: { default_locale: string };
+  location: { name: string; timezone: string } | null;
+  /** Quien puede decidirla: de la base de datos, nunca del evento ni del modelo. */
+  recipients: { user_id: string; email: string; locale: string }[];
+}
+
+export interface UsageSpendParams {
+  dayStart: Date;
+  monthStart: Date;
+}
+
+export interface UsageSpend {
+  dayEur: number;
+  monthEur: number;
 }
 
 /** Tal como lo devuelve agent_turn_context; quien lo usa lo valida antes de fiarse. */

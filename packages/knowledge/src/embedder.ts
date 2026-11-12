@@ -11,6 +11,33 @@ export interface Embedder {
   readonly model: string;
   readonly dim: number;
   embed(texts: readonly string[]): Promise<number[][]>;
+  /**
+   * Lo mismo, con lo que costó (el libro de consumo, PL-ledger): quien indexa lo
+   * anota. Opcional: un embedder sin coste que contar no lo tiene.
+   */
+  embedWithUsage?(texts: readonly string[]): Promise<EmbedResult>;
+}
+
+/** Lo que costó sacar unos embeddings: tokens de entrada y euros a precio de lista. */
+export interface EmbeddingUsage {
+  tokens: number;
+  costEur: number;
+}
+
+/**
+ * Lo ya gastado cuando una llamada falla a medias (p. ej. un lote posterior):
+ * quien indexa lo anota igual, porque se pagó.
+ */
+export function spentBefore(error: unknown): EmbeddingUsage | null {
+  const usage = (error as { usage?: unknown } | null)?.usage as Partial<EmbeddingUsage> | undefined;
+  if (!usage || typeof usage.tokens !== "number" || typeof usage.costEur !== "number") return null;
+  if (!Number.isFinite(usage.tokens) || !Number.isFinite(usage.costEur) || usage.tokens <= 0) return null;
+  return { tokens: usage.tokens, costEur: usage.costEur };
+}
+
+export interface EmbedResult {
+  vectors: number[][];
+  usage: EmbeddingUsage;
 }
 
 export class EmbeddingError extends Error {
@@ -28,21 +55,26 @@ export function assertEmbedding(vector: readonly number[], dim: number): void {
  * con hash, normalizada. Textos con palabras en común quedan cerca.
  */
 export function createFakeEmbedder(dim = 16): Embedder {
+  const words = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const embed = (texts: readonly string[]) =>
+    texts.map((text) => {
+      const vector = new Array<number>(dim).fill(0);
+      for (const word of words(text)) {
+        const index = createHash("sha256").update(word).digest().readUInt32BE(0) % dim;
+        vector[index] = (vector[index] ?? 0) + 1;
+      }
+      const norm = Math.hypot(...vector) || 1;
+      return vector.map((value) => value / norm);
+    });
   return {
     model: `fake-hash-${dim}`,
     dim,
     embed(texts) {
-      return Promise.resolve(
-        texts.map((text) => {
-          const vector = new Array<number>(dim).fill(0);
-          for (const word of text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
-            const index = createHash("sha256").update(word).digest().readUInt32BE(0) % dim;
-            vector[index] = (vector[index] ?? 0) + 1;
-          }
-          const norm = Math.hypot(...vector) || 1;
-          return vector.map((value) => value / norm);
-        }),
-      );
+      return Promise.resolve(embed(texts));
+    },
+    // Una palabra, un token; no cuesta nada.
+    embedWithUsage(texts) {
+      return Promise.resolve({ vectors: embed(texts), usage: { tokens: texts.reduce((sum, text) => sum + words(text).length, 0), costEur: 0 } });
     },
   };
 }

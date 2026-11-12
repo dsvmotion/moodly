@@ -241,14 +241,16 @@ export default function Page() {
           </div>
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
             <div style={{ flex: "1 1 280px", borderRadius: "12px", background: "#ffffff66", border: "1px solid #0000000f", padding: "24px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>
-              <span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{t.priceTrial}</span>
+              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{t.priceTrial}</span><span><AvailabilityBadge id="PL-billing" lang={lang} /></span></span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{P.trialDays} {t.priceTrialSub}</span>
               <span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>0 €</span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceTrialDesc}</span>
               <ul style={{ margin: "8px 0 0", padding: "16px 0 0", borderTop: "1px solid #0000000f", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", lineHeight: "21px" }}><li>✓ {t.priceTrialList[0]}</li><li>✓ {t.priceTrialList[1]}</li><li>✓ {t.priceTrialList[2]}</li></ul>
+              <LangLink href="/contacto" style={{ marginTop: "auto", textAlign: "center", padding: "11px 18px", borderRadius: "800px", background: "#000000", color: "#ffffff", fontSize: "14px", lineHeight: "21px" }}>{t.priceTrialCta}</LangLink>
             </div>
             <div style={{ flex: "1 1 280px", borderRadius: "12px", border: "1px solid #2457f5", padding: "32px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>
               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: "18px", lineHeight: "19.8px", letterSpacing: "-0.36px" }}>{t.priceBizName}</span><span style={{ padding: "4px 10px", borderRadius: "800px", background: "#2457f5", color: "#ffffff", fontSize: "12px", lineHeight: "14px" }}>{t.priceBizTag}</span></span>
+              <span><AvailabilityBadge id="PL-billing" lang={lang} /></span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceBizPer}</span>
               <span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.priceBizPrice}</span>
               <span style={{ fontSize: "14px", lineHeight: "21px", color: "#5f5f63" }}>{t.priceBizIncl}</span>
@@ -269,7 +271,7 @@ export default function Page() {
       <section id="demo" style={{ padding: "clamp(88px, 10vw, 144px) clamp(16px, 4vw, 40px) 0" }}><div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", textAlign: "center" }}>
         <h2 style={{ margin: "0", fontSize: "clamp(32px, 3.6vw, 48px)", lineHeight: "1.08", fontWeight: "400", letterSpacing: "-0.035em", maxWidth: "420px" }}>{t.demoH2}</h2>
         <DemoForm />
-        <p style={{ margin: "0", fontSize: "12px", lineHeight: "18px", color: "#5f5f63" }}>{t.demoFine1}<LangLink href="/#demo" style={{ textDecoration: "underline", color: "#5f5f63" }}>{t.demoFineLink}</LangLink>{t.demoFine2}</p>
+        <p style={{ margin: "0", fontSize: "12px", lineHeight: "18px", color: "#5f5f63" }}>{t.demoFine1}<LangLink href="/contacto" style={{ textDecoration: "underline", color: "#5f5f63" }}>{t.demoFineLink}</LangLink>{t.demoFine2}</p>
       </div></section>
 
       <SiteFooter />

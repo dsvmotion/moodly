@@ -45,6 +45,10 @@ jobs:
       - run: pnpm test
       - name: Tests de la comprobación de configuración del despliegue
         run: bash scripts/supabase/tests/config-drift.test.sh
+      - name: Tests del filtro de secretos del diagnóstico del e2e
+        run: bash scripts/ci/tests/e2e-diagnostics.test.sh
+      - name: Tests de should-deploy.sh (qué commit despliega staging)
+        run: bash scripts/deploy/tests/run.sh
       - name: Revisora automática (tipos y tests, SE01)
         run: |
           pnpm exec tsc -p scripts/reviewer
@@ -74,7 +78,29 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build --filter=@repo/evals^...
-      - run: pnpm --filter @repo/evals test
+      # Que corran de verdad: sin --passWithNoTests, y con un mínimo de tests y
+      # los dos archivos de los sets. Si un PR cambia la configuración de Vitest
+      # para que encuentre menos (o ninguno), falla aquí aunque no borre nada.
+      # Bajar EVALS_MIN_TESTS es cambiar este workflow, y se ve en el PR.
+      - name: Evals con el modelo falso (y que corren todas)
+        env:
+          EVALS_MIN_TESTS: "207"
+          EVALS_REQUIRED_FILES: "attacks.test.ts conversations.test.ts runset.test.ts baseline.test.ts prompt-cache.test.ts"
+        run: |
+          report="$RUNNER_TEMP/evals-vitest.json"
+          pnpm --filter @repo/evals exec vitest run --reporter=default --reporter=json --outputFile="$report"
+          total=$(jq '.numTotalTests' "$report")
+          echo "tests de evals: $total (mínimo $EVALS_MIN_TESTS)"
+          if [ "$total" -lt "$EVALS_MIN_TESTS" ]; then
+            echo "::error::corrieron $total tests de evals; el mínimo es $EVALS_MIN_TESTS"
+            exit 1
+          fi
+          for file in $EVALS_REQUIRED_FILES; do
+            if ! jq -e --arg f "$file" '[.testResults[].name | endswith("/" + $f)] | any' "$report" > /dev/null; then
+              echo "::error::no corrió $file"
+              exit 1
+            fi
+          done
 
   db:
     name: db · migraciones · pgTAP
@@ -120,6 +146,16 @@ jobs:
       - name: Supabase local (mínimo)
         working-directory: packages/db
         run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      # Diagnóstico del e2e intermitente (P-04; run 43121121515, 2026-11-11):
+      # Auth no contestó a tiempo durante ~70 s y en local no se reproduce. Desde
+      # aquí, Postgres registra esperas de locks y sentencias de más de 2 s, y se
+      # muestrea la presión de CPU, E/S y memoria del runner. Solo se sube si el
+      # job falla (paso «Diagnóstico del e2e», abajo). No reintenta ni salta nada.
+      - name: Diagnóstico del e2e (muestreo)
+        # Si el muestreo falla, el job sigue: el diagnóstico nunca pone el CI en rojo.
+        continue-on-error: true
+        run: bash scripts/ci/e2e-diagnostics.sh start "$RUNNER_TEMP/e2e-diagnostico"
 
       # Usuarios de prueba con contraseñas generadas en el propio run.
       - run: pnpm db:seed
@@ -182,6 +218,21 @@ jobs:
             apps/web/test-results
           retention-days: 14
 
+      # Si el job falla: logs de Auth, Kong, PostgREST y Postgres desde el
+      # muestreo, conexiones y locks en ese momento, y la presión del runner.
+      # Sin secretos: el script filtra JWT, claves de Supabase, cabeceras apikey
+      # y Authorization y contraseñas (scripts/ci/tests/e2e-diagnostics.test.sh),
+      # y nunca escribe variables de entorno. Se guarda 7 días.
+      - name: Diagnóstico del e2e
+        if: failure()
+        run: bash scripts/ci/e2e-diagnostics.sh collect "$RUNNER_TEMP/e2e-diagnostico"
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: e2e-diagnostico
+          path: ${{ runner.temp }}/e2e-diagnostico
+          retention-days: 7
+
   security:
     name: seguridad · dependencias y secretos
     runs-on: ubuntu-latest
@@ -218,6 +269,9 @@ jobs:
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Un fallo de `gh` (red, límite de la API) no puede poner el CI en rojo ni
+    # bloquear el despliegue a staging, que espera a este workflow.
+    continue-on-error: true
     permissions:
       contents: read
       issues: write
@@ -230,6 +284,14 @@ jobs:
     steps:
       - name: Abrir, actualizar o cerrar el issue «main en rojo»
         run: |
+          # Las corridas de main van en paralelo: una corrida vieja no abre, comenta ni
+          # cierra nada; lo hace la del commit que es hoy la cabeza de main (si no se
+          # sabe cuál es, no se hace nada).
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha || true)
+          if [ "$head" != "$SHA" ]; then
+            echo "::notice::Sin cambios en el issue: $SHA ya no es la cabeza de main"
+            exit 0
+          fi
           title="main en rojo"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           red=false

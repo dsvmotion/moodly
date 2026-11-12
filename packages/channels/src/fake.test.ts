@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import { ChannelSendError } from "./adapter.js";
+import { FAKE_SIGNATURE_HEADER, createFakeAdapter } from "./fake.js";
+import { normalizedOutboundSchema } from "./message.js";
+
+const outbound = normalizedOutboundSchema.parse({
+  channel: "webchat",
+  accountExternalId: "w-1",
+  to: { kind: "webchat", value: "s-1" },
+  text: "Hola",
+  idempotencyKey: "run-1:reply",
+});
+
+describe("el adaptador de prueba cumple el contrato", () => {
+  it("sin la firma correcta no verifica", async () => {
+    const adapter = createFakeAdapter({ secret: "s3cr3t" });
+    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "s3cr3t" }, rawBody: "{}" })).resolves.toBe(true);
+    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "otra" }, rawBody: "{}" })).resolves.toBe(false);
+    await expect(adapter.verify({ headers: {}, rawBody: "{}" })).resolves.toBe(false);
+  });
+
+  it("traduce mensajes y avisos de estado, y rechaza un mensaje mal formado", () => {
+    const adapter = createFakeAdapter({ secret: "s" });
+    const message = {
+      channel: "webchat",
+      accountExternalId: "w-1",
+      providerEventId: "e-1",
+      from: { kind: "webchat", value: "s-1" },
+      receivedAt: "2026-11-11T10:00:00Z",
+      text: "Hola",
+    };
+    const status = { providerMessageId: "fake-1", status: "delivered", at: "2026-11-11T10:00:05Z" };
+    const parsed = adapter.parse({ headers: {}, rawBody: JSON.stringify({ messages: [message], statuses: [status] }) });
+    expect(parsed.messages).toHaveLength(1);
+    expect(parsed.statuses).toEqual([status]);
+    expect(() => adapter.parse({ headers: {}, rawBody: JSON.stringify({ messages: [{ ...message, text: "" }] }) })).toThrow();
+  });
+
+  it("con la misma clave, un envío: un reintento devuelve el mismo id del proveedor", async () => {
+    const adapter = createFakeAdapter({ secret: "s" });
+    const first = await adapter.send(outbound);
+    const again = await adapter.send(outbound);
+    expect(again).toEqual(first);
+    expect(adapter.sent).toHaveLength(1);
+  });
+
+  it("un fallo del proveedor dice si se puede reintentar", async () => {
+    const adapter = createFakeAdapter({ secret: "s" });
+    adapter.failNextSend(new ChannelSendError("límite de ritmo", true, "429"));
+    await expect(adapter.send(outbound)).rejects.toMatchObject({ name: "ChannelSendError", retryable: true, providerCode: "429" });
+    await expect(adapter.send(outbound)).resolves.toEqual({ providerMessageId: "fake-1" });
+  });
+});

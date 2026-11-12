@@ -1,0 +1,273 @@
+-- La entrada de los canales y los estados de entrega (20261112030000, ADR 0052
+-- §2 y §4): un evento de un proveedor, una sola vez y de la organización de su
+-- cuenta; lo que llegó no cambia; quién lo lee; y lo que sale solo avanza de
+-- estado.
+begin;
+\ir _fixtures/tenants.psql
+select plan(45);
+
+select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
+
+-- Datos (la plataforma, como el proceso de entrada).
+insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+values (:org_a, :loc_a1, 'webchat', 'web-a1', 'customer', 'active') returning id as ca_a \gset
+insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+values (:org_b, :loc_b1, 'webchat', 'web-b1', 'customer', 'active') returning id as ca_b \gset
+insert into public.contacts (organization_id, display_name) values (:org_a, 'Ana') returning id as c_ana \gset
+insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+values (:org_a, :loc_a1, :'c_ana', :'ca_a', :'agent_a') returning id as conv \gset
+
+-- ===========================================================================
+-- 1. Un evento, una vez, de la organización de su cuenta
+-- ===========================================================================
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-1', '{"text": "Hola"}')$$, :org_a, :'ca_a'),
+  'el proceso de entrada guarda un evento');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-1', '{"text": "Hola otra vez"}')$$, :org_a, :'ca_a'),
+  '23505', null, 'el mismo evento de la misma cuenta no entra dos veces (el reintento del webhook)');
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-1', '{"text": "Hola"}')$$, :org_b, :'ca_b'),
+  'el mismo id de evento en otra cuenta es otro evento');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-2', '{}')$$, :org_b, :'ca_a'),
+  '23503', null, 'la organización es la de la cuenta del canal: otra no se puede poner');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-3', '[]')$$, :org_a, :'ca_a'),
+  '23514', null, 'el payload es un objeto (el mensaje normalizado)');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, '', '{}')$$, :org_a, :'ca_a'),
+  '23514', null, 'sin id de evento no hay evento');
+
+-- ===========================================================================
+-- 2. Lo que llegó no cambia; el estado avanza
+-- ===========================================================================
+select id as evt from public.inbound_events where provider_event_id = 'evt-1' and organization_id = :org_a \gset
+select throws_ok(
+  format($$update public.inbound_events set payload = '{"text": "otra cosa"}' where id = %L$$, :'evt'),
+  '42501', null, 'el payload no se cambia, ni con la clave secreta');
+select throws_ok(
+  format($$update public.inbound_events set provider_event_id = 'evt-x' where id = %L$$, :'evt'),
+  '42501', null, 'ni el id del evento');
+select lives_ok(
+  format($$update public.inbound_events set status = 'failed', error_code = 'timeout' where id = %L$$, :'evt'),
+  'si falla, queda como fallido con su código');
+select lives_ok(
+  format($$update public.inbound_events set status = 'processed', conversation_id = %L, error_code = null where id = %L$$, :'conv', :'evt'),
+  'y se puede volver a intentar hasta procesarlo');
+select isnt((select processed_at from public.inbound_events where id = :'evt'), null::timestamptz, 'processed_at lo pone la base de datos');
+select throws_ok(
+  format($$update public.inbound_events set status = 'failed' where id = %L$$, :'evt'),
+  '42501', null, 'un evento procesado ya no cambia de estado');
+update public.inbound_events set status = 'failed', error_code = 'timeout' where organization_id = :org_b;
+select throws_ok(
+  format($$update public.inbound_events set status = 'received' where organization_id = %L$$, :org_b),
+  '42501', null, 'un evento fallido no vuelve a received');
+
+-- ===========================================================================
+-- 3. Quién lo lee y quién lo escribe
+-- ===========================================================================
+select pg_temp.login_mfa(:a_admin) as s \gset
+select is((select count(*)::int from public.inbound_events), 1, 'el org_admin ve los eventos de su organización y no los de otra');
+reset role;
+select pg_temp.login(:a_staff1) as s \gset
+select is((select count(*)::int from public.inbound_events), 0, 'el resto del equipo no los ve');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-falso', '{}')$$, :org_a, :'ca_a'),
+  '42501', null, 'nadie de la app inventa un evento');
+reset role;
+select pg_temp.login_mfa(:a_admin) as s \gset
+select throws_ok(
+  format($$update public.inbound_events set status = 'ignored' where id = %L$$, :'evt'),
+  '42501', null, 'ni el org_admin lo marca');
+reset role;
+select ok(not has_table_privilege('anon', 'public.inbound_events', 'select'), 'anon no lo lee');
+select ok(not has_table_privilege('service_role', 'public.inbound_events', 'delete'), 'ni el worker lo borra');
+
+-- ===========================================================================
+-- 4. Como el worker (service_role), que es quien aplica los avisos del proveedor.
+--    Va antes que nada que ejecute guard_delivery_status como postgres: PL/pgSQL
+--    guarda la expresión ya comprobada durante la transacción, y entonces no se
+--    volvería a comprobar el permiso de ejecutar next_delivery_status.
+-- ===========================================================================
+insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
+values (:org_a, :'conv', 'out', 'agent', 'Desde el worker', 'pending', 'prov-2') returning id as m_worker \gset
+set local role service_role;
+select lives_ok(
+  format($$update public.messages set status = 'sent' where id = %L$$, :'m_worker'),
+  'el worker avanza el estado de lo que sale (pending → sent)');
+select lives_ok(
+  format($$update public.messages set status = 'delivered' where organization_id = %L and external_message_id = 'prov-2'$$, :org_a),
+  'y aplica un aviso por el id del proveedor (sent → delivered)');
+select lives_ok(
+  format($$update public.messages set status = 'sent' where id = %L$$, :'m_worker'),
+  'un aviso atrasado no da error…');
+select is((select status from public.messages where id = :'m_worker'), 'delivered', '…pero no hace retroceder el estado');
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+           values (%L, %L, 'evt-worker', '{"text": "Hola"}')$$, :org_a, :'ca_a'),
+  'el worker guarda un evento');
+select lives_ok(
+  format($$update public.inbound_events set status = 'processed', conversation_id = %L where provider_event_id = 'evt-worker'$$, :'conv'),
+  'y lo marca como procesado');
+reset role;
+insert into public.contacts (organization_id, display_name) values (:org_b, 'Bea') returning id as c_bea \gset
+insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+select :org_b, :loc_b1, :'c_bea', :'ca_b', a.id from public.agents a where a.organization_id = :org_b order by a.id limit 1
+returning id as conv_b \gset
+insert into public.messages (organization_id, conversation_id, direction, author, content)
+values (:org_b, :'conv_b', 'in', 'contact', 'Hola desde B') returning id as m_b \gset
+insert into public.messages (organization_id, conversation_id, direction, author, content)
+values (:org_a, :'conv', 'in', 'contact', 'Hola') returning id as m_in \gset
+set local role service_role;
+select throws_ok(
+  format($$update public.inbound_events set message_id = %L where provider_event_id = 'evt-worker'$$, :'m_b'),
+  '23503', null, 'el mensaje de un evento no puede ser de otra organización');
+select lives_ok(
+  format($$update public.inbound_events set message_id = %L where provider_event_id = 'evt-worker'$$, :'m_in'),
+  'sí el que creó en su organización y su conversación');
+select is((select message_id from public.inbound_events where provider_event_id = 'evt-worker'), :'m_in'::uuid, 'y queda apuntado');
+-- Otra conversación de la misma organización: el mensaje no es de ella.
+reset role;
+insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+values (:org_a, :loc_a1, :'c_ana', :'ca_a', :'agent_a') returning id as conv_other \gset
+set local role service_role;
+select throws_ok(
+  format($$update public.inbound_events set conversation_id = %L where provider_event_id = 'evt-worker'$$, :'conv_other'),
+  '23503', null, 'cambiar solo la conversación a una que no es la del mensaje tampoco pasa');
+reset role;
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, message_id)
+           values (%L, %L, 'evt-ins-ajeno', '{}', %L)$$, :org_a, :'ca_a', :'m_b'),
+  '23503', null, 'ni al insertar (ni siquiera como postgres) con el mensaje de otra organización');
+select throws_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, conversation_id, message_id)
+           values (%L, %L, 'evt-ins-otra-conv', '{}', %L, %L)$$, :org_a, :'ca_a', :'conv_other', :'m_in'),
+  '23503', null, 'ni con un mensaje de su organización pero de otra conversación');
+select lives_ok(
+  format($$insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload, conversation_id, message_id, status)
+           values (%L, %L, 'evt-ins-bien', '{}', %L, %L, 'processed')$$, :org_a, :'ca_a', :'conv', :'m_in'),
+  'sí con el suyo');
+select isnt((select processed_at from public.inbound_events where provider_event_id = 'evt-ins-bien'), null::timestamptz,
+  'y processed_at lo pone la base de datos también al insertar');
+set local role service_role;
+select throws_ok(
+  $$update public.inbound_events set payload = '{}' where provider_event_id = 'evt-worker'$$,
+  '42501', null, 'pero no puede cambiar lo que llegó');
+select throws_ok(
+  $$delete from public.inbound_events where provider_event_id = 'evt-worker'$$,
+  '42501', null, 'ni borrarlo');
+reset role;
+
+-- ===========================================================================
+-- 5. Lo que sale solo avanza de estado
+-- ===========================================================================
+insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
+values (:org_a, :'conv', 'out', 'agent', 'Hola, Ana', 'pending', 'prov-1') returning id as m_out \gset
+
+update public.messages set status = 'sent' where id = :'m_out';
+select is((select status from public.messages where id = :'m_out'), 'sent', 'pending → sent');
+select isnt((select status_changed_at from public.messages where id = :'m_out'), null::timestamptz, 'con la hora del cambio');
+update public.messages set status = 'read' where id = :'m_out';
+update public.messages set status = 'delivered' where id = :'m_out';
+select is((select status from public.messages where id = :'m_out'), 'read', 'un «delivered» que llega después del «read» no lo hace retroceder');
+update public.messages set status = 'failed', delivery_error = '131026' where id = :'m_out';
+select is((select row(status, delivery_error)::text from public.messages where id = :'m_out'), row('read', null::text)::text,
+  'un fallo después de leído no cuenta, ni se guarda su código');
+
+insert into public.messages (organization_id, conversation_id, direction, author, content, status)
+values (:org_a, :'conv', 'out', 'agent', 'Otro', 'sent') returning id as m_fail \gset
+update public.messages set status = 'failed', delivery_error = '131047' where id = :'m_fail';
+update public.messages set status = 'delivered' where id = :'m_fail';
+select is((select row(status, delivery_error)::text from public.messages where id = :'m_fail'), row('failed', '131047')::text,
+  'un fallo antes de entregarse es definitivo, con su código');
+select throws_ok(
+  format($$update public.messages set status = 'received' where id = %L$$, :'m_fail'),
+  null, null, 'un mensaje que sale no pasa a received');
+
+-- La matriz entera, la misma que delivery.test.ts de packages/channels: el
+-- TypeScript y el SQL dicen lo mismo (también desde 'received', que no debería
+-- darse en un mensaje que sale: gana el aviso).
+select results_eq(
+  $$select c, i, private.next_delivery_status(c, i) from (values
+    ('received', 'pending', 'pending'),
+    ('received', 'sent', 'sent'),
+    ('received', 'delivered', 'delivered'),
+    ('received', 'read', 'read'),
+    ('received', 'failed', 'failed'),
+    ('pending', 'pending', 'pending'),
+    ('pending', 'sent', 'sent'),
+    ('pending', 'delivered', 'delivered'),
+    ('pending', 'read', 'read'),
+    ('pending', 'failed', 'failed'),
+    ('sent', 'pending', 'sent'),
+    ('sent', 'sent', 'sent'),
+    ('sent', 'delivered', 'delivered'),
+    ('sent', 'read', 'read'),
+    ('sent', 'failed', 'failed'),
+    ('delivered', 'pending', 'delivered'),
+    ('delivered', 'sent', 'delivered'),
+    ('delivered', 'delivered', 'delivered'),
+    ('delivered', 'read', 'read'),
+    ('delivered', 'failed', 'delivered'),
+    ('read', 'pending', 'read'),
+    ('read', 'sent', 'read'),
+    ('read', 'delivered', 'read'),
+    ('read', 'read', 'read'),
+    ('read', 'failed', 'read'),
+    ('failed', 'pending', 'failed'),
+    ('failed', 'sent', 'failed'),
+    ('failed', 'delivered', 'failed'),
+    ('failed', 'read', 'failed'),
+    ('failed', 'failed', 'failed')
+  ) as m(c, i, r) order by c, i$$,
+  $$select c, i, r from (values
+    ('received', 'pending', 'pending'),
+    ('received', 'sent', 'sent'),
+    ('received', 'delivered', 'delivered'),
+    ('received', 'read', 'read'),
+    ('received', 'failed', 'failed'),
+    ('pending', 'pending', 'pending'),
+    ('pending', 'sent', 'sent'),
+    ('pending', 'delivered', 'delivered'),
+    ('pending', 'read', 'read'),
+    ('pending', 'failed', 'failed'),
+    ('sent', 'pending', 'sent'),
+    ('sent', 'sent', 'sent'),
+    ('sent', 'delivered', 'delivered'),
+    ('sent', 'read', 'read'),
+    ('sent', 'failed', 'failed'),
+    ('delivered', 'pending', 'delivered'),
+    ('delivered', 'sent', 'delivered'),
+    ('delivered', 'delivered', 'delivered'),
+    ('delivered', 'read', 'read'),
+    ('delivered', 'failed', 'delivered'),
+    ('read', 'pending', 'read'),
+    ('read', 'sent', 'read'),
+    ('read', 'delivered', 'read'),
+    ('read', 'read', 'read'),
+    ('read', 'failed', 'read'),
+    ('failed', 'pending', 'failed'),
+    ('failed', 'sent', 'failed'),
+    ('failed', 'delivered', 'failed'),
+    ('failed', 'read', 'failed'),
+    ('failed', 'failed', 'failed')
+  ) as m(c, i, r) order by c, i$$,
+  'next_delivery_status: la matriz entera, igual que nextDeliveryStatus de packages/channels');
+select is(private.next_delivery_status('pending', 'read'), 'read', 'next_delivery_status: avanza');
+select is(private.next_delivery_status('delivered', 'sent'), 'delivered', 'next_delivery_status: no retrocede');
+select ok(
+  (select bool_and(not p.prosecdef) from pg_proc p
+   where p.oid in ('private.guard_inbound_event()'::regprocedure, 'private.guard_delivery_status()'::regprocedure,
+                   'private.next_delivery_status(text, text)'::regprocedure)),
+  'ninguna de las funciones nuevas es security definer');
+
+select * from finish();
+rollback;

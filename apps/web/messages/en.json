@@ -602,5 +602,88 @@
       "invalid": "Check the fields: the title can have up to 200 characters and the text up to 20,000.",
       "not_allowed": "You cannot change the knowledge of this organization."
     }
+  },
+  "goalsPage": {
+    "title": "Goals",
+    "description": "What you want to achieve, measured and with a date. Your agents will use it to prioritise and the coach will review how you're doing.",
+    "mfaRequired": "You need two-step verification to create or change goals.",
+    "mfaLink": "Turn it on in Security",
+    "emptyTitle": "No goals yet",
+    "empty": "Set what you want to achieve: appointments a month, qualified leads, response time…",
+    "emptyReadOnly": "When someone who manages goals sets them for your scope, they'll show up here.",
+    "add": "New goal",
+    "newTitle": "New goal",
+    "newDescription": "Choose where it applies, what it measures and the value you want to reach.",
+    "wholeOrganization": "Whole organization",
+    "fields": {
+      "title": "Title",
+      "appliesTo": "Applies to",
+      "metric": "Metric",
+      "direction": "Met with",
+      "target": "Target",
+      "period": "Period",
+      "dueDate": "Due date",
+      "startsOn": "Starts",
+      "status": "Status"
+    },
+    "metrics": {
+      "appointmentsBooked": "Appointments booked",
+      "leadsQualified": "Qualified leads",
+      "resolvedAutonomously": "Conversations resolved without a person (%)",
+      "firstReplyMinutes": "Time to first reply",
+      "outstandingInvoices": "Outstanding invoices"
+    },
+    "otherMetric": "Other: {key}",
+    "directions": {
+      "at_least": "At least",
+      "at_most": "At most"
+    },
+    "targetLabel": {
+      "count": "Value",
+      "percent": "Value (%)",
+      "minutes": "Value (minutes)",
+      "eur": "Value (€)"
+    },
+    "units": {
+      "count": "{value}",
+      "percent": "{value}%",
+      "minutes": "{value} min",
+      "eur": "€{value}"
+    },
+    "periods": {
+      "week": "Every week",
+      "month": "Every month",
+      "quarter": "Every quarter",
+      "year": "Every year",
+      "once": "Once, with a due date"
+    },
+    "periodSuffix": {
+      "week": "per week",
+      "month": "per month",
+      "quarter": "per quarter",
+      "year": "per year",
+      "once": "by {date}"
+    },
+    "statuses": {
+      "active": "Active",
+      "paused": "Paused",
+      "achieved": "Achieved",
+      "missed": "Missed",
+      "archived": "Archived"
+    },
+    "progressHelp": "Progress will be measured with data from your agents and integrations. There are no measurements yet.",
+    "readOnly": "Only someone who manages its scope can change it.",
+    "create": "Create",
+    "save": "Save",
+    "saved": "Saved.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "deleteTitle": "Delete this goal?",
+    "deleteDescription": "It is deleted with its measurements. If you just want to stop tracking it, change it to “Archived”. This can't be undone.",
+    "errors": {
+      "invalid": "Check the fields: the title can be up to 200 characters, the value is a number (a percentage, up to 100) and the due date can't be before the start.",
+      "not_allowed": "You can't manage goals in that scope."
+    }
   }
 }
