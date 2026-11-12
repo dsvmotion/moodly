@@ -12,6 +12,12 @@ export type Row = { [key: string]: Json };
 export const STATUSES = ["planned", "in_progress", "done", "blocked"] as const;
 export type Status = (typeof STATUSES)[number];
 export const MILESTONES = ["M0", "M1", "M2", "M3", "M4", "M5"] as const;
+/**
+ * Cómo se conecta cada integración (auditoría §18.8; V1, 2026-11-12). Lista cerrada y
+ * obligatoria en las filas int-*: la web (/integraciones) la lee de aquí.
+ */
+export const CONNECT_VALUES = ["available", "in_progress", "needs_api_key", "needs_contract", "not_possible"] as const;
+export type Connect = (typeof CONNECT_VALUES)[number];
 export const EXTRA_BUCKETS = ["stretch", "after"] as const;
 
 export type Item = {
@@ -22,6 +28,8 @@ export type Item = {
   status: Status;
   text: string;
   evidence: string[];
+  /** Solo en las filas int-* (obligatorio allí). */
+  connect?: Connect;
   line: number;
 };
 
@@ -155,6 +163,13 @@ function toItem(row: Row, group: string, line: number): Item {
   if (!Array.isArray(evidence) || evidence.some((e) => typeof e !== "string")) {
     throw new ScopeParseError(`${where} (${id}): evidence debe ser una lista de cadenas`);
   }
+  const connect = row.connect;
+  if (connect !== undefined && !(CONNECT_VALUES as readonly string[]).includes(str(connect))) {
+    throw new ScopeParseError(`${where} (${id}): connect no válido «${str(connect)}»`);
+  }
+  if (id.startsWith("int-") && connect === undefined) {
+    throw new ScopeParseError(`${where} (${id}): falta connect (${CONNECT_VALUES.join(" | ")})`);
+  }
   const name = str(row.name);
   const note = str(row.note);
   return {
@@ -165,6 +180,7 @@ function toItem(row: Row, group: string, line: number): Item {
     status: status as Status,
     text: name !== "" && note !== "" ? `${name}: ${note}` : name !== "" ? name : note,
     evidence: evidence as string[],
+    ...(connect !== undefined ? { connect: connect as Connect } : {}),
     line,
   };
 }
