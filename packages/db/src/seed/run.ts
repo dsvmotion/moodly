@@ -176,6 +176,8 @@ function readServerKeys(): Record<string, string> {
 }
 
 async function main(): Promise<void> {
+  // Las aprobaciones que crea el seed: sus approval.created se marcan como publicados al final.
+  const seededApprovalIds: string[] = [];
   const local = readLocalSupabase();
   const { apiUrl, secretKey } = local;
   await waitForServices(apiUrl, secretKey);
@@ -397,6 +399,7 @@ async function main(): Promise<void> {
       expires_at: expiresAt,
     });
     check("approvals", pending.error);
+    seededApprovalIds.push(approval.approvalId);
   }
 
   // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
@@ -638,6 +641,7 @@ async function main(): Promise<void> {
         })),
       );
       check(`approvals (${label})`, approvals.error);
+      seededApprovalIds.push(...items.map((a) => a.approvalId));
     };
     await pendingApprovals(
       "F1",
@@ -649,6 +653,25 @@ async function main(): Promise<void> {
       })),
     );
     await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
+  }
+
+  // Cada aprobación nueva deja un approval.created para el aviso por email (M-02).
+  // Las del seed son datos de demo, no aprobaciones nuevas: se marcan como
+  // publicadas, como los mensajes, para que un worker en marcha (la integración
+  // del CI) no avise a nadie ni tenga que abrirse paso entre cientos de ellas.
+  // Solo los de las aprobaciones que acaba de crear el seed, por id y de 100 en 100.
+  for (let i = 0; i < seededApprovalIds.length; i += 100) {
+    const quietApprovals = await admin
+      .from("domain_events")
+      .update({ published_at: new Date().toISOString() })
+      .in(
+        "organization_id",
+        seedOrganizations.map((organization) => organization.id),
+      )
+      .eq("type", "approval.created")
+      .is("published_at", null)
+      .in("payload->>approval_id", seededApprovalIds.slice(i, i + 100));
+    check("domain_events (aprobaciones)", quietApprovals.error);
   }
 
   mkdirSync(dirname(credentialsFile), { recursive: true });

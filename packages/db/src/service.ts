@@ -13,6 +13,7 @@ export { WorkerSqlError, type TenantSql } from "./worker-sql.ts";
 export {
   TenantScopeError,
   type AgentTurnContext,
+  type ApprovalNotification,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,

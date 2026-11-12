@@ -28,25 +28,44 @@ export interface EventContext {
    * no se repite. Si se interrumpe a medias, se repite entero (regla 2): lo que
    * haga fuera de la base de datos tiene que ser idempotente.
    */
-  step<T>(name: string, fn: () => Promise<T>, options?: StepRetries): Promise<T>;
+  step<T>(name: string, fn: () => Promise<T>, retry?: StepRetry): Promise<T>;
 }
 
-/** Reintentos de un paso (DBOS.runStep). Sin ellos, un fallo termina la entrega en ERROR. */
-export interface StepRetries {
-  retriesAllowed: boolean;
+/**
+ * Un paso con reintentos que siguió fallando en todos: lo lanza ctx.step en
+ * lugar del error del motor, para que un consumidor distinga «agotó los
+ * reintentos» de cualquier otro fallo sin depender de DBOS.
+ */
+export class StepRetriesExhaustedError extends Error {
+  override readonly name = "StepRetriesExhaustedError";
+}
+
+/**
+ * Las colas de entrega (ADR 0009). Cada consumidor va a una: la de eventos de
+ * dominio, la de siempre, o la de avisos, para que lo que espera a un servicio
+ * de fuera (un email con Resend caído) no ocupe los huecos de lo que contesta a
+ * los clientes (message.received).
+ */
+export const DELIVERY_QUEUES = ["domain-events", "notifications"] as const;
+export type DeliveryQueue = (typeof DELIVERY_QUEUES)[number];
+
+/** Reintentos de un paso que lanza (DBOS): para lo que falla de forma pasajera, como un 5xx. */
+export interface StepRetry {
   maxAttempts: number;
   intervalSeconds: number;
   backoffRate: number;
 }
 
 /** Lecturas de la base de datos: reintentos cortos, por si PostgREST o el pooler fallan un momento. */
-export const DB_STEP: StepRetries = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 };
+export const DB_STEP: StepRetry = { maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 };
 
 export interface EventHandler {
   /** Estable y único: forma parte del ID de cada entrega. Cambiarlo vuelve a entregar. */
   key: string;
   /** Los tipos que recibe, o "*" para todos. */
   eventTypes: readonly EventType[] | "*";
+  /** La cola de sus entregas; "domain-events" si no se dice. */
+  queue?: DeliveryQueue;
   /**
    * Corre dentro del workflow de entrega: entre paso y paso, solo lógica
    * determinista (lo mismo con las mismas entradas). Los efectos van en ctx.step.
@@ -66,6 +85,9 @@ export function createEventRegistry(handlers: readonly EventHandler[]): EventReg
   for (const handler of handlers) {
     if (!HANDLER_KEY.test(handler.key)) throw new Error(`clave de consumidor no válida: ${handler.key}`);
     if (byKey.has(handler.key)) throw new Error(`consumidor repetido: ${handler.key}`);
+    if (handler.queue !== undefined && !(DELIVERY_QUEUES as readonly string[]).includes(handler.queue)) {
+      throw new Error(`el consumidor ${handler.key} usa una cola que no existe: ${handler.queue}`);
+    }
     if (handler.eventTypes !== "*" && !handler.eventTypes.every(isEventType)) {
       throw new Error(`el consumidor ${handler.key} se suscribe a un tipo de evento que no está en el catálogo`);
     }

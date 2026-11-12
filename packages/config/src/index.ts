@@ -3,6 +3,12 @@
 export const BRAND_NAME = "Moodly";
 
 /**
+ * Desde dónde salen los emails de aviso de la plataforma (M-02): una dirección
+ * del dominio verificado en Resend. El nombre que se ve es BRAND_NAME.
+ */
+export const NOTIFICATION_EMAIL_FROM = "notificaciones@moodlycrm.com";
+
+/**
  * Tipos de agente canónicos (MANUAL §5). Fuente única para `apps/web` y el
  * backend (`agent_types`): clave estable en inglés (BD/API), nombre por defecto
  * en español y token de color de marca (ver packages/ui, `--agent-*`).

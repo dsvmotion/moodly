@@ -1,8 +1,11 @@
-import { DBOS } from "@dbos-inc/dbos-sdk";
+import { DBOS, Error as DBOSErrors } from "@dbos-inc/dbos-sdk";
 import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { isEventType, parsePayload } from "./catalog.ts";
-import { DB_STEP, type DomainEvent, type EventRegistry } from "./handlers.ts";
+import { DB_STEP, StepRetriesExhaustedError, type DeliveryQueue, type DomainEvent, type EventRegistry } from "./handlers.ts";
+
+// Las lecturas del outbox con DBOS.runStep directo: los reintentos de DB_STEP.
+const DB_RUN_STEP = { retriesAllowed: true, ...DB_STEP } as const;
 
 // Publicador y entregas del outbox (MANUAL §5.8, ADR 0009, ADR 0027):
 //
@@ -23,7 +26,9 @@ export const DELIVER_WORKFLOW = "outbox.deliver";
 export const PUBLISH_SCHEDULE_NAME = "outbox.publish";
 /** Cada 5 s (DBOS añade hasta medio segundo de margen): un evento sale en unos segundos. */
 export const PUBLISH_SCHEDULE = "*/5 * * * * *";
-export const EVENTS_QUEUE = "domain-events";
+export const EVENTS_QUEUE = "domain-events" satisfies DeliveryQueue;
+/** La de los avisos (emails…): lo que espera a un servicio de fuera no frena a las demás entregas. */
+export const NOTIFICATIONS_QUEUE = "notifications" satisfies DeliveryQueue;
 export const PRUNE_WORKFLOW = "outbox.prune";
 export const PRUNE_SCHEDULE_NAME = "outbox.prune";
 /** Cada hora, a los 7 minutos. */
@@ -87,7 +92,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
       return "unknown-handler";
     }
     const tenant = db.forOrganization(input.organizationId);
-    const row = await DBOS.runStep(() => loadEvent(tenant, input.eventId), { name: "load", ...DB_STEP });
+    const row = await DBOS.runStep(() => loadEvent(tenant, input.eventId), { name: "load", ...DB_RUN_STEP });
     if (!row) {
       log.warn({ eventId: input.eventId, organizationId: input.organizationId }, "el evento no está en su organización");
       return "missing";
@@ -109,7 +114,14 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     await handler.handle(event, {
       db: tenant,
       logger: log.child({ eventId: event.id, type: event.type, organizationId: event.organizationId, handler: handler.key }),
-      step: (name, fn, retries) => DBOS.runStep(fn, { name: `${handler.key}:${name}`, ...retries }),
+      step: async (name, fn, retry) => {
+        try {
+          return await DBOS.runStep(fn, { name: `${handler.key}:${name}`, ...(retry ? { retriesAllowed: true, ...retry } : {}) });
+        } catch (err) {
+          if (err instanceof DBOSErrors.DBOSMaxStepRetriesError) throw new StepRetriesExhaustedError(`el paso ${name} agotó sus reintentos`, { cause: err });
+          throw err;
+        }
+      },
     });
     return "delivered";
   }
@@ -118,14 +130,14 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 
   // DBOS lo llama con la hora programada y un contexto; no usa ninguno de los dos.
   async function publish(): Promise<void> {
-    const pending = await DBOS.runStep(() => db.outbox.pending(BATCH), { name: "pending", ...DB_STEP });
+    const pending = await DBOS.runStep(() => db.outbox.pending(BATCH), { name: "pending", ...DB_RUN_STEP });
     if (pending.length === 0) return;
     let deliveries = 0;
     for (const event of pending) {
       for (const handler of registry.handlersFor(event.type)) {
         await DBOS.startWorkflow(deliverWorkflow, {
           workflowID: deliveryWorkflowId(event.id, handler.key),
-          queueName: EVENTS_QUEUE,
+          queueName: handler.queue ?? EVENTS_QUEUE,
           workflowIDReusePolicy: "return-existing",
         })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
         deliveries += 1;
@@ -133,7 +145,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     }
     const published = await DBOS.runStep(() => db.outbox.markPublished(pending.map((event) => event.id)), {
       name: "mark-published",
-      ...DB_STEP,
+      ...DB_RUN_STEP,
     });
     log.info({ events: pending.length, deliveries, published }, "eventos publicados");
   }
@@ -162,7 +174,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
           if (old.length < PRUNE_PAGE) return total;
         }
       },
-      { name: "prune", ...DB_STEP },
+      { name: "prune", ...DB_RUN_STEP },
     );
     if (deleted > 0) log.info({ deleted }, "vueltas terminadas del publicador borradas");
   }
@@ -174,6 +186,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */
 export async function startOutbox(workflows: { publish: () => Promise<void>; prune: () => Promise<void> }): Promise<void> {
   await DBOS.registerQueue(EVENTS_QUEUE, { workerConcurrency: 4 });
+  await DBOS.registerQueue(NOTIFICATIONS_QUEUE, { workerConcurrency: 2 });
   await DBOS.applySchedules([
     { scheduleName: PUBLISH_SCHEDULE_NAME, workflowFn: workflows.publish, schedule: PUBLISH_SCHEDULE },
     { scheduleName: PRUNE_SCHEDULE_NAME, workflowFn: workflows.prune, schedule: PRUNE_SCHEDULE },

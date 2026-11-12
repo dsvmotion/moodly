@@ -31,6 +31,13 @@ export interface WorkerConfig {
    */
   aiGatewayApiKey: string | null;
   /**
+   * La clave de Resend para los emails de aviso (M-02). Opcional: sin ella no
+   * se envía ningún aviso (se registra y se sigue). Nunca va a los logs.
+   */
+  resendApiKey: string | null;
+  /** La URL pública de la web (sin barra final): los enlaces de los avisos. Sin ella, no hay avisos. */
+  webAppUrl: string | null;
+  /**
    * Enrutado por intención (PL-T3): las intenciones simples conversan con el
    * modelo barato. INTENT_ROUTING=on|off (o true/false, 1/0); por defecto, el de @repo/config
    * (apagado hasta que lo midan las evals con el modelo real).
@@ -111,6 +118,24 @@ const schema = z.object({
     .transform((value) => value.trim())
     .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "AI_GATEWAY_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
     .optional(),
+  // Las claves de Resend empiezan por re_. Vacía cuenta como ausente.
+  RESEND_API_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^re_[A-Za-z0-9_-]{8,200}$/.test(value), "RESEND_API_KEY no parece una clave de Resend (re_…)")
+    .optional(),
+  // HTTPS fuera de local: el enlace va en un email. Sin ruta, credenciales ni parámetros.
+  WEB_APP_URL: z
+    .string()
+    .transform((value) => value.trim().replace(/\/+$/, ""))
+    .refine((value) => {
+      if (value === "") return true;
+      if (!URL.canParse(value)) return false;
+      const url = new URL(value);
+      if (url.username || url.password || url.search || url.hash || url.pathname !== "/") return false;
+      return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
+    }, "WEB_APP_URL: https://dominio (o http:// solo en local), sin ruta, credenciales ni parámetros")
+    .optional(),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -139,6 +164,8 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
     workerDatabaseUrl: parsed.data.WORKER_DATABASE_URL,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
+    resendApiKey: parsed.data.RESEND_API_KEY || null,
+    webAppUrl: parsed.data.WEB_APP_URL || null,
     // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
     intentRouting: !parsed.data.INTENT_ROUTING ? INTENT_ROUTING_DEFAULT_ENABLED : ["on", "true", "1"].includes(parsed.data.INTENT_ROUTING),
     healthPort: Number(parsed.data.PORT ?? "8080"),
