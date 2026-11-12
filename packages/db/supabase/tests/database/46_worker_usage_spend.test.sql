@@ -1,4 +1,4 @@
--- PL-T1, paso 3 (20261112053000): moodly_worker lee el libro de consumo solo
+-- PL-T1, paso 3 (20261112062000): moodly_worker lee el libro de consumo solo
 -- de la organización de su transacción, y no escribe en él.
 begin;
 \ir _fixtures/tenants.psql

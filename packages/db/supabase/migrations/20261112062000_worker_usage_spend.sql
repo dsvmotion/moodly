@@ -13,7 +13,7 @@
 -- public.usage_spend (y tenantDb.usageSpend) se quedan: tras este cambio el
 -- worker ya no las llama, y se quitan aparte, con su test.
 --
--- Vuelta atrás: rollbacks/20261112053000_worker_usage_spend.down.sql.
+-- Vuelta atrás: rollbacks/20261112062000_worker_usage_spend.down.sql.
 
 create policy usage_records_worker on public.usage_records
   for select to moodly_worker
