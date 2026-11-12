@@ -45,6 +45,8 @@ jobs:
       - run: pnpm test
       - name: Tests de la comprobación de configuración del despliegue
         run: bash scripts/supabase/tests/config-drift.test.sh
+      - name: Tests de should-deploy.sh (qué commit despliega staging)
+        run: bash scripts/deploy/tests/run.sh
       - name: Revisora automática (tipos y tests, SE01)
         run: |
           pnpm exec tsc -p scripts/reviewer
@@ -80,8 +82,8 @@ jobs:
       # Bajar EVALS_MIN_TESTS es cambiar este workflow, y se ve en el PR.
       - name: Evals con el modelo falso (y que corren todas)
         env:
-          EVALS_MIN_TESTS: "119"
-          EVALS_REQUIRED_FILES: "attacks.test.ts conversations.test.ts"
+          EVALS_MIN_TESTS: "207"
+          EVALS_REQUIRED_FILES: "attacks.test.ts conversations.test.ts runset.test.ts baseline.test.ts prompt-cache.test.ts"
         run: |
           report="$RUNNER_TEMP/evals-vitest.json"
           pnpm --filter @repo/evals exec vitest run --reporter=default --reporter=json --outputFile="$report"

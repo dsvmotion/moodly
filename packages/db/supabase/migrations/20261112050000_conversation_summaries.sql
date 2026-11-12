@@ -14,10 +14,13 @@
 --    los mensajes de la conversación (si ves la conversación, ves su resumen) y
 --    el equipo interno con acceso de soporte (ADR 0021).
 --
+-- 3. El rol del worker (moodly_worker, ADR 0049, 20261112040500): su política,
+--    como la de las demás tablas de tenants, solo con la organización fijada en
+--    la transacción. Sin privilegios todavía: llegan con el módulo que los use.
+--
 -- Sin funciones security definer ni triggers que escriban en otras tablas.
 --
--- Vuelta atrás:
---   drop table public.conversation_summaries;
+-- Vuelta atrás: rollbacks/20261112050000_conversation_summaries.down.sql.
 
 create table public.conversation_summaries (
   conversation_id uuid not null,
@@ -55,3 +58,8 @@ create policy conversation_summaries_select_platform_staff on public.conversatio
 
 revoke all on public.conversation_summaries from anon, authenticated;
 grant select on public.conversation_summaries to authenticated;
+
+create policy conversation_summaries_worker on public.conversation_summaries
+  for all to moodly_worker
+  using (organization_id = (select private.worker_organization_id()))
+  with check (organization_id = (select private.worker_organization_id()));

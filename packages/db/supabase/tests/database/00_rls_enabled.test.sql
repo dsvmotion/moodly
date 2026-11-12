@@ -2,7 +2,7 @@
 -- para que cualquier tabla, política o función nueva quede cubierta sola.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(22);
 
 -- ---------------------------------------------------------------------------
 -- RLS en todas las tablas
@@ -49,11 +49,14 @@ select is(
 -- Tarea 3c-1: toda política exige sesión viva, como primera condición AND y
 -- envuelta en (select …) para que se evalúe una vez por consulta (InitPlan).
 -- Falla si falta, si va dentro de un OR o si se llama sin envolver.
+-- Las políticas del rol del worker (solo moodly_worker, ADR 0049) no tienen
+-- sesión de Auth: siguen su propia regla, comprobada más abajo.
 -- ---------------------------------------------------------------------------
 select is(
   (select array_agg(policyname::text order by policyname)
    from pg_policies
    where schemaname = 'public'
+     and roles <> array['moodly_worker']::name[]
      and qual is not null
      and qual not like '(( SELECT private.session_is_active() AS session_is_active) AND %'),
   null,
@@ -64,6 +67,7 @@ select is(
   (select array_agg(policyname::text order by policyname)
    from pg_policies
    where schemaname = 'public'
+     and roles <> array['moodly_worker']::name[]
      and with_check is not null
      and with_check not like '(( SELECT private.session_is_active() AS session_is_active) AND %'),
   null,
@@ -84,9 +88,41 @@ select is(
 select is(
   (select array_agg(policyname::text order by policyname)
    from pg_policies
-   where schemaname = 'public' and roles <> array['authenticated']::name[]),
+   where schemaname = 'public'
+     and roles <> array['authenticated']::name[]
+     and roles <> array['moodly_worker']::name[]),
   null,
-  'todas las políticas de public son solo para authenticated (ninguna para anon ni public)'
+  'todas las políticas de public son solo para authenticated o solo para moodly_worker (ninguna para anon ni public)'
+);
+
+-- ADR 0049: las políticas del worker filtran exactamente por la organización
+-- fijada en la transacción, envuelta en (select …), en USING y en WITH CHECK
+-- (organizations, que solo se lee, por su id). Comparación exacta: una política
+-- del worker con cualquier condición más (un OR, otro filtro) no pasa.
+select is(
+  (select array_agg(policyname::text order by policyname)
+   from pg_policies
+   where schemaname = 'public'
+     and 'moodly_worker' = any (roles)
+     and (roles <> array['moodly_worker']::name[]
+          or qual is null
+          or not (qual = '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
+                  or (tablename = 'organizations' and cmd = 'SELECT'
+                      and qual = '(id = ( SELECT private.worker_organization_id() AS worker_organization_id))')))),
+  null,
+  'toda política de moodly_worker es solo para él y su USING empieza por la organización de la transacción'
+);
+
+select is(
+  (select array_agg(policyname::text order by policyname)
+   from pg_policies
+   where schemaname = 'public'
+     and roles = array['moodly_worker']::name[]
+     and cmd in ('INSERT', 'UPDATE', 'ALL')
+     and (with_check is null
+          or with_check <> '(organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))')),
+  null,
+  'toda política de escritura de moodly_worker tiene WITH CHECK por la organización de la transacción'
 );
 
 select ok(

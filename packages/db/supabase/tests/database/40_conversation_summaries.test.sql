@@ -3,7 +3,7 @@
 -- acceso de soporte); nunca cuelga de una conversación de otra organización.
 begin;
 \ir _fixtures/tenants.psql
-select plan(17);
+select plan(20);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -127,6 +127,28 @@ select is(
   (select array_agg(privilege_type::text order by privilege_type) from information_schema.role_table_grants
    where table_schema = 'public' and table_name = 'conversation_summaries' and grantee = 'authenticated'),
   array['SELECT'], 'authenticated solo puede leer');
+
+-- ===========================================================================
+-- 5. El rol del worker (ADR 0049): solo su organización, y de momento sin privilegios
+-- ===========================================================================
+select is(
+  (select cmd::text || ' | ' || qual::text || ' | ' || with_check::text from pg_policies
+   where schemaname = 'public' and tablename = 'conversation_summaries' and roles = array['moodly_worker']::name[]),
+  'ALL | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
+    || ' | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))',
+  'la política del worker filtra por la organización de la transacción, al leer y al escribir');
+select ok(not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'select')
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'insert'),
+  'el worker todavía no tiene privilegios sobre la tabla (llegan con el módulo que los use)');
+-- Con un privilegio solo dentro del test, la política deja ver lo de su organización y nada más.
+grant select on public.conversation_summaries to moodly_worker;
+grant moodly_worker to postgres with set true;
+grant usage on schema extensions to moodly_worker;
+set local role moodly_worker;
+select set_config('moodly.organization_id', :org_b, true) as _org \gset
+select results_eq('select summary from public.conversation_summaries', $$values ('Bea cambia su cita.'::text)$$,
+  'con B fijada, el worker solo ve el resumen de B');
+reset role;
 
 select * from finish();
 rollback;

@@ -333,6 +333,16 @@ describe("los recordatorios de las citas (paso 4e-2)", () => {
     }
   }, 90_000);
 
+  it("ni si la conversación la lleva una persona (R-02)", async () => {
+    const taken = await customer("hugo", { mode: "human" });
+    const appointment = await book(taken, 24_000);
+    const startsAt = await eventStartsAt(appointment.id);
+    await waitFor(() => finished(appointment.id, startsAt), "su workflow termina", 30_000);
+    expect(await reminders(taken.conversation)).toEqual([]);
+    expect(await runsOf(appointment.id)).toEqual([]);
+    expect(skipped(appointment.id, "not_agent_mode")).toBe(true);
+  }, 90_000);
+
   it("tampoco con la skill desactivada, con menos autonomía que execute o con el agente en pausa", async () => {
     const cases: { name: string; set: string; reset: string; params: unknown[]; why: string }[] = [
       {

@@ -50,8 +50,8 @@ export interface ConversationAgent {
 }
 
 /**
- * Si se puede enviar por esta conversación con esta skill: existe, no está
- * cerrada, su agente contesta en ese canal y tiene la skill con la versión y la
+ * Si se puede enviar por esta conversación con esta skill: existe, la lleva el
+ * agente (ni cerrada ni en manos de una persona), su agente contesta en ese canal y tiene la skill con la versión y la
  * clase del código. Si no, por qué.
  */
 export async function conversationAgent(
@@ -65,6 +65,8 @@ export async function conversationAgent(
   );
   if (!conversation) return { kind: "skip", reason: "conversation_missing" };
   if (conversation.mode === "closed") return { kind: "skip", reason: "conversation_closed" };
+  // Con la conversación en manos de una persona, el agente no escribe (R-02): ni recordatorios ni ofertas.
+  if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
   const raw = await db.agentTurnContext(conversation.agent_id);
   if (!raw) return { kind: "skip", reason: "agent_missing" };
   const context = contextSchema.parse(raw);
@@ -208,6 +210,8 @@ export async function sendScheduled(send: ScheduledSend): Promise<ScheduledResul
   try {
     output = await DBOS.runStep(() => skill.execute(ctx, skill.input.parse(decided.input)), { name: `${step}:execute` });
   } catch (err) {
+    // Si una persona tomó el control entre la carga y el envío, la base de datos
+    // no guarda el mensaje (R-02): queda como fallida con ese nombre de error.
     status = "failed";
     error = (err as Error).name;
   }
