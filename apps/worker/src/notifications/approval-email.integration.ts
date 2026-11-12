@@ -305,6 +305,7 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       RESEND_API_KEY: RESEND_KEY,
       WEB_APP_URL: WEB,
       FAKE_RESEND_URL: resendUrl,
