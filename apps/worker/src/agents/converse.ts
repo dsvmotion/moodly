@@ -207,11 +207,14 @@ type Loaded =
       location: { name: string; timezone: string } | null;
       modelSettings: unknown;
       serviceRows: ServiceRow[];
+      spent: { dayEur: number; monthEur: number };
     };
 
 // Exportada para el test de integración que comprueba que no lee conversaciones de otra organización.
 export async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
   const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido. Va en su
   // propia transacción de moodly_worker, antes: si no se puede leer, el turno
   // sigue sin resumen y con la historia entera (nunca un turno sin contestar), y
@@ -266,6 +269,16 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
             [conversation.location_id, MAX_PROMPT_SERVICES + 1],
           )
         : [];
+    // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
+    // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
+    // organización, usage_records_worker, 20261112053000).
+    const [spent] = await sql.query<{ day_eur: number; month_eur: number }>(
+      `select coalesce(sum(cost_eur) filter (where occurred_at >= $1), 0)::float8 as day_eur,
+              coalesce(sum(cost_eur) filter (where occurred_at >= $2), 0)::float8 as month_eur
+       from public.usage_records
+       where occurred_at >= least($1::timestamptz, $2::timestamptz)`,
+      [dayStart.toISOString(), monthStart.toISOString()],
+    );
     return {
       kind: "turn",
       conversation,
@@ -275,16 +288,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
       location: location ?? null,
       modelSettings: modelSettings ?? null,
       serviceRows,
+      spent: { dayEur: spent?.day_eur ?? 0, monthEur: spent?.month_eur ?? 0 },
     };
   });
   if (loaded.kind === "skip") return loaded;
-  const { conversation, context, books, messages, location, modelSettings, serviceRows } = loaded;
-  // El gasto del día y del mes, del libro de consumo (PL-ledger, usage_spend):
-  // sigue por su función con nombre hasta que pase a la transacción.
-  const spent = await db.usageSpend({
-    dayStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
-    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
-  });
+  const { conversation, context, books, messages, location, modelSettings, serviceRows, spent } = loaded;
   const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
