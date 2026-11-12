@@ -15,7 +15,7 @@ export const COPY = {
     foundations: [
       ["Datos en la UE", "Plataforma y base de datos alojadas en la Unión Europea [por confirmar región y proveedor]."],
       ["Sin entrenamiento", "Usamos APIs empresariales de IA cuyos términos excluyen entrenar con tus datos [confirmar proveedor a proveedor]."],
-      ["Cifrado en reposo y en tránsito", "AES-256 en reposo, TLS 1.2+ en tránsito y claves propias por cliente para las credenciales de las integraciones."],
+      ["Cifrado en reposo y en tránsito", "AES-256 en reposo y TLS 1.2+ en tránsito, hoy (Supabase y Vercel). En el piloto: tus claves de IA y los secretos de MCP, cifrados en una bóveda por organización, y los conectores de la plataforma a través de nuestro hub de conectores alojado en la UE."],
     ],
     deployA: "Opciones de despliegue.", deployB: "De la nube compartida a una nube dedicada.",
     deploy: [
@@ -53,7 +53,7 @@ export const COPY = {
       ["¿Dónde se guardan mis datos?", "En la Unión Europea [por confirmar región]. La nube dedicada para Enterprise está en hoja de ruta."],
       ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "Sí, con todos los clientes, antes de empezar."],
       ["¿Qué pasa si un agente se equivoca?", "Defines qué puede hacer solo y qué necesita aprobación. Todo queda registrado y puedes corregirlo o revertirlo."],
-      ["¿Cómo informo de una vulnerabilidad?", "Escribe a contact@moodly.com. Respondemos en menos de 3 días laborables y no emprendemos acciones contra investigaciones de buena fe."],
+      ["¿Cómo informo de una vulnerabilidad?", "Escribe a {email}. Respondemos en menos de 3 días laborables y no emprendemos acciones contra investigaciones de buena fe."],
     ],
   },
   en: {
@@ -71,7 +71,7 @@ export const COPY = {
     foundations: [
       ["Data in the EU", "Platform and database hosted in the European Union [region and provider to be confirmed]."],
       ["No training", "We use enterprise AI APIs whose terms exclude training on your data [to confirm provider by provider]."],
-      ["Encryption at rest and in transit", "AES-256 at rest, TLS 1.2+ in transit and per-customer keys for integration credentials."],
+      ["Encryption at rest and in transit", "AES-256 at rest and TLS 1.2+ in transit, today (Supabase and Vercel). In the pilot: your AI keys and MCP secrets, encrypted in a per-organization vault, and platform connectors through our EU-hosted connector hub."],
     ],
     deployA: "Deployment options.", deployB: "From the shared cloud to a dedicated cloud.",
     deploy: [
@@ -109,7 +109,7 @@ export const COPY = {
       ["Where is my data stored?", "In the European Union [region to be confirmed]. A dedicated cloud for Enterprise is on the roadmap."],
       ["Do you sign a data processing agreement (DPA)?", "Yes, with all customers, before we start."],
       ["What if an agent makes a mistake?", "You define what it can do alone and what needs approval. Everything is logged and you can correct or revert it."],
-      ["How do I report a vulnerability?", "Write to contact@moodly.com. We respond within 3 working days and take no action against good-faith research."],
+      ["How do I report a vulnerability?", "Write to {email}. We respond within 3 working days and take no action against good-faith research."],
     ],
   },
   fr: {
@@ -127,7 +127,7 @@ export const COPY = {
     foundations: [
       ["Données dans l'UE", "Plateforme et base de données hébergées dans l'Union européenne [région et fournisseur à confirmer]."],
       ["Aucun entraînement", "Nous utilisons des API d'IA d'entreprise dont les conditions excluent l'entraînement avec vos données [à confirmer fournisseur par fournisseur]."],
-      ["Chiffrement au repos et en transit", "AES-256 au repos, TLS 1.2+ en transit et clés propres à chaque client pour les identifiants d'intégration."],
+      ["Chiffrement au repos et en transit", "AES-256 au repos et TLS 1.2+ en transit, dès aujourd'hui (Supabase et Vercel). Dans le pilote : vos clés d'IA et les secrets MCP, chiffrés dans un coffre par organisation, et les connecteurs de la plateforme via notre hub de connecteurs hébergé dans l'UE."],
     ],
     deployA: "Options de déploiement.", deployB: "Du cloud partagé à un cloud dédié.",
     deploy: [
@@ -165,7 +165,7 @@ export const COPY = {
       ["Où mes données sont-elles stockées ?", "Dans l'Union européenne [région à confirmer]. Le cloud dédié pour Enterprise est sur la feuille de route."],
       ["Signez-vous un contrat de sous-traitance (DPA) ?", "Oui, avec tous les clients, avant de commencer."],
       ["Que se passe-t-il si un agent se trompe ?", "Vous définissez ce qu'il peut faire seul et ce qui nécessite une validation. Tout est enregistré et vous pouvez le corriger ou l'annuler."],
-      ["Comment signaler une vulnérabilité ?", "Écrivez à contact@moodly.com. Nous répondons sous 3 jours ouvrables et n'engageons aucune action contre les recherches de bonne foi."],
+      ["Comment signaler une vulnérabilité ?", "Écrivez à {email}. Nous répondons sous 3 jours ouvrables et n'engageons aucune action contre les recherches de bonne foi."],
     ],
   },
   de: {
@@ -183,7 +183,7 @@ export const COPY = {
     foundations: [
       ["Daten in der EU", "Plattform und Datenbank in der Europäischen Union gehostet [Region und Anbieter zu bestätigen]."],
       ["Kein Training", "Wir nutzen Enterprise-KI-APIs, deren Bedingungen das Training mit deinen Daten ausschließen [Anbieter für Anbieter zu bestätigen]."],
-      ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand, TLS 1.2+ bei der Übertragung und eigene Schlüssel pro Kunde für die Zugangsdaten der Integrationen."],
+      ["Verschlüsselung im Ruhezustand und bei der Übertragung", "AES-256 im Ruhezustand und TLS 1.2+ bei der Übertragung, schon heute (Supabase und Vercel). Im Pilotprojekt: deine KI-Schlüssel und MCP-Secrets, verschlüsselt in einem Tresor pro Organisation, und die Plattform-Konnektoren über unseren in der EU gehosteten Konnektor-Hub."],
     ],
     deployA: "Bereitstellungsoptionen.", deployB: "Von der geteilten Cloud bis zur dedizierten Cloud.",
     deploy: [
@@ -221,7 +221,7 @@ export const COPY = {
       ["Wo werden meine Daten gespeichert?", "In der Europäischen Union [Region zu bestätigen]. Eine dedizierte Cloud für Enterprise steht auf der Roadmap."],
       ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "Ja, mit allen Kunden, bevor wir beginnen."],
       ["Was passiert, wenn ein Agent einen Fehler macht?", "Du legst fest, was er allein darf und was eine Freigabe braucht. Alles wird protokolliert und du kannst es korrigieren oder rückgängig machen."],
-      ["Wie melde ich eine Schwachstelle?", "Schreibe an contact@moodly.com. Wir antworten innerhalb von 3 Werktagen und gehen nicht gegen gutgläubige Forschung vor."],
+      ["Wie melde ich eine Schwachstelle?", "Schreibe an {email}. Wir antworten innerhalb von 3 Werktagen und gehen nicht gegen gutgläubige Forschung vor."],
     ],
   },
 };
