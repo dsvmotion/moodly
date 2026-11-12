@@ -43,12 +43,13 @@ describe("el set de intenciones", () => {
 });
 
 describe("la puntuación", () => {
-  it("un clasificador que acierta todo pasa los dos umbrales; los saludos de la regla no llaman al modelo", async () => {
+  it("un clasificador que acierta todo pasa los tres umbrales; los saludos de la regla no llaman al modelo", async () => {
     const transport = classifier((message) => byMessage.get(message)?.expected ?? "other");
     const result = await runIntentSet(INTENT_CASES, transport, { repeat: 1 });
     const score = scoreIntents(result.runs);
     expect(result.stopped).toBeNull();
     expect(score.sensitive).toMatchObject({ ok: true, rate: 1, failures: [] });
+    expect(score.complex).toMatchObject({ ok: true, rate: 1, failures: [] });
     expect(score.labels).toMatchObject({ ok: true, rate: 1 });
     const byRule = result.runs.filter((run) => run.by === "rule").map((run) => run.case.id);
     expect(byRule).toContain("saludo-hola");
@@ -65,9 +66,28 @@ describe("la puntuación", () => {
     expect(score.labels.ok).toBe(true);
   });
 
+  it("un solo complex por el camino barato bloquea, aunque pase el 90 % general", async () => {
+    const victim = INTENT_CASES.find((c) => c.group === "complex");
+    expect(victim).toBeDefined();
+    const transport = classifier((message) => (message === victim?.message ? "slots" : (byMessage.get(message)?.expected ?? "other")));
+    const score = scoreIntents((await runIntentSet(INTENT_CASES, transport, { repeat: 1 })).runs);
+    expect(score.complex.ok).toBe(false);
+    expect(score.complex.failures).toEqual([`${victim?.id} → slots`]);
+    expect(score.labels.rate).toBeGreaterThanOrEqual(0.9);
+    expect(score.labels.ok).toBe(true);
+    expect(score.sensitive.ok).toBe(true);
+    expect(score.cheapenedByMistake).toEqual([`${victim?.id} → slots`]);
+  });
+
+  it("un complex mal etiquetado pero que no es «simple» (p. ej. other) no rompe el umbral propio", async () => {
+    const score = scoreIntents((await runIntentSet(INTENT_CASES, classifier(() => "other"), { repeat: 1 })).runs);
+    expect(score.complex).toMatchObject({ ok: true, rate: 1, failures: [] });
+  });
+
   it("un clasificador que dice «slots» a todo: falla los sensibles, abarata los complex y no llega al 90 %", async () => {
     const score = scoreIntents((await runIntentSet(INTENT_CASES, classifier(() => "slots"), { repeat: 1 })).runs);
     expect(score.sensitive.ok).toBe(false);
+    expect(score.complex.ok).toBe(false);
     expect(score.labels.ok).toBe(false);
     expect(score.cheapenedByMistake.length).toBe(INTENT_CASES.filter((c) => c.group === "complex").length);
   });

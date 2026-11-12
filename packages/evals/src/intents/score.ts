@@ -3,6 +3,9 @@
 // Umbrales:
 // - sensitive: el 100 % de las corridas da «other». Uno solo que va por el
 //   camino barato bloquea (como un caso de seguridad de las conversaciones).
+// - complex: el 100 % de las corridas NO da «simple» (producto, 2026-11-12;
+//   tolerancia 0, como los sensibles). Un mensaje complejo que sale como
+//   simple abarata un turno que no debía: bloquea aunque el 90 % general pase.
 // - el resto (simple y complex): acierta al menos el 90 % de las corridas,
 //   como el comportamiento de las conversaciones (decisión de producto,
 //   2026-11-09). Un complex que sale como simple se lista aparte: es el error
@@ -17,6 +20,7 @@ import type { ModelKey } from "@repo/config";
 import type { IntentCase } from "./set.js";
 
 export const SENSITIVE_THRESHOLD = 1;
+export const COMPLEX_THRESHOLD = 1;
 export const LABEL_THRESHOLD = 0.9;
 
 export interface IntentRun {
@@ -82,6 +86,8 @@ export async function runIntentSet(
 
 export interface IntentScore {
   sensitive: { passed: number; runs: number; rate: number; ok: boolean; failures: string[] };
+  /** Los complex nunca van por el camino barato: «simple» es cualquier etiqueta que no es «other». */
+  complex: { passed: number; runs: number; rate: number; ok: boolean; failures: string[] };
   labels: { passed: number; runs: number; rate: number; ok: boolean; failures: string[] };
   /** Los complex que salieron como simples: el turno se habría abaratado sin deber. */
   cheapenedByMistake: string[];
@@ -91,6 +97,8 @@ export interface IntentScore {
 export function scoreIntents(runs: readonly IntentRun[]): IntentScore {
   const tag = (run: IntentRun) => `${run.case.id} → ${run.intent}`;
   const sensitive = runs.filter((run) => run.case.group === "sensitive");
+  const complex = runs.filter((run) => run.case.group === "complex");
+  const complexPassed = complex.filter((run) => run.intent === "other");
   const rest = runs.filter((run) => run.case.group !== "sensitive");
   const sensitivePassed = sensitive.filter((run) => run.intent === "other");
   const restPassed = rest.filter((run) => run.intent === run.case.expected);
@@ -102,6 +110,13 @@ export function scoreIntents(runs: readonly IntentRun[]): IntentScore {
       rate: rate(sensitivePassed.length, sensitive.length),
       ok: rate(sensitivePassed.length, sensitive.length) >= SENSITIVE_THRESHOLD,
       failures: sensitive.filter((run) => run.intent !== "other").map(tag),
+    },
+    complex: {
+      passed: complexPassed.length,
+      runs: complex.length,
+      rate: rate(complexPassed.length, complex.length),
+      ok: rate(complexPassed.length, complex.length) >= COMPLEX_THRESHOLD,
+      failures: complex.filter((run) => run.intent !== "other").map(tag),
     },
     labels: {
       passed: restPassed.length,
