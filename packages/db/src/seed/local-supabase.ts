@@ -2,6 +2,7 @@
 // scripts y tests de plataforma (seed, integración de tenantDb). Nunca código
 // de apps/web.
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertLocalSupabaseUrl } from "./local-only.ts";
@@ -34,4 +35,21 @@ export function readLocalSupabase(): LocalSupabase {
   assertLocalSupabaseUrl(apiUrl);
   assertLocalSupabaseUrl(dbUrl);
   return { apiUrl, secretKey, publishableKey, dbUrl };
+}
+
+/**
+ * La URL local del rol moodly_worker (ADR 0049), con la contraseña que le da
+ * `pnpm db:seed` (packages/db/.seed/server-keys.local.json). Solo local.
+ */
+export function localWorkerDatabaseUrl(local: LocalSupabase = readLocalSupabase()): string {
+  const keysFile = resolve(packageRoot, ".seed/server-keys.local.json");
+  if (!existsSync(keysFile)) throw new Error("falta packages/db/.seed/server-keys.local.json: ejecuta pnpm db:seed");
+  const keys = JSON.parse(readFileSync(keysFile, "utf8")) as Record<string, string | undefined>;
+  const password = keys["worker_rls_password"];
+  if (!password) throw new Error("el seed no ha dado login a moodly_worker: ejecuta pnpm db:seed");
+  const url = new URL(local.dbUrl);
+  url.username = "moodly_worker";
+  url.password = password;
+  assertLocalSupabaseUrl(url.toString());
+  return url.toString();
 }
