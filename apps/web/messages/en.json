@@ -2,6 +2,21 @@
   "common": {
     "loading": "Loading…"
   },
+  "states": {
+    "notFound": {
+      "title": "Not found",
+      "heading": "This page doesn't exist or isn't available to you",
+      "description": "The link may be wrong, or it may belong to a location or organization you don't have access to.",
+      "home": "Go to home"
+    },
+    "error": {
+      "title": "Something went wrong",
+      "heading": "This page couldn't load",
+      "description": "It's on our side, not yours. Try again; if it keeps failing, tell support the reference below.",
+      "retry": "Try again",
+      "reference": "Reference: {digest}"
+    }
+  },
   "login": {
     "title": "Sign in to {brand}",
     "description": "With your account's email and password.",
@@ -74,6 +89,10 @@
       "admin": "Administration"
     }
   },
+  "navCounts": {
+    "approvals": "{count, plural, one {# pending approval} other {# pending approvals}}",
+    "inbox": "{count, plural, one {# conversation handled by the team} other {# conversations handled by the team}}"
+  },
   "sidebarEmpty": {
     "savedViews": "No saved views yet.",
     "favorites": "No favorites yet.",
@@ -95,7 +114,12 @@
     "locations": "{count, plural, =0 {No locations in your scope} one {# location in your scope} other {# locations in your scope}}",
     "locationsAction": "View locations",
     "inbox": "Today's inbox",
-    "inboxEmpty": "Nothing in the inbox yet"
+    "inboxEmpty": "Nothing in the inbox yet",
+    "needsYou": {
+      "approvals": "{count, plural, one {# approval awaits your decision} other {# approvals await your decision}}",
+      "humanConversations": "{count, plural, one {# conversation is handled by the team} other {# conversations are handled by the team}}"
+    },
+    "needsYouAction": "View"
   },
   "sections": {
     "home": {
@@ -392,6 +416,7 @@
     "description": "What the agent proposes and is waiting for a person. Approving sends the reply or makes the booking; rejecting does nothing.",
     "emptyTitle": "Nothing pending",
     "empty": "When the agent leaves a reply or an appointment as a draft, it will show up here.",
+    "truncated": "Showing the {count} oldest. The next ones appear as you decide these.",
     "approve": "Approve",
     "reject": "Reject",
     "wholeOrganization": "Whole organization",
@@ -411,7 +436,8 @@
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
       "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
-    }
+    },
+    "count": "{count, plural, one {# pending} other {# pending}}"
   },
   "inboxPage": {
     "title": "Inbox",
@@ -424,6 +450,8 @@
     },
     "searchLabel": "Search conversations",
     "searchPlaceholder": "Search by customer name",
+    "older": "Show older conversations",
+    "newest": "Back to the most recent",
     "search": "Search",
     "emptyTitle": {
       "open": "No open conversations",
@@ -469,6 +497,21 @@
       "email": "Email",
       "webchat": "Web chat",
       "voice": "Phone"
+    },
+    "takeOver": "Take over",
+    "takeOverTitle": "Take over this conversation?",
+    "takeOverDescription": "The agent will stop replying to {name} until you hand it back. You will write instead. The change is logged.",
+    "takeOverConfirm": "Yes, take over",
+    "cancel": "Cancel",
+    "giveBack": "Hand back to the agent",
+    "composerLabel": "Message to {name}",
+    "composerPlaceholder": "Write to {name}…",
+    "send": "Send",
+    "composerHint": "The agent is handling this conversation. Take over to write yourself: the agent pauses until you hand it back.",
+    "errors": {
+      "invalid": "Write a message before sending it.",
+      "not_allowed": "You can't do this here: the conversation is not in your scope, someone already changed who is handling it, or it is closed.",
+      "failed": "It didn't work. Please try again."
     }
   },
   "testChat": {
@@ -500,6 +543,145 @@
       "paused": "The agent is paused: it cannot be tested.",
       "too_many": "You have sent many test messages in the last hour. Please wait a little.",
       "failed": "It could not be sent. Please try again."
+    }
+  },
+  "knowledgePage": {
+    "title": "Knowledge",
+    "description": "What your agents know about your business. They answer customers only with what is written here.",
+    "privacy": "Write business information (questions and answers, prices, policies), never data about customers or patients: the text is sent to the indexing provider.",
+    "mfaRequired": "You need two-step verification to add or change sources.",
+    "mfaLink": "Turn it on in Security",
+    "emptyTitle": "No knowledge yet",
+    "empty": "Add your frequent questions, prices and policies so the agents can answer with them.",
+    "emptyReadOnly": "When an administrator adds frequent questions, prices or policies, they will show up here.",
+    "add": "Add source",
+    "newTitle": "New source",
+    "newDescription": "The agents will use it once it is indexed, in a few seconds.",
+    "fields": {
+      "type": "Type",
+      "appliesTo": "Applies to",
+      "title": "Title",
+      "body": "Text",
+      "status": "Status",
+      "updated": "Updated"
+    },
+    "bodyHelp": "Up to 20,000 characters. Separate each topic with a blank line.",
+    "wholeOrganization": "Whole organization",
+    "types": {
+      "faq": "FAQ",
+      "pricing": "Prices",
+      "policy": "Policy",
+      "catalog": "Catalog",
+      "document": "Document",
+      "website": "Website",
+      "human_answer": "Team answer"
+    },
+    "status": {
+      "pending": "Waiting to index",
+      "processing": "Indexing",
+      "ready": "Ready",
+      "error": "Not indexed"
+    },
+    "statusHelp": {
+      "pending": "It will be indexed in a few seconds. Until then, the agents do not use it.",
+      "processing": "It is being indexed. The agents will use it in a few seconds.",
+      "ready": "The agents use it to answer.",
+      "error": "It could not be indexed, so the agents do not use it. This happens if the indexing provider fails or if your model policy does not allow it (for example, EU only). Change the text to try again."
+    },
+    "create": "Add",
+    "save": "Save",
+    "saved": "Saved.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "deleteTitle": "Delete this source?",
+    "deleteDescription": "The agents will stop using it. This cannot be undone.",
+    "errors": {
+      "invalid": "Check the fields: the title can have up to 200 characters and the text up to 20,000.",
+      "not_allowed": "You cannot change the knowledge of this organization."
+    }
+  },
+  "goalsPage": {
+    "title": "Goals",
+    "description": "What you want to achieve, measured and with a date. Your agents will use it to prioritise and the coach will review how you're doing.",
+    "mfaRequired": "You need two-step verification to create or change goals.",
+    "mfaLink": "Turn it on in Security",
+    "emptyTitle": "No goals yet",
+    "empty": "Set what you want to achieve: appointments a month, qualified leads, response time…",
+    "emptyReadOnly": "When someone who manages goals sets them for your scope, they'll show up here.",
+    "add": "New goal",
+    "newTitle": "New goal",
+    "newDescription": "Choose where it applies, what it measures and the value you want to reach.",
+    "wholeOrganization": "Whole organization",
+    "fields": {
+      "title": "Title",
+      "appliesTo": "Applies to",
+      "metric": "Metric",
+      "direction": "Met with",
+      "target": "Target",
+      "period": "Period",
+      "dueDate": "Due date",
+      "startsOn": "Starts",
+      "status": "Status"
+    },
+    "metrics": {
+      "appointmentsBooked": "Appointments booked",
+      "leadsQualified": "Qualified leads",
+      "resolvedAutonomously": "Conversations resolved without a person (%)",
+      "firstReplyMinutes": "Time to first reply",
+      "outstandingInvoices": "Outstanding invoices"
+    },
+    "otherMetric": "Other: {key}",
+    "directions": {
+      "at_least": "At least",
+      "at_most": "At most"
+    },
+    "targetLabel": {
+      "count": "Value",
+      "percent": "Value (%)",
+      "minutes": "Value (minutes)",
+      "eur": "Value (€)"
+    },
+    "units": {
+      "count": "{value}",
+      "percent": "{value}%",
+      "minutes": "{value} min",
+      "eur": "€{value}"
+    },
+    "periods": {
+      "week": "Every week",
+      "month": "Every month",
+      "quarter": "Every quarter",
+      "year": "Every year",
+      "once": "Once, with a due date"
+    },
+    "periodSuffix": {
+      "week": "per week",
+      "month": "per month",
+      "quarter": "per quarter",
+      "year": "per year",
+      "once": "by {date}"
+    },
+    "statuses": {
+      "active": "Active",
+      "paused": "Paused",
+      "achieved": "Achieved",
+      "missed": "Missed",
+      "archived": "Archived"
+    },
+    "progressHelp": "Progress will be measured with data from your agents and integrations. There are no measurements yet.",
+    "readOnly": "Only someone who manages its scope can change it.",
+    "create": "Create",
+    "save": "Save",
+    "saved": "Saved.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "deleteTitle": "Delete this goal?",
+    "deleteDescription": "It is deleted with its measurements. If you just want to stop tracking it, change it to “Archived”. This can't be undone.",
+    "errors": {
+      "invalid": "Check the fields: the title can be up to 200 characters, the value is a number (a percentage, up to 100) and the due date can't be before the start.",
+      "not_allowed": "You can't manage goals in that scope."
     }
   }
 }

@@ -3,33 +3,68 @@
 //
 //   AI_GATEWAY_API_KEY=… pnpm --filter @repo/evals eval:agents [opciones]
 //
-//   --case <id>       solo ese caso (se puede repetir)
-//   --agent <tipo>    solo los de reception o customer
-//   --repeat <n>      cada caso n veces (por defecto, 1)
-//   --max-eur <x>     tope de gasto de la corrida: se para antes de pasarlo (por defecto, 1)
-//   --list            enseña los casos y lo que costaría como mucho, sin llamar a nadie
+//   --case <id>         solo ese caso (se puede repetir)
+//   --agent <tipo>      solo los de reception o customer
+//   --turns <n>         solo los de un turno (single) o los de varios (multi)
+//   --repeat <n>        cada caso n veces (por defecto, 1)
+//   --max-eur <x>       tope de gasto de toda la corrida: se para antes de pasarlo (por defecto, 1; nunca más de 2, P-05)
+//   --model <clave>     la clave de modelo para conversar (fast, smart…); por defecto, la de cada agente (MANUAL §5.11)
+//   --compare <claves>  corre los mismos casos con cada clave (p. ej. fast,balanced,smart) y saca la tabla para elegir (B-01)
+//   --intent-routing    con el enrutado por intención (PL-T3): las intenciones simples conversan con el camino barato
+//   --baseline <json>   la línea base (baseline.json): no cambia la puntuación; etiqueta los fallos conocidos (K-01)
+//   --report <json>     escribe el resultado (código, si el rojo es solo de fallos conocidos…) para el workflow
+//   --list              enseña los casos (y los precios de cada clave a comparar), sin llamar a nadie
 //
 // Un caso de comportamiento que falla se repite hasta 3 corridas en total; si
 // no acierta ninguna, bloquea aunque la tasa pase el umbral.
 //
-// Sale con código 1 si algún set queda por debajo de su umbral, si un caso
-// falla en todas sus corridas o si se corta por el tope de gasto.
+// Códigos de salida:
+//   0  pasa los umbrales
+//   1  por debajo del umbral (también si es solo por fallos conocidos: --report lo dice)
+//   2  falla la vía del modelo (red, gateway, saldo): se para y ese turno no puntúa
+//   3  se corta por el tope de gasto: la corrida está incompleta
+// Con --compare, el código no depende de si cada modelo pasa (es para elegir):
+// 2 o 3 si se para, 0 si no.
+import { writeFileSync } from "node:fs";
 import { createGatewayTransport } from "@repo/agent-core";
-import type { ModelTransport, TransportRequest } from "@repo/agent-core";
+import { GATEWAY_MODELS } from "@repo/config";
+import type { ModelKey } from "@repo/config";
 import { conversationCases } from "./cases.js";
-import { CATEGORIES, CONFIRM_RUNS, alwaysFailing, runCase, score } from "./runner.js";
-import type { CaseRun, ConversationCase } from "./runner.js";
+import { CATEGORIES, score } from "./runner.js";
+import type { ConversationCase, Score, Severity } from "./runner.js";
+import { EMPTY_BASELINE, loadBaseline, readWithBaseline } from "./baseline.js";
+import type { BaselineReading } from "./baseline.js";
+import { comparisonTable, isMultiTurn, metered, runSet } from "./runset.js";
+import type { SetResult } from "./runset.js";
+
+/** Tope duro de una corrida (P-05): ningún argumento puede pasar de aquí, ni siquiera el del workflow. */
+const HARD_MAX_EUR = 2;
+const HARD_MAX_REPEAT = 5;
 
 interface Options {
   cases: string[];
   agent: string | null;
+  turns: "single" | "multi" | null;
   repeat: number;
   maxEur: number;
   list: boolean;
+  model: ModelKey | null;
+  compare: ModelKey[];
+  intentRouting: boolean;
+  baseline: string | null;
+  report: string | null;
 }
 
-function parse(argv: readonly string[]): Options {
-  const options: Options = { cases: [], agent: null, repeat: 1, maxEur: 1, list: false };
+/** Una clave de modelo para conversar: cualquiera de GATEWAY_MODELS menos la de embeddings. */
+function modelKey(key: string): ModelKey {
+  if (!Object.keys(GATEWAY_MODELS).includes(key) || key === "embedding") {
+    throw new Error(`modelo no válido: ${key} (${Object.keys(GATEWAY_MODELS).filter((k) => k !== "embedding").join(", ")})`);
+  }
+  return key as ModelKey;
+}
+
+export function parse(argv: readonly string[]): Options {
+  const options: Options = { cases: [], agent: null, turns: null, repeat: 1, maxEur: 1, list: false, model: null, compare: [], intentRouting: false, baseline: null, report: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const value = () => {
@@ -40,41 +75,48 @@ function parse(argv: readonly string[]): Options {
     };
     if (arg === "--case") options.cases.push(value());
     else if (arg === "--agent") options.agent = value();
-    else if (arg === "--repeat") options.repeat = Number(value());
+    else if (arg === "--turns") {
+      const turns = value();
+      if (turns !== "single" && turns !== "multi") throw new Error(`--turns tiene que ser single o multi: ${turns}`);
+      options.turns = turns;
+    } else if (arg === "--repeat") options.repeat = Number(value());
     else if (arg === "--max-eur") options.maxEur = Number(value());
     else if (arg === "--list") options.list = true;
+    else if (arg === "--intent-routing") options.intentRouting = true;
+    else if (arg === "--model") options.model = modelKey(value());
+    else if (arg === "--baseline") options.baseline = value();
+    else if (arg === "--report") options.report = value();
+    else if (arg === "--compare") options.compare = value().split(",").map((key) => modelKey(key.trim()));
     else throw new Error(`opción desconocida: ${arg}`);
   }
   if (!Number.isInteger(options.repeat) || options.repeat < 1) throw new Error("--repeat tiene que ser un entero ≥ 1");
   if (!(options.maxEur > 0)) throw new Error("--max-eur tiene que ser > 0");
+  if (options.maxEur > HARD_MAX_EUR) throw new Error(`--max-eur no puede pasar de ${HARD_MAX_EUR} € (tope duro)`);
+  if (options.repeat > HARD_MAX_REPEAT) throw new Error(`--repeat no puede pasar de ${HARD_MAX_REPEAT}`);
+  if (options.model !== null && options.compare.length > 0) throw new Error("--model y --compare no van juntos");
+  if (new Set(options.compare).size !== options.compare.length) throw new Error("--compare repite una clave");
   return options;
 }
 
-function select(options: Options): ConversationCase[] {
-  const unknown = options.cases.filter((id) => !conversationCases.some((c) => c.id === id));
+export function select(options: Options, all: readonly ConversationCase[] = conversationCases): ConversationCase[] {
+  const unknown = options.cases.filter((id) => !all.some((c) => c.id === id));
   if (unknown.length > 0) throw new Error(`casos desconocidos: ${unknown.join(", ")}`);
-  return conversationCases.filter(
-    (c) => (options.cases.length === 0 || options.cases.includes(c.id)) && (options.agent === null || c.agent === options.agent),
+  return all.filter(
+    (c) =>
+      (options.cases.length === 0 || options.cases.includes(c.id)) &&
+      (options.agent === null || c.agent === options.agent) &&
+      (options.turns === null || (options.turns === "multi") === isMultiTurn(c)),
   );
 }
 
-/** Una vía que lleva la cuenta y no deja empezar una llamada que pueda pasar el tope de la corrida. */
-function metered(inner: ModelTransport, maxEur: number, spent: { eur: number }): ModelTransport {
+/** Lo que lee el workflow de main: el código y si el rojo es solo de fallos conocidos (solo con código 1). */
+export function report(code: number, scores: Record<Severity, Score>, reading: BaselineReading) {
   return {
-    ...inner,
-    estimateEur: (request: TransportRequest) => inner.estimateEur(request),
-    async generate(request) {
-      const estimate = inner.estimateEur(request);
-      if (spent.eur + estimate > maxEur) throw new RunBudgetError(`la siguiente llamada (hasta ${estimate.toFixed(4)} €) pasaría el tope de ${maxEur} €`);
-      const response = await inner.generate(request);
-      spent.eur += response.costEur;
-      return response;
-    },
+    code,
+    onlyKnown: code === 1 && reading.onlyKnown,
+    alwaysFailing: [...scores.safety.alwaysFailing, ...scores.behavior.alwaysFailing],
+    known: reading.known,
   };
-}
-
-class RunBudgetError extends Error {
-  override name = "RunBudgetError";
 }
 
 const out = (line = "") => process.stdout.write(`${line}\n`);
@@ -83,75 +125,69 @@ async function main(): Promise<number> {
   const options = parse(process.argv.slice(2));
   const cases = select(options);
   if (options.list) {
-    for (const c of cases) out(`${c.id.padEnd(40)} ${c.agent.padEnd(9)} ${c.severity.padEnd(8)} ${CATEGORIES[c.category]}`);
-    out(`${cases.length} casos × ${options.repeat}`);
+    for (const c of cases) out(`${c.id.padEnd(40)} ${(c.business?.key ?? "estetica").padEnd(12)} ${c.agent.padEnd(9)} ${c.severity.padEnd(8)} ${isMultiTurn(c) ? "varios " : "un turno"} ${CATEGORIES[c.category]}`);
+    out(`${cases.length} casos × ${options.repeat}${options.compare.length > 0 ? ` × ${options.compare.length} modelos` : ""}`);
+    for (const key of options.compare) {
+      const model = GATEWAY_MODELS[key];
+      if (model) out(`  ${key.padEnd(10)} ${model.id} · ${model.inputUsdPerMTok} $/MTok de entrada, ${model.outputUsdPerMTok} $/MTok de salida`);
+    }
     return 0;
   }
+  const baseline = options.baseline ? loadBaseline(options.baseline, conversationCases) : EMPTY_BASELINE;
   const apiKey = process.env["AI_GATEWAY_API_KEY"];
   if (!apiKey) throw new Error("falta AI_GATEWAY_API_KEY");
 
+  // Un solo tope para toda la corrida, también cuando compara varios modelos.
   const spent = { eur: 0 };
   const transport = metered(createGatewayTransport({ apiKey }), options.maxEur, spent);
-  const runs: CaseRun[] = [];
-  let stopped = false;
 
-  /** Corre un caso y lo enseña; false si el tope de gasto lo cortó (y entonces no cuenta). */
-  async function attempt(c: ConversationCase, label: string): Promise<boolean> {
-    const run = await runCase(c, transport);
-    if (run.outcome.result.status === "handed_off" && run.outcome.result.error?.includes("RunBudgetError")) {
-      out(`· tope de gasto alcanzado (${spent.eur.toFixed(4)} €): se para antes de ${c.id}`);
-      stopped = true;
-      return false;
+  if (options.compare.length > 0) {
+    const results: SetResult[] = [];
+    for (const model of options.compare) {
+      out(`== ${model} (${GATEWAY_MODELS[model]?.id ?? "?"})`);
+      const result = await runSet(cases, { repeat: options.repeat, model, transport, out, intentRouting: options.intentRouting });
+      results.push(result);
+      if (result.stopped !== null) break;
     }
-    runs.push(run);
-    const ok = run.failures.length === 0;
-    out(`${ok ? "✓" : "✗"} ${c.id}${label} · ${run.outcome.result.status} · ${run.costEur.toFixed(4)} €`);
-    out(`    herramientas: ${run.outcome.calls.map((e) => `${e.skillKey}(${e.status})`).join(", ") || "ninguna"}`);
-    out(`    respuesta: ${run.outcome.reply === null ? "—" : `«${run.outcome.reply.replace(/\s+/g, " ")}»`}`);
-    for (const failure of run.failures) out(`    ✗ ${failure.check}: ${failure.why}`);
-    return true;
+    out();
+    for (const line of comparisonTable(results)) out(line);
+    out(`gasto total: ${spent.eur.toFixed(4)} €`);
+    const stopped = results.find((result) => result.stopped !== null)?.stopped ?? null;
+    if (stopped !== null) out("comparación incompleta: no vale como resultado");
+    return stopped === "infrastructure" ? 2 : stopped === "budget" ? 3 : 0;
   }
 
-  for (const c of cases) {
-    for (let n = 1; n <= options.repeat && !stopped; n += 1) {
-      if (!(await attempt(c, options.repeat > 1 ? ` #${n}` : ""))) break;
-    }
-    if (stopped) break;
-  }
-
-  // Un caso de comportamiento que no acertó ninguna vez se repite hasta
-  // CONFIRM_RUNS corridas: si sigue sin acertar, bloquea; si acierta alguna,
-  // cuenta en la tasa como cualquier otro. Repetir nunca convierte un fallo en
-  // acierto: todas las corridas cuentan. Los de seguridad no se repiten: un
-  // solo fallo ya bloquea.
-  if (!stopped) {
-    for (const id of alwaysFailing(runs)) {
-      const c = cases.find((candidate) => candidate.id === id);
-      if (!c || c.severity !== "behavior") continue;
-      const done = runs.filter((run) => run.case.id === id).length;
-      for (let n = done + 1; n <= CONFIRM_RUNS && !stopped; n += 1) {
-        if (!(await attempt(c, ` · confirmación ${n}/${CONFIRM_RUNS}`))) break;
-      }
-      if (stopped) break;
-    }
-  }
-
-  const scores = score(runs);
+  const result = await runSet(cases, { repeat: options.repeat, model: options.model, transport, out, intentRouting: options.intentRouting });
+  const scores = score(result.runs);
   out();
   for (const [severity, s] of Object.entries(scores)) {
     out(`${severity}: ${s.passed}/${s.runs} (${(s.rate * 100).toFixed(1)} %, umbral ${(s.threshold * 100).toFixed(0)} %) ${s.ok ? "OK" : "POR DEBAJO"}`);
     if (s.alwaysFailing.length > 0) out(`  fallan en todas sus corridas (bloquea): ${s.alwaysFailing.join(", ")}`);
   }
-  out(`modelo: ${runs.find((run) => run.model)?.model ?? "—"} · gasto: ${spent.eur.toFixed(4)} €`);
-  return scores.safety.ok && scores.behavior.ok && !stopped ? 0 : 1;
+  const reading = readWithBaseline(result.runs, baseline);
+  for (const k of reading.known) {
+    out(`fallo conocido: ${k.id} ${k.passed}/${k.runs} — ${k.reason} (desde ${k.since}, ${k.tracking})`);
+    if (k.passed > 0) out(`  · acierta alguna vez: si sigue así, quítalo de la línea base (${options.baseline ?? "baseline.json"})`);
+  }
+  if (reading.onlyKnown) out("rojo solo por fallos conocidos de la línea base (sigue bloqueando)");
+  // Cada agente conversa con su modelo: con casos de varios agentes salen todos.
+  const models = [...new Set(result.runs.flatMap((run) => (run.model ? [run.model] : [])))];
+  out(`modelo: ${models.join(", ") || "—"} · gasto: ${spent.eur.toFixed(4)} €`);
+  if (result.stopped !== null) out("corrida incompleta: no vale como resultado");
+  const code = result.stopped === "infrastructure" ? 2 : result.stopped === "budget" ? 3 : scores.safety.ok && scores.behavior.ok ? 0 : 1;
+  if (options.report) writeFileSync(options.report, `${JSON.stringify(report(code, scores, reading), null, 2)}\n`);
+  return code;
 }
 
-main().then(
-  (code) => {
-    process.exitCode = code;
-  },
-  (error: unknown) => {
-    process.stderr.write(`${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}\n`);
-    process.exitCode = 2;
-  },
-);
+// Solo cuando se ejecuta (node dist/conversations/cli.js), no cuando un test importa parse/select.
+if (process.argv[1]?.endsWith("cli.js")) {
+  main().then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (error: unknown) => {
+      process.stderr.write(`${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}\n`);
+      process.exitCode = 2;
+    },
+  );
+}

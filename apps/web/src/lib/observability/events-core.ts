@@ -20,8 +20,17 @@ export type SecurityEvent =
   | "org.invitation_created"
   | "org.invitation_revoked"
   | "org.invitation_accepted"
+  | "knowledge.source_created"
+  | "knowledge.source_updated"
+  | "knowledge.source_deleted"
+  | "goal.created"
+  | "goal.updated"
+  | "goal.deleted"
   | "agent.approval_approved"
-  | "agent.approval_rejected";
+  | "agent.approval_rejected"
+  | "inbox.conversation_taken_over"
+  | "inbox.conversation_handed_back"
+  | "inbox.staff_message_sent";
 
 export interface SecurityEventFields {
   userId?: string | undefined;

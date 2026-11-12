@@ -8,9 +8,11 @@
 #
 # a. Espera los checks (gh pr checks --watch) y confirma con la API que todos
 #    los de required-checks.txt existen y están en SUCCESS sobre el head
-#    commit actual, que no ha cambiado durante la espera.
+#    commit actual, que no ha cambiado durante la espera, y que los commit
+#    statuses de required-statuses.txt (la guarda) están en success.
 # b. Compara los archivos del PR con sensitive-paths.txt y busca tests
-#    debilitados (merge-guard/check-sensitive.sh, el mismo que usa el CI).
+#    debilitados y fallos conocidos nuevos en la línea base de las evals
+#    (merge-guard/check-sensitive.sh, el mismo que usa el CI).
 # c. Solo entonces: gh pr merge --squash --delete-branch --match-head-commit.
 set -euo pipefail
 
@@ -60,11 +62,33 @@ while IFS= read -r check || [[ -n "$check" ]]; do
   echo "safe-merge: ✓ $check"
 done < "$guard/required-checks.txt"
 
+# Los commit statuses (la guarda, que corre desde main y publica en el head del
+# PR). Solo cuentan los que publica GitHub Actions (github-actions[bot]): un
+# status lo puede publicar cualquiera con permiso de escritura, también una
+# sesión con la cuenta de producto. Manda el de id mayor.
+gh api "repos/$repo/commits/$sha/statuses?per_page=100" > "$workdir/statuses.json"
+while IFS= read -r context || [[ -n "$context" ]]; do
+  [[ -z "$context" || "$context" == \#* ]] && continue
+  result="$(jq -r --arg c "$context" '
+    [.[] | select(.context == $c and .creator.login == "github-actions[bot]")] | sort_by(.id) | last
+    | if . == null then "AUSENTE" else .state end
+  ' "$workdir/statuses.json")"
+  [[ "$result" == "success" ]] || fail "status \"$context\": $result"
+  echo "safe-merge: ✓ $context (status)"
+done < "$guard/required-statuses.txt"
+
 # --- b. Zonas sensibles y tests debilitados ----------------------------------
 gh pr diff "$pr" --name-only > "$workdir/files.txt"
 [[ -s "$workdir/files.txt" ]] || fail "el PR no tiene archivos"
 gh pr diff "$pr" > "$workdir/diff.patch"
-if ! "$guard/check-sensitive.sh" "$workdir/files.txt" "$workdir/diff.patch"; then
+# Si toca la línea base de las evals, sus dos versiones (merge-base y head) para
+# que la guarda compare las claves como JSON (K-01).
+baseline=()
+if grep -qxF packages/evals/baseline.json "$workdir/files.txt"; then
+  "$guard/baseline-versions.sh" "$repo" main "$sha" "$workdir" || fail "no se pudieron leer las dos versiones de packages/evals/baseline.json"
+  baseline=("$workdir/baseline-before.json" "$workdir/baseline-after.json")
+fi
+if ! "$guard/check-sensitive.sh" "$workdir/files.txt" "$workdir/diff.patch" ${baseline[@]+"${baseline[@]}"}; then
   fail "toca zonas sensibles o debilita tests (ver arriba): necesita revisión humana"
 fi
 echo "safe-merge: ✓ sin zonas sensibles ni tests debilitados ($(wc -l < "$workdir/files.txt" | tr -d ' ') archivos)"

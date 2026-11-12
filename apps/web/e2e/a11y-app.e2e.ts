@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { signIn } from "./helpers";
 
 // Accesibilidad automática (axe, WCAG 2.1 AA) del app shell y sus pantallas,
@@ -18,6 +18,29 @@ async function expectNoViolations(page: Page, where: string) {
   expect(violations).toEqual([]);
 }
 
+type SessionState = Awaited<ReturnType<BrowserContext["storageState"]>>;
+
+// Un test por pantalla y tema: con todas en un test (y luego de cuatro en
+// cuatro) cada uno rozaba o pasaba su límite de 30 s con la máquina cargada,
+// y fallaba por tiempo, no por accesibilidad. Para que cada test sea una sola
+// navegación y un análisis de axe, a_org_admin entra (contraseña y código) una
+// vez por worker y cada test abre su propio contexto con esa sesión aal2.
+// Ningún e2e cierra todas las sesiones de a_org_admin: el logout es «local».
+const adminTest = test.extend<Record<never, never>, { adminSession: SessionState }>({
+  adminSession: [
+    async ({ browser }, provide, workerInfo) => {
+      const { baseURL } = workerInfo.project.use;
+      const context = await browser.newContext(baseURL ? { baseURL } : {});
+      await signIn(await context.newPage(), "a_org_admin");
+      const session = await context.storageState();
+      await context.close();
+      await provide(session);
+    },
+    { scope: "worker" },
+  ],
+  storageState: async ({ adminSession }, provide) => provide(adminSession),
+});
+
 const SCREENS = [
   "/app",
   "/app/settings/general",
@@ -31,53 +54,71 @@ const SCREENS = [
   "/app/settings/preferences",
   "/app/settings/roles",
 ];
-// De cuatro en cuatro: con las 11 en un solo test se rozaba su límite de 30 s
-// (24–26 s en local) y fallaba por tiempo, no por accesibilidad. Cada grupo es
-// un test con su propio inicio de sesión: las mismas pantallas, las mismas reglas.
-const SCREEN_GROUPS = Array.from({ length: Math.ceil(SCREENS.length / 4) }, (_, i) => SCREENS.slice(i * 4, i * 4 + 4));
+
+// Menús, paneles y paleta abiertos sobre Sedes, también uno por test.
+const mainNav = (page: Page) => page.getByRole("navigation", { name: "Navegación principal" });
+const OPEN_STATES: { where: string; open: (page: Page) => Promise<void> }[] = [
+  {
+    where: "vista previa",
+    open: async (page) => {
+      await page.getByTestId("locations-table-row").first().click();
+      await expect(page.getByTestId("preview-drawer")).toBeVisible();
+    },
+  },
+  {
+    where: "selector de alcance",
+    open: async (page) => {
+      await page.getByTestId("scope-switcher").click();
+      await expect(page.getByTestId("scope-options")).toBeVisible();
+    },
+  },
+  {
+    where: "menú de usuario",
+    open: async (page) => {
+      await page.getByTestId("user-menu").click();
+      await expect(page.getByTestId("user-menu-content")).toBeVisible();
+    },
+  },
+  {
+    where: "paleta de comandos",
+    open: async (page) => {
+      await page.keyboard.press("ControlOrMeta+k");
+      await expect(page.getByRole("dialog", { name: "Paleta de comandos" })).toBeVisible();
+    },
+  },
+  {
+    where: "barra lateral compacta",
+    open: async (page) => {
+      await page.getByRole("button", { name: "Compactar barra lateral" }).click();
+      await expect(mainNav(page)).toHaveAttribute("data-collapsed", "true");
+    },
+  },
+];
 
 for (const theme of ["light", "dark"] as const) {
-  test.describe(`tema ${theme}`, () => {
-    test.beforeEach(async ({ page, context }) => {
+  adminTest.describe(`tema ${theme}`, () => {
+    adminTest.beforeEach(async ({ context }) => {
       await context.addCookies([{ name: "theme", value: theme, url: "http://127.0.0.1:3000" }]);
-      await signIn(page, "a_org_admin");
     });
 
-    for (const group of SCREEN_GROUPS) {
-      test(`pantallas de la app: ${group.join(", ")}`, async ({ page }) => {
-        for (const path of group) {
-          await page.goto(path);
-          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-          await expectNoViolations(page, path);
-        }
+    for (const path of SCREENS) {
+      adminTest(`pantalla ${path}`, async ({ page }) => {
+        await page.goto(path);
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await expectNoViolations(page, path);
       });
     }
 
-    test("menús, paneles y paleta abiertos", async ({ page }) => {
-      await page.goto("/app/settings/locations");
-      await page.getByTestId("locations-table-row").first().click();
-      await expect(page.getByTestId("preview-drawer")).toBeVisible();
-      await expectNoViolations(page, "vista previa");
-      await page.keyboard.press("Escape");
-
-      await page.getByTestId("scope-switcher").click();
-      await expect(page.getByTestId("scope-options")).toBeVisible();
-      await expectNoViolations(page, "selector de alcance");
-      await page.keyboard.press("Escape");
-
-      await page.getByTestId("user-menu").click();
-      await expect(page.getByTestId("user-menu-content")).toBeVisible();
-      await expectNoViolations(page, "menú de usuario");
-      await page.keyboard.press("Escape");
-
-      await page.keyboard.press("ControlOrMeta+k");
-      await expect(page.getByRole("dialog", { name: "Paleta de comandos" })).toBeVisible();
-      await expectNoViolations(page, "paleta de comandos");
-      await page.keyboard.press("Escape");
-
-      await page.getByRole("button", { name: "Compactar barra lateral" }).click();
-      await expectNoViolations(page, "barra lateral compacta");
-    });
+    for (const { where, open } of OPEN_STATES) {
+      adminTest(`menús, paneles y paleta abiertos: ${where}`, async ({ page }) => {
+        await page.goto("/app/settings/locations");
+        // Hasta que React hidrata, ni los botones ni el atajo ⌘K responden
+        // (como en sidebar.e2e.ts): un clic temprano se perdería.
+        await expect(mainNav(page)).toHaveAttribute("data-hydrated", "true");
+        await open(page);
+        await expectNoViolations(page, where);
+      });
+    }
   });
 }
 

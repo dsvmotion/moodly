@@ -4,6 +4,9 @@ import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolC
 import { decide } from "../policy.js";
 import type { ConsentChecker, RejectReason, RunScope, SkillSettings } from "../policy.js";
 import type { SkillContext, SkillDefinition, SkillPreview, Target } from "../skill.js";
+import { classifyIntent, modelForIntent } from "./intent.js";
+import type { Classification, Intent } from "./intent.js";
+import { SUMMARY_MARK } from "./summary.js";
 
 // Un turno del agente (MANUAL §5.1, paso 4d): del mensaje del cliente a la
 // respuesta, pasando por el motor de políticas en cada herramienta.
@@ -64,6 +67,8 @@ export interface TurnResult {
   error?: string;
   executions: TurnExecution[];
   usage: { tokensIn: number; tokensOut: number; costEur: number; model: string | null };
+  /** Con el enrutado por intención (PL-T3): qué intención vio y cómo lo decidió. */
+  intent?: { intent: Intent; by: Classification["by"] };
 }
 
 export type Step = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
@@ -78,9 +83,26 @@ function errorNames(error: unknown): string {
 
 export interface TurnParams {
   scope: RunScope;
-  /** Reglas de plataforma, instrucciones del agente y configuración, ya compuestas (§5.3). */
+  /**
+   * La clave del tipo del agente que contesta (agent_types), de su fila en la
+   * base de datos, nunca del LLM: elige con qué modelo conversa (MANUAL §5.11).
+   * Sin ella, o con un tipo sin clave propia, el de la tarea.
+   */
+  agentType?: string;
+  /**
+   * Reglas de plataforma, instrucciones del agente y configuración, ya compuestas
+   * (§5.3). Es el prefijo estable: el transporte lo guarda en caché (PL-T3).
+   */
   systemPrompt: string;
+  /** Lo del sistema que cambia en cada turno (la hora): va después y fuera de la caché. */
+  systemContext?: string;
   history: readonly HistoryMessage[];
+  /**
+   * El resumen de los mensajes anteriores a `history` (PL-T3), si lo hay: entra
+   * antes de la historia, marcado como dato (lo escribió un modelo a partir de
+   * lo que dijo el cliente).
+   */
+  summary?: string | null;
   /** Las skills activas del agente, con la de responder (REPLY_SKILL_KEY). */
   skills: ReadonlyMap<string, SkillDefinition<unknown>>;
   settings: ReadonlyMap<string, SkillSettings>;
@@ -92,6 +114,12 @@ export interface TurnParams {
   record?: (execution: TurnExecution) => Promise<void>;
   maxSteps?: number;
   maxOutputTokens?: number;
+  /**
+   * Enrutado por intención (PL-T3): si está, se clasifica el último mensaje del
+   * cliente y las intenciones simples conversan con el camino barato. Apagado
+   * por defecto (INTENT_ROUTING_DEFAULT_ENABLED de @repo/config).
+   */
+  intentRouting?: boolean;
 }
 
 const DEFAULT_MAX_STEPS = 6;
@@ -131,7 +159,7 @@ function toolResult(execution: TurnExecution): string {
       return JSON.stringify({ status: "rejected", reason: execution.rejectReason });
     default:
       // Pendiente de una persona: el modelo lo dice al cliente sin darlo por hecho.
-      return JSON.stringify({ status: "pending_review", note: "Una persona del equipo lo revisará antes de hacerlo." });
+      return JSON.stringify({ status: "pending_review", note: "A person from the team will review it before it is done: tell the customer, in their language, and never say it is done." });
   }
 }
 
@@ -151,12 +179,31 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     }));
 
   const messages: ModelMessage[] = [
-    { role: "system", content: params.systemPrompt },
+    { role: "system", content: params.systemPrompt, cacheable: true },
+    ...(params.systemContext ? [{ role: "system" as const, content: params.systemContext }] : []),
+    ...(params.summary?.trim() ? [{ role: "user" as const, content: `${SUMMARY_MARK}\n${params.summary.trim()}` }] : []),
     ...params.history.flatMap((message) => {
       const converted = toModelMessage(message);
       return converted ? [converted] : [];
     }),
   ];
+
+  let routed: TurnResult["intent"];
+  let preferredModel: ReturnType<typeof modelForIntent>;
+  const lastCustomer = [...params.history].reverse().find((message) => message.author === "contact");
+  if (params.intentRouting && lastCustomer) {
+    const classification = await step(`intent:${scope.runId}`, () =>
+      classifyIntent({ organizationId: scope.organizationId, runId: scope.runId, message: lastCustomer.content, router, policy, spend: params.spend }),
+    );
+    if (classification.usage) {
+      usage.tokensIn += classification.usage.tokensIn;
+      usage.tokensOut += classification.usage.tokensOut;
+      usage.costEur += classification.usage.costEur;
+    }
+    routed = { intent: classification.intent, by: classification.by };
+    preferredModel = modelForIntent(classification.intent);
+  }
+  const withIntent = <T extends Omit<TurnResult, "intent">>(result: T): TurnResult => (routed ? { ...result, intent: routed } : result);
 
   async function handle(call: ToolCall, stepIndex: number, index: number, final: boolean): Promise<TurnExecution> {
     const idempotencyKey = `${scope.runId}:${stepIndex}:${index}:${call.name}`;
@@ -229,6 +276,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
             organizationId: scope.organizationId,
             runId: scope.runId,
             task: "converse",
+            ...(params.agentType ? { agentType: params.agentType } : {}),
+            ...(preferredModel ? { preferredModel } : {}),
             messages,
             tools,
             maxOutputTokens: params.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
@@ -238,8 +287,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
         ),
       );
     } catch (error) {
-      if (error instanceof BudgetExceededError) return { status: "handed_off", reason: "budget", executions, usage };
-      return { status: "handed_off", reason: "model_failed", error: errorNames(error), executions, usage };
+      if (error instanceof BudgetExceededError) return withIntent({ status: "handed_off", reason: "budget", executions, usage });
+      return withIntent({ status: "handed_off", reason: "model_failed", error: errorNames(error), executions, usage });
     }
     usage.tokensIn += result.tokensIn;
     usage.tokensOut += result.tokensOut;
@@ -249,20 +298,20 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {
       const text = result.text.trim();
-      if (!text) return { status: "handed_off", reason: "empty_reply", executions, usage };
+      if (!text) return withIntent({ status: "handed_off", reason: "empty_reply", executions, usage });
       const reply = await settle({ id: `final:${stepIndex}`, name: REPLY_SKILL_KEY, args: { text } }, stepIndex, 0, true);
       switch (reply.status) {
         case "executed":
-          return { status: "replied", executions, usage };
+          return withIntent({ status: "replied", executions, usage });
         case "drafted":
         case "suggested":
-          return { status: "reply_drafted", executions, usage };
+          return withIntent({ status: "reply_drafted", executions, usage });
         case "needs_approval":
-          return { status: "awaiting_approval", executions, usage };
+          return withIntent({ status: "awaiting_approval", executions, usage });
         case "failed":
-          return { status: "handed_off", reason: "reply_failed", executions, usage };
+          return withIntent({ status: "handed_off", reason: "reply_failed", executions, usage });
         default:
-          return { status: "handed_off", reason: "reply_rejected", executions, usage };
+          return withIntent({ status: "handed_off", reason: "reply_rejected", executions, usage });
       }
     }
 
@@ -277,5 +326,5 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, content: toolResult(execution) });
     }
   }
-  return { status: "handed_off", reason: "max_steps", executions, usage };
+  return withIntent({ status: "handed_off", reason: "max_steps", executions, usage });
 }

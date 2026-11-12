@@ -384,6 +384,31 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"conversation_summaries": {
+                  Row: {
+                    "conversation_id": string,"covered_until": string,"created_at": string,"model": string | null,"organization_id": string,"summary": string,"updated_at": string
+                  }
+                  Insert: {
+                    "conversation_id": string,"covered_until": string,"created_at"?: string,"model"?: string | null,"organization_id": string,"summary": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "conversation_id"?: string,"covered_until"?: string,"created_at"?: string,"model"?: string | null,"organization_id"?: string,"summary"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversation_summaries_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: true
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversation_summaries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"conversations": {
                   Row: {
                     "agent_id": string,"assigned_user_id": string | null,"channel": string,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string
@@ -539,6 +564,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"inbound_events": {
+                  Row: {
+                    "channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
+                  }
+                  Insert: {
+                    "channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
+                  }
+                  Update: {
+                    "channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inbound_events_account_same_org"
+      columns: ["channel_account_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "channel_accounts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "inbound_events_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "inbound_events_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"integration_secrets": {
                   Row: {
                     "ciphertext": string,"created_at": string,"encrypted_data_key": string,"id": string,"key_ref": string,"kind": string,"name": string,"organization_id": string,"rotated_at": string | null
@@ -651,6 +707,61 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"knowledge_requests": {
+                  Row: {
+                    "agent_id": string,"answer": string | null,"answered_at": string | null,"answered_by": string | null,"assigned_role": string,"conversation_id": string | null,"created_at": string,"id": string,"idempotency_key": string | null,"location_id": string | null,"organization_id": string,"question": string,"resulting_source_id": string | null,"run_id": string | null,"status": string,"updated_at": string
+                  }
+                  Insert: {
+                    "agent_id": string,"answer"?: string | null,"answered_at"?: string | null,"answered_by"?: string | null,"assigned_role": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string | null,"location_id"?: string | null,"organization_id": string,"question": string,"resulting_source_id"?: string | null,"run_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "agent_id"?: string,"answer"?: string | null,"answered_at"?: string | null,"answered_by"?: string | null,"assigned_role"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"idempotency_key"?: string | null,"location_id"?: string | null,"organization_id"?: string,"question"?: string,"resulting_source_id"?: string | null,"run_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "knowledge_requests_agent_same_org"
+      columns: ["agent_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_answered_by_fkey"
+      columns: ["answered_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_location_same_org"
+      columns: ["location_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "knowledge_requests_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_run_id_fkey"
+      columns: ["run_id"]
+isOneToOne: false
+      referencedRelation: "agent_runs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "knowledge_requests_source_same_org"
+      columns: ["resulting_source_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "knowledge_sources"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"knowledge_sources": {
                   Row: {
                     "body": string | null,"created_at": string,"created_by": string | null,"id": string,"location_id": string | null,"organization_id": string,"status": string,"storage_path": string | null,"title": string,"type": string,"updated_at": string
@@ -734,13 +845,13 @@ isOneToOne: false
                   ]
                 },"messages": {
                   Row: {
-                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string
+                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"delivery_error": string | null,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string,"status_changed_at": string | null
                   }
                   Insert: {
-                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"delivery_error"?: string | null,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string,"status_changed_at"?: string | null
                   }
                   Update: {
-                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"delivery_error"?: string | null,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string,"status_changed_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -1014,7 +1125,7 @@ isOneToOne: false
 { Args: { "p_email": string,"p_organization_id": string,"p_role": string,"p_scope_location_ids"?: (string)[],"p_scope_region_ids"?: (string)[] }; Returns: string
                            },
 "find_booking_slots":
-{ Args: { "p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
+{ Args: { "p_exclude_appointment"?: string,"p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
               "ends_at": string,"resource_id": string,"starts_at": string
             }[]
                            },

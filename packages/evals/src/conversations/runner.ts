@@ -1,9 +1,10 @@
 import { PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
 import type { Check, Outcome } from "./checks.js";
 import { createWorld } from "./world.js";
-import type { AgentKey, KnowledgeDoc, World } from "./world.js";
+import type { AgentKey, Business, KnowledgeDoc, World } from "./world.js";
 
 // El arnés de las conversaciones de prueba (MANUAL §12.4): cada caso corre un
 // turno de verdad (runAgentTurn con el prompt de composeSystemPrompt y las
@@ -46,7 +47,11 @@ export interface ConversationCase {
   /** Lo que se prueba, en una frase. */
   description: string;
   history: readonly HistoryMessage[];
-  /** Lo que ha escrito el negocio, si no es el de serie (KNOWLEDGE). */
+  /** El resumen continuo de lo anterior a `history` (PL-T3), como lo guardaría el worker. */
+  summary?: string;
+  /** El negocio de prueba (por defecto, el centro de estética AURORA). */
+  business?: Business;
+  /** Lo que ha escrito el negocio, si no es el suyo de serie. */
   knowledge?: readonly KnowledgeDoc[];
   /** Lo que ya existe antes del turno (citas, etc.). */
   setup?: (world: World) => Promise<void>;
@@ -83,20 +88,35 @@ export function scriptedTransport(steps: ScriptStep[]): ModelTransport & { calls
  * Corre un caso. Sin transporte, con su guion (modelo falso). El tope de
  * gasto por run es el de la plataforma (PLATFORM_MODEL_POLICY).
  */
-export async function runCase(testCase: ConversationCase, transport?: ModelTransport): Promise<CaseRun> {
-  const world = createWorld(testCase.agent, testCase.knowledge);
+export interface RunOptions {
+  /** La clave de modelo para conversar, si no es la de cada agente (para comparar modelos). */
+  converseModel?: ModelKey;
+  /** Enrutado por intención (PL-T3): clasifica el mensaje y las intenciones simples conversan con el camino barato. */
+  intentRouting?: boolean;
+}
+
+export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
+  const world = createWorld(testCase.agent, testCase.knowledge, testCase.business);
   await testCase.setup?.(world);
   const appointmentsBefore = snapshotAppointments(world);
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPrompt,
+    systemPrompt: world.systemPromptParts.stable,
+    systemContext: world.systemPromptParts.volatile,
     history: testCase.history,
+    ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
     settings: world.settings,
     router: createModelRouter([model]),
-    policy: PLATFORM_MODEL_POLICY,
+    // El agente del caso elige con qué modelo conversa, como en producción (MANUAL §5.11);
+    // --model lo fija para todos, como haría una organización que elige el suyo.
+    agentType: testCase.agent,
+    policy: options.converseModel
+      ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
+      : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0 },
+    ...(options.intentRouting ? { intentRouting: true } : {}),
   });
   const outcome: Outcome = {
     result,
@@ -131,6 +151,17 @@ export interface Score {
    */
   alwaysFailing: string[];
   ok: boolean;
+}
+
+/**
+ * Si el turno pasó a una persona porque falló la vía del modelo (la red, el
+ * gateway o el tope de gasto de la corrida), el nombre del error; si no, null.
+ * Ese turno no dice nada del agente: no puntúa ni a favor ni en contra, y la
+ * corrida se para (un caso de «no hagas X» pasaría sin que el modelo hablara).
+ */
+export function infrastructureError(run: CaseRun): string | null {
+  const { result } = run.outcome;
+  return result.status === "handed_off" && result.reason === "model_failed" ? (result.error ?? "model_failed") : null;
 }
 
 /** Los casos con al menos un fallo y sin ningún acierto. */

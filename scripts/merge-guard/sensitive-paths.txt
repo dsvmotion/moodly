@@ -1,9 +1,12 @@
 # Zonas sensibles activas (AGENTS.md → "Mergeo autónomo"). Fuente única: la leen
-# scripts/safe-merge.sh y el job de CI "sensitive-paths".
+# scripts/safe-merge.sh y el job de CI "sensitive-paths", que la lee SIEMPRE de la
+# rama base (pull_request_target): un PR no puede cambiarla para sí mismo.
 # Formato: <expresión regular extendida (grep -E) sobre la ruta><TAB><motivo>.
 #
-# VACÍA mientras no haya datos reales de clientes (decisión de producto,
-# 2026-10-22). La lista completa está en sensitive-paths.suspended.txt y se
-# reactiva, al menos para migraciones, RLS, auth, secretos y la propia guarda,
-# antes del primer dato real (docs/STATUS.md). Los tests debilitados (.skip,
-# .only, pgTAP sin plan, tests borrados) siguen bloqueando el merge.
+# VACÍA por decisión de producto (2026-11-11: «sigue sin sensitive-paths, no
+# quiero tener que hacer esto todo el rato»): mientras no haya datos reales de
+# clientes, ningún PR necesita la etiqueta revisado-humano ni una sesión
+# Revisora. La guarda sigue corriendo en cada PR y sigue bloqueando los tests
+# debilitados o borrados. La lista corta de M0 (P-01, 2026-11-10) está en el
+# historial de git (aef3d84); la completa sigue en sensitive-paths.suspended.txt
+# y se reactiva entera antes del primer dato real de un cliente (docs/STATUS.md).

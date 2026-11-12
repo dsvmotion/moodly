@@ -22,7 +22,20 @@ describe("loadConfig", () => {
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
+      intentRouting: false,
+      healthPort: 8080,
     });
+  });
+
+  it("el puerto de salud sale de PORT (Railway) y se valida", () => {
+    expect(loadConfig({ ...valid, PORT: "3001" }).healthPort).toBe(3001);
+    for (const port of ["0", "70000", "abc", "80 80"]) expect(() => loadConfig({ ...valid, PORT: port })).toThrow(WorkerConfigError);
+  });
+
+  it("el enrutado por intención (PL-T3) está apagado salvo que INTENT_ROUTING lo encienda", () => {
+    for (const on of ["on", "true", "1", " ON ", "True"]) expect(loadConfig({ ...valid, INTENT_ROUTING: on }).intentRouting).toBe(true);
+    for (const off of ["off", "false", "0", "", "  "]) expect(loadConfig({ ...valid, INTENT_ROUTING: off }).intentRouting).toBe(false);
+    expect(() => loadConfig({ ...valid, INTENT_ROUTING: "yes" })).toThrow(/INTENT_ROUTING: on\/off, true\/false o 1\/0/);
   });
 
   it("la clave del gateway es opcional; vacía cuenta como ausente", () => {

@@ -8,3 +8,7 @@ export { conversationCases, customerCases, receptionCases } from "./conversation
 export { BEHAVIOR_THRESHOLD, CATEGORIES as CONVERSATION_CATEGORIES, SAFETY_THRESHOLD, runCase, score } from "./conversations/runner.js";
 export type { CaseCategory, CaseRun, ConversationCase, Score, ScriptStep, Severity } from "./conversations/runner.js";
 export type { Check, Outcome } from "./conversations/checks.js";
+export { CASA_LOLA, FISIO_RETIRO, INMOBILIARIA_SOL, SECTOR_BUSINESSES, TALLERES_RUIZ } from "./conversations/businesses.js";
+export { sectorCases } from "./conversations/sectors.js";
+export { AURORA } from "./conversations/world.js";
+export type { Business } from "./conversations/world.js";

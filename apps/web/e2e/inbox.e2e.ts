@@ -18,6 +18,9 @@ const TEST_CHAT = "Prueba interna";
 const HUMAN_A2_ID = "5eed000b-0000-4000-8000-0000000000b2";
 const ORG_WIDE_ID = "5eed000b-0000-4000-8000-0000000000b4";
 const TEST_CHAT_ID = "5eed000b-0000-4000-8000-0000000000b5";
+const REGION_A_NORTE = "5eed0001-0000-4000-8000-0000000000a1";
+const LOC_A2 = "5eed0002-0000-4000-8000-0000000000a2";
+const LOC_A3 = "5eed0002-0000-4000-8000-0000000000a3";
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 async function contacts(page: Page): Promise<string[]> {
@@ -39,6 +42,27 @@ test("el org_admin ve las abiertas de toda la organización, de la más reciente
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
   const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
+});
+
+// El alcance elegido se filtra en la consulta (auditoría de preproducción,
+// M-07). Con una región o un local no sale lo de toda la organización, que no
+// es de ningún local.
+test("el selector de alcance acota la lista a una región o a un local", async ({ page }) => {
+  await signIn(page, "a_org_admin");
+  await page.goto(`/app/inbox?scope=${encodeURIComponent(`region:${REGION_A_NORTE}`)}`);
+  await expect(page.getByTestId("inbox-contact")).toHaveText([OPEN_A1, HUMAN_A2]);
+
+  await page.goto(`/app/inbox?scope=${encodeURIComponent(`location:${LOC_A2}`)}`);
+  await expect(page.getByTestId("inbox-contact")).toHaveText([HUMAN_A2]);
+  // La conversación abierta desde ahí conserva el alcance; la de otro local da 404.
+  await page.getByTestId("inbox-conversation").click();
+  await expect(page).toHaveURL(new RegExp(`/app/inbox/${HUMAN_A2_ID}\\?scope=`));
+  await expect(page.getByTestId("inbox-thread-contact")).toHaveText(HUMAN_A2);
+
+  // Un local sin conversaciones: la lista vacía, no las de otros.
+  await page.goto(`/app/inbox?scope=${encodeURIComponent(`location:${LOC_A3}`)}`);
+  await expect(page.getByTestId("inbox-empty")).toBeVisible();
+  await expect(page.getByTestId("inbox-conversation")).toHaveCount(0);
 });
 
 test("las pestañas separan las que lleva el equipo y las cerradas", async ({ page }) => {

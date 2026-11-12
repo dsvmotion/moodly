@@ -15,6 +15,8 @@ export interface PendingDomainEvent {
 export interface Outbox {
   /** Los pendientes de publicar, los más antiguos primero (entre 1 y 500). */
   pending(limit: number): Promise<PendingDomainEvent[]>;
+  /** Cuándo se creó el pendiente más antiguo, o null si no hay: solo la hora, para vigilar el retraso del publicador. */
+  oldestPendingAt(): Promise<Date | null>;
   /** Marca como publicados los que sigan pendientes; devuelve cuántos ha marcado. */
   markPublished(ids: readonly string[]): Promise<number>;
 }
@@ -41,6 +43,18 @@ export function outbox(client: SupabaseClient<Database>): Outbox {
         .limit(limit);
       if (error) throw new OutboxError(`outbox: no se pudieron leer los pendientes (${error.code})`);
       return data.map((row) => ({ id: row.id, organizationId: row.organization_id, type: row.type }));
+    },
+
+    async oldestPendingAt() {
+      const { data, error } = await client
+        .from("domain_events")
+        .select("created_at")
+        .is("published_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (error) throw new OutboxError(`outbox: no se pudo leer el pendiente más antiguo (${error.code})`);
+      const [oldest] = data;
+      return oldest ? new Date(oldest.created_at) : null;
     },
 
     async markPublished(ids) {

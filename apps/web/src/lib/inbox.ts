@@ -24,6 +24,8 @@ export const DEFAULT_INBOX_FILTER: InboxFilter = "open";
 export const STATUS_PARAM = "status";
 export const SEARCH_PARAM = "q";
 export const SEARCH_MAX_LENGTH = 100;
+/** La página de la lista: lo anterior a esta posición (un cursor, ver `encodeCursor`). */
+export const BEFORE_PARAM = "before";
 /** Cuántos mensajes enseña el hilo: los últimos. */
 export const THREAD_LIMIT = 200;
 
@@ -126,19 +128,88 @@ export function messageSide(author: MessageAuthor): "start" | "end" | "center" {
   return "end";
 }
 
+/**
+ * La posición de una conversación en la lista. La lista va de la más reciente a
+ * la más antigua por su último mensaje; las que no tienen mensajes, al final; y
+ * a igualdad, por creación y por id. Con esos tres datos se pide «lo anterior a
+ * esta fila» sin contar páginas: un mensaje nuevo, que reordena la lista, no
+ * repite ni se salta conversaciones (auditoría de preproducción, M-07).
+ */
+export interface InboxCursor {
+  lastMessageAt: string | null;
+  createdAt: string;
+  id: string;
+}
+
+const CURSOR_SEPARATOR = "~";
+// Lo que devuelve la base de datos para una fecha y para un id. Estrictos: el
+// cursor viene de la URL y acaba dentro de un filtro de la consulta.
+const CURSOR_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function encodeCursor(cursor: InboxCursor): string {
+  return [cursor.lastMessageAt ?? "", cursor.createdAt, cursor.id].join(CURSOR_SEPARATOR);
+}
+
+/** El cursor de `?before=`, o null si falta o no tiene la forma exacta: la lista empieza entonces por el principio. */
+export function parseCursor(value: unknown): InboxCursor | null {
+  const parts = (single(value) ?? "").split(CURSOR_SEPARATOR);
+  if (parts.length !== 3) return null;
+  const [lastMessageAt = "", createdAt = "", id = ""] = parts;
+  if (lastMessageAt !== "" && !CURSOR_TIMESTAMP.test(lastMessageAt)) return null;
+  if (!CURSOR_TIMESTAMP.test(createdAt) || !CURSOR_ID.test(id)) return null;
+  return { lastMessageAt: lastMessageAt === "" ? null : lastMessageAt, createdAt, id };
+}
+
+/**
+ * «Más antiguas que el cursor», como filtro de PostgREST sobre `conversations`
+ * (para `.or()`), en el mismo orden que la lista. Si la del cursor no tiene
+ * mensajes, lo anterior son solo otras sin mensajes (`onlyWithoutMessages`).
+ */
+export function olderThan(cursor: InboxCursor): { onlyWithoutMessages: boolean; or: string } {
+  const created = `"${cursor.createdAt}"`;
+  const tie = `created_at.lt.${created},and(created_at.eq.${created},id.lt.${cursor.id})`;
+  if (cursor.lastMessageAt === null) return { onlyWithoutMessages: true, or: tie };
+  const last = `"${cursor.lastMessageAt}"`;
+  return {
+    onlyWithoutMessages: false,
+    or: `last_message_at.lt.${last},last_message_at.is.null,and(last_message_at.eq.${last},or(${tie}))`,
+  };
+}
+
 export interface InboxQuery {
   filter: InboxFilter;
   search: string;
   /** Valor del selector de alcance (`scopeValue`), o null. */
   scope: string | null;
+  /** La página: el cursor de `?before=` ya validado, o nada si es la primera. */
+  before?: string | null;
 }
 
-/** El enlace a la bandeja o a una conversación, con el filtro, la búsqueda y el alcance de ahora. */
+/** El enlace a la bandeja o a una conversación, con el filtro, la búsqueda, la página y el alcance de ahora. */
 export function inboxHref(query: InboxQuery, conversationId?: string): string {
   const params = new URLSearchParams();
   if (query.filter !== DEFAULT_INBOX_FILTER) params.set(STATUS_PARAM, query.filter);
   if (query.search) params.set(SEARCH_PARAM, query.search);
+  if (query.before) params.set(BEFORE_PARAM, query.before);
   const search = params.toString();
   const path = conversationId ? `/app/inbox/${encodeURIComponent(conversationId)}` : "/app/inbox";
   return withScope(search ? `${path}?${search}` : path, query.scope);
+}
+
+/** Lo más largo que el equipo puede escribir en un mensaje (el mismo tope que la base de datos). */
+export const MESSAGE_MAX_LENGTH = 10_000;
+
+export const INBOX_ACTION_ERRORS = ["invalid", "not_allowed", "failed"] as const;
+export type InboxActionError = (typeof INBOX_ACTION_ERRORS)[number];
+
+/**
+ * Qué decirle a la persona cuando la base de datos rechaza tomar el control,
+ * devolverlo o escribir: sin permiso o en un estado que no lo admite (42501, la
+ * RLS o las guardas), un mensaje vacío (23514) o un fallo nuestro.
+ */
+export function inboxErrorFor(code: string | undefined): InboxActionError {
+  if (code === "42501") return "not_allowed";
+  if (code === "23514") return "invalid";
+  return "failed";
 }

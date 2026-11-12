@@ -16,7 +16,7 @@ import { readLocalSupabase, type LocalSupabase } from "./local-supabase.ts";
 import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
-  SEED_INBOX_ORG,
+  SEED_VOLUME,
   seedApprovals,
   seedCustomAgentTypes,
   seedExtraMemberships,
@@ -96,7 +96,10 @@ async function enrollTotp(local: LocalSupabase, email: string, password: string)
   const enrolled = await client.auth.mfa.enroll({ factorType: "totp", issuer: "Desarrollo local" });
   check("mfa.enroll", enrolled.error);
   if (!enrolled.data) throw new Error(`mfa.enroll no devolvió el factor de ${email}`);
-  const verified = await client.auth.mfa.challengeAndVerify({ factorId: enrolled.data.id, code: totp(enrolled.data.totp.secret) });
+  const verified = await client.auth.mfa.challengeAndVerify({
+    factorId: enrolled.data.id,
+    code: totp(enrolled.data.totp.secret),
+  });
   check("mfa.verify", verified.error);
   // Vacía los fallos del freno de este email (los suyos, como un login con
   // éxito): pasadas de e2e seguidas no deben depender de las anteriores (R-30).
@@ -133,21 +136,35 @@ async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60
   throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
 }
 
-// Rol del worker (migración dbos_worker_role): nace sin login. En local, el
-// seed se lo da con una contraseña que se reutiliza entre ejecuciones, como las
-// claves de servidor, para no invalidar apps/worker/.env.local.
-async function enableWorkerDbLogin(dbUrl: string, password: string): Promise<void> {
+// Roles del worker (migraciones dbos_worker_role y worker_role): nacen sin
+// login. En local, el seed se lo da con una contraseña que se reutiliza entre
+// ejecuciones, como las claves de servidor, para no invalidar
+// apps/worker/.env.local.
+async function enableWorkerDbLogin(dbUrl: string, password: string, role: "dbos_worker" | "moodly_worker" = "dbos_worker"): Promise<void> {
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
   try {
     // ALTER ROLE no admite parámetros: format(%L) entrecomilla la contraseña.
     const { rows } = await client.query<{ stmt: string }>(
-      "select format('alter role dbos_worker with login password %L', $1::text) as stmt",
-      [password],
+      "select format('alter role %I with login password %L', $1::text, $2::text) as stmt",
+      [role, password],
     );
     const stmt = rows[0]?.stmt;
-    if (!stmt) throw new Error("no se pudo preparar el ALTER ROLE de dbos_worker");
+    if (!stmt) throw new Error(`no se pudo preparar el ALTER ROLE de ${role}`);
     await client.query(stmt);
+  } finally {
+    await client.end();
+  }
+}
+
+// Ni la service role borra runs (20261111200000_offboarding_execution_states):
+// el seed, que solo corre contra Supabase local, los limpia con la conexión
+// del dueño. Borrar un run borra en cascada sus ejecuciones y aprobaciones.
+async function deleteAgentRuns(dbUrl: string, column: "id" | "organization_id", values: string[]): Promise<void> {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query(`delete from public.agent_runs where ${column} = any($1::uuid[])`, [values]);
   } finally {
     await client.end();
   }
@@ -164,17 +181,25 @@ async function main(): Promise<void> {
   await waitForServices(apiUrl, secretKey);
   const admin = createClient(apiUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  const orgs = await admin.from("organizations").upsert(
-    seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical, default_locale: o.defaultLocale })),
-  );
+  const orgs = await admin
+    .from("organizations")
+    .upsert(seedOrganizations.map((o) => ({ id: o.id, name: o.name, vertical: o.vertical, default_locale: o.defaultLocale })));
   check("organizations", orgs.error);
-  const regions = await admin.from("regions").upsert(
-    seedRegions.map((r) => ({ id: r.id, organization_id: r.organizationId, name: r.name })),
-  );
+  const regions = await admin
+    .from("regions")
+    .upsert(seedRegions.map((r) => ({ id: r.id, organization_id: r.organizationId, name: r.name })));
   check("regions", regions.error);
-  const locations = await admin.from("locations").upsert(
-    seedLocations.map((l) => ({ id: l.id, organization_id: l.organizationId, region_id: l.regionId, name: l.name })),
-  );
+  const locations = await admin
+    .from("locations")
+    .upsert(
+      seedLocations.map((l) => ({
+        id: l.id,
+        organization_id: l.organizationId,
+        region_id: l.regionId,
+        name: l.name,
+        timezone: l.timezone ?? "Europe/Madrid",
+      })),
+    );
   check("locations", locations.error);
 
   // Agentes propios (ADR 0030). Los de serie los crea la base de datos al dar de
@@ -209,9 +234,16 @@ async function main(): Promise<void> {
   mkdirSync(dirname(serverKeysFile), { recursive: true });
   const workerDbPassword = serverKeys.worker_db_password ?? randomBytes(24).toString("base64url");
   await enableWorkerDbLogin(local.dbUrl, workerDbPassword);
+  // El rol de los datos de las organizaciones bajo RLS (ADR 0049, PL-T1).
+  const workerRlsPassword = serverKeys.worker_rls_password ?? randomBytes(24).toString("base64url");
+  await enableWorkerDbLogin(local.dbUrl, workerRlsPassword, "moodly_worker");
   writeFileSync(
     serverKeysFile,
-    JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword }, null, 2),
+    JSON.stringify(
+      { ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword, worker_rls_password: workerRlsPassword },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
 
@@ -319,11 +351,11 @@ async function main(): Promise<void> {
     .limit(1)
     .single();
   check("agent_skills", bookingAgent.error);
-  const removed = await admin
-    .from("agent_runs")
-    .delete()
-    .in("id", seedApprovals.map((approval) => approval.runId));
-  check("agent_runs", removed.error);
+  await deleteAgentRuns(
+    local.dbUrl,
+    "id",
+    seedApprovals.map((approval) => approval.runId),
+  );
   const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
   for (const approval of seedApprovals) {
     const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
@@ -367,38 +399,59 @@ async function main(): Promise<void> {
     check("approvals", pending.error);
   }
 
-  // La bandeja de conversaciones de Demo A (V2). Las conversaciones se borran y
-  // se vuelven a crear con sus mensajes (que caen en cascada), así que cada
-  // ejecución deja los mismos modos y el mismo orden. Las lleva el mismo agente
-  // que las aprobaciones, sin escribir aquí la clave de ningún agente.
-  const inboxAgentId = bookingAgent.data?.agent_id ?? "";
-  const inboxAgent = await admin.from("agents").select("agent_type_id").eq("id", inboxAgentId).single();
-  check("agents", inboxAgent.error);
-  const inboxAgentType = await admin
-    .from("agent_types")
-    .select("key")
-    .eq("id", inboxAgent.data?.agent_type_id ?? "")
-    .single();
-  check("agent_types", inboxAgentType.error);
-  const inboxAgentKey: string = inboxAgentType.data?.key ?? "";
+  // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
+  // control. Las conversaciones se borran y se vuelven a crear con sus mensajes
+  // (que caen en cascada), así que cada ejecución deja los mismos modos y el
+  // mismo orden. Las lleva, en cada organización, el agente que reserva (el de
+  // las aprobaciones), sin escribir aquí la clave de ningún agente.
+  const inboxAgents = new Map<string, { id: string; key: string }>();
+  for (const organizationId of new Set(seedInboxConversations.map((conversation) => conversation.organizationId))) {
+    const skill = await admin
+      .from("agent_skills")
+      .select("agent_id")
+      .eq("organization_id", organizationId)
+      .eq("skill_id", bookSkill.data?.id ?? "")
+      .limit(1)
+      .single();
+    check("agent_skills", skill.error);
+    const agent = await admin
+      .from("agents")
+      .select("agent_type_id")
+      .eq("id", skill.data?.agent_id ?? "")
+      .single();
+    check("agents", agent.error);
+    const type = await admin
+      .from("agent_types")
+      .select("key")
+      .eq("id", agent.data?.agent_type_id ?? "")
+      .single();
+    check("agent_types", type.error);
+    inboxAgents.set(organizationId, { id: skill.data?.agent_id ?? "", key: type.data?.key ?? "" });
+  }
   const removedConversations = await admin
     .from("conversations")
     .delete()
-    .in("id", seedInboxConversations.map((conversation) => conversation.id));
+    .in(
+      "id",
+      seedInboxConversations.map((conversation) => conversation.id),
+    );
   check("conversations", removedConversations.error);
   const seededAt = Date.now();
   for (const conversation of seedInboxConversations) {
+    const organizationId = conversation.organizationId;
+    const agent = inboxAgents.get(organizationId) ?? { id: "", key: "" };
     // La cuenta del canal: la de pruebas es la misma que crea send_test_message
     // para ese local; las demás, una por canal y local del seed.
     const place = conversation.locationId ?? "org";
-    const externalId = conversation.channel === "test" ? `test:${SEED_INBOX_ORG}:${place}` : `seed:${conversation.channel}:${place}`;
+    const externalId =
+      conversation.channel === "test" ? `test:${organizationId}:${place}` : `seed:${conversation.channel}:${place}`;
     const account = await admin.from("channel_accounts").upsert(
       {
-        organization_id: SEED_INBOX_ORG,
+        organization_id: organizationId,
         location_id: conversation.locationId,
         channel: conversation.channel,
         external_id: externalId,
-        default_agent_type: inboxAgentKey,
+        default_agent_type: agent.key,
         status: "active",
       },
       { onConflict: "channel,external_id", ignoreDuplicates: true },
@@ -414,23 +467,23 @@ async function main(): Promise<void> {
 
     const contact = await admin
       .from("contacts")
-      .upsert({ id: conversation.contactId, organization_id: SEED_INBOX_ORG, display_name: conversation.contactName });
+      .upsert({ id: conversation.contactId, organization_id: organizationId, display_name: conversation.contactName });
     check("contacts", contact.error);
     const created = await admin.from("conversations").insert({
       id: conversation.id,
-      organization_id: SEED_INBOX_ORG,
+      organization_id: organizationId,
       location_id: conversation.locationId,
       contact_id: conversation.contactId,
       channel_account_id: accountRow.data?.id ?? "",
       // La base de datos lo pone igual al de la cuenta (validate_conversation); el tipo lo pide.
       channel: conversation.channel,
-      agent_id: inboxAgentId,
+      agent_id: agent.id,
       mode: conversation.mode,
     });
     check("conversations", created.error);
     const messages = await admin.from("messages").insert(
       conversation.messages.map((message) => ({
-        organization_id: SEED_INBOX_ORG,
+        organization_id: organizationId,
         conversation_id: conversation.id,
         direction: message.author === "contact" ? "in" : "out",
         author: message.author,
@@ -448,7 +501,7 @@ async function main(): Promise<void> {
   const quietEvents = await admin
     .from("domain_events")
     .update({ published_at: new Date().toISOString() })
-    .eq("organization_id", SEED_INBOX_ORG)
+    .in("organization_id", [...inboxAgents.keys()])
     .eq("type", "message.received")
     .is("published_at", null)
     .in(
@@ -456,6 +509,147 @@ async function main(): Promise<void> {
       seedInboxConversations.map((conversation) => conversation.id),
     );
   check("domain_events", quietEvents.error);
+
+  // Volumen de Demo F para los e2e de M-07 (SEED_VOLUME): se borra y se vuelve a
+  // crear todo lo de la organización en cada ejecución.
+  {
+    const org = SEED_VOLUME.organizationId;
+    const skill = await admin
+      .from("agent_skills")
+      .select("agent_id")
+      .eq("organization_id", org)
+      .eq("skill_id", bookSkill.data?.id ?? "")
+      .limit(1)
+      .single();
+    check("agent_skills (F)", skill.error);
+    const agentId = skill.data?.agent_id ?? "";
+    const agent = await admin.from("agents").select("agent_type_id").eq("id", agentId).single();
+    check("agents (F)", agent.error);
+    const type = await admin.from("agent_types").select("key").eq("id", agent.data?.agent_type_id ?? "").single();
+    check("agent_types (F)", type.error);
+
+    check("conversations (F)", (await admin.from("conversations").delete().eq("organization_id", org)).error);
+    await deleteAgentRuns(local.dbUrl, "organization_id", [org]);
+
+    const accounts = new Map<string, string>();
+    for (const location of [SEED_VOLUME.f1, SEED_VOLUME.f2]) {
+      const externalId = `seed:whatsapp:${location}`;
+      const upserted = await admin.from("channel_accounts").upsert(
+        { organization_id: org, location_id: location, channel: "whatsapp", external_id: externalId, default_agent_type: type.data?.key ?? "", status: "active" },
+        { onConflict: "channel,external_id", ignoreDuplicates: true },
+      );
+      check("channel_accounts (F)", upserted.error);
+      const row = await admin.from("channel_accounts").select("id").eq("channel", "whatsapp").eq("external_id", externalId).single();
+      check("channel_accounts (F)", row.error);
+      accounts.set(location, row.data?.id ?? "");
+    }
+
+    const f2 = SEED_VOLUME.f2Conversation;
+    const f1 = Array.from({ length: SEED_VOLUME.openInF1 + SEED_VOLUME.closedInF1 }, (_, i) => ({
+      n: i + 1,
+      ...SEED_VOLUME.f1Conversation(i + 1),
+      open: i < SEED_VOLUME.openInF1,
+    }));
+    const contacts = await admin.from("contacts").upsert([
+      { id: f2.contactId, organization_id: org, display_name: f2.contactName },
+      ...f1.map((c) => ({ id: c.contactId, organization_id: org, display_name: `Contacto F1 ${String(c.n).padStart(3, "0")}` })),
+    ]);
+    check("contacts (F)", contacts.error);
+    const conversations = await admin.from("conversations").insert([
+      { id: f2.id, organization_id: org, location_id: SEED_VOLUME.f2, contact_id: f2.contactId, channel_account_id: accounts.get(SEED_VOLUME.f2) ?? "", channel: "whatsapp", agent_id: agentId, mode: "human" },
+      ...f1.map((c) => ({
+        id: c.id,
+        organization_id: org,
+        location_id: SEED_VOLUME.f1,
+        contact_id: c.contactId,
+        channel_account_id: accounts.get(SEED_VOLUME.f1) ?? "",
+        channel: "whatsapp",
+        agent_id: agentId,
+        mode: c.open ? "agent" : "closed",
+      })),
+    ]);
+    check("conversations (F)", conversations.error);
+    // Solo las abiertas de F1 y la de F2 llevan mensaje; las de F1, más recientes que la de F2.
+    const volumeAt = Date.now();
+    const messages = await admin.from("messages").insert([
+      { organization_id: org, conversation_id: f2.id, direction: "in", author: "contact", content: "Hola desde F2", status: "received", created_at: new Date(volumeAt - 1_000 * 60_000).toISOString() },
+      ...f1
+        .filter((c) => c.open)
+        .map((c) => ({
+          organization_id: org,
+          conversation_id: c.id,
+          direction: "in",
+          author: "contact",
+          content: `Hola desde F1 (${c.n})`,
+          status: "received",
+          created_at: new Date(volumeAt - c.n * 60_000).toISOString(),
+        })),
+    ]);
+    check("messages (F)", messages.error);
+    const quiet = await admin
+      .from("domain_events")
+      .update({ published_at: new Date().toISOString() })
+      .eq("organization_id", org)
+      .eq("type", "message.received")
+      .is("published_at", null);
+    check("domain_events (F)", quiet.error);
+
+    // Aprobaciones: las de F1 en una inserción y la de F2 después, en otra: created_at
+    // lo pone la base de datos y no se puede cambiar (guard_approval).
+    const volumeExpiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
+    const pendingApprovals = async (
+      label: string,
+      items: { key: string; location: string; runId: string; executionId: string; approvalId: string; text: string }[],
+    ) => {
+      const runs = await admin.from("agent_runs").insert(
+        items.map((a) => ({ id: a.runId, organization_id: org, location_id: a.location, agent_id: agentId, trigger: "inbound_message", status: "awaiting_approval" })),
+      );
+      check(`agent_runs (${label})`, runs.error);
+      const executions = await admin.from("executions").insert(
+        items.map((a) => ({
+          id: a.executionId,
+          organization_id: org,
+          location_id: a.location,
+          run_id: a.runId,
+          skill_key: "reply",
+          skill_version: 1,
+          effect_class: "external_message",
+          autonomy_applied: "draft",
+          input: { text: a.text },
+          target: { kind: "none" },
+          input_hash: createHash("sha256").update(`seed:${a.key}`).digest("hex"),
+          preview: { summary: `Responder: «${a.text}»` },
+          status: "drafted",
+          idempotency_key: `seed:${a.key}`,
+        })),
+      );
+      check(`executions (${label})`, executions.error);
+      const approvals = await admin.from("approvals").insert(
+        items.map((a) => ({
+          id: a.approvalId,
+          execution_id: a.executionId,
+          organization_id: org,
+          location_id: a.location,
+          effect_class: "external_message",
+          input_hash: createHash("sha256").update(`seed:${a.key}`).digest("hex"),
+          required_role: "staff",
+          reason: `Responder: «${a.text}»`,
+          expires_at: volumeExpiresAt,
+        })),
+      );
+      check(`approvals (${label})`, approvals.error);
+    };
+    await pendingApprovals(
+      "F1",
+      Array.from({ length: SEED_VOLUME.pendingInF1 }, (_, i) => ({
+        key: `f1_${i + 1}`,
+        location: SEED_VOLUME.f1,
+        ...SEED_VOLUME.f1Approval(i + 1),
+        text: `Mensaje pendiente en F1 (${i + 1})`,
+      })),
+    );
+    await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
+  }
 
   mkdirSync(dirname(credentialsFile), { recursive: true });
   writeFileSync(credentialsFile, JSON.stringify({ generatedAt: new Date().toISOString(), users: credentials }, null, 2), {

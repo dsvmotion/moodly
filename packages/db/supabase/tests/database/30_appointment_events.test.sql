@@ -6,6 +6,10 @@ begin;
 \ir _fixtures/tenants.psql
 select plan(15);
 
+-- Las citas de un agente van en un hueco libre (20261111210000, R-08): el local abre de lunes a viernes.
+update public.locations set timezone = 'Europe/Madrid',
+  opening_hours = '{"mon": ["09:00", "14:00"], "tue": ["09:00", "14:00"], "wed": ["09:00", "14:00"], "thu": ["09:00", "14:00"], "fri": ["09:00", "14:00"]}'
+where id = :loc_a1;
 insert into public.services (organization_id, name, duration_minutes) values (:org_a, 'Láser', 30) returning id as svc \gset
 insert into public.services (organization_id, name, duration_minutes) values (:org_b, 'Corte', 30) returning id as svc_b \gset
 insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_a, :loc_a1, 'Cabina 1', 'room') returning id as cab1 \gset

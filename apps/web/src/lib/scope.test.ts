@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  locationFilter,
   locationsInScope,
   membershipInScope,
   parseScope,
@@ -94,6 +95,28 @@ describe("filtros", () => {
   it("un local sin región: nadie por región", () => {
     const scope = { kind: "location" as const, locationId: "l3" };
     expect([admin, regionManager, managerA1].map((m) => membershipInScope(m, scope, locations))).toEqual([true, false, false]);
+  });
+});
+
+// Auditoría de preproducción, M-07: el alcance elegido va en la consulta, antes
+// del tope de filas. Filtrando después, lo del local elegido que no entra en
+// el tope desaparece de la lista.
+describe("locationFilter", () => {
+  it("con «todo» la consulta no filtra por local: RLS ya deja ver solo lo del alcance de la persona", () => {
+    expect(locationFilter({ kind: "all" }, locations)).toEqual({ kind: "any" });
+  });
+
+  it("con un local, solo las filas de ese local", () => {
+    expect(locationFilter({ kind: "location", locationId: "l3" }, locations)).toEqual({ kind: "only", locationIds: ["l3"] });
+  });
+
+  it("con una región, solo las filas de sus locales", () => {
+    expect(locationFilter({ kind: "region", regionId: "rn" }, locations)).toEqual({ kind: "only", locationIds: ["l2", "l1"] });
+  });
+
+  it("un local o una región que la persona no ve no deja pasar ninguna fila", () => {
+    expect(locationFilter({ kind: "location", locationId: "otro" }, locations)).toEqual({ kind: "only", locationIds: [] });
+    expect(locationFilter({ kind: "region", regionId: "otra" }, locations)).toEqual({ kind: "only", locationIds: [] });
   });
 });
 

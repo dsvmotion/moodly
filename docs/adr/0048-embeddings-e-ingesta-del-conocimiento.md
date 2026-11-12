@@ -54,7 +54,7 @@ Atención al cliente (B20) tiene que contestar con el conocimiento del negocio: 
 ## Consecuencias
 
 - El coste de los embeddings no se cuenta todavía en el gasto por organización ni en los créditos (es del orden de 0,0001 $ por fuente). Llega con el registro de uso (MANUAL §15).
-- Si una fuente queda en `error` o en `pending` sin clave, solo se reindexa cambiando su texto. La pantalla de conocimiento (B20-3) añadirá «volver a indexar».
+- Si una fuente queda en `pending` sin clave, solo se reindexa cambiando su texto. Una en `error` se puede volver a indexar sin cambiarlo: desde la app, el único cambio de estado permitido es de `error` a `pending` (migración `20261110090000_knowledge_reindex`, B20-3), que emite `knowledge_source.pending` otra vez.
 - El texto de las fuentes sale hacia el proveedor de embeddings. Es contenido del negocio, no datos de clientes; la pantalla de conocimiento lo dirá (MANUAL §6.1, «Datos sensibles»).
 - Un cambio de modelo es una reindexación por organización, sin mezclar vectores: cada fila dice con qué modelo se hizo (ADR 0025 §3).
 

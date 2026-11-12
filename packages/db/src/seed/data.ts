@@ -26,6 +26,8 @@ export interface SeedLocation {
   organizationId: string;
   regionId: string | null;
   name: string;
+  /** Zona horaria IANA; sin ella, la de la base de datos (Europe/Madrid). */
+  timezone?: string;
 }
 
 export interface SeedUser {
@@ -79,6 +81,10 @@ const ORG_C = "5eed0000-0000-4000-8000-00000000000c";
 // en las dos (seedExtraMemberships).
 const ORG_D = "5eed0000-0000-4000-8000-00000000000d";
 const ORG_E = "5eed0000-0000-4000-8000-00000000000e";
+// F solo la usan los e2e de volumen de la bandeja y las aprobaciones (M-07): muchas
+// conversaciones y aprobaciones en F1 y una en F2, para probar que el filtro de
+// local va antes del límite. Aparte, para no cambiar las listas exactas de Demo A.
+const ORG_F = "5eed0000-0000-4000-8000-00000000000f";
 const REGION_A_NORTE = "5eed0001-0000-4000-8000-0000000000a1";
 const LOC_A1 = "5eed0002-0000-4000-8000-0000000000a1";
 const LOC_A2 = "5eed0002-0000-4000-8000-0000000000a2";
@@ -87,6 +93,8 @@ const LOC_B1 = "5eed0002-0000-4000-8000-0000000000b1";
 const LOC_C1 = "5eed0002-0000-4000-8000-0000000000c1";
 const LOC_D1 = "5eed0002-0000-4000-8000-0000000000d1";
 const LOC_E1 = "5eed0002-0000-4000-8000-0000000000e1";
+const LOC_F1 = "5eed0002-0000-4000-8000-0000000000f1";
+const LOC_F2 = "5eed0002-0000-4000-8000-0000000000f2";
 
 export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_A, name: "Demo A", vertical: "demo", defaultLocale: "es-ES" },
@@ -94,11 +102,10 @@ export const seedOrganizations: readonly SeedOrganization[] = [
   { id: ORG_C, name: "Demo C", vertical: "demo", defaultLocale: "es-ES" },
   { id: ORG_D, name: "Demo D", vertical: "demo", defaultLocale: "es-ES" },
   { id: ORG_E, name: "Demo E", vertical: "demo", defaultLocale: "en" },
+  { id: ORG_F, name: "Demo F", vertical: "demo", defaultLocale: "es-ES" },
 ];
 
-export const seedRegions: readonly SeedRegion[] = [
-  { id: REGION_A_NORTE, organizationId: ORG_A, name: "A Norte" },
-];
+export const seedRegions: readonly SeedRegion[] = [{ id: REGION_A_NORTE, organizationId: ORG_A, name: "A Norte" }];
 
 export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_A1, organizationId: ORG_A, regionId: REGION_A_NORTE, name: "A1 Norte" },
@@ -108,6 +115,9 @@ export const seedLocations: readonly SeedLocation[] = [
   { id: LOC_C1, organizationId: ORG_C, regionId: null, name: "C1" },
   { id: LOC_D1, organizationId: ORG_D, regionId: null, name: "D1" },
   { id: LOC_E1, organizationId: ORG_E, regionId: null, name: "E1" },
+  { id: LOC_F1, organizationId: ORG_F, regionId: null, name: "F1" },
+  // F2 en Canarias: Demo F tiene locales en dos zonas (e2e de M-08).
+  { id: LOC_F2, organizationId: ORG_F, regionId: null, name: "F2", timezone: "Atlantic/Canary" },
 ];
 
 /**
@@ -188,6 +198,15 @@ export const seedUsers: readonly SeedUser[] = [
     role: "staff",
     scopeRegionIds: [],
     scopeLocationIds: [LOC_D1],
+  },
+  {
+    key: "f_org_admin",
+    email: "admin.f@demo.test",
+    fullName: "Admin F",
+    organizationId: ORG_F,
+    role: "org_admin",
+    scopeRegionIds: [],
+    scopeLocationIds: [],
   },
   {
     key: "c_org_admin",
@@ -309,14 +328,15 @@ export const seedApprovals: readonly SeedApproval[] = [
 /** La organización de las aprobaciones del seed. */
 export const SEED_APPROVALS_ORG = ORG_A;
 
-
 /**
  * La bandeja de conversaciones (`/app/inbox`, V2): conversaciones de Demo A con
  * ids fijos, para que los e2e las abran por su id. Una abierta en A1 que lleva
  * el agente, una en A2 que lleva el equipo (con un aviso del sistema y un
  * mensaje que no se pudo enviar), una cerrada en A1, una de toda la
  * organización (solo la ve el org_admin) y una del chat de pruebas en A1, que
- * la bandeja nunca enseña. Los mensajes van con minutos de antigüedad respecto
+ * la bandeja nunca enseña. Y una en C1 que lleva el agente, solo para los e2e
+ * que toman el control, escriben y la devuelven (en otra organización, para no
+ * cambiar lo que ven los de solo lectura). Los mensajes van con minutos de antigüedad respecto
  * a la ejecución del seed: el orden de la bandeja es el de su último mensaje.
  */
 export type SeedInboxChannel = "whatsapp" | "webchat" | "email" | "test";
@@ -331,6 +351,7 @@ export interface SeedInboxMessage {
 export interface SeedInboxConversation {
   key: string;
   id: string;
+  organizationId: string;
   contactId: string;
   contactName: string;
   locationId: string | null;
@@ -339,13 +360,11 @@ export interface SeedInboxConversation {
   messages: readonly SeedInboxMessage[];
 }
 
-/** La organización de la bandeja del seed. */
-export const SEED_INBOX_ORG = ORG_A;
-
 export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_open",
     id: "5eed000b-0000-4000-8000-0000000000b1",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c1",
     contactName: "Lucía Martín",
     locationId: LOC_A1,
@@ -355,7 +374,8 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
       { author: "contact", content: "Hola, ¿tenéis hueco mañana por la tarde para un tratamiento facial?", minutesAgo: 20 },
       {
         author: "agent",
-        content: "Hola Lucía, soy el asistente de IA del centro. Mañana tengo libre a las 17:00 y a las 18:30. ¿Te viene bien alguna?",
+        content:
+          "Hola Lucía, soy el asistente de IA del centro. Mañana tengo libre a las 17:00 y a las 18:30. ¿Te viene bien alguna?",
         status: "sent",
         minutesAgo: 19,
       },
@@ -365,6 +385,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a2_human",
     id: "5eed000b-0000-4000-8000-0000000000b2",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c2",
     contactName: "Jorge Pérez",
     locationId: LOC_A2,
@@ -372,7 +393,12 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
     mode: "human",
     messages: [
       { author: "contact", content: "Quiero hablar con una persona, por favor.", minutesAgo: 120 },
-      { author: "system", content: "El equipo ha tomado el control. El agente queda en pausa en esta conversación.", status: "sent", minutesAgo: 110 },
+      {
+        author: "system",
+        content: "El equipo ha tomado el control. El agente queda en pausa en esta conversación.",
+        status: "sent",
+        minutesAgo: 110,
+      },
       { author: "user", content: "Hola Jorge, soy del equipo del centro A2. Cuéntame.", status: "sent", minutesAgo: 100 },
       { author: "user", content: "Te he enviado el presupuesto por email.", status: "failed", minutesAgo: 90 },
     ],
@@ -380,6 +406,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_closed",
     id: "5eed000b-0000-4000-8000-0000000000b3",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c3",
     contactName: "Marta Ruiz",
     locationId: LOC_A1,
@@ -390,6 +417,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "org_wide",
     id: "5eed000b-0000-4000-8000-0000000000b4",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c4",
     contactName: "Empresa Sol",
     locationId: null,
@@ -400,6 +428,7 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
   {
     key: "a1_test_chat",
     id: "5eed000b-0000-4000-8000-0000000000b5",
+    organizationId: ORG_A,
     contactId: "5eed000c-0000-4000-8000-0000000000c5",
     contactName: "Prueba interna",
     locationId: LOC_A1,
@@ -407,4 +436,57 @@ export const seedInboxConversations: readonly SeedInboxConversation[] = [
     mode: "agent",
     messages: [{ author: "contact", content: "Mensaje del chat de pruebas", minutesAgo: 1 }],
   },
+  {
+    key: "c1_takeover",
+    id: "5eed000b-0000-4000-8000-0000000000b6",
+    organizationId: ORG_C,
+    contactId: "5eed000c-0000-4000-8000-0000000000c6",
+    contactName: "Sara Gil",
+    locationId: LOC_C1,
+    channel: "webchat",
+    mode: "agent",
+    messages: [
+      { author: "contact", content: "Hola, ¿puedo cambiar mi cita del jueves?", minutesAgo: 30 },
+      {
+        author: "agent",
+        content: "Hola Sara, soy el asistente de IA del centro. Claro, ¿qué día te viene mejor?",
+        status: "sent",
+        minutesAgo: 29,
+      },
+    ],
+  },
 ];
+
+/**
+ * Volumen para los e2e de M-07 (el filtro de local va en la consulta, antes del
+ * límite, en la bandeja y en las aprobaciones). Todo en Demo F, con ids fijos:
+ * - en F1, más de 100 conversaciones abiertas (las lleva el agente) con su último
+ *   mensaje más reciente que el de F2, y más de 100 cerradas sin mensajes;
+ * - en F2, una conversación que lleva el equipo, con un contacto de nombre fijo;
+ * - en F1, más de 200 aprobaciones pendientes, y en F2 una, que se crea después
+ *   (otra inserción): es la más reciente.
+ */
+const volumeId = (prefix: string, n: number) => `${prefix}-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
+
+export const SEED_VOLUME = {
+  organizationId: ORG_F,
+  userKey: "f_org_admin",
+  f1: LOC_F1,
+  f2: LOC_F2,
+  openInF1: 105,
+  closedInF1: 105,
+  pendingInF1: 205,
+  f2Conversation: { id: volumeId("5eed00f1", 0), contactId: volumeId("5eed00f2", 0), contactName: "Contacto de F2" },
+  f2Approval: {
+    runId: volumeId("5eed00f3", 0),
+    executionId: volumeId("5eed00f4", 0),
+    approvalId: volumeId("5eed00f5", 0),
+    text: "Mensaje pendiente en F2",
+    reason: "Responder: «Mensaje pendiente en F2»",
+  },
+  /** La conversación n de F1 (n empieza en 1): las abiertas primero, después las cerradas. */
+  f1Conversation: (n: number) => ({ id: volumeId("5eed00f1", n), contactId: volumeId("5eed00f2", n) }),
+  /** La aprobación n de F1 (n empieza en 1). */
+  f1Approval: (n: number) => ({ runId: volumeId("5eed00f3", n), executionId: volumeId("5eed00f4", n), approvalId: volumeId("5eed00f5", n) }),
+} as const;
+

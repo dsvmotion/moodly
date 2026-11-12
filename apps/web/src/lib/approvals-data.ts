@@ -1,11 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
-import { locationsInScope, type Scope } from "@/lib/scope";
+import { locationFilter, type Scope } from "@/lib/scope";
 import type { ScopeContext } from "@/lib/scope-data";
 
 // Lo que el agente dejó esperando a una persona (paso 4d-3d, MANUAL §5.7). Se
 // lee con la sesión: RLS (approvals_select) solo deja ver las de los locales
 // del alcance de cada persona, y las de toda la organización a un org_admin.
-// Aquí solo se filtra por el alcance elegido en el selector.
+// Aquí solo se filtra por el alcance elegido en el selector, en la consulta: la
+// lista tiene tope y lo que se filtrase después dejaría fuera filas (auditoría
+// de preproducción, M-07).
+
+/** Cuántas pendientes enseña la lista: las más antiguas. Al decidirlas entran las siguientes. */
+export const APPROVALS_LIMIT = 200;
 
 export interface ApprovalRow {
   id: string;
@@ -18,25 +23,38 @@ export interface ApprovalRow {
   expiresAt: string;
 }
 
-export async function loadPendingApprovals(scope: Scope, context: ScopeContext): Promise<ApprovalRow[]> {
+export interface PendingApprovals {
+  rows: ApprovalRow[];
+  /** Hay más pendientes que las que se muestran. */
+  truncated: boolean;
+  /** Cuántas hay en total en el alcance, también las que no caben en la lista (M-02). */
+  total: number;
+}
+
+export async function loadPendingApprovals(scope: Scope, context: ScopeContext): Promise<PendingApprovals> {
   const organization = context.organization;
-  if (!organization) return [];
+  if (!organization) return { rows: [], truncated: false, total: 0 };
+  const locations = locationFilter(scope, context.locations);
+  if (locations.kind === "only" && locations.locationIds.length === 0) return { rows: [], truncated: false, total: 0 };
+
   const supabase = await createClient();
-  const { data, error } = await supabase
+  // Una fila de más: si llega, hay más pendientes de las que se muestran.
+  let query = supabase
     .from("approvals")
-    .select("id, reason, effect_class, location_id, created_at, expires_at, execution:executions(skill_key)")
+    .select("id, reason, effect_class, location_id, created_at, expires_at, execution:executions(skill_key)", { count: "exact" })
     .eq("organization_id", organization.id)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: true })
-    .limit(200);
+    .order("id", { ascending: true })
+    .limit(APPROVALS_LIMIT + 1);
+  if (locations.kind === "only") query = query.in("location_id", locations.locationIds);
+  const { data, error, count } = await query;
   if (error) throw new Error("No se pudieron cargar las aprobaciones", { cause: error });
 
-  const inScope = new Set(locationsInScope(scope, context.locations).map((location) => location.id));
   const names = new Map(context.locations.map((location) => [location.id, location.name]));
-  return data
-    .filter((row) => (row.location_id === null ? scope.kind === "all" : inScope.has(row.location_id)))
-    .map((row) => ({
+  return {
+    rows: data.slice(0, APPROVALS_LIMIT).map((row) => ({
       id: row.id,
       summary: row.reason ?? "",
       skillKey: row.execution?.skill_key ?? "",
@@ -44,5 +62,8 @@ export async function loadPendingApprovals(scope: Scope, context: ScopeContext):
       location: row.location_id ? (names.get(row.location_id) ?? null) : null,
       createdAt: row.created_at,
       expiresAt: row.expires_at,
-    }));
+    })),
+    truncated: data.length > APPROVALS_LIMIT,
+    total: count ?? data.length,
+  };
 }

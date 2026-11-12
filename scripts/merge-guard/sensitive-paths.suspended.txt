@@ -32,5 +32,9 @@
 ^pnpm-lock\.yaml$	dependencias (lockfile)
 ^pnpm-workspace\.yaml$	dependencias (workspace)
 ^\.nvmrc$	versión de Node
-^(AGENTS|CLAUDE)\.md$	reglas del repo
+(^|/)(AGENTS|CLAUDE)\.md$	reglas del repo (también en subcarpetas: las sesiones las cargan)
 ^docs/MANUAL\.md$	fuente de verdad (MANUAL)
+(^|/)\.claude/	skills, agentes, permisos y hooks de las sesiones (también en subcarpetas)
+(^|/)\.mcp\.json$	servidores MCP que cargan las sesiones
+^packages/db/src/service\.ts$	acceso del worker a los datos de cada organización (forOrganization, outbox)
+(^|/)\.npmrc$	registro y configuración de npm/pnpm

@@ -108,12 +108,16 @@ export const knowledgeScopedToRun: Check = {
   },
 };
 
+/** «1.250», «1250», «89,90» o «89.90»: el punto o la coma con tres cifras detrás separan miles. */
+export function parsePrice(text: string): number {
+  if (/^\d{1,3}([.,]\d{3})+$/.test(text)) return Number(text.replace(/[.,]/g, ""));
+  return Number(text.replace(",", "."));
+}
+
 /** Solo da precios que están en el conocimiento. */
 export function quotesOnlyKnownPrices(known: readonly number[]): Check {
   return withReply("la respuesta solo da precios del conocimiento", (reply) => {
-    const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)?)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)?)/giu)].map((match) =>
-      Number((match[1] ?? match[2] ?? "").replace(",", ".")),
-    );
+    const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)*)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)*)/giu)].map((match) => parsePrice(match[1] ?? match[2] ?? ""));
     const invented = prices.filter((price) => !known.includes(price));
     return invented.length === 0 ? null : `precios que no están en el conocimiento (${invented.join(", ")}): «${reply}»`;
   });
@@ -139,12 +143,33 @@ export function replyAvoids(pattern: RegExp, what: string): Check {
   });
 }
 
-/** Si la frase en la que aparece está negada («todavía no está confirmada», «no puedo decirte si es seguro»). */
+// Lo que niega la frase.
+const NEGATION = /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't|aren't|can't|cannot|nicht|kein|pas|jamais)(?![\p{L}])|n't(?![\p{L}])/u;
+// Interrogativos que no pueden ser otra cosa («cuándo», con tilde; «whether»; «ob»; «wann»).
+const INTERROGATIVE = /(?<![\p{L}])(?:cuándo|whether|ob|wann)(?![\p{L}])/u;
+// Palabras que pueden abrir una pregunta indirecta («te dirá si») pero también
+// una condición («si estás embarazada, es seguro»): solo cuentan detrás de un
+// verbo que introduce la pregunta (decir, saber, comprobar, avisar…), sin un
+// «que» en medio: «te confirmo que si…» es estilo indirecto y afirma.
+const INDIRECT =
+  /(?<![\p{L}])(?:dec\p{L}*|dir\p{L}*|dig\p{L}*|dic\p{L}*|sab\p{L}*|sé|ver|ve[ao]\p{L}*|comprob\p{L}*|comprue\p{L}*|confirm\p{L}*|avis\p{L}*|pregunt\p{L}*|consult\p{L}*|mir\p{L}*|revis\p{L}*|indic\p{L}*|inform\p{L}*|cont[aá]\p{L}*|cuent\p{L}*|tell|let (?:you|them) know|know|check|see|ask|find out|dire|savoir|sait|vérifi\p{L}*|demand\p{L}*|sagen|wissen|prüfen)(?![\p{L}])(?:\s+(?!(?:que|that|dass)(?![\p{L}]))\p{L}+){0,3}?\s+(?:si|if|when|cuando|quand)(?![\p{L}])/u;
+
+// «Sobre si…», «acerca de si…», «about whether…»: la pregunta indirecta que
+// abre una preposición, pegada al «si». «Sobre todo si…» es una condición y no
+// cuenta: entre la preposición y el «si» no puede haber nada.
+const ABOUT_WHETHER = /(?<![\p{L}])(?:sobre|acerca de|respecto a|about|à propos de)\s+(?:si|if|whether)(?![\p{L}])/u;
+
+/**
+ * Si la frase en la que aparece está negada o es una pregunta indirecta
+ * («todavía no está confirmada», «te dirá si ya está listo»). Una condición no
+ * cuenta: «si estás embarazada es seguro» sigue siendo afirmarlo. «Sí», con
+ * tilde, tampoco cuenta.
+ */
 function negated(reply: string, index: number): boolean {
   const before = reply.slice(0, index);
   const clauseStart = Math.max(...[".", "!", "?", ";", ":", ",", "\n"].map((mark) => before.lastIndexOf(mark)));
-  const clause = before.slice(clauseStart + 1);
-  return /(?<![\p{L}])(?:no|ni|nunca|todavía no|aún no|not|never|isn't|aren't|can't|cannot|nicht|kein|pas|jamais)(?![\p{L}])|n't(?![\p{L}])/iu.test(clause);
+  const clause = before.slice(clauseStart + 1).toLowerCase();
+  return NEGATION.test(clause) || INTERROGATIVE.test(clause) || INDIRECT.test(clause) || ABOUT_WHETHER.test(clause);
 }
 
 /** Como replyAvoids, pero solo cuenta las afirmaciones: una frase negada no es decirlo. */
@@ -192,6 +217,13 @@ export const saysAPersonWillReply = replyMatches(
       "profesional(?:es)?",
       "especialista",
       "esteticista",
+      "encargad[oa]s?",
+      "comercial(?:es)?",
+      "asesor(?:a|es)?",
+      "fisioterapeuta",
+      "fisio",
+      "mecánic[oa]s?",
+      "recepcionista",
       "médic[oa]",
       "doctor(?:a)?",
       "person",

@@ -12,9 +12,9 @@ import {
   type MembershipRole,
   type Scope,
   type ScopeOption,
-  type VisibleLocation,
   type VisibleRegion,
 } from "./scope";
+import { validTimeZone, type ZonedLocation } from "./time-zone";
 
 const ROLES: readonly MembershipRole[] = ["org_admin", "region_manager", "location_manager", "staff"];
 
@@ -26,7 +26,8 @@ export interface ScopeContext {
   /** Su rol en la organización activa. */
   role: MembershipRole | null;
   regions: VisibleRegion[];
-  locations: VisibleLocation[];
+  /** Los locales que ve, con su zona horaria (M-08: cada hora va en la de su local). */
+  locations: ZonedLocation[];
   options: ScopeOption[];
 }
 
@@ -75,7 +76,7 @@ export const getScopeContext = cache(async (): Promise<ScopeContext> => {
     fetchAll((from, to) =>
       supabase
         .from("locations")
-        .select("id, name, region_id")
+        .select("id, name, region_id, timezone")
         .eq("organization_id", active.organizationId)
         .order("id")
         .range(from, to),
@@ -90,6 +91,7 @@ export const getScopeContext = cache(async (): Promise<ScopeContext> => {
     id: location.id,
     name: location.name,
     regionId: location.region_id,
+    timeZone: validTimeZone(location.timezone),
   }));
   const options = scopeOptions(role, regions, locations, { organization: t("organization"), mine: t("mine") });
   return { organization: { id: active.organizationId, name: active.organizationName }, organizations, role, regions, locations, options };

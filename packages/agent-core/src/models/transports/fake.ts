@@ -11,8 +11,8 @@ export interface FakeTransportOptions {
   connection?: ConnectionMode;
   serves?: readonly ModelKey[];
   estimateEur?: number;
-  /** Lo que responde; si lanza, el transporte «falla». */
-  respond?: (request: TransportRequest) => TransportResponse;
+  /** Lo que responde (también más tarde, con una promesa); si lanza o la promesa falla, el transporte «falla». */
+  respond?: (request: TransportRequest) => TransportResponse | Promise<TransportResponse>;
 }
 
 export interface FakeTransport extends ModelTransport {

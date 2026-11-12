@@ -2,6 +2,21 @@
   "common": {
     "loading": "Cargando…"
   },
+  "states": {
+    "notFound": {
+      "title": "No encontrado",
+      "heading": "Esta página no existe o no está disponible para ti",
+      "description": "Puede que el enlace esté mal, o que sea de un local o una organización a la que no tienes acceso.",
+      "home": "Ir al inicio"
+    },
+    "error": {
+      "title": "Algo ha fallado",
+      "heading": "Esta página no se ha podido cargar",
+      "description": "El fallo es nuestro, no tuyo. Inténtalo de nuevo; si sigue fallando, da a soporte la referencia de abajo.",
+      "retry": "Reintentar",
+      "reference": "Referencia: {digest}"
+    }
+  },
   "login": {
     "title": "Entrar en {brand}",
     "description": "Con el email y la contraseña de tu cuenta.",
@@ -74,6 +89,10 @@
       "admin": "Administración"
     }
   },
+  "navCounts": {
+    "approvals": "{count, plural, one {# aprobación pendiente} other {# aprobaciones pendientes}}",
+    "inbox": "{count, plural, one {# conversación la lleva el equipo} other {# conversaciones las lleva el equipo}}"
+  },
   "sidebarEmpty": {
     "savedViews": "Aún no hay vistas guardadas.",
     "favorites": "Aún no hay favoritos.",
@@ -95,7 +114,12 @@
     "locations": "{count, plural, =0 {Ninguna sede en tu alcance} one {# sede en tu alcance} other {# sedes en tu alcance}}",
     "locationsAction": "Ver sedes",
     "inbox": "Bandeja del día",
-    "inboxEmpty": "Aún no hay nada en la bandeja"
+    "inboxEmpty": "Aún no hay nada en la bandeja",
+    "needsYou": {
+      "approvals": "{count, plural, one {# aprobación espera tu decisión} other {# aprobaciones esperan tu decisión}}",
+      "humanConversations": "{count, plural, one {# conversación la lleva el equipo} other {# conversaciones las lleva el equipo}}"
+    },
+    "needsYouAction": "Ver"
   },
   "sections": {
     "home": {
@@ -392,6 +416,7 @@
     "description": "Lo que el agente propone y espera a una persona. Aprobar envía la respuesta o hace la reserva; rechazar no hace nada.",
     "emptyTitle": "Nada pendiente",
     "empty": "Cuando el agente deje una respuesta o una cita en borrador, aparecerá aquí.",
+    "truncated": "Se muestran las {count} más antiguas. Al decidirlas aparecen las siguientes.",
     "approve": "Aprobar",
     "reject": "Rechazar",
     "wholeOrganization": "Toda la organización",
@@ -411,7 +436,8 @@
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
       "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
-    }
+    },
+    "count": "{count, plural, one {# pendiente} other {# pendientes}}"
   },
   "inboxPage": {
     "title": "Bandeja",
@@ -424,6 +450,8 @@
     },
     "searchLabel": "Buscar conversaciones",
     "searchPlaceholder": "Buscar por nombre del cliente",
+    "older": "Ver conversaciones anteriores",
+    "newest": "Volver a las más recientes",
     "search": "Buscar",
     "emptyTitle": {
       "open": "No hay conversaciones abiertas",
@@ -469,6 +497,21 @@
       "email": "Email",
       "webchat": "Chat web",
       "voice": "Teléfono"
+    },
+    "takeOver": "Tomar el control",
+    "takeOverTitle": "¿Tomar el control de esta conversación?",
+    "takeOverDescription": "El agente dejará de responder a {name} hasta que se la devuelvas. Escribirás tú. El cambio queda registrado.",
+    "takeOverConfirm": "Sí, tomo el control",
+    "cancel": "Cancelar",
+    "giveBack": "Devolver al agente",
+    "composerLabel": "Mensaje para {name}",
+    "composerPlaceholder": "Escribe a {name}…",
+    "send": "Enviar",
+    "composerHint": "Esta conversación la lleva el agente. Toma el control para escribir tú: el agente queda en pausa hasta que se la devuelvas.",
+    "errors": {
+      "invalid": "Escribe un mensaje antes de enviarlo.",
+      "not_allowed": "No puedes hacerlo aquí: la conversación no es de tu alcance, alguien ya cambió quién la lleva o está cerrada.",
+      "failed": "No ha funcionado. Inténtalo de nuevo."
     }
   },
   "testChat": {
@@ -500,6 +543,145 @@
       "paused": "El agente está en pausa: no se puede probar.",
       "too_many": "Has enviado muchos mensajes de prueba en la última hora. Espera un poco.",
       "failed": "No se pudo enviar. Vuelve a intentarlo."
+    }
+  },
+  "knowledgePage": {
+    "title": "Conocimiento",
+    "description": "Lo que tus agentes saben de tu negocio. A los clientes solo les contestan con lo que está escrito aquí.",
+    "privacy": "Escribe información del negocio (preguntas y respuestas, precios, políticas), nunca datos de clientes ni de pacientes: el texto se envía al proveedor que lo indexa.",
+    "mfaRequired": "Para añadir o cambiar fuentes necesitas la verificación en dos pasos.",
+    "mfaLink": "Actívala en Seguridad",
+    "emptyTitle": "Todavía no hay conocimiento",
+    "empty": "Añade tus preguntas frecuentes, tus precios y tus políticas para que los agentes contesten con ellos.",
+    "emptyReadOnly": "Cuando un administrador añada preguntas frecuentes, precios o políticas, aparecerán aquí.",
+    "add": "Añadir fuente",
+    "newTitle": "Nueva fuente",
+    "newDescription": "Los agentes la usarán cuando esté indexada, en unos segundos.",
+    "fields": {
+      "type": "Tipo",
+      "appliesTo": "Se aplica a",
+      "title": "Título",
+      "body": "Texto",
+      "status": "Estado",
+      "updated": "Actualizada"
+    },
+    "bodyHelp": "Hasta 20.000 caracteres. Separa cada tema con una línea en blanco.",
+    "wholeOrganization": "Toda la organización",
+    "types": {
+      "faq": "Preguntas frecuentes",
+      "pricing": "Precios",
+      "policy": "Política",
+      "catalog": "Catálogo",
+      "document": "Documento",
+      "website": "Web",
+      "human_answer": "Respuesta del equipo"
+    },
+    "status": {
+      "pending": "Por indexar",
+      "processing": "Indexando",
+      "ready": "Lista",
+      "error": "Sin indexar"
+    },
+    "statusHelp": {
+      "pending": "Se indexará en unos segundos. Hasta entonces, los agentes no la usan.",
+      "processing": "Se está indexando. Los agentes la usarán en unos segundos.",
+      "ready": "Los agentes la usan para contestar.",
+      "error": "No se pudo indexar, así que los agentes no la usan. Pasa si falla el proveedor que la indexa o si tu política de modelos no lo permite (por ejemplo, «Solo UE»). Cambia el texto para volver a intentarlo."
+    },
+    "create": "Añadir",
+    "save": "Guardar",
+    "saved": "Guardado.",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "delete": "Borrar",
+    "deleteTitle": "¿Borrar esta fuente?",
+    "deleteDescription": "Los agentes dejarán de usarla. No se puede deshacer.",
+    "errors": {
+      "invalid": "Revisa los campos: el título puede tener hasta 200 caracteres y el texto hasta 20.000.",
+      "not_allowed": "No puedes cambiar el conocimiento de esta organización."
+    }
+  },
+  "goalsPage": {
+    "title": "Objetivos",
+    "description": "Lo que quieres conseguir, medido y con fecha. Los agentes lo tendrán en cuenta para priorizar y el coach revisará cómo vas.",
+    "mfaRequired": "Para crear o cambiar objetivos necesitas la verificación en dos pasos.",
+    "mfaLink": "Actívala en Seguridad",
+    "emptyTitle": "Todavía no hay objetivos",
+    "empty": "Define qué quieres conseguir: citas al mes, leads cualificados, tiempo de respuesta…",
+    "emptyReadOnly": "Cuando alguien que los gestiona defina objetivos para tu alcance, aparecerán aquí.",
+    "add": "Nuevo objetivo",
+    "newTitle": "Nuevo objetivo",
+    "newDescription": "Elige dónde se aplica, qué mide y a qué valor quieres llegar.",
+    "wholeOrganization": "Toda la organización",
+    "fields": {
+      "title": "Título",
+      "appliesTo": "Se aplica a",
+      "metric": "Métrica",
+      "direction": "Se cumple con",
+      "target": "Meta",
+      "period": "Periodo",
+      "dueDate": "Fecha límite",
+      "startsOn": "Empieza",
+      "status": "Estado"
+    },
+    "metrics": {
+      "appointmentsBooked": "Citas reservadas",
+      "leadsQualified": "Leads cualificados",
+      "resolvedAutonomously": "Conversaciones resueltas sin una persona (%)",
+      "firstReplyMinutes": "Tiempo hasta la primera respuesta",
+      "outstandingInvoices": "Facturación pendiente de cobro"
+    },
+    "otherMetric": "Otra: {key}",
+    "directions": {
+      "at_least": "Al menos",
+      "at_most": "Como mucho"
+    },
+    "targetLabel": {
+      "count": "Valor",
+      "percent": "Valor (%)",
+      "minutes": "Valor (minutos)",
+      "eur": "Valor (€)"
+    },
+    "units": {
+      "count": "{value}",
+      "percent": "{value} %",
+      "minutes": "{value} min",
+      "eur": "{value} €"
+    },
+    "periods": {
+      "week": "Cada semana",
+      "month": "Cada mes",
+      "quarter": "Cada trimestre",
+      "year": "Cada año",
+      "once": "Una vez, con fecha límite"
+    },
+    "periodSuffix": {
+      "week": "a la semana",
+      "month": "al mes",
+      "quarter": "al trimestre",
+      "year": "al año",
+      "once": "antes del {date}"
+    },
+    "statuses": {
+      "active": "Activo",
+      "paused": "En pausa",
+      "achieved": "Conseguido",
+      "missed": "No conseguido",
+      "archived": "Archivado"
+    },
+    "progressHelp": "El progreso se medirá con los datos de tus agentes y de tus integraciones. Todavía no hay mediciones.",
+    "readOnly": "Solo puede cambiarlo quien gestiona su alcance.",
+    "create": "Crear",
+    "save": "Guardar",
+    "saved": "Guardado.",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "delete": "Borrar",
+    "deleteTitle": "¿Borrar este objetivo?",
+    "deleteDescription": "Se borra con sus mediciones. Si solo quieres dejar de seguirlo, cámbialo a «Archivado». No se puede deshacer.",
+    "errors": {
+      "invalid": "Revisa los campos: el título puede tener hasta 200 caracteres, el valor es un número (un porcentaje, hasta 100) y la fecha límite no puede ser anterior al inicio.",
+      "not_allowed": "No puedes gestionar objetivos en ese alcance."
     }
   }
 }

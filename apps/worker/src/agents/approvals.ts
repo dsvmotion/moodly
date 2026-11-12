@@ -3,6 +3,7 @@ import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Targe
 import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { isNotAgentMode } from "./conversation-sender.ts";
 
 // Las aprobaciones del agente (paso 4d-3d, ADR 0047 §3, MANUAL §5.7).
 //
@@ -14,11 +15,17 @@ import type { DomainEvent, EventContext, EventHandler } from "../events/handlers
 //   ejecuta exactamente lo que se aprobó, con su clave de idempotencia: un
 //   reintento no envía ni reserva dos veces. Si algo no cuadra, no se ejecuta.
 // - Si se rechazó, no se ejecuta nada.
+// - Un mensaje del agente aprobado con la conversación ya en manos de una
+//   persona no sale (R-02): lo rechaza la base de datos al guardarlo, y la
+//   ejecución queda como fallida, retenida (output.held).
 
 export const APPROVAL_HANDLER_KEY = "agent.approval";
 
 /** Cuánto espera una aprobación: un día, lo que dura la ventana de atención de WhatsApp (producto, 2026-11-03). */
 export const APPROVAL_TTL_MS = 24 * 3_600_000;
+
+/** Por qué un mensaje del agente no salió: la conversación ya la lleva una persona (R-02). */
+export const HELD_NOT_AGENT_MODE = "conversation_not_agent_mode";
 
 /** Las que esperan a una persona: nacen con su aprobación. */
 export const AWAITING_PERSON = new Set(["drafted", "suggested", "needs_approval"]);
@@ -192,8 +199,16 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
         await ctx.step("settle:executed", () => settleExecution(ctx.db, execution.id, "executed", output));
         ctx.logger.info({ approvalId, executionId, skillKey: execution.skill_key }, "aprobada y ejecutada");
       } catch (error) {
-        await ctx.step("settle:failed", () => settleExecution(ctx.db, execution.id, "failed"));
-        ctx.logger.warn({ approvalId, executionId, skillKey: execution.skill_key, error: (error as Error).name }, "aprobada, pero no se pudo ejecutar");
+        if (isNotAgentMode(error)) {
+          await ctx.step("settle:held", () => settleExecution(ctx.db, execution.id, "failed", { held: HELD_NOT_AGENT_MODE }));
+          ctx.logger.info(
+            { approvalId, executionId, skillKey: execution.skill_key, reason: HELD_NOT_AGENT_MODE },
+            "aprobada, pero la conversación la lleva una persona: el mensaje del agente no sale",
+          );
+        } else {
+          await ctx.step("settle:failed", () => settleExecution(ctx.db, execution.id, "failed"));
+          ctx.logger.warn({ approvalId, executionId, skillKey: execution.skill_key, error: (error as Error).name }, "aprobada, pero no se pudo ejecutar");
+        }
       }
       await ctx.step("run:settle", () => settleRun(ctx.db, execution.run_id));
     },
