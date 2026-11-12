@@ -12,7 +12,7 @@ import { withContact } from "@/components/contact";
 // enseña. Mismo índice en los cuatro idiomas (si no, falla la compilación).
 const UNITS = {
   certs: ["SE02", "SE12", "SE12", null],
-  foundations: ["SE02", null, "SE13"],
+  foundations: ["SE02", null, "SE13", "PL-T4"],
   deploy: ["PL-prod", "PL-cells", "PL-cells", null],
   arch: ["PL-T1", "SE05", "OA02", "PL-T5", "PL-T9", "SE04"],
   model: ["PL-T6", "OA24", "OA24"],
@@ -23,7 +23,7 @@ for (const [lang, c] of Object.entries(COPY)) for (const [f, u] of Object.entrie
 }
 const withUnits = (list, units) => list.map((x, i) => [x, units[i]]).filter(([, u]) => u !== null);
 
-const FOUND_COLORS = [["#004c39", "#ffffff"], ["#ffffff", "#000000"], ["#9dbecc", "#000000"]];
+const FOUND_COLORS = [["#004c39", "#ffffff"], ["#ffffff", "#000000"], ["#9dbecc", "#000000"], ["#f6f2e8", "#000000"]];
 
 export default function Seguridad() {
   const lang = useLang();
