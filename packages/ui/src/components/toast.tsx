@@ -18,8 +18,10 @@ const variantAccent: Record<ToastVariant, string> = {
  * Pila de toasts. Se monta una vez cerca de la raíz de la app. Lee el store con
  * useSyncExternalStore; se escribe con `toast(...)`. Sobre Toast de Radix: se
  * cierra solo a los 5 s, se puede descartar y es accesible (región aria-live).
+ * Los textos llegan traducidos de la app: `label` nombra la región de avisos
+ * (Radix añade el atajo, F8) y `closeLabel` el botón de cerrar.
  */
-export function Toaster() {
+export function Toaster({ label = "Avisos ({hotkey})", closeLabel = "Cerrar" }: { label?: string; closeLabel?: string } = {}) {
   const toasts = useSyncExternalStore(subscribeToasts, getToasts, getToasts);
   return (
     <ToastPrimitive.Provider swipeDirection="right" duration={5000}>
@@ -47,14 +49,14 @@ export function Toaster() {
             ) : null}
           </div>
           <ToastPrimitive.Close
-            aria-label="Cerrar"
+            aria-label={closeLabel}
             className="text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4"
           >
             <XIcon />
           </ToastPrimitive.Close>
         </ToastPrimitive.Root>
       ))}
-      <ToastPrimitive.Viewport className="fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 outline-none sm:max-w-sm" />
+      <ToastPrimitive.Viewport label={label} className="fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 outline-none sm:max-w-sm" />
     </ToastPrimitive.Provider>
   );
 }
