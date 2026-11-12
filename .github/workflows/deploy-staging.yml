@@ -49,16 +49,17 @@ env:
   VERCEL_TEAM_ID: team_GntqBZyHYlk3Dei89qjxRwhK
 
 jobs:
-  # P-04: el CI de main corre en paralelo (una corrida por commit), así que un
-  # commit viejo puede terminar después de uno nuevo y desplegar hacia atrás
-  # (`db push` falla o `config push` revierte staging). Regla (scripts/deploy/
-  # should-deploy.sh, con sus tests): se despliega el commit de esta corrida salvo
-  # que un commit más nuevo de main ya tenga el CI en verde; entonces lo despliega
-  # la corrida de ese commit, que incluye este. Así main puede moverse más deprisa
-  # que el CI y el último commit en verde siempre se despliega. El grupo de
-  # concurrencia de arriba impide que dos despliegues se solapen.
+  # P-04: el CI de main corre en paralelo (una corrida por commit) y main puede
+  # moverse más deprisa que el CI. Regla (scripts/deploy/should-deploy.sh, con sus
+  # tests): esta corrida despliega el commit más nuevo de main con el CI en verde
+  # que sea el suyo o posterior, y `sha` es ese commit (migraciones y código usan
+  # `sha`, no el de la corrida). Las corridas van en serie (grupo de concurrencia de
+  # arriba) y cada una resuelve el más nuevo en verde de ahora, que solo crece:
+  # staging nunca retrocede, ni siquiera si GitHub cancela una corrida pendiente.
+  # Si no se puede saber con certeza, no se despliega (y un workflow_dispatch
+  # desde main despliega la cabeza).
   fresh:
-    name: staging · ¿sigue siendo el commit a desplegar?
+    name: staging · ¿qué commit se despliega?
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -72,6 +73,7 @@ jobs:
       actions: read
     outputs:
       current: ${{ steps.head.outputs.current }}
+      sha: ${{ steps.head.outputs.sha }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -84,14 +86,16 @@ jobs:
           sparse-checkout: scripts/deploy
       - id: head
         run: |
-          # Si no se puede saber, no se despliega: es lo seguro (se puede relanzar a mano).
           result=$(bash scripts/deploy/should-deploy.sh "$DEPLOY_SHA")
-          if [ "$result" = "true" ]; then
-            echo "current=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Despliegue de $DEPLOY_SHA omitido: ${result#false }"
-          fi
+          case "$result" in
+            "deploy "*)
+              echo "current=true" >> "$GITHUB_OUTPUT"
+              echo "sha=${result#deploy }" >> "$GITHUB_OUTPUT"
+              echo "Se despliega ${result#deploy } (la corrida es de $DEPLOY_SHA)" ;;
+            *)
+              echo "current=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Despliegue de $DEPLOY_SHA omitido: ${result#skip }" ;;
+          esac
 
   migrations:
     name: staging · migraciones
@@ -116,7 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.fresh.outputs.sha }}
 
       # Misma versión que en local y en el CI.
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
@@ -174,12 +178,12 @@ jobs:
   # falla o se salta, este job no corre.
   code:
     name: staging · código (web y worker)
-    needs: migrations
+    needs: [fresh, migrations]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
     env:
-      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_SHA: ${{ needs.fresh.outputs.sha }}
     steps:
       # El commit exacto, como el worker: un deploy hook despliega la cabeza de main
       # en el momento del POST, que puede ser otro commit con otro esquema.
