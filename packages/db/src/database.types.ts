@@ -384,6 +384,31 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"conversation_summaries": {
+                  Row: {
+                    "conversation_id": string,"covered_until": string,"created_at": string,"model": string | null,"organization_id": string,"summary": string,"updated_at": string
+                  }
+                  Insert: {
+                    "conversation_id": string,"covered_until": string,"created_at"?: string,"model"?: string | null,"organization_id": string,"summary": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "conversation_id"?: string,"covered_until"?: string,"created_at"?: string,"model"?: string | null,"organization_id"?: string,"summary"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversation_summaries_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: true
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "conversation_summaries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"conversations": {
                   Row: {
                     "agent_id": string,"assigned_user_id": string | null,"channel": string,"channel_account_id": string,"contact_id": string,"created_at": string,"id": string,"last_message_at": string | null,"location_id": string | null,"mode": string,"organization_id": string,"updated_at": string
@@ -536,6 +561,37 @@ isOneToOne: false
       columns: ["owner_user_id"]
 isOneToOne: false
       referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"inbound_events": {
+                  Row: {
+                    "channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
+                  }
+                  Insert: {
+                    "channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
+                  }
+                  Update: {
+                    "channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inbound_events_account_same_org"
+      columns: ["channel_account_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "channel_accounts"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "inbound_events_conversation_same_org"
+      columns: ["conversation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "inbound_events_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
       referencedColumns: ["id"]
     }
                   ]
@@ -789,13 +845,13 @@ isOneToOne: false
                   ]
                 },"messages": {
                   Row: {
-                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string
+                    "attachments": NonNullable<Json>,"author": string,"author_user_id": string | null,"content": string,"conversation_id": string,"created_at": string,"delivery_error": string | null,"direction": string,"external_message_id": string | null,"id": string,"idempotency_key": string | null,"organization_id": string,"status": string,"status_changed_at": string | null
                   }
                   Insert: {
-                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author": string,"author_user_id"?: string | null,"content": string,"conversation_id": string,"created_at"?: string,"delivery_error"?: string | null,"direction": string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id": string,"status"?: string,"status_changed_at"?: string | null
                   }
                   Update: {
-                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string
+                    "attachments"?: NonNullable<Json>,"author"?: string,"author_user_id"?: string | null,"content"?: string,"conversation_id"?: string,"created_at"?: string,"delivery_error"?: string | null,"direction"?: string,"external_message_id"?: string | null,"id"?: string,"idempotency_key"?: string | null,"organization_id"?: string,"status"?: string,"status_changed_at"?: string | null
                   }
                   Relationships: [
                     {

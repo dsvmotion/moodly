@@ -20,7 +20,7 @@ describe("vías de modelo del worker", () => {
   it("de verdad es el transporte del gateway: gestionado, sin garantía de UE y con los modelos capaces", async () => {
     const models = createWorkerModels({ aiGatewayApiKey: "clave-de-prueba-larga" });
     expect(models.transports).toEqual([
-      expect.objectContaining({ provider: "vercel-ai-gateway", via: "gateway", connection: "managed", region: "other", serves: ["fast", "smart"] }),
+      expect.objectContaining({ provider: "vercel-ai-gateway", via: "gateway", connection: "managed", region: "other", serves: ["fast", "balanced", "smart"] }),
     ]);
     // Con «Solo UE» no lo usa: falla antes de llamar, sin red.
     await expect(models.router.generate(call, { ...PLATFORM_MODEL_POLICY, residency: "eu" }, spend)).rejects.toThrow(NoEligibleTransportError);

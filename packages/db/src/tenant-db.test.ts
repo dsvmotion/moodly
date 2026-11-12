@@ -100,10 +100,14 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification)", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification) y la transacción bajo RLS", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
-    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "approvalNotification", "findBookingSlots", "from", "organizationId", "searchKnowledge"]);
+    expect(Object.keys(db).sort()).toEqual(["agentTurnContext", "approvalNotification", "findBookingSlots", "from", "organizationId", "searchKnowledge", "transaction"]);
+  });
+
+  it("sin WORKER_DATABASE_URL no hay transacciones bajo RLS (no cae al acceso sin RLS)", async () => {
+    await expect(db.transaction(async () => "nunca")).rejects.toThrow(/WORKER_DATABASE_URL/);
   });
 });
 
