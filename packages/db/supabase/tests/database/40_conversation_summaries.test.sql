@@ -137,11 +137,14 @@ select is(
   'ALL | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))'
     || ' | (organization_id = ( SELECT private.worker_organization_id() AS worker_organization_id))',
   'la política del worker filtra por la organización de la transacción, al leer y al escribir');
+-- Desde 20261112150000 (3c-3) el worker también guarda el resumen: crea la fila
+-- y pone al día su texto (las columnas exactas y los casos, en 49); nunca la borra.
 select ok(has_table_privilege('moodly_worker', 'public.conversation_summaries', 'select')
-          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'insert')
-          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'update')
-          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'delete'),
-  'el worker solo lee la tabla (el turno carga el resumen, 20261112110000); escribir llega con el módulo que lo use');
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'delete')
+          and not has_table_privilege('moodly_worker', 'public.conversation_summaries', 'truncate')
+          and not has_column_privilege('moodly_worker', 'public.conversation_summaries', 'organization_id', 'update')
+          and not has_column_privilege('moodly_worker', 'public.conversation_summaries', 'conversation_id', 'update'),
+  'el worker lee y guarda el resumen (20261112110000, 20261112150000), sin borrarlo ni cambiar de quién es');
 -- Con un privilegio solo dentro del test, la política deja ver lo de su organización y nada más.
 grant select on public.conversation_summaries to moodly_worker;
 grant moodly_worker to postgres with set true;

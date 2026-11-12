@@ -115,13 +115,22 @@ export async function summarizeStep(params: RefreshParams): Promise<SummaryStep>
 /** Guarda el resumen nuevo: una fila por conversación, de la organización de ctx.db. Devuelve el error, sin lanzar. */
 export async function saveSummary(db: TenantDb, conversationId: string, step: Extract<SummaryStep, { kind: "updated" }>): Promise<string | null> {
   try {
-    const values = { summary: step.summary, covered_until: step.coveredUntil, model: step.usage.model };
-    const updated = await db.from("conversation_summaries").update(values).eq("conversation_id", conversationId).select("conversation_id");
-    if (updated.error) throw new Error(`no se pudo guardar el resumen (${updated.error.code})`);
-    if ((updated.data ?? []).length > 0) return null;
-    const inserted = await db.from("conversation_summaries").insert({ conversation_id: conversationId, ...values });
-    // 23505: otro turno lo creó entre medias; se queda el suyo, el siguiente lo pone al día.
-    if (inserted.error && inserted.error.code !== "23505") throw new Error(`no se pudo guardar el resumen (${inserted.error.code})`);
+    // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): poner al día la
+    // fila de la conversación o, si no hay, crearla, en una transacción.
+    await db.transaction(async (sql) => {
+      const updated = await sql.query(
+        `update public.conversation_summaries set summary = $2, covered_until = $3, model = $4
+         where conversation_id = $1 returning conversation_id`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model],
+      );
+      if (updated.length > 0) return;
+      // on conflict: otro turno la creó entre medias; se queda la suya, el siguiente la pone al día.
+      await sql.query(
+        `insert into public.conversation_summaries (conversation_id, organization_id, summary, covered_until, model)
+         values ($1, $5, $2, $3, $4) on conflict do nothing`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model, db.organizationId],
+      );
+    });
     return null;
   } catch (error) {
     return errorName(error);

@@ -78,7 +78,8 @@ describe("resumen continuo en el worker: fallos de la base de datos", () => {
     const rows = Array.from({ length: 8 }, (_, i) => ({ author: i % 2 === 0 ? "contact" : "agent", content: `m${i}`, created_at: `2030-06-03T09:0${i}:00Z` }));
     const db = fakeDb((table, ops) => {
       if (table === "messages") return { data: rows, error: null };
-      if (table === "conversation_summaries" && ops.includes("update")) return { data: [], error: null };
+      // La fila no existía: el update no toca nada y toca crearla (PL-T1 3c-3, por SQL).
+      if (table === "sql" && /^\s*update public\.conversation_summaries/.test(ops[0] ?? "")) return { data: [], error: null };
       return { data: null, error: null };
     });
     const transport = createFakeTransport({
@@ -106,7 +107,11 @@ describe("resumen continuo en el worker: fallos de la base de datos", () => {
     expect(transport.calls[0]?.modelKey).toBe("fast");
     if (step.kind !== "updated") return;
     expect(await saveSummary(db, "conv-1", step)).toBeNull();
-    expect(db.calls.filter((call) => call.table === "conversation_summaries").map((call) => call.ops[0])).toEqual(["update", "insert"]);
+    expect(
+      db.calls
+        .filter((call) => call.table === "sql" && /conversation_summaries/.test(call.ops[0] ?? ""))
+        .map((call) => /^\s*(\w+)/.exec(call.ops[0] ?? "")?.[1]),
+    ).toEqual(["update", "insert"]);
     expect(await bookSummaryUsage(db, "run-1", { tokensIn: 110, tokensOut: 22, costEur: 0.011 })).toBeNull();
   });
 });

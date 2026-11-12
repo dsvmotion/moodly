@@ -180,11 +180,6 @@ type Prepared =
       now: string;
     };
 
-function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
-  if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
-  return result.data;
-}
-
 // Las lecturas del turno van por SQL bajo RLS, con el rol moodly_worker (ADR
 // 0049, PL-T1): la organización la fija forOrganization y Postgres no deja ver
 // filas de otra aunque una consulta se olvide de filtrar. El resumen en una
@@ -512,27 +507,29 @@ export function finalRunStatus(result: TurnResult, heldAny: boolean, stillAwaiti
 }
 
 async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult, heldAny: boolean): Promise<void> {
-  let stillAwaiting = false;
-  if (heldAny) {
-    const pending = check(
-      await db.from("executions").select("id").eq("run_id", runId).in("status", [...AWAITING_PERSON]).limit(1),
-      "lo que queda del run",
-    );
-    stillAwaiting = (pending ?? []).length > 0;
-  }
-  const status = finalRunStatus(result, heldAny, stillAwaiting);
-  if (status === "handed_off") {
-    // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
-    // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
-    // una persona. Si el paso se repite, no cambia nada (solo de agent a human).
-    const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
-    if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
-  }
-  // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
-  // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
-  // fuera de «running», solo suben (guard_worker_agent_run): el uso se apunta igual.
-  await db.transaction((sql) =>
-    sql.query(
+  // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): lo que queda del
+  // run, el paso a una persona y el cierre del run, en una transacción.
+  await db.transaction(async (sql) => {
+    let stillAwaiting = false;
+    if (heldAny) {
+      const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+        runId,
+        [...AWAITING_PERSON],
+      ]);
+      stillAwaiting = pending.length > 0;
+    }
+    const status = finalRunStatus(result, heldAny, stillAwaiting);
+    if (status === "handed_off") {
+      // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
+      // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
+      // una persona. Si el paso se repite, no cambia nada (solo de agent a human;
+      // guard_worker_conversation no deja otra cosa).
+      await sql.query("update public.conversations set mode = 'human' where id = $1 and mode = 'agent'", [conversationId]);
+    }
+    // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
+    // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
+    // fuera de «running», solo suben (guard_worker_agent_run): el uso se apunta igual.
+    await sql.query(
       `update public.agent_runs
        set status = case when status = 'running' then $2 else status end,
            model = case when status = 'running' then $3 else model end,
@@ -541,8 +538,8 @@ async function finishRun(db: TenantDb, runId: string, conversationId: string, re
            cost_eur = case when status = 'running' then $6 else greatest(cost_eur, $6) end
        where id = $1`,
       [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
-    ),
-  );
+    );
+  });
 }
 
 /** Lo que decidió el motor para la reserva al aceptar una oferta. Serializable: es el resultado de un paso. */
