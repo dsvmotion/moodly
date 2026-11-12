@@ -1,23 +1,27 @@
 "use client";
 import { useState } from "react";
+import { FORM_TEXT, mailtoContact, withContact } from "./contact";
+import { useLang } from "./use-lang";
 
-// Formulario de demo. TODO(backend): enviar el email a un endpoint de leads
-// (p. ej. una tabla `leads` en Supabase o el CRM). De momento solo valida y confirma.
+// Formulario de demo. Sin endpoint de leads todavía (llega en M1): un email válido abre
+// el programa de correo con la petición escrita y la web lo dice (N-02, ver contact.js).
 export default function DemoForm({ placeholder = "Tu email de trabajo", button = "Pedir demo", id = "demo-email" }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const t = FORM_TEXT[useLang()] || FORM_TEXT.es;
 
   const submit = (e) => {
     e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Escribe un email válido."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError(t.invalidEmail); return; }
     setError(""); setSent(true);
+    window.location.href = mailtoContact(t.demoSubject, t.demoBody + email);
   };
 
   if (sent) {
     return (
-      <div role="status" style={{ width: "100%", maxWidth: "512px", minHeight: "54px", boxSizing: "border-box", borderRadius: "800px", background: "#dcebdd", color: "#004c39", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", padding: "12px 20px", fontSize: "15px", lineHeight: "21px" }}>
-        ✓ Gracias. Te escribimos a {email} en menos de 24 h.
+      <div role="status" data-form-status="opened-mail" style={{ width: "100%", maxWidth: "512px", minHeight: "54px", boxSizing: "border-box", borderRadius: "16px", background: "#e8edff", color: "#1d3a9e", display: "flex", alignItems: "center", padding: "12px 20px", fontSize: "14px", lineHeight: "21px", textAlign: "left" }}>
+        {withContact(t.opened)}
       </div>
     );
   }
