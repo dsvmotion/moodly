@@ -5,7 +5,7 @@
 -- enrutador; y el tope del mes lo gestiona el org_admin con aal2.
 begin;
 \ir _fixtures/tenants.psql
-select plan(34);
+select plan(39);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -144,6 +144,29 @@ reset role;
 select is(
   (select metadata -> 'changed' from public.audit_logs where action = 'model_settings.update' and organization_id = :org_a order by at desc, id desc limit 1),
   '{"budget_per_month_eur": 400.0000}'::jsonb, 'el cambio queda en audit_logs');
+
+-- ===========================================================================
+-- 5. La migración con organizaciones que ya tenían un tope del día alto
+-- ===========================================================================
+select is(private.default_month_budget(5), 300::numeric, 'con un tope del día bajo, el del mes es 300 €');
+select is(private.default_month_budget(500), 15500::numeric, 'con 500 €/día, 31 días: 15.500 €');
+-- Como estaba antes de la migración: una política de B con 500 €/día (y el
+-- tope del mes recién añadido con su valor por defecto, sin la comprobación).
+alter table public.org_model_settings drop constraint org_model_settings_budget_month_order;
+insert into public.org_model_settings (organization_id, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur)
+values (:org_b, 1, 500, 300);
+select lives_ok($$
+  update public.org_model_settings
+    set budget_per_month_eur = private.default_month_budget(budget_per_day_eur)
+    where budget_per_month_eur < private.default_month_budget(budget_per_day_eur);
+  alter table public.org_model_settings
+    add constraint org_model_settings_budget_month_order check (budget_per_day_eur <= budget_per_month_eur);
+$$, 'los pasos de la migración no fallan con una organización de 500 €/día');
+select is((select budget_per_month_eur from public.org_model_settings where organization_id = :org_b), 15500.0000::numeric,
+  'y su tope del mes pasa a 31 días del de su día');
+select is(
+  (select metadata -> 'changed' from public.audit_logs where action = 'model_settings.update' and organization_id = :org_b and actor_type = 'system' order by at desc, id desc limit 1),
+  '{"budget_per_month_eur": 15500.0000}'::jsonb, 'el cambio de la plataforma queda en audit_logs');
 
 select * from finish();
 rollback;

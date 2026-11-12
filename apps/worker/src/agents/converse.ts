@@ -10,6 +10,7 @@ import type {
   SkillSettings,
   Target,
   TurnExecution,
+  TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
 import type { Json } from "@repo/db";
@@ -352,14 +353,13 @@ async function recordExecution(
 }
 
 /**
- * Cada llamada al modelo del turno, al libro de consumo (PL-ledger). Si el paso
- * se repite, no se anota dos veces: run, orden y hora de la llamada son únicos
- * (23505: ya estaban, se insertan todas o ninguna).
+ * Una llamada al modelo, al libro de consumo (PL-ledger), en su propio paso
+ * justo después de hacerla. Si el paso se repite, no se anota dos veces: run,
+ * orden y hora de la llamada son únicos (23505: ya estaba).
  */
-async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, result: TurnResult): Promise<void> {
-  if (result.usage.calls.length === 0) return;
+async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
   const { error } = await db.from("usage_records").insert(
-    result.usage.calls.map((call) => ({
+    {
       location_id: conversation.location_id,
       run_id: runId,
       agent_id: conversation.agent_id,
@@ -376,13 +376,12 @@ async function recordUsage(db: TenantDb, runId: string, conversation: Conversati
       model_key: call.modelKey,
       call_index: call.index,
       occurred_at: call.startedAt,
-    })),
+    },
   );
   if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
 }
 
 async function finishRun(db: TenantDb, runId: string, conversation: Conversation, result: TurnResult): Promise<void> {
-  await recordUsage(db, runId, conversation, result);
   const conversationId = conversation.id;
   const status = runStatusFor(result);
   if (status === "handed_off") {
@@ -568,6 +567,7 @@ export function createConverseHandler({ router, knowledge }: ConverseOptions): E
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
         step: (name, fn) => ctx.step(name, fn),
+        recordModelCall: (call) => ctx.step(`usage:${call.index}`, () => recordUsage(ctx.db, runId, conversation, call)),
         record: async (execution) => {
           if (execution.status === "rejected") {
             ctx.logger.warn({ runId, skillKey: execution.skillKey, reason: execution.rejectReason }, "el motor de políticas rechazó una herramienta");

@@ -27,6 +27,10 @@
 -- redefine para anotar también el tope del mes. No escribe en ninguna tabla de
 -- tenant nueva. Tests en 41_usage_records.
 --
+-- Las organizaciones que ya tienen política toman como tope del mes 300 € o 31
+-- días de su tope del día, lo que sea mayor (private.default_month_budget):
+-- así la comprobación «día <= mes» no rompe la migración.
+--
 -- Particiones: de noviembre de 2026 a diciembre de 2027, más una por defecto
 -- para lo que caiga fuera. private.create_usage_records_partition(mes) crea la
 -- de un mes (idempotente); antes de enero de 2028 hay que crear las siguientes
@@ -38,6 +42,7 @@
 --   drop table public.usage_records cascade;  -- con sus particiones
 --   drop function private.create_usage_records_partition(date);
 --   drop function private.validate_usage_record();
+--   drop function private.default_month_budget(numeric);
 --   alter table public.org_model_settings drop column budget_per_month_eur;
 --   (y volver a crear private.audit_org_model_settings y los grants de
 --   org_model_settings como en 20261030120000)
@@ -201,10 +206,26 @@ grant execute on function public.usage_spend(uuid, timestamptz, timestamptz) to 
 -- ---------------------------------------------------------------------------
 -- 5. El tope del mes
 -- ---------------------------------------------------------------------------
+-- El tope del mes por defecto para un tope del día: 300 €, o 31 días del tope
+-- del día si es mayor (una organización con 500 €/día no puede quedarse con un
+-- tope del mes de 300). Lo usa la migración para las filas que ya existen.
+create function private.default_month_budget(p_day_eur numeric)
+returns numeric
+language sql
+immutable
+set search_path = ''
+as $$
+  select least(greatest(300::numeric, p_day_eur * 31), 1000000::numeric);
+$$;
+revoke all on function private.default_month_budget(numeric) from public, anon, authenticated, service_role;
+
+-- Primero la columna con su valor por defecto; al final de la migración (con la
+-- auditoría ya al día), las filas que ya existen pasan a su tope según su día,
+-- y solo entonces entra la comprobación de orden.
 alter table public.org_model_settings
   add column budget_per_month_eur numeric(12, 4) not null default 300
-    check (budget_per_month_eur > 0 and budget_per_month_eur <= 1000000),
-  add constraint org_model_settings_budget_month_order check (budget_per_day_eur <= budget_per_month_eur);
+    check (budget_per_month_eur > 0 and budget_per_month_eur <= 1000000);
+
 
 grant insert (budget_per_month_eur) on public.org_model_settings to authenticated;
 grant update (budget_per_month_eur) on public.org_model_settings to authenticated;
@@ -246,3 +267,13 @@ begin
   return null;
 end;
 $$;
+
+-- Las organizaciones que ya tenían política: su tope del mes según su día. Lo
+-- cambia la plataforma (queda en audit_logs como «system»). Después, la
+-- comprobación «día <= mes».
+update public.org_model_settings
+  set budget_per_month_eur = private.default_month_budget(budget_per_day_eur)
+  where budget_per_month_eur < private.default_month_budget(budget_per_day_eur);
+
+alter table public.org_model_settings
+  add constraint org_model_settings_budget_month_order check (budget_per_day_eur <= budget_per_month_eur);

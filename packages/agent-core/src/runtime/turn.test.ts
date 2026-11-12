@@ -412,6 +412,19 @@ describe("límites del turno", () => {
     expect(result.usage.calls.reduce((sum, c) => sum + c.tokensIn + c.tokensOut, 0)).toBe(result.usage.tokensIn + result.usage.tokensOut);
   });
 
+  it("anota cada llamada en cuanto la hace: si el turno falla después, lo que costó ya está anotado", async () => {
+    const recorded: number[] = [];
+    const transport = scripted([
+      () => tools({ id: "c", name: "find_slots", args: { service_id: "laser", from: "x" } }),
+      () => {
+        throw new Error("503");
+      },
+    ]);
+    const result = await runAgentTurn(params(transport, { recordModelCall: async (call) => void recorded.push(call.index) }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "model_failed" });
+    expect(recorded).toEqual([0]);
+  });
+
   it("si el modelo falla, pasa a una persona", async () => {
     const transport = scripted([
       () => {

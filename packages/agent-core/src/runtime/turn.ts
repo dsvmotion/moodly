@@ -126,6 +126,11 @@ export interface TurnParams {
   consent?: ConsentChecker;
   step?: Step;
   record?: (execution: TurnExecution) => Promise<void>;
+  /**
+   * Cada llamada al modelo, justo después de hacerla (el libro de consumo,
+   * PL-ledger): si algo falla más tarde en el turno, lo que costó ya está anotado.
+   */
+  recordModelCall?: (call: TurnModelCall) => Promise<void>;
   maxSteps?: number;
   maxOutputTokens?: number;
 }
@@ -299,6 +304,9 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
       costEur: result.costEur,
       startedAt: result.startedAt,
     });
+    // El último anotado es el de esta llamada (index = stepIndex).
+    const recorded = usage.calls.at(-1);
+    if (recorded) await params.recordModelCall?.(recorded);
 
     const calls = result.toolCalls ?? [];
     if (calls.length === 0) {
