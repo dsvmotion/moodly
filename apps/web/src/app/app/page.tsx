@@ -37,7 +37,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const [agents, needsYouCounts] = await Promise.all([
     getOrgAgents(context.organization?.id ?? null),
     // Lo que espera a la persona en el alcance elegido (M-02).
-    loadNeedsYouCounts(context.organization?.id ?? null, locationFilter(scope, context.locations)),
+    loadNeedsYouCounts(context.organization?.id ?? null, context.role, locationFilter(scope, context.locations)),
   ]);
   const needsYou = needsYouItems(needsYouCounts, scopeParam);
 
