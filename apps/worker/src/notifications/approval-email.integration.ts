@@ -185,7 +185,7 @@ async function createApproval(org: string, location: string, requiredRole: strin
   const { rows: executions } = await admin.query<{ id: string }>(
     `insert into public.executions (run_id, organization_id, location_id, skill_key, skill_version, effect_class,
        autonomy_applied, input, target, input_hash, status, idempotency_key)
-     values ($1, $2, $3, 'reply', 1, 'external_message', 'execute', '{}', '{"kind":"none"}', $4, 'needs_approval', $5) returning id`,
+     values ($1, $2, $3, 'reply', 1, 'external_message', 'draft', '{}', '{"kind":"none"}', $4, 'needs_approval', $5) returning id`,
     [runs[0]?.id, org, location, hash, `${marker}-${randomUUID()}`],
   );
   const { rows: approvals } = await admin.query<{ id: string }>(

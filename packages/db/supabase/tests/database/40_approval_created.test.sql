@@ -24,7 +24,7 @@ values ('f0000000-0000-4000-8000-000000000006', :org_a, :loc_a1, :'agent_a', 'st
 insert into public.executions (id, run_id, organization_id, location_id, skill_key, skill_version, effect_class,
                                autonomy_applied, input, target, input_hash, status, idempotency_key)
 select ('f1000000-0000-4000-8000-00000000000' || n)::uuid, ('f0000000-0000-4000-8000-00000000000' || r)::uuid,
-       org, loc, 'reply', 1, effect, 'execute', '{}', '{"kind":"none"}', :hash, 'needs_approval', 'ac-' || n
+       org, loc, 'reply', 1, effect, 'draft', '{}', '{"kind":"none"}', :hash, 'needs_approval', 'ac-' || n
 from (values
   (1, 1, :org_a::uuid, :loc_a1::uuid, 'external_message'),   -- A1, lo decide el staff
   (2, 1, :org_a::uuid, :loc_a1::uuid, 'external_outreach'),  -- A1, lo decide quien dirige el local
