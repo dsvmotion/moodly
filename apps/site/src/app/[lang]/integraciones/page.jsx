@@ -5,7 +5,7 @@ import SiteFooter from "@/components/site-footer";
 import DemoForm from "@/components/demo-form";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
-import { availability, AvailabilityBadge } from "@/components/availability";
+import { availability, AvailabilityBadge, ConnectNote } from "@/components/availability";
 
 // Logos: Simple Icons (CC0) e Iconify (svg-logos, vscode-icons, devicon), en /public/logos.
 // Las marcas pertenecen a sus dueños; se usan solo para indicar compatibilidad.
@@ -212,6 +212,7 @@ export default function Integraciones() {
                     <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                       <span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{name}</span>
                       <AvailabilityBadge id={unitId(logo)} lang={lang} />
+                      <ConnectNote id={unitId(logo)} lang={lang} />
                       <span style={{ fontSize: "14px", lineHeight: "20px", color: "#5f5f63" }}>{useText(name, use)}</span>
                     </span>
                   </div>

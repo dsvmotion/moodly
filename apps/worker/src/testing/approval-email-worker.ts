@@ -1,5 +1,6 @@
 // Proceso de prueba para notifications/approval-email.integration.ts: el worker
-// real con el consumidor notify.approval_email y el cliente de Resend de
+// real con los consumidores notify.approval_email y notify.budget_email (el
+// aviso del tope mensual) y el cliente de Resend de
 // verdad, que envía a un servidor falso (FAKE_RESEND_URL) en vez de a Resend.
 //
 //   FAKE_RESEND_URL=http://127.0.0.1:<puerto> RESEND_API_KEY=re_… WEB_APP_URL=… node approval-email-worker.ts
@@ -11,6 +12,7 @@ import { loadConfig } from "../config.ts";
 import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";
 import { createApprovalEmailHandler } from "../notifications/approval-email.ts";
+import { createBudgetEmailHandler } from "../notifications/budget-email.ts";
 import { createWorker } from "../worker.ts";
 
 const baseUrl = process.env["FAKE_RESEND_URL"];
@@ -19,10 +21,12 @@ if (!baseUrl) throw new Error("falta FAKE_RESEND_URL");
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const sender = config.resendApiKey ? createResendSender({ apiKey: config.resendApiKey, baseUrl }) : null;
+const retry = { maxAttempts: 10, intervalSeconds: 0.1, backoffRate: 1 };
 const worker = createWorker(config, logger, {
   eventHandlers: [
     logHandler,
-    createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl, retry: { maxAttempts: 10, intervalSeconds: 0.1, backoffRate: 1 } }),
+    createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),
+    createBudgetEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),
   ],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
