@@ -136,20 +136,21 @@ async function waitForServices(apiUrl: string, secretKey: string, timeoutMs = 60
   throw new Error(`Supabase local no responde tras ${timeoutMs / 1000}s (${lastError}): ¿está levantado (pnpm db:start)?`);
 }
 
-// Rol del worker (migración dbos_worker_role): nace sin login. En local, el
-// seed se lo da con una contraseña que se reutiliza entre ejecuciones, como las
-// claves de servidor, para no invalidar apps/worker/.env.local.
-async function enableWorkerDbLogin(dbUrl: string, password: string): Promise<void> {
+// Roles del worker (migraciones dbos_worker_role y worker_role): nacen sin
+// login. En local, el seed se lo da con una contraseña que se reutiliza entre
+// ejecuciones, como las claves de servidor, para no invalidar
+// apps/worker/.env.local.
+async function enableWorkerDbLogin(dbUrl: string, password: string, role: "dbos_worker" | "moodly_worker" = "dbos_worker"): Promise<void> {
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
   try {
     // ALTER ROLE no admite parámetros: format(%L) entrecomilla la contraseña.
     const { rows } = await client.query<{ stmt: string }>(
-      "select format('alter role dbos_worker with login password %L', $1::text) as stmt",
-      [password],
+      "select format('alter role %I with login password %L', $1::text, $2::text) as stmt",
+      [role, password],
     );
     const stmt = rows[0]?.stmt;
-    if (!stmt) throw new Error("no se pudo preparar el ALTER ROLE de dbos_worker");
+    if (!stmt) throw new Error(`no se pudo preparar el ALTER ROLE de ${role}`);
     await client.query(stmt);
   } finally {
     await client.end();
@@ -233,9 +234,16 @@ async function main(): Promise<void> {
   mkdirSync(dirname(serverKeysFile), { recursive: true });
   const workerDbPassword = serverKeys.worker_db_password ?? randomBytes(24).toString("base64url");
   await enableWorkerDbLogin(local.dbUrl, workerDbPassword);
+  // El rol de los datos de las organizaciones bajo RLS (ADR 0049, PL-T1).
+  const workerRlsPassword = serverKeys.worker_rls_password ?? randomBytes(24).toString("base64url");
+  await enableWorkerDbLogin(local.dbUrl, workerRlsPassword, "moodly_worker");
   writeFileSync(
     serverKeysFile,
-    JSON.stringify({ ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword }, null, 2),
+    JSON.stringify(
+      { ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword, worker_rls_password: workerRlsPassword },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
 
