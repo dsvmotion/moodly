@@ -23,6 +23,8 @@ describe("loadConfig", () => {
       supabaseSecretKey: SECRET_KEY,
       aiGatewayApiKey: null,
       ingressPort: null,
+      resendApiKey: null,
+      webAppUrl: null,
       intentRouting: false,
       healthPort: 8080,
     });
@@ -32,6 +34,25 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...valid, INGRESS_PORT: "8080" }).ingressPort).toBe(8080);
     for (const bad of ["0", "80a", "70000", "-1", "8080 ", ""]) {
       expect(() => loadConfig({ ...valid, INGRESS_PORT: bad }), bad).toThrow(/INGRESS_PORT/);
+    }
+  });
+
+  it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {
+    const key = `re_${"r".repeat(30)}`;
+    expect(loadConfig({ ...valid, RESEND_API_KEY: key }).resendApiKey).toBe(key);
+    expect(loadConfig({ ...valid, RESEND_API_KEY: ` ${key}\n` }).resendApiKey).toBe(key);
+    expect(loadConfig({ ...valid, RESEND_API_KEY: "" }).resendApiKey).toBeNull();
+    const bad = "sk_no_es_de_resend_123456";
+    expect(() => loadConfig({ ...valid, RESEND_API_KEY: bad })).toThrow(/RESEND_API_KEY/);
+    expect(() => loadConfig({ ...valid, RESEND_API_KEY: bad })).not.toThrow(new RegExp(bad));
+  });
+
+  it("WEB_APP_URL: https sin ruta (sin barra final); http solo en local; vacía cuenta como ausente", () => {
+    expect(loadConfig({ ...valid, WEB_APP_URL: "https://staging.moodlycrm.com/" }).webAppUrl).toBe("https://staging.moodlycrm.com");
+    expect(loadConfig({ ...valid, WEB_APP_URL: "http://127.0.0.1:3000" }).webAppUrl).toBe("http://127.0.0.1:3000");
+    expect(loadConfig({ ...valid, WEB_APP_URL: "" }).webAppUrl).toBeNull();
+    for (const bad of ["http://staging.moodlycrm.com", "https://staging.moodlycrm.com/app", "https://u:p@staging.moodlycrm.com", "https://x.com?a=1", "staging"]) {
+      expect(() => loadConfig({ ...valid, WEB_APP_URL: bad })).toThrow(/WEB_APP_URL/);
     }
   });
 

@@ -7,6 +7,7 @@ import DemoForm from "@/components/demo-form";
 import { AGENT_KEYS, getVerticals, getSubsectors } from "@/components/verticals";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
 
 const wrap = { maxWidth: "1232px", margin: "0 auto" };
 const pad = { padding: "clamp(88px, 10vw, 144px) clamp(16px, 4vw, 40px) 0" };
@@ -147,7 +148,7 @@ export default function Sectores() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", textAlign: "center" }}>
           <h2 style={{ ...h2s, fontSize: "clamp(32px, 3.6vw, 48px)", maxWidth: "560px" }}>{t.demoH2(subTu)}</h2>
           <DemoForm id="sector-email" />
-          <p style={{ margin: 0, fontSize: "12px", lineHeight: "18px", ...muted }}>{t.fine}</p>
+          <p style={{ margin: 0, fontSize: "12px", lineHeight: "18px", ...muted }}>{t.fine} <AvailabilityBadge id="PL-billing" lang={lang} /></p>
         </div>
       </section>
       <SiteFooter />

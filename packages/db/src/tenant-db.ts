@@ -17,8 +17,8 @@
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
 //   filtro. Las excepciones son searchKnowledge, findBookingSlots,
-//   agentTurnContext y usageSpend: funciones con nombre a las que tenantDb les
-//   pasa la organización.
+//   agentTurnContext, approvalNotification y usageSpend: funciones con nombre
+//   a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
 import { WorkerSqlError, type TenantSql, type WorkerSql } from "./worker-sql.ts";
@@ -158,6 +158,21 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
   }
 
   /**
+   * Lo que necesita el aviso de una aprobación nueva (approval_notification,
+   * M-02): la aprobación, su agente y su local, y a quién se le envía (quien
+   * puede decidirla, con la regla de can_decide_approval). Con la organización
+   * de este acceso: una aprobación de otra no existe (null).
+   */
+  async function approvalNotification(approvalId: string): Promise<ApprovalNotification | null> {
+    if (!UUID.test(approvalId)) {
+      throw new TenantScopeError("tenantDb: approval_id no es un UUID");
+    }
+    const { data, error } = await untyped.rpc("approval_notification", { p_organization_id: organizationId, p_approval_id: approvalId });
+    if (error) throw new Error(`approval_notification: ${error.message}`);
+    return (data ?? null) as ApprovalNotification | null;
+  }
+
+  /**
    * Lo gastado desde el comienzo del día y desde el del mes (usage_spend,
    * PL-ledger), sumado en la base de datos: lo que el enrutador compara con los
    * topes antes de llamar. Con la organización de este acceso.
@@ -187,7 +202,17 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     return workerSql.inOrganization(organizationId, fn);
   }
 
-  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, usageSpend, transaction };
+  return { organizationId, from, searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, transaction };
+}
+
+/** Tal como lo devuelve approval_notification; quien lo usa lo valida antes de fiarse. */
+export interface ApprovalNotification {
+  approval: { id: string; status: string; reason: string | null; created_at: string; expires_at: string; location_id: string | null };
+  agent: { display_name: string | null; type_key: string; type_name: string };
+  organization: { default_locale: string };
+  location: { name: string; timezone: string } | null;
+  /** Quien puede decidirla: de la base de datos, nunca del evento ni del modelo. */
+  recipients: { user_id: string; email: string; locale: string }[];
 }
 
 export interface UsageSpendParams {

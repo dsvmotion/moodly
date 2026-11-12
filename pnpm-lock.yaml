@@ -141,6 +141,9 @@ importers:
       '@repo/channels':
         specifier: workspace:*
         version: link:../../packages/channels
+      '@repo/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
