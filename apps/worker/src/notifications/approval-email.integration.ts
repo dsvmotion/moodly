@@ -167,6 +167,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
+  // La política de modelos de Y (el aviso del tope) dejó su fila en audit_logs, que no se borra en cascada:
+  // el superusuario de la prueba la quita antes (para la plataforma es solo inserción).
+  await admin.query("delete from public.audit_logs where organization_id = any($1::uuid[])", [[ids.orgX, ids.orgY, ids.orgZ]]);
   await admin.query("delete from public.organizations where id = any($1::uuid[])", [[ids.orgX, ids.orgY, ids.orgZ]]);
   await admin.query("delete from auth.users where id = any($1::uuid[])", [Object.values(userIds)]);
   await admin.end();
