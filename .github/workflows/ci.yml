@@ -45,6 +45,8 @@ jobs:
       - run: pnpm test
       - name: Tests de la comprobación de configuración del despliegue
         run: bash scripts/supabase/tests/config-drift.test.sh
+      - name: Tests de should-deploy.sh (qué commit despliega staging)
+        run: bash scripts/deploy/tests/run.sh
       - name: Revisora automática (tipos y tests, SE01)
         run: |
           pnpm exec tsc -p scripts/reviewer
