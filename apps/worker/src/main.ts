@@ -11,6 +11,7 @@ import { createIngestHandler } from "./knowledge/ingest.ts";
 import { LeaseAbortedError } from "./lease.ts";
 import { createLogger } from "./logger.ts";
 import { createApprovalEmailHandler } from "./notifications/approval-email.ts";
+import { createBudgetEmailHandler } from "./notifications/budget-email.ts";
 import { registerReminders } from "./reminders/reminders.ts";
 import { registerWaitlistOffers } from "./waitlist/offers.ts";
 import { createWorker } from "./worker.ts";
@@ -41,6 +42,7 @@ const worker = createWorker(config, logger, {
   // reception.reminders: los recordatorios de cada cita, 24 h y 4 h antes (4e-2).
   // reception.waitlist: el hueco de una cita cancelada, a la lista de espera (4f-2).
   // notify.approval_email: el aviso por email a quien puede decidir una aprobación nueva (M-02).
+  // notify.budget_email: el aviso por email a los org_admin al 80 % y al 100 % del tope del mes (PL-ledger).
   // knowledge.ingest: cada fuente de conocimiento nueva o cambiada, troceada e indexada (B20-1).
   eventHandlers: ({ db }) => [
     logHandler,
@@ -53,6 +55,7 @@ const worker = createWorker(config, logger, {
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
+    createBudgetEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     ...(embedder ? [createIngestHandler({ embedder, route: embedder.route })] : []),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
