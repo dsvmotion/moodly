@@ -99,7 +99,7 @@ function UserMenu() {
       )}
       <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", gap: "10px", alignItems: "center", padding: "10px 12px", borderRadius: "12px", border: 0, background: open ? "var(--tint)" : "transparent", font: "400 14px/20px var(--font-display)", color: "var(--ink)", cursor: "pointer", textAlign: "left" }}>
         <span style={{ width: "28px", height: "28px", borderRadius: "800px", background: "var(--linen)", boxShadow: "inset 0 0 0 1px var(--line)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 500, flex: "none" }}>MR</span>
-        <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: "block" }}>Marta Ruiz</span><span style={{ display: "block", fontSize: "12px", lineHeight: "16px", color: "var(--muted-2)" }}>Dueña · Clínica Dental Sol</span></span>
+        <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: "block" }}>Marta Ruiz</span><span style={{ display: "block", fontSize: "12px", lineHeight: "16px", color: "var(--muted-2)" }}>Dueña · Estudio de Belleza Sol</span></span>
         <span aria-hidden="true" style={{ color: "var(--muted-2)" }}>{open ? "⌄" : "⌃"}</span>
       </button>
     </div>
@@ -120,7 +120,7 @@ function SiteSwitcher() {
   return (
     <div ref={ref} style={{ position: "relative", marginBottom: "8px" }}>
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} style={{ width: "100%", padding: "8px 10px", borderRadius: "12px", background: "var(--paper)", border: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center", font: "400 14px/20px var(--font-display)", color: "var(--ink)", cursor: "pointer", textAlign: "left" }}>
-        <span><span style={{ display: "block", fontWeight: 500 }}>Clínica Dental Sol</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{sede}</span></span>
+        <span><span style={{ display: "block", fontWeight: 500 }}>Estudio de Belleza Sol</span><span style={{ display: "block", fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{sede}</span></span>
         <span aria-hidden="true" style={{ color: "var(--muted-2)" }}>{open ? "⌃" : "⌄"}</span>
       </button>
       {open && (

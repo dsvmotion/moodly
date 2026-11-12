@@ -12,12 +12,12 @@ import { AGENT_DOT, dashboardFor } from "@/components/sede-data";
 // selector cambia de agente; los toggles escriben agent_skills.
 const AGENTS = [
   {
-    key: "reception", es: "recepcion", name: "Recepción", color: AGENT_DOT.recepcion, sub: "Citas, agenda y llamadas · Plantilla Clínicas", status: "active",
+    key: "reception", es: "recepcion", name: "Recepción", color: AGENT_DOT.recepcion, sub: "Citas, agenda y llamadas · Plantilla Belleza", status: "active",
     skills: [
       { id: "reservar", name: "Reservar citas", desc: "Ofrece huecos libres y crea la cita en Calendar.", approval: false, on: true },
-      { id: "reprogramar", name: "Reprogramar y cancelar", desc: "Mueve citas a petición del paciente.", approval: false, on: true },
+      { id: "reprogramar", name: "Reprogramar y cancelar", desc: "Mueve citas a petición del cliente.", approval: false, on: true },
       { id: "recordatorios", name: "Recordatorios 24 h antes", desc: "Por WhatsApp, con confirmación de asistencia.", approval: false, on: true },
-      { id: "espera", name: "Lista de espera", desc: "Avisa a pacientes en espera cuando se libera un hueco.", approval: false, on: true },
+      { id: "espera", name: "Lista de espera", desc: "Avisa a clientes en espera cuando se libera un hueco.", approval: false, on: true },
       { id: "llamadas", name: "Atender llamadas", desc: "Contesta, reserva y pasa la llamada si hace falta.", approval: false, on: true },
       { id: "masivo", name: "Mover citas en bloque", desc: "Reorganiza la agenda ante bajas o cierres.", approval: true, on: true },
       { id: "resenas", name: "Pedir reseña tras la visita", desc: "Envía un enlace a Google Reviews al día siguiente.", approval: false, on: false },
@@ -42,7 +42,7 @@ const AGENTS = [
       { id: "cualificar", name: "Cualificar leads", desc: "Entiende la necesidad y clasifica el lead.", approval: false, on: true },
       { id: "presupuesto", name: "Enviar presupuesto", desc: "Prepara y manda el presupuesto del tratamiento.", approval: true, on: true },
       { id: "recuperar", name: "Recuperar presupuestos", desc: "Hace seguimiento de presupuestos sin cerrar.", approval: false, on: true },
-      { id: "recomendar", name: "Recomendar tratamientos", desc: "Sugiere según el caso, sin diagnosticar.", approval: false, on: true },
+      { id: "recomendar", name: "Recomendar tratamientos", desc: "Sugiere servicios según lo que busca el cliente.", approval: false, on: true },
       { id: "primeravisita", name: "Agendar primera visita", desc: "Convierte el interés en una cita gratuita.", approval: false, on: true },
       { id: "descuento", name: "Ofrecer descuento", desc: "Aplica un descuento dentro de un margen.", approval: true, on: false },
     ],
@@ -128,7 +128,7 @@ export default function Screen() {
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
           <section style={{ ...box, flex: "3 1 460px", minWidth: "0", overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid var(--line-soft)", gap: "12px", flexWrap: "wrap" }}>
-              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{`${activeCount} de ${a.skills.length} activas · Configuradas de serie para clínicas`}</span></div>
+              <div><h2 style={{ margin: "0", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Skills</h2><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>{`${activeCount} de ${a.skills.length} activas · Configuradas de serie para centros de belleza`}</span></div>
             </div>
             {a.skills.map((s) => {
               const act = isOn(s);

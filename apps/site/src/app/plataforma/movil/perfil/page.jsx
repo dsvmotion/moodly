@@ -5,7 +5,7 @@ import { PlatformLangSelect } from "@/components/plataforma-i18n";
 
 export default function Screen() {
   const [twofa, setTwofa] = useState(true);
-  const [push, setPush] = useState({ aprobaciones: true, urgencias: true, resumen: false });
+  const [push, setPush] = useState({ aprobaciones: true, urgentes: true, resumen: false });
   const Switch = ({ on, onClick, label }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} style={{ flex: "none", width: "44px", height: "26px", borderRadius: "800px", border: 0, padding: "3px", background: on ? "#004c39" : "var(--track-2)", cursor: "pointer", display: "flex", justifyContent: on ? "flex-end" : "flex-start" }}><span style={{ width: "20px", height: "20px", borderRadius: "800px", background: "var(--paper)" }} /></button>
   );
@@ -21,12 +21,12 @@ export default function Screen() {
 <main style={{ flex: "1", overflowY: "auto", padding: "4px 16px 12px", display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", lineHeight: "20px" }}>
 <div style={{ background: "var(--paper)", borderRadius: "12px", padding: "16px", display: "flex", gap: "14px", alignItems: "center" }}>
 <span style={{ width: "52px", height: "52px", borderRadius: "800px", background: "var(--linen)", boxShadow: "inset 0 0 0 1px var(--line)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "17px", fontWeight: "500", flex: "none" }}>MR</span>
-<span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "16px", fontWeight: "500" }}>Marta Ruiz</span><span style={{ color: "var(--muted-2)" }}>marta@clinicadentalsol.es</span><span style={{ color: "var(--muted-2)" }}>Dueña · todas las sedes</span></span>
+<span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "16px", fontWeight: "500" }}>Marta Ruiz</span><span style={{ color: "var(--muted-2)" }}>marta@estudiobellezasol.es</span><span style={{ color: "var(--muted-2)" }}>Dueña · todas las sedes</span></span>
 </div>
 <span style={{ padding: "0 4px", fontSize: "12px", color: "var(--muted-2)" }}>Avisos en este móvil</span>
 <div style={{ background: "var(--paper)", borderRadius: "12px", overflow: "hidden" }}>
 <div style={row}><span>Tareas para aprobar</span><Switch label="Tareas para aprobar" on={push.aprobaciones} onClick={() => setPush({ ...push, aprobaciones: !push.aprobaciones })} /></div>
-<div style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Urgencias y quejas</span><Switch label="Urgencias y quejas" on={push.urgencias} onClick={() => setPush({ ...push, urgencias: !push.urgencias })} /></div>
+<div style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Quejas y asuntos urgentes</span><Switch label="Quejas y asuntos urgentes" on={push.urgentes} onClick={() => setPush({ ...push, urgentes: !push.urgentes })} /></div>
 <div style={{ ...row, borderTop: "1px solid var(--line-soft)" }}><span>Resumen diario</span><Switch label="Resumen diario" on={push.resumen} onClick={() => setPush({ ...push, resumen: !push.resumen })} /></div>
 </div>
 <span style={{ padding: "0 4px", fontSize: "12px", color: "var(--muted-2)" }}>Cuenta</span>

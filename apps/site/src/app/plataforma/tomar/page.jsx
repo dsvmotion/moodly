@@ -14,10 +14,10 @@ const btnDark = { padding: "11px 18px", borderRadius: "800px", border: "1px soli
 const btnLight = { padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
 
 const BASE = [
-  { who: "cliente", t: "Hola, llevo dos días con el implante y me molesta bastante al morder. ¿Es normal?", at: "11:02" },
-  { who: "agente", t: "Hola Laura 👋 Un poco de molestia los primeros días es habitual. ¿El dolor es constante o solo al masticar?", at: "11:02" },
-  { who: "cliente", t: "Sobre todo al masticar, y hoy noto la zona algo hinchada.", at: "11:05" },
-  { who: "agente", t: "Gracias por el detalle. La hinchazón conviene que la vea tu dentista. ¿Te busco hueco con la Dra. Soler?", at: "11:05" },
+  { who: "cliente", t: "Hola, el sábado me hice el color y ha quedado mucho más oscuro de lo que pedí. ¿Tiene arreglo?", at: "11:02" },
+  { who: "agente", t: "Hola Laura 👋 Siento que no haya quedado como querías. ¿Lo notas más oscuro en todo el pelo o solo en las raíces?", at: "11:02" },
+  { who: "cliente", t: "En todo el pelo, y con luz natural se nota todavía más.", at: "11:05" },
+  { who: "agente", t: "Gracias por el detalle. Lo mejor es que lo vea tu estilista. ¿Te busco hueco con Marc Soler?", at: "11:05" },
   { who: "cliente", t: "Sí, pero me gustaría hablar con alguien, me preocupa.", at: "11:06" },
 ];
 
@@ -47,7 +47,7 @@ export default function Tomar() {
             <span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "var(--linen)", boxShadow: "inset 0 0 0 1px var(--line)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: 500, flex: "none" }}>LM</span>
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <span style={{ fontSize: "17px", fontWeight: 500 }}>Laura Martín</span>
-              <span style={{ fontSize: "13px", ...muted, display: "inline-flex", alignItems: "center", gap: "6px" }}><img src="/logos/whatsapp.svg" alt="" width="14" height="14" />WhatsApp · Clínica Dental Sol</span>
+              <span style={{ fontSize: "13px", ...muted, display: "inline-flex", alignItems: "center", gap: "6px" }}><img src="/logos/whatsapp.svg" alt="" width="14" height="14" />WhatsApp · Estudio de Belleza Sol</span>
             </div>
           </div>
           <span style={{ padding: "5px 12px", borderRadius: "800px", fontSize: "13px", ...(human ? { background: "var(--green-bg)", color: "var(--green-fg)" } : { background: "var(--violet-bg)", color: "var(--violet-fg)" }) }}>{human ? "La llevas tú" : "La lleva el agente"}</span>

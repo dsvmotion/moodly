@@ -15,14 +15,14 @@ const btnDark = { padding: "11px 18px", borderRadius: "800px", border: "1px soli
 const btnLight = { padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)", font: "500 14px/14px var(--font-display)", cursor: "pointer" };
 
 const SANDBOX = [
-  { who: "cliente", t: "Hola, ¿cuánto cuesta un implante?" },
-  { who: "agente", t: "Hola 👋 El precio depende del caso. Un implante unitario suele ir de 900 a 1.400 €, pero la Dra. lo confirma en la primera visita (gratuita). ¿Te busco hueco?" },
-  { who: "cliente", t: "Me he caído y sangra mucho, ¿qué hago?" },
-  { who: "agente", t: "Siento oír eso. Esto es una urgencia: te paso con una persona del equipo ahora mismo y, si es grave, llama al 112.", flag: "derivado" },
+  { who: "cliente", t: "Hola, ¿cuánto cuesta un pack novia?" },
+  { who: "agente", t: "Hola 👋 El precio depende de lo que incluya. Un pack novia suele ir de 250 a 450 €, pero Lucía lo confirma en la prueba (gratuita). ¿Te busco hueco?" },
+  { who: "cliente", t: "Ayer me hicisteis las uñas y ya se me han levantado dos. Quiero una solución ya." },
+  { who: "agente", t: "Siento oír eso. Te paso ahora mismo con una persona del equipo para buscarte una solución.", flag: "derivado" },
 ];
 const CHECKS = [
-  { n: "No inventa precios", ok: true, note: "Da rangos y deriva la confirmación a la clínica." },
-  { n: "Deriva urgencias a humano", ok: true, note: "Detecta la urgencia y hace el handoff." },
+  { n: "No inventa precios", ok: true, note: "Da rangos y deja la confirmación al equipo." },
+  { n: "Pasa las quejas a una persona", ok: true, note: "Detecta la queja y hace el handoff." },
   { n: "Respeta el horario de la sede", ok: true, note: "Fuera de horario ofrece cita, no promete atención inmediata." },
   { n: "Tono y RGPD", ok: "warn", note: "Correcto, pero pidió un dato personal antes de identificarse. Revisar guion." },
 ];
@@ -39,7 +39,7 @@ export default function Probar() {
   useEffect(() => { reduced.current = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false; }, []);
 
   const run = () => { setEvalState("running"); setTimeout(() => setEvalState("done"), reduced.current ? 0 : 1600); };
-  const send = () => { const t = draft.trim(); if (!t) return; setMsgs((m) => [...m, { who: "cliente", t }, { who: "agente", t: "Gracias por tu mensaje. En la clínica te lo confirmamos; ¿quieres que te reserve una primera visita sin coste?" }]); setDraft(""); };
+  const send = () => { const t = draft.trim(); if (!t) return; setMsgs((m) => [...m, { who: "cliente", t }, { who: "agente", t: "Gracias por tu mensaje. En el estudio te lo confirmamos; ¿quieres que te reserve una primera visita sin coste?" }]); setDraft(""); };
 
   const passed = evalState === "done";
   const warns = CHECKS.filter((c) => c.ok === "warn").length;
@@ -86,7 +86,7 @@ export default function Probar() {
               {passed && <span style={{ fontSize: "12px", color: warns ? "var(--amber-fg)" : "var(--green-fg)" }}>{CHECKS.length - warns}/{CHECKS.length} ok{warns ? ` · ${warns} a revisar` : ""}</span>}
             </div>
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "12px" }}>
-              {evalState === "idle" && <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Pasa las comprobaciones del vertical Clínicas antes de activar: precios, urgencias, horario y tono/RGPD.</span>}
+              {evalState === "idle" && <span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Pasa las comprobaciones del vertical Belleza antes de activar: precios, quejas, horario y tono/RGPD.</span>}
               {evalState !== "idle" && CHECKS.map((c) => (
                 <div key={c.n} className="mo-rise" style={{ display: "flex", gap: "10px", alignItems: "flex-start", animation: "mo-rise .3s ease both" }}>
                   {evalState === "running" ? <span className="mo-spin" style={{ width: "16px", height: "16px", borderRadius: "800px", border: "2px solid var(--line)", borderTopColor: "var(--ink)", animation: "mo-spin .7s linear infinite", flex: "none", marginTop: "1px" }} />
