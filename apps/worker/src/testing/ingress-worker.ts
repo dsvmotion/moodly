@@ -20,20 +20,36 @@ if (!secret) throw new Error("falta INGRESS_TEST_SECRET");
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
+const recordFailures = new Map<string, number>();
+async function providerEventId(input: { organizationId: string; inboundEventId: string }): Promise<string> {
+  const { data, error } = await db
+    .forOrganization(input.organizationId)
+    .from("inbound_events")
+    .select("provider_event_id")
+    .eq("id", input.inboundEventId)
+    .single();
+  if (error) throw new Error(`no se pudo leer el evento (${error.code})`);
+  return data.provider_event_id;
+}
 const worker = createWorker(config, logger, {
   ingestTesting: {
     backoffMs: [100, 100, 100, 100],
     sweepMinAgeMs: 0,
     async beforeAttempt(input, attempt) {
-      const { data, error } = await db
-        .forOrganization(input.organizationId)
-        .from("inbound_events")
-        .select("provider_event_id")
-        .eq("id", input.inboundEventId)
-        .single();
-      if (error) throw new Error(`no se pudo leer el evento (${error.code})`);
-      const failing = data.provider_event_id.startsWith("fail-always-") || (data.provider_event_id.startsWith("fail-twice-") && attempt <= 2);
+      const data = { provider_event_id: await providerEventId(input) };
+      const id = data.provider_event_id;
+      const failing =
+        id.startsWith("fail-always-") || (id.startsWith("fail-twice-") && attempt <= 2) || (id.startsWith("fail-record-") && attempt <= 3);
       if (failing) throw Object.assign(new Error("fallo inyectado"), { code: "injected" });
+    },
+    // «fail-record-…»: el apunte del tercer intento falla las 4 veces que lo intenta DBOS (el workflow
+    // queda en ERROR con dos intentos ya apuntados); después de rebobinarlo, sale bien.
+    async beforeRecordFailure(input, attempt) {
+      if (attempt !== 3) return;
+      const key = `${input.inboundEventId}:${attempt}`;
+      const seen = recordFailures.get(key) ?? 0;
+      recordFailures.set(key, seen + 1);
+      if (seen < 4 && (await providerEventId(input)).startsWith("fail-record-")) throw new Error("apunte inyectado que falla");
     },
   },
   eventHandlers: [logHandler],

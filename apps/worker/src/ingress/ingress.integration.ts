@@ -305,4 +305,15 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
     expect(output).toContain("eventos de entrada parados, vueltos a intentar");
   }, 90_000);
+
+  it("si el apunte de un intento falla con intentos ya apuntados, se rebobina desde ese apunte (no desde el intento 1): sigue la cuenta y acaba procesado", async () => {
+    const message = inbound({ providerEventId: `fail-record-${randomUUID()}` });
+    await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
+    // Intentos 1 y 2 apuntados; el apunte del 3 falla y el workflow queda en ERROR; el barrido lo rebobina.
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "acaba procesado tras rebobinar", 100_000);
+    const [event] = await eventsOf(message.providerEventId);
+    expect(event).toMatchObject({ attempts: 3, error_code: null });
+    expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
+    expect(await workflowStatus(ingestWorkflowId(event?.id ?? ""))).toBe("SUCCESS");
+  }, 120_000);
 });

@@ -59,7 +59,7 @@ export interface WorkerOptions {
    */
   channelAdapters?: readonly ChannelAdapter[];
   /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
-  ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "backoffMs" | "sweepMinAgeMs">;
+  ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "beforeRecordFailure" | "backoffMs" | "sweepMinAgeMs">;
 }
 
 /** Lo que el worker comparte con los consumidores que registran workflows propios. */
