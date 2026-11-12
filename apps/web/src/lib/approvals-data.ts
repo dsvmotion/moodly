@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { decidableRoles } from "@/lib/needs-you";
 import { locationFilter, type Scope } from "@/lib/scope";
 import type { ScopeContext } from "@/lib/scope-data";
 
 // Lo que el agente dejó esperando a una persona (paso 4d-3d, MANUAL §5.7). Se
 // lee con la sesión: RLS (approvals_select) solo deja ver las de los locales
 // del alcance de cada persona, y las de toda la organización a un org_admin.
-// Aquí solo se filtra por el alcance elegido en el selector, en la consulta: la
+// Aquí se filtra por el alcance elegido en el selector, en la consulta: la
 // lista tiene tope y lo que se filtrase después dejaría fuera filas (auditoría
-// de preproducción, M-07).
+// de preproducción, M-07). Y solo las que la persona puede decidir por su rol
+// (decidableRoles, la regla de private.can_decide_approval): el staff no ve
+// las que piden un encargado, que no le esperan a él. Es la misma cuenta que
+// el contador de la barra lateral (revisión de V10 sobre #178).
 
 /** Cuántas pendientes enseña la lista: las más antiguas. Al decidirlas entran las siguientes. */
 export const APPROVALS_LIMIT = 200;
@@ -45,6 +49,7 @@ export async function loadPendingApprovals(scope: Scope, context: ScopeContext):
     .eq("organization_id", organization.id)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
+    .in("required_role", decidableRoles(context.role))
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(APPROVALS_LIMIT + 1);
