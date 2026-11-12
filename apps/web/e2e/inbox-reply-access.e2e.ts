@@ -1,15 +1,17 @@
 import { expect, test } from "@playwright/test";
-import { credentialsFor, signIn, withMfaLock } from "./helpers";
+import { apiToken, credentialsFor, restRows, signIn, supabasePublicEnv, withMfaLock } from "./helpers";
 
 // Quién puede tomar el control y escribir en una conversación, y por qué
-// canales (auditoría de preproducción, M-01). Solo lectura: no toma ni devuelve
-// ninguna conversación, para no cambiar lo que comprueban en paralelo las demás
-// pruebas de la bandeja. Que la base de datos lo impide de verdad lo prueban los
-// pgTAP de 37_inbox_takeover; aquí, que la pantalla no lo ofrece.
+// canales (auditoría de preproducción, M-01). No toma ni devuelve ninguna
+// conversación, para no cambiar lo que comprueban en paralelo las demás pruebas
+// de la bandeja. La base de datos lo impide con 37_inbox_takeover y
+// 44_staff_reply_channels (#227); aquí, que la pantalla no lo ofrece y que la
+// API, con la sesión de quien sí puede escribir, lo rechaza por el canal.
 
 // Ids fijos del seed (packages/db/src/seed/data.ts).
 const A2_HUMAN_WEBCHAT = "5eed000b-0000-4000-8000-0000000000b2"; // Demo A, A2, chat web, la lleva el equipo
 const F2_HUMAN_WHATSAPP = "5eed00f1-0000-4000-8000-000000000000"; // Demo F, F2, WhatsApp, la lleva el equipo
+const F_ORG = "5eed0000-0000-4000-8000-00000000000f";
 
 test("por un canal que aún no entrega lo que escribe el equipo, no hay cuadro de respuesta", async ({ page }) => {
   await signIn(page, "f_org_admin");
@@ -56,4 +58,25 @@ test("un org_admin que solo ha puesto la contraseña no llega a la conversación
     await expect(page.getByTestId("inbox-thread")).toHaveCount(0);
     await expect(page.getByTestId("inbox-composer")).toHaveCount(0);
   });
+});
+
+test("la base de datos rechaza un mensaje del equipo por un canal sin envío, aunque no pase por la pantalla", async ({ request }) => {
+  // Quien lleva la organización con el segundo factor: RLS le deja escribir en
+  // una conversación que lleva el equipo; lo que lo impide es el canal (#227).
+  const token = await apiToken(request, "f_org_admin");
+  const { url, publishableKey } = supabasePublicEnv();
+  const content = `No debería guardarse ${Date.now().toString(36)}`;
+  const response = await request.post(`${url}/rest/v1/messages`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}`, Prefer: "return=minimal" },
+    data: { organization_id: F_ORG, conversation_id: F2_HUMAN_WHATSAPP, content },
+  });
+  expect(response.status()).toBe(403);
+  expect(((await response.json()) as { code?: string }).code).toBe("42501");
+  // Y no queda nada guardado.
+  const rows = await restRows(
+    request,
+    token,
+    `messages?conversation_id=eq.${F2_HUMAN_WHATSAPP}&content=eq.${encodeURIComponent(content)}&select=id`,
+  );
+  expect(rows).toEqual([]);
 });
