@@ -26,14 +26,14 @@ export default function Aceptar() {
       ) : done ? (
         <div style={{ ...box, width: "100%", maxWidth: "440px", padding: "32px", textAlign: "center", display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}>
           <span style={{ width: "48px", height: "48px", borderRadius: "800px", background: "var(--green-bg)", color: "var(--green-fg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>✓</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}><span style={{ fontSize: "20px", fontWeight: 400, letterSpacing: "-0.4px" }}>¡Dentro!</span><span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Ya formas parte de Clínica Dental Sol como Recepción.</span></div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}><span style={{ fontSize: "20px", fontWeight: 400, letterSpacing: "-0.4px" }}>¡Dentro!</span><span style={{ fontSize: "14px", lineHeight: "21px", ...muted }}>Ya formas parte de Estudio de Belleza Sol como Recepción.</span></div>
           <a href="/plataforma" style={btnDark}>Ir al panel</a>
         </div>
       ) : (
         <div style={{ ...box, width: "100%", maxWidth: "440px", padding: "32px", display: "flex", flexDirection: "column", gap: "20px" }}>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <span style={{ width: "40px", height: "40px", borderRadius: "800px", background: "#004c39", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, flex: "none" }}>DS</span>
-            <span style={{ fontSize: "14px", lineHeight: "20px" }}><strong style={{ fontWeight: 500 }}>Marta Ruiz</strong> te ha invitado a<br /><strong style={{ fontWeight: 500 }}>Clínica Dental Sol</strong> como <span style={{ padding: "1px 8px", borderRadius: "800px", background: "var(--sunken)", fontSize: "12px" }}>Recepción</span></span>
+            <span style={{ fontSize: "14px", lineHeight: "20px" }}><strong style={{ fontWeight: 500 }}>Marta Ruiz</strong> te ha invitado a<br /><strong style={{ fontWeight: 500 }}>Estudio de Belleza Sol</strong> como <span style={{ padding: "1px 8px", borderRadius: "800px", background: "var(--sunken)", fontSize: "12px" }}>Recepción</span></span>
           </div>
 
           <button type="button" onClick={() => setDone(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", padding: "11px 18px", borderRadius: "800px", border: "1px solid var(--line)", background: "var(--paper)", font: "500 14px/14px var(--font-display)", cursor: "pointer" }}><img src="/logos/google.svg" alt="" width="18" height="18" />Continuar con Google</button>
@@ -42,7 +42,7 @@ export default function Aceptar() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Tu nombre<input defaultValue="Carmen López" style={field} /></label>
-            <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Email<input defaultValue="carmen@clinicadentalsol.es" readOnly style={{ ...field, background: "var(--paper-2b)", color: "var(--muted-2)" }} /></label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Email<input defaultValue="carmen@estudiobellezasol.es" readOnly style={{ ...field, background: "var(--paper-2b)", color: "var(--muted-2)" }} /></label>
             <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Crea una contraseña<input type="password" placeholder="Mínimo 8 caracteres" style={field} /></label>
           </div>
 

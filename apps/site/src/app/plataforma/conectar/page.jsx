@@ -57,7 +57,7 @@ export default function Conectar() {
 
         {step === 1 && (
           <div className="mo-rise" style={{ display: "flex", flexDirection: "column", gap: "24px", animation: "mo-rise .3s ease both" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué canal conectamos?</h1><span style={SUB}>Para clínicas solemos empezar por WhatsApp. Puedes añadir más después.</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}><h1 style={H}>¿Qué canal conectamos?</h1><span style={SUB}>Para centros de belleza solemos empezar por WhatsApp. Puedes añadir más después.</span></div>
             <div role="radiogroup" aria-label="Canal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
               {CHANNELS.map((c) => (
                 <button key={c.id} type="button" role="radio" aria-checked={channel === c.id} onClick={() => setChannel(c.id)} style={{ ...CARD, textAlign: "left", padding: "18px", display: "flex", gap: "14px", alignItems: "center", cursor: "pointer", borderColor: channel === c.id ? "var(--ink)" : "var(--line)", outline: channel === c.id ? "1px solid var(--ink)" : "none" }}>
@@ -77,7 +77,7 @@ export default function Conectar() {
             {channel === "whatsapp" ? (
               <div style={{ ...CARD, padding: "24px", display: "flex", flexDirection: "column", gap: "18px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
-                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Nombre del negocio<input defaultValue="Clínica Dental Sol" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)" }} /></label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Nombre del negocio<input defaultValue="Estudio de Belleza Sol" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)" }} /></label>
                   <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "var(--muted)" }}>Número de WhatsApp<input defaultValue="+34 600 00 00 00" style={{ padding: "11px 14px", borderRadius: "10px", border: "1px solid var(--line)", font: "400 14px/20px var(--font-body)", color: "var(--ink)" }} /></label>
                 </div>
                 <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", padding: "12px 14px", borderRadius: "10px", background: "var(--linen)", fontSize: "13px", lineHeight: "19px", fontFamily: "var(--font-body)" }}><span aria-hidden="true">🔒</span><span>Meta verificará el número con un código. El token de acceso se guarda cifrado y nunca se muestra.</span></div>

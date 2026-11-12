@@ -15,7 +15,7 @@ const btnDark = { padding: "11px 18px", borderRadius: "800px", border: "1px soli
 
 const POLICIES = [
   { id: "none", label: "Sin restricción", desc: "Máxima disponibilidad y mejor coste. El enrutador elige región por calidad, latencia y coste.", tag: "Recomendado" },
-  { id: "eu", label: "Solo UE", desc: "Todo el procesado se queda en la Unión Europea. Para clínicas con dato clínico sensible.", tag: "En hoja de ruta" },
+  { id: "eu", label: "Solo UE", desc: "Todo el procesado se queda en la Unión Europea. Para empresas con requisitos estrictos de privacidad.", tag: "En hoja de ruta" },
   { id: "us", label: "Solo EE. UU.", desc: "Procesado en EE. UU. Útil si tu matriz lo exige.", tag: "En hoja de ruta" },
 ];
 

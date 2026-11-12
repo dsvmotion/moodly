@@ -16,14 +16,14 @@ export default function Page() {
 
       <section style={{ padding: "80px 24px 48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
         <h1 style={{ margin: "0", fontSize: "clamp(38px, 4.6vw, 52px)", lineHeight: "1.1", fontWeight: 100, letterSpacing: "-0.03em", maxWidth: "720px" }}>{t.h1}</h1>
+        <p data-illustrative-note="" style={{ margin: 0, padding: "6px 12px", borderRadius: "800px", background: "#fff3e8", color: "#6b3a00", fontSize: "14px", lineHeight: "20px" }}>{t.note}</p>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", marginTop: "8px", fontSize: "14px", lineHeight: "14px" }}>{t.filters.map((f, i) => (<span key={f} style={{ padding: "10px 16px", borderRadius: "800px", background: i === 0 ? "#000000" : "#ffffff", color: i === 0 ? "#ffffff" : "#000000" }}>{f}</span>))}</div>
       </section>
 
       <section style={{ padding: "0 clamp(16px, 4vw, 40px)" }}>
         <div style={{ maxWidth: "1232px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "40px" }}>
           <LangLink href="/#demo" style={{ borderRadius: "12px", background: "#000000", color: "#ffffff", padding: "clamp(32px, 5vw, 64px)", display: "flex", gap: "48px", flexWrap: "wrap", alignItems: "flex-end", minHeight: "420px", boxSizing: "border-box" }}>
-            <div style={{ flex: "2 1 420px", display: "flex", flexDirection: "column", gap: "16px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ffffff33", fontSize: "12px" }}>{t.heroBadge}</span><span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.heroTitle}</span><span style={{ fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.heroQuote}</span></div>
-            <div style={{ flex: "1 1 260px", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" }}><span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "40px", lineHeight: "44px", letterSpacing: "-1.6px" }}>[00]%</span><span style={{ fontSize: "14px", opacity: ".75" }}>{t.stat1}</span></span><span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "40px", lineHeight: "44px", letterSpacing: "-1.6px" }}>[00] h</span><span style={{ fontSize: "14px", opacity: ".75" }}>{t.stat2}</span></span></div>
+            <div style={{ flex: "2 1 420px", display: "flex", flexDirection: "column", gap: "16px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ffffff33", fontSize: "12px" }}>{t.heroBadge}</span><span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.heroTitle}</span><span style={{ fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.heroText}</span></div>
           </LangLink>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>

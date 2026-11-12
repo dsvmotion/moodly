@@ -9,7 +9,7 @@ export default function Screen() {
 <div style={{ width: "390px", height: "844px", boxSizing: "border-box", fontFamily: "var(--font-display)", color: "var(--ink)", background: "var(--canvas)", letterSpacing: "-0.16px", WebkitFontSmoothing: "antialiased", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
 <header style={{ padding: "56px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-<span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}><SedeCycle>Clínica Dental Sol · <SedeName /> ⌄</SedeCycle></span><span style={{ fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>Buenos días, Marta</span></span>
+<span style={{ display: "flex", flexDirection: "column" }}><span style={{ fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}><SedeCycle>Estudio de Belleza Sol · <SedeName /> ⌄</SedeCycle></span><span style={{ fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>Buenos días, Marta</span></span>
 <span style={{ width: "36px", height: "36px", borderRadius: "800px", background: "var(--linen)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "500" }}>MR</span>
 </header>
 

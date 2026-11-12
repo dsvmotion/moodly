@@ -58,7 +58,7 @@
 "{0} · voz": "{0} · voix",
 "La voz se aplica a las llamadas y notas de voz del agente de {0}.": "La voix s'applique aux appels et notes vocales de l'agent {0}.",
 "Tema: {0}": "Thème : {0}",
-"{n} de {n1} activas · Configuradas de serie para clínicas": "{n} sur {n1} actives · Configurées d'origine pour les cliniques",
+"{n} de {n1} activas · Configuradas de serie para centros de belleza": "{n} sur {n1} actives · Configurées d'origine pour les instituts de beauté",
 "Para «{0}» en «{1}». Las sedes sin valor propio heredan el de la organización.": "Pour « {0} » sur « {1} ». Les sites sans valeur propre héritent de celle de l'organisation.",
 "{0} conectado (BYOK)": "{0} connecté (BYOK)",
 "Llamada de prueba correcta por {0} · {1}. Salud: operativo.": "Appel de test réussi via {0} · {1}. État : opérationnel.",

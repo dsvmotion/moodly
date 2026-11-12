@@ -3,7 +3,7 @@ import { Fragment, useState } from "react";
 import { SUBSECTORS, VERTICALS } from "@/components/verticals";
 
 // Integraciones que solemos conectar primero en cada vertical.
-const TYPICAL = { salud: "WhatsApp, Google Calendar y Doctoralia", hosteleria: "WhatsApp, TheFork o Booking.com y tu TPV", inmobiliario: "WhatsApp, Gmail y tu CRM inmobiliario", profesionales: "Gmail, Google Drive y tu programa de contabilidad", retail: "WhatsApp, Instagram y tu tienda online", hogar: "WhatsApp, teléfono y tu programa de presupuestos", automocion: "WhatsApp, teléfono y tu CRM o DMS", educacion: "WhatsApp, Instagram y tu sistema de reservas", otro: "WhatsApp, email y calendario" };
+const TYPICAL = { belleza: "WhatsApp, Google Calendar y Booksy", hosteleria: "WhatsApp, TheFork o Booking.com y tu TPV", inmobiliario: "WhatsApp, Gmail y tu CRM inmobiliario", profesionales: "Gmail, Google Drive y tu programa de contabilidad", retail: "WhatsApp, Instagram y tu tienda online", hogar: "WhatsApp, teléfono y tu programa de presupuestos", automocion: "WhatsApp, teléfono y tu CRM o DMS", educacion: "WhatsApp, Instagram y tu sistema de reservas", otro: "WhatsApp, email y calendario" };
 
 export default function Screen() {
   const [state, setStateRaw] = useState({});
@@ -11,7 +11,7 @@ export default function Screen() {
   const vals = function () {
 const s = this.state || {};
 const step = s.step || 1;
-const sector = s.sector || 'salud';
+const sector = s.sector || VERTICALS[0].id;
 const subIdx = s.sub || 0;
 const sectorList = VERTICALS.map((v) => ({ id: v.id, label: v.name, hint: v.subsectors.slice(0, 4).join(', ') })).concat([{ id: 'otro', label: 'Otro', hint: 'Cuéntanos y lo configuramos contigo' }]);
 const subs = SUBSECTORS[sector] || [];
@@ -58,7 +58,7 @@ hasTested: !!s.tested, runTest: () => this.setState({ tested: true }),
 next: () => this.setState({ step: Math.min(4, step + 1) }),
 back: () => this.setState({ step: Math.max(1, step - 1) }),
 sectorName: sub ? sub[1] : 'tu negocio',
-typical: TYPICAL[sector],
+typical: TYPICAL[sector] ?? TYPICAL.otro,
 hasSubs: subs.length > 0,
 subOptions: subs.map((x, i) => ({ label: x[0], sel: i === subIdx, unsel: i !== subIdx, pick: () => this.setState({ sub: i }) })),
 sectors: sectorList.map((x) => ({ ...x, sel: x.id === sector, unsel: x.id !== sector, pick: () => this.setState({ sector: x.id, sub: 0 }) })),

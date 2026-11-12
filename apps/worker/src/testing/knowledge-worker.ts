@@ -19,13 +19,24 @@ const [markerFile] = process.argv.slice(2);
 if (!markerFile) throw new Error("uso: knowledge-worker.ts <archivo>");
 
 const fake = createFakeEmbedder(16);
+async function misbehave(texts: readonly string[]): Promise<void> {
+  if (texts.some((text) => text.includes("FALLA-EMBEDDING"))) throw new EmbeddingError("gateway caído");
+  if (texts.some((text) => text.includes("LENTO-EMBEDDING"))) await new Promise((resolve) => setTimeout(resolve, 12_000));
+}
+// Con el precio del modelo de serie (0,02 $ por millón de tokens), para ver el coste en el libro.
+const EUR_PER_TOKEN = 0.02 / 1_000_000;
 const embedder: Embedder = {
   model: fake.model,
   dim: fake.dim,
   async embed(texts) {
-    if (texts.some((text) => text.includes("FALLA-EMBEDDING"))) throw new EmbeddingError("gateway caído");
-    if (texts.some((text) => text.includes("LENTO-EMBEDDING"))) await new Promise((resolve) => setTimeout(resolve, 12_000));
+    await misbehave(texts);
     return fake.embed(texts);
+  },
+  async embedWithUsage(texts) {
+    await misbehave(texts);
+    const vectors = await fake.embed(texts);
+    const tokens = texts.reduce((sum, text) => sum + (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).length, 0);
+    return { vectors, usage: { tokens, costEur: tokens * EUR_PER_TOKEN } };
   },
 };
 

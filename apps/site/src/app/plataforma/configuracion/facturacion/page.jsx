@@ -28,7 +28,7 @@ function Modal({ label, onClose, children }) {
 
 export default function Facturacion() {
   const [pm, setPm] = useState({ brand: "VISA", last4: "4242", exp: "09/28" });
-  const [billing, setBilling] = useState({ name: "Clínica Dental Sol S.L.", tax: "B12345674", address: "Calle Mayor 12, 28013 Madrid", email: "facturas@clinicadentalsol.es" });
+  const [billing, setBilling] = useState({ name: "Estudio de Belleza Sol S.L.", tax: "B12345674", address: "Calle Mayor 12, 28013 Madrid", email: "facturas@estudiobellezasol.es" });
   const [modal, setModal] = useState(null); // null | card | billing
   const [cardDraft, setCardDraft] = useState({ num: "", exp: "", cvc: "" });
   const [bDraft, setBDraft] = useState(billing);
