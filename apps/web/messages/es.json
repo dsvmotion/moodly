@@ -508,9 +508,11 @@
     "composerPlaceholder": "Escribe a {name}…",
     "send": "Enviar",
     "composerHint": "Esta conversación la lleva el agente. Toma el control para escribir tú: el agente queda en pausa hasta que se la devuelvas.",
+    "composerUnavailable": "Por este canal aún no se puede contestar desde aquí: lo que escribieras no le llegaría a {name}. Puedes seguir la conversación y devolvérsela al agente.",
     "errors": {
       "invalid": "Escribe un mensaje antes de enviarlo.",
       "not_allowed": "No puedes hacerlo aquí: la conversación no es de tu alcance, alguien ya cambió quién la lleva o está cerrada.",
+      "channel_unavailable": "Por este canal aún no se puede contestar desde aquí.",
       "failed": "No ha funcionado. Inténtalo de nuevo."
     }
   },

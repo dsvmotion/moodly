@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsYouItems } from "./needs-you";
+import { decidableRoles, needsYouItems } from "./needs-you";
 
 // Auditoría de preproducción, M-02 (OA10 y OA11): lo que espera a una persona,
 // con su contador y el enlace a donde se resuelve. Solo lo que hay: una cuenta
@@ -26,5 +26,22 @@ describe("needsYouItems", () => {
   it("solo sale lo que tiene algo pendiente", () => {
     expect(needsYouItems({ approvals: 0, humanConversations: 4 }, null).map((item) => item.key)).toEqual(["humanConversations"]);
     expect(needsYouItems({ approvals: 5, humanConversations: 0 }, "all").map((item) => item.key)).toEqual(["approvals"]);
+  });
+});
+
+// V10 (revisión de #178): el contador de Aprobaciones cuenta lo que la persona
+// puede decidir (private.can_decide_approval), no todo lo que ve. Ver y
+// decidir llegan a los mismos locales; lo que cambia es el rango: hace falta
+// un rol igual o superior al que pide la aprobación (member_role_rank).
+describe("decidableRoles", () => {
+  it("cada rol decide lo que piden su rol y los de rango inferior", () => {
+    expect(decidableRoles("staff")).toEqual(["staff"]);
+    expect(decidableRoles("location_manager")).toEqual(["staff", "location_manager"]);
+    expect(decidableRoles("region_manager")).toEqual(["staff", "location_manager", "region_manager"]);
+    expect(decidableRoles("org_admin")).toEqual(["staff", "location_manager", "region_manager", "org_admin"]);
+  });
+
+  it("sin rol en la organización, ninguno", () => {
+    expect(decidableRoles(null)).toEqual([]);
   });
 });

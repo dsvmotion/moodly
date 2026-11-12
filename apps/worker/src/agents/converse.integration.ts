@@ -834,6 +834,29 @@ describe("tomar el control a mitad del turno (R-02)", () => {
     return rows;
   }
 
+  /**
+   * La línea «turno del agente terminado» de un run, del log del worker. El
+   * worker la escribe al final del turno, después de cerrar el run (y del
+   * resumen continuo, que llama al modelo): el estado del run en la base de
+   * datos llega antes que ella, así que hay que esperarla a ella.
+   */
+  async function turnFinished(runId: string): Promise<Record<string, unknown>> {
+    const find = () =>
+      (worker?.output() ?? "")
+        .split("\n")
+        .flatMap((line) => {
+          // La última línea puede llegar a medias por la tubería: esa se ignora hasta que esté entera.
+          try {
+            return [JSON.parse(line) as Record<string, unknown>];
+          } catch {
+            return [];
+          }
+        })
+        .find((entry) => entry["runId"] === runId && entry["msg"] === "turno del agente terminado");
+    await waitFor(async () => find() !== undefined, "el worker apunta el final del turno");
+    return find() as Record<string, unknown>;
+  }
+
   async function mode(conversationId = ids.conversation): Promise<string | undefined> {
     const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversationId]);
     return rows[0]?.mode;
@@ -852,7 +875,8 @@ describe("tomar el control a mitad del turno (R-02)", () => {
       expect(executions.map((execution) => [execution.skill_key, execution.status])).toEqual([["reply", "failed"]]);
       // Sigue en manos de quien la tomó.
       expect(await mode()).toBe("human");
-      expect(worker?.output()).toContain('"reason":"conversation_not_agent_mode"');
+      // El motivo, en la línea de final de turno de este run (no en cualquiera del log).
+      expect(await turnFinished(run?.id ?? "")).toMatchObject({ reason: "conversation_not_agent_mode" });
     } finally {
       await setMode("agent");
     }
@@ -996,5 +1020,88 @@ describe("tomar el control a mitad del turno (R-02)", () => {
         await setMode("agent", conversationId);
       }
     });
+  });
+});
+
+describe("el tope del mes (PL-ledger)", () => {
+  // Lo que dice el email del 100 % (renderBudgetEmail) es lo que pasa aquí: con el
+  // tope del mes gastado, el agente no llama al modelo, el turno pasa la
+  // conversación a una persona y se queda con ella; y el aviso sale una sola vez.
+  const usageModel = `budget-test-${marker}`;
+  const conversations: string[] = [];
+
+  async function newConversation(): Promise<string> {
+    const id = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    conversations.push(id);
+    return id;
+  }
+
+  async function thresholdEvents(): Promise<number[]> {
+    const { rows } = await admin.query<{ threshold: number }>(
+      `select (payload->>'threshold')::int as threshold from public.domain_events
+       where organization_id = $1 and type = 'usage.budget_threshold' and payload->>'month' = to_char(date_trunc('month', now() at time zone 'UTC'), 'YYYY-MM-DD')
+       order by created_at`,
+      [ids.org],
+    );
+    return rows.map((row) => row.threshold);
+  }
+
+  async function cleanup(): Promise<void> {
+    await admin.query("delete from public.domain_events where organization_id = $1 and type = 'usage.budget_threshold'", [ids.org]);
+    await admin.query("delete from private.budget_notices where organization_id = $1", [ids.org]);
+    // El libro es solo de añadir para la plataforma; el superusuario de la prueba quita lo suyo.
+    await admin.query("delete from public.usage_records where organization_id = $1 and model = $2", [ids.org, usageModel]);
+    await admin.query("delete from public.org_model_settings where organization_id = $1", [ids.org]);
+    policySet = false;
+    if (conversations.length > 0) {
+      await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = any($1))", [conversations]);
+      await admin.query("delete from public.domain_events where payload->>'conversation_id' = any($1)", [conversations]);
+      await admin.query("delete from public.conversations where id = any($1)", [conversations]);
+    }
+  }
+
+  beforeAll(async () => {
+    await cleanup();
+    // Un tope de 1 € al mes, ya gastado: lo de este mes en el libro llega a 1 €.
+    await admin.query(
+      "insert into public.org_model_settings (organization_id, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur) values ($1, 0.5, 1, 1)",
+      [ids.org],
+    );
+    policySet = true;
+    await admin.query(
+      `insert into public.usage_records (organization_id, source, metric, quantity, tokens_in, tokens_out, cost_eur, provider, via, region, model)
+       values ($1, 'agent_turn', 'llm_tokens', 2, 1, 1, 1, 'fake', 'gateway', 'other', $2)`,
+      [ids.org, usageModel],
+    );
+  });
+
+  afterAll(cleanup);
+
+  it("al llegar al tope, el agente no llama al modelo: la conversación pasa a una persona y el aviso del 100 % sale una vez", async () => {
+    const before = modelCalls().length;
+    const first = await newConversation();
+    const messageId = await customerSays("¿Tenéis hueco mañana por la tarde?", first);
+    await waitFor(async () => (await runFor(messageId))[0]?.status === "handed_off", "el turno pasa a una persona");
+
+    expect(modelCalls()).toHaveLength(before);
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [first]);
+    expect(rows[0]?.mode).toBe("human");
+    expect(Number((await runFor(messageId))[0]?.cost_eur)).toBe(0);
+
+    // El 80 y el 100 se pasaron a la vez: un solo aviso, el del 100.
+    await waitFor(async () => (await thresholdEvents()).length > 0, "el aviso del tope");
+    expect(await thresholdEvents()).toEqual([100]);
+
+    // Otro turno con el tope gastado: también pasa a una persona, y no hay un segundo aviso.
+    const second = await newConversation();
+    const again = await customerSays("Hola, ¿me podéis ayudar?", second);
+    await waitFor(async () => (await runFor(again))[0]?.status === "handed_off", "el segundo turno pasa a una persona");
+    expect(modelCalls()).toHaveLength(before);
+    expect(await thresholdEvents()).toEqual([100]);
+    expect(worker?.output()).toContain("tope del mes: umbral pasado");
   });
 });

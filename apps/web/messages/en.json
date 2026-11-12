@@ -508,9 +508,11 @@
     "composerPlaceholder": "Write to {name}…",
     "send": "Send",
     "composerHint": "The agent is handling this conversation. Take over to write yourself: the agent pauses until you hand it back.",
+    "composerUnavailable": "You can't reply on this channel from here yet: {name} wouldn't receive what you write. You can follow the conversation and hand it back to the agent.",
     "errors": {
       "invalid": "Write a message before sending it.",
       "not_allowed": "You can't do this here: the conversation is not in your scope, someone already changed who is handling it, or it is closed.",
+      "channel_unavailable": "You can't reply on this channel from here yet.",
       "failed": "It didn't work. Please try again."
     }
   },

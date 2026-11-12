@@ -406,8 +406,8 @@ Convenciones:
 
 | Tabla | Campos clave |
 |---|---|
-| `integrations` | `organization_id`, `location_id?`, `provider`, `kind` (`mcp`/`native`), `server_version?` (la revisada, solo MCP), `status`, `scopes[]`, `secret_id?` (`integration_secrets` de la misma organización), `connected_by`, `last_health_check`. La ve el `org_admin`; la escribe la plataforma (ADR 0036) |
-| `integration_secrets` | Tokens y claves cifrados con cifrado de sobre (§10.4, ADR 0034): `kind`, `name`, `key_ref`, `encrypted_data_key`, `ciphertext`. Nunca se leen desde la app del cliente ni por el equipo interno. |
+| `integrations` | `organization_id`, `location_id?`, `provider`, `kind` (`mcp`/`native`; `platform` con el ADR 0053: la conexión vive en la plataforma de conectores y la fila guarda su id), `server_version?` (la revisada, solo MCP), `status`, `scopes[]`, `secret_id?` (`integration_secrets` de la misma organización), `connected_by`, `last_health_check`. La ve el `org_admin`; la escribe la plataforma (ADR 0036 y 0053) |
+| `integration_secrets` | Tokens y claves cifrados con cifrado de sobre (§10.4, ADR 0034): `kind`, `name`, `key_ref`, `encrypted_data_key`, `ciphertext`. Nunca se leen desde la app del cliente ni por el equipo interno. Con el ADR 0053, los tokens OAuth de las integraciones de plataforma viven en Nango (clave de instancia); aquí quedan BYOK, `mcp` y las integraciones `native`. |
 | `usage_records` | `organization_id`, `location_id?`, `metric` (`llm_tokens`/`messages`/`voice_minutes`/`executions`), `quantity`, `period`, `run_id?` |
 | `usage_limits` | `organization_id`, `metric`, `soft_limit`, `hard_limit`, `period` |
 
@@ -1428,10 +1428,14 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0036 | Conectores: servidores MCP revisados, herramientas fijadas y skills `mcp` | aceptado (producto, 2026-10-30) |
 | 0037 | Conocimiento: una interfaz común (`KnowledgeRetriever`) y pgvector como primer motor | aceptado (producto, 2026-10-30) |
 | 0041 | Inglés por defecto y rutas en inglés (cambia el 0023 §3) | aceptado (decisión de producto, 2026-10-24) |
-| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (borrador en #158, sin mergear; lo acepta producto) |
+| 0046 | Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo | propuesto (`docs/adr/0046-copiloto-y-modo-coach.md`, revisado con la auditoría en #158; lo acepta producto con el 0024 y el 0029) |
 | 0047 | Motor de políticas, aprobaciones atadas al contenido y destinatarios fijados por el runtime (controles 3.3, 3.4 y 3.8) | aceptado (producto, 2026-10-30) |
 | 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
-| 0048 | Embeddings del conocimiento elegidos por eval, e ingesta de las fuentes de texto | aceptado (producto, 2026-11-09) |
+| 0049 | Acceso del worker a los datos: transacciones SQL con un rol ligado a la organización y RLS (T1) | propuesto (#195) |
+| 0050 | Claves por organización: cifrado de sobre de los mensajes y los datos de contacto, y borrado destruyendo la clave (T4) | propuesto (#195) |
+| 0051 | Todos los proveedores de modelos detrás del enrutador, con la UE por defecto (T6) | propuesto (#195) |
+| 0052 | Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10) | propuesto (#195) |
+| 0053 | Hub de integraciones: gobierno propio para todas las conexiones y una plataforma de conectores para la amplitud (Nango autoalojado en la UE; modifica el 0034 y el 0036) | aceptado (producto, 2026-11-11) |
 
 ---
 

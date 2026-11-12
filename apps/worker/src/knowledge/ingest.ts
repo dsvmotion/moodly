@@ -5,6 +5,7 @@ import type { TenantDb } from "@repo/db/service";
 import { assertEmbedding, chunkText, spentBefore } from "@repo/knowledge";
 import type { EmbedResult, Embedder, EmbeddingUsage } from "@repo/knowledge";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { checkBudgetSafely } from "../usage/budget-check.ts";
 
 // La ingesta de las fuentes de conocimiento de texto (paso B20-1, MANUAL §6.1,
 // ADR 0037 y ADR 0048).
@@ -180,6 +181,10 @@ export function createIngestHandler(options: IngestOptions): EventHandler {
     async handle(event: DomainEvent, ctx: EventContext) {
       const sourceId = String(event.payload["source_id"]);
       const result = await ctx.step("index", () => ingestSource(ctx.db, sourceId, options));
+      // Si se llamó al modelo de embeddings (indexada, en error o con el texto cambiado a mitad), ¿se pasó el tope del mes?
+      if (result.kind === "ready" || result.kind === "error" || (result.kind === "skip" && result.reason === "changed")) {
+        await ctx.step("budget:check", () => checkBudgetSafely(ctx.db, ctx.logger, { sourceId }));
+      }
       if ("ledgerError" in result && result.ledgerError) {
         ctx.logger.error({ sourceId, error: result.ledgerError }, "no se pudo anotar el coste de los embeddings en el libro de consumo");
       }

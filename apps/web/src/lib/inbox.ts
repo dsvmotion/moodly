@@ -16,6 +16,20 @@ export const INBOX_CHANNELS = ["whatsapp", "instagram", "email", "webchat", "voi
 export type InboxChannel = (typeof INBOX_CHANNELS)[number];
 export const TEST_CHANNEL = "test";
 
+/**
+ * Canales por los que lo que escribe el equipo llega de verdad al cliente. Hoy
+ * solo el chat web: el widget lee el mensaje de la conversación. Por los demás
+ * no hay quien lo envíe hasta la capa de canales (auditoría de preproducción,
+ * O-01), y el mensaje se quedaría «pendiente» para siempre (M-01). Se añade aquí
+ * cada canal cuando tenga su envío.
+ */
+export const REPLY_CHANNELS: readonly InboxChannel[] = ["webchat"];
+
+/** ¿Puede escribir el equipo al cliente por este canal desde la bandeja? */
+export function canReplyOn(channel: string | null | undefined): boolean {
+  return typeof channel === "string" && (REPLY_CHANNELS as readonly string[]).includes(channel);
+}
+
 /** Las pestañas de la bandeja: abiertas (las lleva el agente o el equipo), las del equipo y las cerradas. */
 export const INBOX_FILTERS = ["open", "human", "closed"] as const;
 export type InboxFilter = (typeof INBOX_FILTERS)[number];
@@ -200,7 +214,7 @@ export function inboxHref(query: InboxQuery, conversationId?: string): string {
 /** Lo más largo que el equipo puede escribir en un mensaje (el mismo tope que la base de datos). */
 export const MESSAGE_MAX_LENGTH = 10_000;
 
-export const INBOX_ACTION_ERRORS = ["invalid", "not_allowed", "failed"] as const;
+export const INBOX_ACTION_ERRORS = ["invalid", "not_allowed", "channel_unavailable", "failed"] as const;
 export type InboxActionError = (typeof INBOX_ACTION_ERRORS)[number];
 
 /**
