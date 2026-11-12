@@ -37,7 +37,7 @@ Son datos de la plataforma, no de un tenant. La tabla vive en `private`, fuera d
 | `source_path` | `text not null`, hasta 200, empieza por `/` |
 | `consent_text_version` | `text not null`: la versión del texto de consentimiento, versionado en el código de la web (p. ej. `'contacto-2026-11-12'`) |
 | `consent_at` | `timestamptz not null`. El formulario no se envía sin la casilla marcada. |
-| `ip_hash` | `text not null`: SHA-256 con sal (en `private.server_keys`), solo para el freno. Sin IP en claro ni *user agent*. |
+| `ip_hash` | `text not null`: SHA-256 con sal, solo para el freno. La sal está en `private.server_keys` y el hash lo calcula la base de datos dentro de `submit_lead`. Sin IP en claro ni *user agent*. |
 | `status` | `text not null default 'new'`, uno de `'new'`, `'contacted'`, `'closed'` |
 
 ## Escritura
@@ -48,6 +48,11 @@ Solo por `public.submit_lead(p_key text, p_lead jsonb)`:
 - **Clave de servidor:** exige la clave `leads_form` (`private.server_key_ok`), con el mismo patrón que `LOGIN_THROTTLE_KEY`. La clave publicable sola no inserta nada.
 - **Validación:** las mismas reglas que la tabla.
 - **Freno dentro de la función:** 5 envíos por hora por `ip_hash` y 3 al día por el hash del email.
+- **De dónde sale la IP:** la acción de servidor la toma de una sola cabecera de confianza, la que fija el borde de la plataforma y el cliente no puede falsear.
+  - Si la web pública de producción está en Vercel, es `x-vercel-forwarded-for`.
+  - Hoy `apps/site` está en el servicio `site` de Railway (`docs/STATUS.md`). Si sigue ahí, antes de la migración hay que comprobar qué cabecera sobrescribe su proxy, con una prueba que mande una cabecera falsa, y dejarlo escrito aquí.
+  - Nunca se toma de una cabecera que el cliente pueda poner ni del cuerpo. Si falta la cabecera de confianza, se rechaza el envío.
+- **El hash:** la acción no lo calcula. Pasa la IP en `p_lead`, y `submit_lead` calcula el hash con la sal y la descarta.
 - **Respuesta:** solo `'ok'`, `'limited'` o `'invalid'`. No deja saber si un email ya existe.
 - **Dónde escribe:** solo en `private.leads`, que no es una tabla de tenant. Aun así, el PR lo explicará y llevará tests en negativo (CLAUDE.md, «Base de datos: guardas»).
 
@@ -55,11 +60,21 @@ La acción de servidor valida antes con Zod (el mismo esquema) y llama a la func
 
 ## Lectura
 
-- RLS activada y forzada; `revoke all` para `public`, `anon` y `authenticated`.
-- **SELECT**, solo el equipo interno:
-  `(select private.session_is_active()) and (select private.is_platform_staff()) and (select private.session_is_aal2())`.
-- **UPDATE:** las mismas condiciones, solo la columna `status`. La protege un trigger `guard_*` con lista blanca (ADR 0003).
-- **DELETE:** ninguno por la API.
+`private` no está expuesto en la API, así que el panel interno no lee la tabla directamente. Usa dos funciones en `public`:
+
+- **`public.list_leads(p_status text default null, p_limit int default 50, p_before timestamptz default null)`**. Es `SECURITY DEFINER` y solo lee. Devuelve las columnas de la tabla salvo `ip_hash`.
+- **`public.set_lead_status(p_id uuid, p_status text)`**. Es `SECURITY DEFINER` y solo cambia `status`. Emite el evento de auditoría (ADR 0032).
+
+Ninguna de las dos puede ejecutarla `anon`. Las dos empiezan comprobando `private.session_is_active()`, `private.is_platform_staff()` y `private.session_is_aal2()`. Si falla cualquiera, lanzan un error sin datos.
+
+`set_lead_status` es una función `SECURITY DEFINER` que escribe. Aunque `private.leads` no es una tabla de tenant, llevará tests en negativo: `anon`, un usuario normal y el equipo interno con aal1.
+
+Además, como defensa en profundidad:
+
+- RLS activada y forzada en `private.leads`, sin políticas para `anon` ni `authenticated`.
+- `revoke all` para `public`, `anon` y `authenticated`.
+- Un trigger `guard_*` con lista blanca (ADR 0003): cualquier `UPDATE` que no venga de `set_lead_status` solo puede tocar `status`.
+- **DELETE:** ninguno por la API. Solo la purga y `erase_lead`.
 
 ## Retención y derechos
 
@@ -80,7 +95,7 @@ La acción de servidor valida antes con Zod (el mismo esquema) y llama a la func
 
 ## Vuelta atrás
 
-`supabase/rollbacks/<hueco>_leads.down.sql` borra, por este orden, la función, las políticas, la tabla y la clave `leads_form`.
+`supabase/rollbacks/<hueco>_leads.down.sql` borra, por este orden, las funciones (`submit_lead`, `list_leads`, `set_lead_status`, `purge_leads`, `erase_lead`), el trigger, la tabla y la clave `leads_form` con su sal.
 
 ## Tests pgTAP previstos
 
@@ -88,7 +103,8 @@ La acción de servidor valida antes con Zod (el mismo esquema) y llama a la func
 2. `anon` y `authenticated` no pueden ni leer ni insertar directamente.
 3. `submit_lead` sin clave, con una clave equivocada o con un payload malo devuelve `'invalid'` y no crea ninguna fila.
 4. El sexto envío en una hora desde el mismo `ip_hash` devuelve `'limited'`.
-5. Un `authenticated` que no es del equipo interno ve 0 filas. Uno del equipo con aal1 ve 0; con aal2, las ve.
-6. El equipo interno no puede cambiar nada más que `status`.
-7. La purga borra solo lo caducado.
-8. La migración de vuelta atrás no deja rastro.
+5. `list_leads` y `set_lead_status` fallan sin datos para `anon`, para un `authenticated` que no es del equipo interno y para el equipo con aal1. Con aal2 funcionan, y `list_leads` no devuelve `ip_hash`.
+6. Nada puede cambiar más que `status`, ni por `set_lead_status` ni por un `UPDATE` directo (la guarda).
+7. La IP en claro no se guarda en ninguna columna: solo `ip_hash`.
+8. La purga borra solo lo caducado.
+9. La migración de vuelta atrás no deja rastro.
