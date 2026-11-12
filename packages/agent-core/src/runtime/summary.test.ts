@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PLATFORM_MODEL_POLICY, createModelRouter } from "../models/router.js";
 import { createFakeTransport } from "../models/transports/fake.js";
 import { PLATFORM_RULES } from "./prompt.js";
-import { RECENT_MESSAGES, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./summary.js";
+import { RECENT_MESSAGES, SUMMARY_CALL_INDEX, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./summary.js";
 import type { SummaryMessage } from "./summary.js";
 
 const at = (minute: number) => new Date(Date.UTC(2030, 5, 3, 9, minute)).toISOString();
@@ -55,7 +55,7 @@ describe("summaryInput", () => {
 });
 
 describe("summarizeConversation", () => {
-  const base = { organizationId: "org-1", runId: "run-1", previous: "Ana quiere láser.", policy: PLATFORM_MODEL_POLICY, spend: { runEur: 0, dayEur: 0 } };
+  const base = { organizationId: "org-1", runId: "run-1", previous: "Ana quiere láser.", policy: PLATFORM_MODEL_POLICY, spend: { runEur: 0, dayEur: 0, monthEur: 0 } };
 
   it("lo hace el modelo barato (tarea extract → fast), con las instrucciones fijas en caché y la transcripción como dato", async () => {
     const transport = createFakeTransport({
@@ -63,7 +63,24 @@ describe("summarizeConversation", () => {
       respond: () => ({ text: "  Ana reservó láser el lunes a las 9.  ", model: "fake/fast", tokensIn: 300, tokensOut: 20, costEur: 0.0001 }),
     });
     const result = await summarizeConversation({ ...base, messages: [{ author: "contact", content: "Vale, el lunes" }], router: createModelRouter([transport]) });
-    expect(result).toEqual({ status: "updated", summary: "Ana reservó láser el lunes a las 9.", usage: { tokensIn: 300, tokensOut: 20, costEur: 0.0001, model: "fake/fast" } });
+    expect(result).toEqual({
+      status: "updated",
+      summary: "Ana reservó láser el lunes a las 9.",
+      usage: { tokensIn: 300, tokensOut: 20, costEur: 0.0001, model: "fake/fast" },
+      // La llamada para el libro de consumo (PL-ledger), con el orden fijo del resumen.
+      call: {
+        index: SUMMARY_CALL_INDEX,
+        provider: "fake",
+        via: expect.any(String),
+        region: expect.any(String),
+        model: "fake/fast",
+        modelKey: "fast",
+        tokensIn: 300,
+        tokensOut: 20,
+        costEur: 0.0001,
+        startedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      },
+    });
     const call = transport.calls[0];
     expect(call?.modelKey).toBe("fast");
     expect(call?.tools).toBeUndefined();
@@ -78,7 +95,7 @@ describe("summarizeConversation", () => {
   });
 
   it("si no hay presupuesto, falla el modelo o no dice nada, no se actualiza y el turno no se entera", async () => {
-    const cheap = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 0.0001, perDayEur: 20 } };
+    const cheap = { ...PLATFORM_MODEL_POLICY, budget: { perRunEur: 0.0001, perDayEur: 20, perMonthEur: 300 } };
     const ok = createFakeTransport({ provider: "fake", estimateEur: 0.01 });
     expect(await summarizeConversation({ ...base, policy: cheap, messages: messages(3), router: createModelRouter([ok]) })).toEqual({ status: "skipped", reason: "budget" });
     expect(ok.calls).toHaveLength(0);
@@ -86,8 +103,13 @@ describe("summarizeConversation", () => {
     const broken = createFakeTransport({ provider: "fake", respond: () => { throw new Error("caído"); } });
     expect(await summarizeConversation({ ...base, messages: messages(3), router: createModelRouter([broken]) })).toMatchObject({ status: "skipped", reason: "model_failed" });
 
-    const mute = createFakeTransport({ provider: "fake", respond: () => ({ text: "   ", model: "m", tokensIn: 1, tokensOut: 0, costEur: 0 }) });
-    expect(await summarizeConversation({ ...base, messages: messages(3), router: createModelRouter([mute]) })).toEqual({ status: "skipped", reason: "empty" });
+    // Sin texto no hay resumen, pero la llamada se hizo: vuelve para anotar lo que costó.
+    const mute = createFakeTransport({ provider: "fake", respond: () => ({ text: "   ", model: "m", tokensIn: 1, tokensOut: 0, costEur: 0.002 }) });
+    expect(await summarizeConversation({ ...base, messages: messages(3), router: createModelRouter([mute]) })).toEqual({
+      status: "skipped",
+      reason: "empty",
+      call: expect.objectContaining({ index: SUMMARY_CALL_INDEX, model: "m", tokensIn: 1, tokensOut: 0, costEur: 0.002 }),
+    });
 
     // Sin nada que resumir (solo notas del sistema), ni se llama.
     const idle = createFakeTransport({ provider: "fake" });

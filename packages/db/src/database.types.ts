@@ -870,13 +870,13 @@ isOneToOne: false
                   ]
                 },"org_model_settings": {
                   Row: {
-                    "allowed_providers": (string)[],"budget_per_day_eur": number,"budget_per_run_eur": number,"connection": string,"model_by_task": NonNullable<Json>,"organization_id": string,"residency": string,"updated_at": string,"updated_by": string | null
+                    "allowed_providers": (string)[],"budget_per_day_eur": number,"budget_per_month_eur": number,"budget_per_run_eur": number,"connection": string,"model_by_task": NonNullable<Json>,"organization_id": string,"residency": string,"updated_at": string,"updated_by": string | null
                   }
                   Insert: {
-                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id": string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
+                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_month_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id": string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Update: {
-                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id"?: string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
+                    "allowed_providers"?: (string)[],"budget_per_day_eur"?: number,"budget_per_month_eur"?: number,"budget_per_run_eur"?: number,"connection"?: string,"model_by_task"?: NonNullable<Json>,"organization_id"?: string,"residency"?: string,"updated_at"?: string,"updated_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -1044,6 +1044,43 @@ isOneToOne: false
       referencedColumns: ["user_id"]
     }
                   ]
+                },"usage_records": {
+                  Row: {
+                    "agent_id": string | null,"call_index": number | null,"cost_eur": number,"created_at": string,"id": string,"location_id": string | null,"metric": string,"model": string,"model_key": string | null,"occurred_at": string,"organization_id": string,"provider": string,"quantity": number,"region": string,"run_id": string | null,"source": string,"tokens_in": number,"tokens_out": number,"via": string
+                  }
+                  Insert: {
+                    "agent_id"?: string | null,"call_index"?: number | null,"cost_eur": number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"metric": string,"model": string,"model_key"?: string | null,"occurred_at"?: string,"organization_id": string,"provider": string,"quantity": number,"region": string,"run_id"?: string | null,"source": string,"tokens_in"?: number,"tokens_out"?: number,"via": string
+                  }
+                  Update: {
+                    "agent_id"?: string | null,"call_index"?: number | null,"cost_eur"?: number,"created_at"?: string,"id"?: string,"location_id"?: string | null,"metric"?: string,"model"?: string,"model_key"?: string | null,"occurred_at"?: string,"organization_id"?: string,"provider"?: string,"quantity"?: number,"region"?: string,"run_id"?: string | null,"source"?: string,"tokens_in"?: number,"tokens_out"?: number,"via"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "usage_records_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "usage_records_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "usage_records_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "usage_records_run_id_fkey"
+      columns: ["run_id"]
+isOneToOne: false
+      referencedRelation: "agent_runs"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"users": {
                   Row: {
                     "created_at": string,"full_name": string | null,"id": string,"locale": string,"updated_at": string
@@ -1109,7 +1146,32 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "usage_summary": {
+                  Row: {
+                    "agent_id": string | null,"calls": number | null,"cost_eur": number | null,"day": string | null,"location_id": string | null,"model": string | null,"organization_id": string | null,"provider": string | null,"region": string | null,"source": string | null,"tokens_in": number | null,"tokens_out": number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "usage_records_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "usage_records_location_id_fkey"
+      columns: ["location_id"]
+isOneToOne: false
+      referencedRelation: "locations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "usage_records_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
           }
           Functions: {
             "accept_invitation":
@@ -1148,6 +1210,9 @@ isOneToOne: false
                            },
 "send_test_message":
 { Args: { "p_agent_id": string,"p_content": string,"p_location_id": string }; Returns: string
+                           },
+"usage_spend":
+{ Args: { "p_day_start": string,"p_month_start": string,"p_organization_id": string }; Returns: Json
                            }
           }
           Enums: {
