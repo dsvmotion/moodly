@@ -12,9 +12,9 @@ const base = [
 { id: 'responder', name: 'Responder preguntas', desc: 'Con la información de Conocimiento', agent: 'Atención', mode: 'auto', approver: 'Recepción' },
 { id: 'resena', name: 'Responder reseñas negativas', desc: '3 estrellas o menos', agent: 'Atención', mode: 'approval', approver: 'Dueña' },
 { id: 'descuento', name: 'Ofrecer descuento', desc: 'Cualquier rebaja de precio', agent: 'Comercial', mode: 'approval', approver: 'Dueña' },
-{ id: 'factura', name: 'Enviar factura', desc: 'A clientes y aseguradoras', agent: 'Administración', mode: 'approval', approver: 'Gerente' },
+{ id: 'factura', name: 'Enviar factura', desc: 'A clientes y empresas con convenio', agent: 'Administración', mode: 'approval', approver: 'Gerente' },
 { id: 'pedido', name: 'Pedir material a proveedor', desc: 'Cuando el stock baja del mínimo', agent: 'Administración', mode: 'approval', approver: 'Gerente' },
-{ id: 'medico', name: 'Dar consejo médico', desc: 'Diagnósticos o tratamientos', agent: 'Todos', mode: 'never', approver: '–' }
+{ id: 'resultados', name: 'Prometer resultados', desc: 'Garantizar cómo quedará un servicio', agent: 'Todos', mode: 'never', approver: '–' }
 ];
 const modes = (this.state && this.state.modes) || {};
 const set = (id, m) => () => this.setState({ modes: { ...modes, [id]: m } });

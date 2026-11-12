@@ -3,7 +3,7 @@ export const COPY = {
   es: {
     eyebrow: "Sobre nosotros",
     title: "Llevamos la IA a los negocios que hacen funcionar el día a día",
-    intro: "Clínicas, restaurantes, gestorías, inmobiliarias y agencias pierden horas en llamadas, mensajes y papeles. Construimos agentes que se encargan de ese trabajo para que tu equipo pueda atender mejor.",
+    intro: "Peluquerías, restaurantes, gestorías, inmobiliarias y agencias pierden horas en llamadas, mensajes y papeles. Construimos agentes que se encargan de ese trabajo para que tu equipo pueda atender mejor.",
     contact: "Contactar", meetAgents: "Conocer los agentes",
     whyA: "Por qué existe Moodly.", whyB: "La IA ya funciona; lo difícil es que llegue a una pyme.",
     whyP1: "Las grandes empresas tienen equipos para montar asistentes, conectar sistemas y vigilar riesgos. Un negocio de diez personas, no.",
@@ -22,7 +22,7 @@ export const COPY = {
   en: {
     eyebrow: "About us",
     title: "We bring AI to the businesses that keep everyday life running",
-    intro: "Clinics, restaurants, accounting firms, real estate agencies and agencies lose hours on calls, messages and paperwork. We build agents that take on that work so your team can serve better.",
+    intro: "Hair salons, restaurants, accounting firms, real estate agencies and agencies lose hours on calls, messages and paperwork. We build agents that take on that work so your team can serve better.",
     contact: "Contact", meetAgents: "Meet the agents",
     whyA: "Why Moodly exists.", whyB: "AI already works; the hard part is getting it to a small business.",
     whyP1: "Large companies have teams to build assistants, connect systems and watch for risks. A ten-person business does not.",
@@ -41,7 +41,7 @@ export const COPY = {
   fr: {
     eyebrow: "À propos",
     title: "Nous amenons l'IA aux entreprises qui font tourner le quotidien",
-    intro: "Cliniques, restaurants, cabinets, agences immobilières et agences perdent des heures en appels, messages et paperasse. Nous construisons des agents qui prennent en charge ce travail pour que votre équipe serve mieux.",
+    intro: "Salons de coiffure, restaurants, cabinets, agences immobilières et agences perdent des heures en appels, messages et paperasse. Nous construisons des agents qui prennent en charge ce travail pour que votre équipe serve mieux.",
     contact: "Contacter", meetAgents: "Découvrir les agents",
     whyA: "Pourquoi Moodly existe.", whyB: "L'IA fonctionne déjà ; le difficile, c'est qu'elle arrive jusqu'à une PME.",
     whyP1: "Les grandes entreprises ont des équipes pour monter des assistants, connecter des systèmes et surveiller les risques. Une entreprise de dix personnes, non.",
@@ -60,7 +60,7 @@ export const COPY = {
   de: {
     eyebrow: "Über uns",
     title: "Wir bringen KI zu den Unternehmen, die den Alltag am Laufen halten",
-    intro: "Praxen, Restaurants, Kanzleien, Immobilienbüros und Agenturen verlieren Stunden mit Anrufen, Nachrichten und Papierkram. Wir bauen Agenten, die diese Arbeit übernehmen, damit dein Team besser betreuen kann.",
+    intro: "Friseursalons, Restaurants, Kanzleien, Immobilienbüros und Agenturen verlieren Stunden mit Anrufen, Nachrichten und Papierkram. Wir bauen Agenten, die diese Arbeit übernehmen, damit dein Team besser betreuen kann.",
     contact: "Kontakt", meetAgents: "Die Agenten kennenlernen",
     whyA: "Warum es Moodly gibt.", whyB: "KI funktioniert bereits; schwierig ist, dass sie bei einem KMU ankommt.",
     whyP1: "Große Unternehmen haben Teams, um Assistenten aufzubauen, Systeme zu verbinden und Risiken zu überwachen. Ein Zehn-Personen-Betrieb nicht.",
