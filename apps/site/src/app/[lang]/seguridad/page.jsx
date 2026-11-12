@@ -12,7 +12,7 @@ import { withContact } from "@/components/contact";
 // enseña. Mismo índice en los cuatro idiomas (si no, falla la compilación).
 const UNITS = {
   certs: ["SE02", "SE12", "SE12", null],
-  foundations: ["SE02", null, "PL-T4"],
+  foundations: ["SE02", null, "SE13"],
   deploy: ["PL-prod", "PL-cells", "PL-cells", null],
   arch: ["PL-T1", "SE05", "OA02", "PL-T5", "PL-T9", "SE04"],
   model: ["PL-T6", "OA24", "OA24"],
