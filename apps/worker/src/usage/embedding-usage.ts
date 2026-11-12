@@ -32,25 +32,31 @@ export async function recordEmbeddingUsage(
   usage: EmbeddingUsage,
 ): Promise<string | null> {
   try {
-    const { error } = await db.from("usage_records").insert({
-      location_id: row.locationId,
-      run_id: row.runId ?? null,
-      agent_id: row.agentId ?? null,
-      source: "embedding",
-      metric: "embedding_tokens",
-      quantity: usage.tokens,
-      tokens_in: usage.tokens,
-      tokens_out: 0,
-      cost_eur: usage.costEur,
-      provider: route.provider,
-      via: "gateway",
-      region: route.region,
-      model: embedder.model,
-      call_index: row.callIndex,
-    });
-    return error ? `usage_records(${error.code})` : null;
+    // Como moodly_worker, bajo RLS (PL-T1 3c-1, 20261112130000), como el resto
+    // del libro: la organización es la de tenantDb, nunca la de quien anota.
+    await db.transaction((sql) =>
+      sql.query(
+        `insert into public.usage_records (organization_id, location_id, run_id, agent_id, source, metric, quantity,
+                                           tokens_in, tokens_out, cost_eur, provider, via, region, model, call_index)
+         values ($1, $2, $3, $4, 'embedding', 'embedding_tokens', $5, $5, 0, $6, $7, 'gateway', $8, $9, $10)`,
+        [
+          db.organizationId,
+          row.locationId,
+          row.runId ?? null,
+          row.agentId ?? null,
+          usage.tokens,
+          usage.costEur,
+          route.provider,
+          route.region,
+          embedder.model,
+          row.callIndex,
+        ],
+      ),
+    );
+    return null;
   } catch (error) {
-    return (error as Error).name;
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? `usage_records(${code})` : (error as Error).name;
   }
 }
 
