@@ -5,7 +5,7 @@
 -- al cliente en su conversación y deja la auditoría.
 begin;
 \ir _fixtures/tenants.psql
-select plan(45);
+select plan(48);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_a2 from public.agents where organization_id = :org_a order by id offset 1 limit 1 \gset
@@ -173,6 +173,11 @@ select results_eq(
            where action = 'knowledge_request.answered' and target->>'knowledge_request_id' = %L$$, :'r_web'),
   format($$values ('user'::text, %L::uuid, %L::text)$$, :a_staff1, :'src'),
   'y queda en la auditoría');
+select results_eq(
+  format($$select metadata->'message_sent', metadata->>'channel' from public.audit_logs
+           where action = 'knowledge_request.answered' and target->>'knowledge_request_id' = %L$$, :'r_web'),
+  $$values ('true'::jsonb, 'webchat'::text)$$,
+  'la auditoría dice que se mandó, por el chat web');
 
 select pg_temp.login(:a_staff1) as s \gset
 with u as (update public.knowledge_requests set answer = 'Otra' where id = :'r_web' returning 1)
@@ -182,13 +187,25 @@ select throws_ok(
   format($$update public.knowledge_requests set status = 'dismissed', answer = null where id = %L$$, :'r_web'),
   '42501', null, 'ni para la plataforma');
 
--- Por WhatsApp, el mensaje queda pendiente hasta que el worker lo envíe.
+-- Por WhatsApp (un canal que todavía no envía, M-01): se guarda el
+-- conocimiento, pero no se inserta un mensaje que se quedaría pendiente para
+-- siempre (20261112040800).
+select count(*)::int as wa_msgs_before from public.messages where conversation_id = :'conv_wa' \gset
 select pg_temp.login(:a_loc1_mgr) as s \gset
 update public.knowledge_requests set status = 'answered', answer = 'No hacemos tatuajes.' where id = :'r_wa';
 reset role;
-select is(
-  (select status from public.messages where conversation_id = :'conv_wa' order by created_at desc limit 1),
-  'pending', 'quien lleva el local contesta la suya; por WhatsApp, el mensaje queda pendiente de envío');
+select is((select count(*)::int from public.messages where conversation_id = :'conv_wa'), :wa_msgs_before,
+  'quien lleva el local contesta la suya; por WhatsApp no se crea un mensaje que no saldría (ni pending ni sent)');
+select results_eq(
+  format($$select r.status, s.type, s.body from public.knowledge_requests r
+           join public.knowledge_sources s on s.id = r.resulting_source_id where r.id = %L$$, :'r_wa'),
+  $$values ('answered'::text, 'human_answer'::text, 'No hacemos tatuajes.'::text)$$,
+  'la pregunta queda contestada y la respuesta, como conocimiento');
+select results_eq(
+  format($$select metadata->'message_sent', metadata->>'channel' from public.audit_logs
+           where action = 'knowledge_request.answered' and target->>'knowledge_request_id' = %L$$, :'r_wa'),
+  $$values ('false'::jsonb, 'whatsapp'::text)$$,
+  'y la auditoría dice que no se mandó al cliente, y por qué canal');
 
 -- La de toda la organización: el org_admin con aal2; el conocimiento, de toda la organización.
 select pg_temp.login_mfa(:a_admin) as s \gset
