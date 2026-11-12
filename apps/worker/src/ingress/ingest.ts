@@ -316,7 +316,8 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
       DBOS.listWorkflows({ workflowName: INGEST_WORKFLOW, status: [...status], startTime: since, limit: 100, loadInput: false, loadOutput: false });
     const stuck = await DBOS.runStep(async () => (await list(RESUMABLE_STATUSES)).map((status) => status.workflowID), { name: "stuck", ...DB_STEP });
     for (const workflowID of stuck) {
-      await DBOS.runStep(() => DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE }).then(() => undefined), { name: `resume:${workflowID}` });
+      // Desde el workflow, no desde un paso (DBOS no lo deja): DBOS lo guarda como un paso propio.
+      await DBOS.resumeWorkflow(workflowID, { queueName: INGEST_QUEUE });
     }
     if (stuck.length > 0) log.warn({ resumed: stuck.length }, "eventos de entrada parados, reanudados");
     const parked = await DBOS.runStep(async () => (await list(PARKED_STATUSES)).length, { name: "parked", ...DB_STEP });
