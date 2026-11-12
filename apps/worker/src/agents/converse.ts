@@ -13,7 +13,6 @@ import type {
   TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
-import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
 import type { Embedder } from "@repo/knowledge";
 import {
@@ -381,49 +380,59 @@ async function recordExecution(
   now: Date,
 ): Promise<boolean> {
   if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
-  const { data, error } = await db.from("executions").insert({
-    run_id: runId,
-    location_id: locationId,
-    skill_key: execution.skillKey,
-    skill_version: skill.version,
-    effect_class: skill.effectClass,
-    autonomy_applied: execution.autonomy,
-    input: execution.input as NonNullable<Json>,
-    target: execution.target as unknown as NonNullable<Json>,
-    input_hash: execution.inputHash,
-    preview: (execution.preview ?? null) as unknown as Json,
-    output: (execution.output ?? null) as Json,
-    status: execution.status,
-    idempotency_key: execution.idempotencyKey,
-  }).select("id").single();
-  // 23505: ya guardada (la entrega se reanudó después de guardarla).
-  if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
-  if (!AWAITING_PERSON.has(execution.status)) return false;
-  // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
-  let executionId = data?.id;
-  if (!executionId) {
-    const existing = await db.from("executions").select("id").eq("idempotency_key", execution.idempotencyKey).maybeSingle();
-    if (existing.error || !existing.data) throw new Error(`no se encontró la ejecución guardada (${existing.error?.code ?? "sin fila"})`);
-    executionId = existing.data.id;
-  }
-  // Si la conversación ya la lleva una persona, el mensaje del agente no pide
-  // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
-  // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
-  if (execution.target?.kind === "conversation") {
-    const conversation = check(
-      await db.from("conversations").select("mode").eq("id", execution.target.conversationId).maybeSingle(),
-      "la conversación de la ejecución",
+  // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112064000): guardar,
+  // encontrar y, si hace falta, retener la ejecución, en una transacción.
+  const target = execution.target;
+  const saved = await db.transaction(async (sql) => {
+    // on conflict: ya guardada (la entrega se reanudó después de guardarla).
+    await sql.query(
+      `insert into public.executions (organization_id, run_id, location_id, skill_key, skill_version, effect_class,
+                                      autonomy_applied, input, target, input_hash, preview, output, status, idempotency_key)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       on conflict do nothing`,
+      [
+        db.organizationId,
+        runId,
+        locationId,
+        execution.skillKey,
+        skill.version,
+        skill.effectClass,
+        execution.autonomy,
+        JSON.stringify(execution.input),
+        JSON.stringify(target),
+        execution.inputHash,
+        // Sin vista previa ni salida, NULL de SQL (no el jsonb 'null', que preview no admite).
+        execution.preview == null ? null : JSON.stringify(execution.preview),
+        execution.output == null ? null : JSON.stringify(execution.output),
+        execution.status,
+        execution.idempotencyKey,
+      ],
     );
-    if (holdsForPerson(skill.effectClass, execution.target, conversation?.mode ?? null)) {
-      const held = await db
-        .from("executions")
-        .update({ status: "failed", output: { held: HELD_NOT_AGENT_MODE } })
-        .eq("id", executionId)
-        .in("status", [...AWAITING_PERSON]);
-      if (held.error) throw new Error(`no se pudo retener la ejecución (${held.error.code})`);
-      return true;
+    if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false };
+    // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
+    const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
+    if (!row) throw new Error("no se encontró la ejecución guardada");
+    // Si la conversación ya la lleva una persona, el mensaje del agente no pide
+    // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
+    // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
+    if (target?.kind === "conversation") {
+      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where id = $1", [
+        target.conversationId,
+      ]);
+      if (holdsForPerson(skill.effectClass, target, conversation?.mode ?? null)) {
+        await sql.query(
+          `update public.executions set status = 'failed', output = $2
+           where id = $1 and status = any($3::text[])`,
+          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON]],
+        );
+        return { executionId: row.id, held: true };
+      }
     }
-  }
+    return { executionId: row.id, held: false };
+  });
+  if (!saved.executionId) return false;
+  if (saved.held) return true;
+  const executionId = saved.executionId;
   await requestApproval(db, {
     executionId,
     locationId,

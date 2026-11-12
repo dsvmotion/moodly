@@ -15,7 +15,7 @@ select id as agent_b from public.agents where organization_id = :org_b order by 
 select is(
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name)
    from information_schema.column_privileges
-   where grantee = 'moodly_worker' and privilege_type = 'UPDATE'),
+   where grantee = 'moodly_worker' and privilege_type = 'UPDATE' and table_name = 'agent_runs'),
   'agent_runs.cost_eur, agent_runs.model, agent_runs.status, agent_runs.tokens_in, agent_runs.tokens_out',
   'solo actualiza el estado, el modelo, los tokens y el coste de un run');
 select ok(not has_column_privilege('moodly_worker', 'public.agent_runs', 'requested_by', 'INSERT')
