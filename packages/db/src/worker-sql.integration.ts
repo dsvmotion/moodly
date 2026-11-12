@@ -2,7 +2,7 @@ import { performance } from "node:perf_hooks";
 import { afterAll, describe, expect, it } from "vitest";
 import { seedOrganizations } from "./seed/data.ts";
 import { localWorkerDatabaseUrl, readLocalSupabase } from "./seed/local-supabase.ts";
-import { WorkerSqlError, createServiceDb } from "./service.ts";
+import { WorkerSqlError, createServiceDb, type TenantSql } from "./service.ts";
 import { createWorkerSql } from "./worker-sql.ts";
 
 // forOrganization(org).transaction contra Supabase local con el seed aplicado
@@ -54,6 +54,44 @@ describe("forOrganization(org).transaction (moodly_worker, RLS)", () => {
     await expect(tenant.transaction((sql) => sql.query("set local role service_role"))).rejects.toThrow(WorkerSqlError);
   });
 
+  // Los bypasses que encontró la revisión de #231: ninguno cambia la organización.
+  it("ni con SET LOCAL entre comillas, ni con set_config y el nombre en $1, ni con varias sentencias", async () => {
+    const tenant = service.forOrganization(ORG_A);
+    await expect(
+      tenant.transaction((sql) => sql.query(`set local "moodly"."organization_id" = '${ORG_B}'`)),
+    ).rejects.toThrow(WorkerSqlError);
+    await expect(
+      tenant.transaction((sql) => sql.query("select set_config($1, $2, true)", ["moodly.organization_id", ORG_B])),
+    ).rejects.toThrow(WorkerSqlError);
+    // Pasa el filtro de texto (empieza por select y no nombra set_config), pero
+    // el protocolo extendido solo admite una sentencia: Postgres la rechaza.
+    await expect(tenant.transaction((sql) => sql.query("select 1; reset role"))).rejects.toThrow(
+      /cannot insert multiple commands/,
+    );
+    await expect(tenant.transaction((sql) => sql.query("reset role"))).rejects.toThrow(WorkerSqlError);
+    await expect(tenant.transaction((sql) => sql.query("discard all"))).rejects.toThrow(WorkerSqlError);
+    // Y la organización sigue siendo A, con el rol de siempre.
+    const [row] = await tenant.transaction((sql) =>
+      sql.query<{ org: string; role: string }>("select current_setting('moodly.organization_id', true) as org, current_user as role"),
+    );
+    expect(row).toEqual({ org: ORG_A, role: "moodly_worker" });
+  });
+
+  it("el handle no vale fuera de su transacción (la conexión ya puede ser de otra organización)", async () => {
+    let leaked: TenantSql | undefined;
+    await service.forOrganization(ORG_A).transaction(async (sql) => {
+      leaked = sql;
+      await sql.query("select 1");
+    });
+    if (!leaked) throw new Error("sin handle");
+    const handle = leaked;
+    await expect(handle.query("select 1")).rejects.toThrow(WorkerSqlError);
+    // Ni mientras otra organización usa el pool.
+    await service.forOrganization(ORG_B).transaction(async () => {
+      await expect(handle.query("select id from public.locations")).rejects.toThrow(WorkerSqlError);
+    });
+  });
+
   it("no puede escribir donde solo lee, y el error deshace la transacción", async () => {
     await expect(
       service.forOrganization(ORG_A).transaction((sql) => sql.query("update public.conversations set mode = mode")),
@@ -74,6 +112,19 @@ describe("forOrganization(org).transaction (moodly_worker, RLS)", () => {
     const asOwner = createWorkerSql({ connectionString: local.dbUrl });
     await expect(asOwner.inOrganization(ORG_A, (sql) => sql.query("select 1"))).rejects.toThrow(WorkerSqlError);
     await asOwner.end();
+  });
+
+  it("ni con una URL de postgres que pide el rol moodly_worker (-c role=…): session_user seguiría siendo postgres", async () => {
+    const url = new URL(local.dbUrl);
+    url.searchParams.set("options", "-c role=moodly_worker");
+    const errors: Error[] = [];
+    const disguised = createWorkerSql({ connectionString: url.toString(), onError: (e) => errors.push(e) });
+    // postgres no tiene SET sobre el rol (PG16), así que Postgres ya lo rechaza al
+    // conectar; si lo tuviera, lo rechazaría la comprobación de session_user.
+    await expect(disguised.inOrganization(ORG_A, (sql) => sql.query("select 1"))).rejects.toThrow(
+      /permission denied to set role|session_user/,
+    );
+    await disguised.end();
   });
 });
 

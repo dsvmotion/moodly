@@ -37,11 +37,16 @@ export function createServiceDb(options: {
   secretKey: string;
   /** La conexión del rol moodly_worker (ADR 0049): activa forOrganization(…).transaction. */
   workerDatabaseUrl?: string;
+  /** Errores de las conexiones libres del pool de moodly_worker (para el log del worker). */
+  onWorkerSqlError?: (error: Error) => void;
 }): ServiceDb {
   const client = createClient<Database>(options.url, options.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  const workerSql = options.workerDatabaseUrl ? createWorkerSql({ connectionString: options.workerDatabaseUrl }) : undefined;
+  const workerSql = options.workerDatabaseUrl ? createWorkerSql({
+        connectionString: options.workerDatabaseUrl,
+        ...(options.onWorkerSqlError ? { onError: options.onWorkerSqlError } : {}),
+      }) : undefined;
   return {
     forOrganization: (organizationId) => tenantDb(client, organizationId, workerSql),
     outbox: outbox(client),
