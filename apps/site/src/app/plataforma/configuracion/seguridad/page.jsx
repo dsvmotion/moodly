@@ -54,7 +54,7 @@ export default function Seguridad() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "center" }}><h2 style={h2}>Inicio de sesión único (SSO)</h2><span style={ent}>Enterprise</span></div>
         <span style={sub}>Tu equipo entra con la cuenta de la empresa (Google Workspace, Microsoft Entra ID, Okta u otro proveedor SAML).</span>
         <div style={row}>
-          <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span>Estado</span><span style={sub}>Sin configurar · dominio clinicadentalsol.es sin verificar</span></span>
+          <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}><span>Estado</span><span style={sub}>Sin configurar · dominio estudiobellezasol.es sin verificar</span></span>
           <a href="/plataforma/configuracion/seguridad/sso" style={btn(true)}>Configurar SSO</a>
         </div>
       </section>

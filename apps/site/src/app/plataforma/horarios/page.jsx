@@ -39,7 +39,7 @@ export default function Screen() {
 <h2 style={{ margin: "0 0 8px", fontSize: "18px", lineHeight: "19.8px", fontWeight: "400", letterSpacing: "-0.36px" }}>Pasar a una persona cuando…</h2>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>El cliente pide hablar con alguien</span><span style={{ color: "var(--muted)" }}>Recepción</span></div>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Hay una queja o el cliente está molesto</span><span style={{ color: "var(--muted)" }}>Gerente</span></div>
-<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>Es una urgencia</span><span style={{ color: "var(--muted)" }}>Dra. Ruiz</span></div>
+<div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>No le gusta el resultado de un servicio</span><span style={{ color: "var(--muted)" }}>Lucía Ruiz</span></div>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "10px 0", borderTop: "1px solid var(--line-soft)" }}><span>El agente no sabe la respuesta</span><span style={{ color: "var(--muted)" }}>Recepción</span></div>
 <span style={{ marginTop: "8px", fontSize: "12px", lineHeight: "18px", color: "var(--muted-2)" }}>Avisamos por la app y por WhatsApp a la persona indicada.</span>
 </section>

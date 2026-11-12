@@ -88,7 +88,7 @@ export default function Voz() {
 
           <section style={{ ...box, flex: "2 1 300px", minWidth: 0, background: "#004c39", color: "#ffffff", border: 0 }}>
             <h2 style={h2}>Pruébala</h2>
-            <p style={{ margin: 0, fontSize: "14px", lineHeight: "21px", opacity: 0.85, fontFamily: "var(--font-body)" }}>«Hola, soy de Clínica Dental Sol. Te llamo para confirmar tu cita del jueves a las 10:30. ¿Te viene bien?»</p>
+            <p style={{ margin: 0, fontSize: "14px", lineHeight: "21px", opacity: 0.85, fontFamily: "var(--font-body)" }}>«Hola, soy de Estudio de Belleza Sol. Te llamo para confirmar tu cita del jueves a las 10:30. ¿Te viene bien?»</p>
             <button type="button" style={{ ...btnLight, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "8px" }}>▶ Escuchar prueba</button>
             <div style={{ marginTop: "auto", fontSize: "12px", lineHeight: "18px", opacity: 0.8, display: "flex", gap: "8px", alignItems: "flex-start", fontFamily: "var(--font-body)" }}><span>🔒</span><span>Voz procesada en la UE (Cartesia). El audio y las muestras se guardan cifrados y los puedes borrar.</span></div>
           </section>
