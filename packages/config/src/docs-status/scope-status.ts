@@ -276,7 +276,9 @@ const clip = (s: string, n: number): string => {
 };
 
 export const COMMAND = "pnpm docs:status";
-const OPEN_LIMIT = 12;
+// Cuántas unidades en curso o bloqueadas se listan por hito (el resto, en «… y N más»).
+// 10 y no 12 para que el resumen quepa en unas 80 líneas con el registro real (#250).
+const OPEN_LIMIT = 10;
 
 /** Resumen en Markdown; determinista (sin fechas de ejecución). */
 export function renderStatus(scope: Scope): string {
