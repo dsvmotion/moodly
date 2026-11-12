@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { localSupabaseApi, localSystemDatabaseUrl } from "./testing/local-system-db.ts";
+import { localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "./testing/local-system-db.ts";
 
 // El worker real arranca, ejecuta un workflow y para sin avisos de deprecación.
 // En pg 8, dos consultas a la vez en el mismo cliente dan un DeprecationWarning;
@@ -45,6 +45,7 @@ describe("arranque del worker", () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
     };
 
     const { code, output } = await run(["start", `testing:startup:${randomUUID()}`, join(dir, "effects.jsonl")], env);

@@ -7,7 +7,7 @@ import { MAX_CHUNK_CHARS, createFakeEmbedder } from "@repo/knowledge";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { INGEST_HANDLER_KEY } from "./ingest.ts";
 
 // La ingesta del conocimiento de punta a punta (paso B20-1): una fuente de texto
@@ -124,6 +124,7 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

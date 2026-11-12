@@ -65,7 +65,14 @@ function dbosLogger(logger: Logger): DLogger {
 }
 
 export function createWorker(config: WorkerConfig, logger: Logger, options: WorkerOptions): Worker {
-  const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
+  const db = createServiceDb({
+    url: config.supabaseUrl,
+    secretKey: config.supabaseSecretKey,
+    workerDatabaseUrl: config.workerDatabaseUrl,
+    // Solo el mensaje (redactado por si llevara la URL): nunca la conexión.
+    onWorkerSqlError: (error) =>
+      logger.warn({ reason: redactConnectionStrings(error.message) }, "error en una conexión libre de moodly_worker"),
+  });
   // Antes de DBOS.launch(): un consumidor puede registrar aquí sus workflows.
   const handlers = typeof options.eventHandlers === "function" ? options.eventHandlers({ db, logger }) : options.eventHandlers;
   const registry = createEventRegistry(handlers);
@@ -143,6 +150,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       // pool lo cerramos nosotros (DBOS no cierra uno que no ha creado).
       if (launched) await DBOS.shutdown();
       await pool?.end();
+      await db.end();
       await lease?.release();
       logger.info({ executorId: config.executorId }, "worker parado");
     },

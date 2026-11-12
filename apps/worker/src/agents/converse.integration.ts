@@ -6,7 +6,7 @@ import { join } from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_HANDLER_KEY } from "./approvals.ts";
 import { CONVERSE_HANDLER_KEY } from "./converse.ts";
 
@@ -180,6 +180,7 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       CONVERSE_PLAN: JSON.stringify({ serviceId: ids.service, resourceId: ids.resource, startsAt: "2030-06-03T09:00:00+02:00" }),
     },
     stdio: ["ignore", "pipe", "pipe"],

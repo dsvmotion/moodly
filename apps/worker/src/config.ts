@@ -18,6 +18,12 @@ export interface WorkerConfig {
   supabaseUrl: string;
   supabaseSecretKey: string;
   /**
+   * Los datos de las organizaciones por SQL bajo RLS, con el rol moodly_worker
+   * (ADR 0049, PL-T1): forOrganization(org).transaction. @repo/db comprueba al
+   * conectar que la conexión es de verdad moodly_worker y no se salta RLS.
+   */
+  workerDatabaseUrl: string;
+  /**
    * La clave de Vercel AI Gateway (ADR 0033 §7). Opcional: sin ella no hay
    * modelo, y cada conversación pasa a una persona en vez de quedarse sin
    * respuesta (MANUAL §15.1). Nunca va a los logs.
@@ -46,6 +52,17 @@ const systemDatabaseUrl = z
     "WORKER_SYSTEM_DATABASE_URL apunta al pooler en modo transacción (6543): DBOS necesita una conexión de sesión o directa",
   );
 
+// moodly_worker: directo («moodly_worker») o por el pooler de Supabase
+// («moodly_worker.<ref>»). Cualquier otro usuario (postgres, service_role) se
+// saltaría RLS; @repo/db lo vuelve a comprobar en cada conexión.
+const workerDatabaseUrl = z
+  .string({ error: "falta WORKER_DATABASE_URL" })
+  .refine((value) => {
+    if (!URL.canParse(value)) return false;
+    const url = new URL(value);
+    return (url.protocol === "postgres:" || url.protocol === "postgresql:") && /^moodly_worker(\.[a-z0-9]+)?$/.test(decodeURIComponent(url.username));
+  }, "WORKER_DATABASE_URL: una URL de Postgres con el usuario moodly_worker (o moodly_worker.<ref> por el pooler)");
+
 // HTTPS fuera de local: la clave secreta viaja en cada petición.
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const supabaseUrl = z
@@ -71,6 +88,7 @@ const schema = z.object({
     .regex(/^[0-9a-f]{7,40}$/, "RAILWAY_GIT_COMMIT_SHA no es un commit")
     .optional(),
   SUPABASE_URL: supabaseUrl,
+  WORKER_DATABASE_URL: workerDatabaseUrl,
   SUPABASE_SECRET_KEY: z
     .string({ error: "falta SUPABASE_SECRET_KEY" })
     .regex(/^sb_secret_[A-Za-z0-9_-]{16,200}$/, "SUPABASE_SECRET_KEY no es una clave secreta de Supabase (sb_secret_…)"),
@@ -106,6 +124,7 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     gitCommit: parsed.data.RAILWAY_GIT_COMMIT_SHA ?? null,
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
+    workerDatabaseUrl: parsed.data.WORKER_DATABASE_URL,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
     healthPort: Number(parsed.data.PORT ?? "8080"),
   };

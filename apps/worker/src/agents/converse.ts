@@ -174,85 +174,89 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
   return result.data;
 }
 
+// Las lecturas del turno van por SQL bajo RLS, con el rol moodly_worker (ADR
+// 0049, PL-T1 paso 2b): la organización la fija forOrganization y Postgres no
+// deja ver filas de otra aunque una consulta se olvide de filtrar. Son dos
+// transacciones, antes y después del contexto del agente, que sigue por su
+// función con nombre (agent_turn_context) hasta el paso 3.
+interface ConversationRow extends Conversation {
+  mode: string;
+  channel_account_id: string;
+}
+
 async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
-  const conversation = check(
-    await db.from("conversations").select("id, location_id, contact_id, agent_id, mode, channel_account_id").eq("id", conversationId).maybeSingle(),
-    "la conversación",
-  );
+  const first = await db.transaction(async (sql) => {
+    const [conversation] = await sql.query<ConversationRow>(
+      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
+      [conversationId],
+    );
+    if (!conversation || conversation.mode !== "agent") return { conversation, latestId: null };
+    const [latest] = await sql.query<{ id: string }>(
+      "select id from public.messages where conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
+      [conversationId],
+    );
+    return { conversation, latestId: latest?.id ?? null };
+  });
+  const conversation = first.conversation;
   if (!conversation) return { kind: "skip", reason: "conversation_missing" };
   if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
-
-  const latest = check(
-    await db
-      .from("messages")
-      .select("id")
-      .eq("conversation_id", conversationId)
-      .eq("author", "contact")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "el último mensaje",
-  );
-  if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
+  if (first.latestId !== messageId) return { kind: "skip", reason: "newer_message" };
 
   const raw = await db.agentTurnContext(conversation.agent_id);
   if (!raw) return { kind: "skip", reason: "agent_missing" };
   const context = contextSchema.parse(raw);
-  if (!ANSWERING.has(context.agent.status)) {
-    const account = check(
-      await db.from("channel_accounts").select("channel").eq("id", conversation.channel_account_id).maybeSingle(),
-      "el canal de la conversación",
-    );
-    if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
-  }
-
-  const messages = check(
-    await db
-      .from("messages")
-      .select("author, content, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT),
-    "el historial",
-  );
-  const location = conversation.location_id
-    ? check(await db.from("locations").select("name, timezone").eq("id", conversation.location_id).maybeSingle(), "el local")
-    : null;
-  const modelSettings = check(
-    await db
-      .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur")
-      .maybeSingle(),
-    "la política de modelos",
-  );
   // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
   const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
-  const serviceRows =
-    books && conversation.location_id
-      ? check(
-          await db
-            .from("services")
-            .select("id, name, duration_minutes, location_id")
-            .eq("active", true)
-            .or(`location_id.is.null,location_id.eq.${conversation.location_id}`)
-            .order("name")
-            .limit(MAX_PROMPT_SERVICES + 1),
-          "los servicios",
-        )
-      : [];
-  const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
   const now = new Date();
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const today = check(await db.from("agent_runs").select("cost_eur").gte("created_at", startOfDay).limit(10_000), "el gasto del día");
+
+  const rest = await db.transaction(async (sql) => {
+    if (!ANSWERING.has(context.agent.status)) {
+      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
+        conversation.channel_account_id,
+      ]);
+      if (!agentAnswers(context.agent.status, account?.channel ?? null)) return null;
+    }
+    const messages = await sql.query<{ author: string; content: string }>(
+      "select author, content from public.messages where conversation_id = $1 order by created_at desc limit $2",
+      [conversationId, HISTORY_LIMIT],
+    );
+    const [location] = conversation.location_id
+      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where id = $1", [
+          conversation.location_id,
+        ])
+      : [];
+    const [modelSettings] = await sql.query(
+      `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur
+       from public.org_model_settings limit 1`,
+    );
+    const serviceRows =
+      books && conversation.location_id
+        ? await sql.query<ServiceRow>(
+            `select id, name, duration_minutes, location_id from public.services
+             where active and (location_id is null or location_id = $1)
+             order by name limit $2`,
+            [conversation.location_id, MAX_PROMPT_SERVICES + 1],
+          )
+        : [];
+    const [today] = await sql.query<{ total: number }>(
+      "select coalesce(sum(cost_eur), 0)::float8 as total from public.agent_runs where created_at >= $1",
+      [startOfDay],
+    );
+    return { messages, location: location ?? null, modelSettings: modelSettings ?? null, serviceRows, dayEur: today?.total ?? 0 };
+  });
+  if (!rest) return { kind: "skip", reason: "agent_not_answering" };
+  const { messages, location, modelSettings, serviceRows, dayEur } = rest;
+  const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
     kind: "turn",
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
-    history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    history: [...messages].reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
     location,
     modelSettings,
-    dayEur: (today ?? []).reduce((sum, run) => sum + Number(run.cost_eur), 0),
+    dayEur,
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
     now: now.toISOString(),
