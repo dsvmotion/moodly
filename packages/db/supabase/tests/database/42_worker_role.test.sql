@@ -32,8 +32,8 @@ select ok(not has_schema_privilege('moodly_worker', 'public', 'create'), 'no pue
 select is(
   (select array_agg(distinct table_name::text order by table_name::text) from information_schema.role_table_grants
    where grantee = 'moodly_worker'),
-  array['agent_runs', 'channel_accounts', 'conversations', 'locations', 'messages', 'org_model_settings', 'services'],
-  'solo tiene privilegios sobre las tablas que lee el turno de conversación al prepararse');
+  array['agent_runs', 'channel_accounts', 'conversation_summaries', 'conversations', 'locations', 'messages', 'org_model_settings', 'services'],
+  'solo tiene privilegios sobre las tablas que lee el turno de conversación al prepararse (con su resumen, 20261112052000)');
 select is(
   (select array_agg(distinct privilege_type::text) from information_schema.role_table_grants where grantee = 'moodly_worker'),
   array['SELECT'], 'y solo de lectura');

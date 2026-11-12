@@ -23,6 +23,9 @@ describe("elegir los casos", () => {
 
   it("--compare: claves de modelo para conversar, sin repetir y sin --model", () => {
     expect(parse(["--compare", "fast,smart"]).compare).toEqual(["fast", "smart"]);
+    // Enrutado por intención (PL-T3): apagado salvo --intent-routing; vale también con --compare.
+    expect(parse([]).intentRouting).toBe(false);
+    expect(parse(["--intent-routing", "--compare", "fast,smart"])).toMatchObject({ intentRouting: true, compare: ["fast", "smart"] });
     expect(() => parse(["--compare", "fast,embedding"])).toThrow(/modelo no válido: embedding/);
     expect(() => parse(["--compare", "fast,nope"])).toThrow(/modelo no válido: nope/);
     expect(() => parse(["--compare", "fast,fast"])).toThrow(/repite/);

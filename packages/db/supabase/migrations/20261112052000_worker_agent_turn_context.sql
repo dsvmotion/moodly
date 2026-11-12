@@ -20,6 +20,11 @@
 -- worker (recordatorios, lista de espera, skills programadas), que se mudan con
 -- su paso.
 --
+-- También: moodly_worker lee los resúmenes de las conversaciones (PL-T3,
+-- 20261112050000), que el turno carga antes de la historia. La política
+-- conversation_summaries_worker ya existe (de esa migración); faltaba el
+-- privilegio. Solo lectura: el resumen lo sigue guardando la plataforma.
+--
 -- Vuelta atrás: rollbacks/20261112052000_worker_agent_turn_context.down.sql.
 
 create function private.worker_agent_turn_context(p_agent_id uuid)
@@ -60,3 +65,5 @@ as $$
 $$;
 revoke all on function private.worker_agent_turn_context(uuid) from public, anon, authenticated, service_role;
 grant execute on function private.worker_agent_turn_context(uuid) to moodly_worker;
+
+grant select on public.conversation_summaries to moodly_worker;
