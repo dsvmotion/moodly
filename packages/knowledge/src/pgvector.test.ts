@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EmbeddingError, createFakeEmbedder } from "./embedder.js";
+import { EmbeddingError, createFakeEmbedder, spentBefore } from "./embedder.js";
 import type { Embedder } from "./embedder.js";
 import { createPgvectorRetriever } from "./pgvector.js";
 import type { ChunkRow, ChunkSearch } from "./pgvector.js";
@@ -112,5 +112,14 @@ describe("createFakeEmbedder", () => {
     const result = await embedder.embedWithUsage?.(texts);
     expect(result?.vectors).toEqual(await embedder.embed(texts));
     expect(result?.usage).toEqual({ tokens: 6, costEur: 0 });
+  });
+});
+
+describe("spentBefore", () => {
+  it("lo ya pagado que lleva un error, si es válido; si no, nada", () => {
+    expect(spentBefore(Object.assign(new Error("x"), { usage: { tokens: 10, costEur: 0.001 } }))).toEqual({ tokens: 10, costEur: 0.001 });
+    for (const error of [new Error("x"), null, undefined, "x", { usage: { tokens: 0, costEur: 0 } }, { usage: { tokens: Number.NaN, costEur: 1 } }, { usage: { tokens: "10", costEur: 1 } }]) {
+      expect(spentBefore(error)).toBeNull();
+    }
   });
 });

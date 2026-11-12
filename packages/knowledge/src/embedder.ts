@@ -24,6 +24,17 @@ export interface EmbeddingUsage {
   costEur: number;
 }
 
+/**
+ * Lo ya gastado cuando una llamada falla a medias (p. ej. un lote posterior):
+ * quien indexa lo anota igual, porque se pagó.
+ */
+export function spentBefore(error: unknown): EmbeddingUsage | null {
+  const usage = (error as { usage?: unknown } | null)?.usage as Partial<EmbeddingUsage> | undefined;
+  if (!usage || typeof usage.tokens !== "number" || typeof usage.costEur !== "number") return null;
+  if (!Number.isFinite(usage.tokens) || !Number.isFinite(usage.costEur) || usage.tokens <= 0) return null;
+  return { tokens: usage.tokens, costEur: usage.costEur };
+}
+
 export interface EmbedResult {
   vectors: number[][];
   usage: EmbeddingUsage;

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { policyAllows, policyFromSettings } from "@repo/agent-core";
 import type { RouteOrigin } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
-import { assertEmbedding, chunkText } from "@repo/knowledge";
+import { assertEmbedding, chunkText, spentBefore } from "@repo/knowledge";
 import type { EmbedResult, Embedder, EmbeddingUsage } from "@repo/knowledge";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 
@@ -144,6 +144,9 @@ export async function ingestSource(db: TenantDb, sourceId: string, { embedder, r
     if (vectors.length !== chunks.length) throw new Error("no hay un embedding por trozo");
     for (const vector of vectors) assertEmbedding(vector, embedder.dim);
   } catch (error) {
+    // Si la llamada falló después de lotes ya pagados, lo gastado va igual al libro.
+    const spent = spentBefore(error);
+    if (spent) ledgerError = await recordEmbeddingUsage(db, source.location_id, embedder, route, spent);
     await finishProcessing(db, sourceId, "error");
     return { kind: "error", error: (error as Error).name, ...(ledgerError ? { ledgerError } : {}) };
   }

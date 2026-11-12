@@ -102,6 +102,44 @@ describe("los embeddings por el gateway", () => {
       expect(usage).toEqual({ tokens: 300, costEur: 0.75 });
     });
 
+    it("si un lote posterior falla, el error lleva lo ya pagado (usage) para anotarlo igual", async () => {
+      let call = 0;
+      const embedder = createGatewayEmbedder({
+        apiKey: "no-se-usa",
+        model,
+        batchSize: 2,
+        embeddingModel: (id) =>
+          new MockEmbeddingModelV4({
+            modelId: id,
+            maxEmbeddingsPerCall: 100,
+            doEmbed: ({ values }) => {
+              call += 1;
+              if (call === 2) return Promise.reject(new Error("gateway caído"));
+              return Promise.resolve({ embeddings: values.map(() => [1, 1, 0]), usage: { tokens: 200 }, warnings: [] });
+            },
+          }),
+      });
+      const failure = await embedder.embedWithUsage(["a", "b", "c"]).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as { usage?: unknown }).usage).toEqual({ tokens: 200, costEur: (200 * 0.02) / 1_000_000 });
+    });
+
+    it("si el primer lote falla, no hay nada pagado que anotar", async () => {
+      const embedder = createGatewayEmbedder({
+        apiKey: "no-se-usa",
+        model,
+        embeddingModel: (id) => new MockEmbeddingModelV4({ modelId: id, maxEmbeddingsPerCall: 100, doEmbed: () => Promise.reject(new Error("caído")) }),
+      });
+      const failure = await embedder.embedWithUsage(["a"]).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect((failure as { usage?: unknown }).usage).toBeUndefined();
+    });
+
     it("embed devuelve los mismos vectores, sin el coste", async () => {
       const embedder = withUsage(() => ({ tokens: 1 }));
       expect(await embedder.embed(["a"])).toEqual([[1, 1, 0]]);

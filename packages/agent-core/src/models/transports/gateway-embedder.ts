@@ -14,6 +14,15 @@ export class GatewayEmbeddingError extends Error {
   override name = "GatewayEmbeddingError";
 }
 
+/**
+ * Un fallo después de algún lote ya pagado: lleva lo gastado hasta entonces
+ * (usage), para que quien llama lo anote en el libro de consumo.
+ */
+function withSpent(error: unknown, usage: { tokens: number; costEur: number }): unknown {
+  if (usage.tokens <= 0 || !(error instanceof Error)) return error;
+  return Object.assign(error, { usage });
+}
+
 export interface GatewayEmbedderOptions {
   apiKey: string;
   model?: GatewayEmbeddingModel;
@@ -60,24 +69,30 @@ export function createGatewayEmbedder(options: GatewayEmbedderOptions): GatewayE
     let costUsd = 0;
     for (let start = 0; start < texts.length; start += batchSize) {
       const values = texts.slice(start, start + batchSize);
-      const result = await embedMany({
-        model: embeddingModel(model.id),
-        values: [...values],
-        // Un solo reintento por fallos de red: quien llama ya reintenta el paso entero.
-        maxRetries: 1,
-        abortSignal: AbortSignal.timeout(timeoutMs),
-      });
+      let result;
+      try {
+        result = await embedMany({
+          model: embeddingModel(model.id),
+          values: [...values],
+          // Un solo reintento por fallos de red: quien llama ya reintenta el paso entero.
+          maxRetries: 1,
+          abortSignal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (error) {
+        throw withSpent(error, { tokens, costEur: costUsd * USD_TO_EUR });
+      }
       // Lo que costó la llamada se cuenta aunque luego no valga: se pagó igual.
       const batchTokens = Number.isFinite(result.usage?.tokens) ? Math.max(0, Math.round(result.usage.tokens)) : 0;
       tokens += batchTokens;
       costUsd += gatewayCostUsd(result.providerMetadata) ?? (batchTokens * model.inputUsdPerMTok) / 1_000_000;
       const { embeddings } = result;
+      const spent = { tokens, costEur: costUsd * USD_TO_EUR };
       if (embeddings.length !== values.length) {
-        throw new GatewayEmbeddingError(`el gateway devolvió ${embeddings.length} vectores para ${values.length} textos`);
+        throw withSpent(new GatewayEmbeddingError(`el gateway devolvió ${embeddings.length} vectores para ${values.length} textos`), spent);
       }
       for (const vector of embeddings) {
         if (vector.length !== model.dim || !vector.every(Number.isFinite)) {
-          throw new GatewayEmbeddingError(`un vector no tiene las ${model.dim} dimensiones del modelo o no es finito`);
+          throw withSpent(new GatewayEmbeddingError(`un vector no tiene las ${model.dim} dimensiones del modelo o no es finito`), spent);
         }
         vectors.push([...vector]);
       }
