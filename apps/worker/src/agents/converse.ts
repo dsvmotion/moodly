@@ -518,13 +518,17 @@ async function finishRun(db: TenantDb, runId: string, conversationId: string, re
     const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
     if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
   }
-  // El estado solo cambia si el run sigue en marcha: si el paso se repite cuando
-  // otra cosa ya lo movió (una aprobación), no lo pisa; el uso se apunta igual.
+  // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
+  // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
+  // fuera de «running», solo suben (guard_worker_agent_run): el uso se apunta igual.
   await db.transaction((sql) =>
     sql.query(
       `update public.agent_runs
        set status = case when status = 'running' then $2 else status end,
-           model = $3, tokens_in = $4, tokens_out = $5, cost_eur = $6
+           model = case when status = 'running' then $3 else model end,
+           tokens_in = case when status = 'running' then $4 else greatest(tokens_in, $4) end,
+           tokens_out = case when status = 'running' then $5 else greatest(tokens_out, $5) end,
+           cost_eur = case when status = 'running' then $6 else greatest(cost_eur, $6) end
        where id = $1`,
       [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
     ),

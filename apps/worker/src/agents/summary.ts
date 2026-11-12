@@ -139,14 +139,15 @@ export async function bookSummaryUsage(
   total: { tokensIn: number; tokensOut: number; costEur: number },
 ): Promise<string | null> {
   try {
-    // Como moodly_worker, bajo RLS (PL-T1 3c-1): solo los tokens y el coste.
+    // Como moodly_worker, bajo RLS (PL-T1 3c-1): solo los tokens y el coste, y
+    // con el run ya cerrado solo pueden subir (guard_worker_agent_run).
     await db.transaction((sql) =>
-      sql.query("update public.agent_runs set tokens_in = $2, tokens_out = $3, cost_eur = $4 where id = $1", [
-        runId,
-        total.tokensIn,
-        total.tokensOut,
-        total.costEur,
-      ]),
+      sql.query(
+        `update public.agent_runs
+         set tokens_in = greatest(tokens_in, $2), tokens_out = greatest(tokens_out, $3), cost_eur = greatest(cost_eur, $4)
+         where id = $1`,
+        [runId, total.tokensIn, total.tokensOut, total.costEur],
+      ),
     );
     return null;
   } catch (error) {

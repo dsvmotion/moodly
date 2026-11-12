@@ -1,10 +1,12 @@
 -- PL-T1, paso 3c-1 (20261112063000): moodly_worker crea y cierra runs y anota
 -- consumo, solo de su organización, solo las columnas que necesita y solo las
 -- transiciones de su turno; no borra; las validaciones de siempre actúan
--- también para él; service_role queda igual.
+-- también para él; service_role queda igual. guard_worker_agent_run, por
+-- estado: en marcha, se cierra; en espera, solo a completed y sin tocar nada
+-- más; cerrado, estado y modelo fijos y tokens y coste solo suben.
 begin;
 \ir _fixtures/tenants.psql
-select plan(20);
+select plan(34);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -65,6 +67,67 @@ select lives_ok(
 select throws_ok(
   $$update public.agent_runs set status = 'running' where id = 'a7000000-0000-4000-8000-000000000001'$$,
   '42501', null, 'pero no lo reabre');
+
+-- Run cerrado: estado y modelo fijos; tokens y coste solo suben.
+select throws_ok(
+  $$update public.agent_runs set cost_eur = 0.015 where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'cerrado: no baja el coste');
+select throws_ok(
+  $$update public.agent_runs set tokens_out = 1 where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'cerrado: ni los tokens');
+select throws_ok(
+  $$update public.agent_runs set model = 'fake/otro' where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'cerrado: ni cambia el modelo');
+select throws_ok(
+  $$update public.agent_runs set status = 'failed' where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'cerrado: ni pasa a otro estado de cierre');
+-- La sentencia de bookSummaryUsage (summary.ts): el total del turno más el del resumen.
+select lives_ok(
+  $$update public.agent_runs
+    set tokens_in = greatest(tokens_in, 130), tokens_out = greatest(tokens_out, 24), cost_eur = greatest(cost_eur, 0.031)
+    where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  'cerrado: bookSummaryUsage sube los tokens y el coste del resumen');
+-- La de finishRun (converse.ts) repetida con el run ya cerrado: no pisa nada ni baja nada.
+select lives_ok(
+  $$update public.agent_runs
+    set status = case when status = 'running' then 'failed' else status end,
+        model = case when status = 'running' then 'fake/otro' else model end,
+        tokens_in = case when status = 'running' then 10 else greatest(tokens_in, 10) end,
+        tokens_out = case when status = 'running' then 2 else greatest(tokens_out, 2) end,
+        cost_eur = case when status = 'running' then 0.01 else greatest(cost_eur, 0.01) end
+    where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  'cerrado: finishRun repetido no falla');
+select results_eq(
+  $$select status, model, tokens_in, tokens_out, cost_eur from public.agent_runs where id = 'a7000000-0000-4000-8000-000000000001'$$,
+  $$values ('completed'::text, 'fake/x'::text, 130::bigint, 24::bigint, 0.031::numeric(12, 6))$$,
+  'y el run queda cerrado, con su modelo y con lo que costó el resumen');
+
+-- Run en espera: solo pasa a completed, y ese cambio no toca nada más.
+select lives_ok(
+  format($$insert into public.agent_runs (id, organization_id, location_id, agent_id, trigger, status)
+           values ('a7000000-0000-4000-8000-000000000002', %L, %L, %L, 'inbound_message', 'running');
+           update public.agent_runs set status = 'awaiting_approval', model = 'fake/x', tokens_in = 5, tokens_out = 1, cost_eur = 0.005
+           where id = 'a7000000-0000-4000-8000-000000000002'$$, :org_a, :loc_a1, :'agent_a'),
+  'un run en marcha queda esperando una aprobación');
+select throws_ok(
+  $$update public.agent_runs set status = 'failed' where id = 'a7000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'en espera: no pasa a failed');
+select throws_ok(
+  $$update public.agent_runs set status = 'handed_off' where id = 'a7000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'en espera: ni a handed_off');
+select throws_ok(
+  $$update public.agent_runs set status = 'completed', cost_eur = 0.006 where id = 'a7000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'en espera: al completarlo no cambia nada más que el estado');
+select throws_ok(
+  $$update public.agent_runs set model = 'fake/otro' where id = 'a7000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'en espera: no cambia el modelo');
+select lives_ok(
+  $$update public.agent_runs set tokens_in = greatest(tokens_in, 9), cost_eur = greatest(cost_eur, 0.009)
+    where id = 'a7000000-0000-4000-8000-000000000002'$$,
+  'en espera: el coste del resumen sí sube (el resumen va después de que el turno deje el run esperando)');
+select lives_ok(
+  $$update public.agent_runs set status = 'completed' where id = 'a7000000-0000-4000-8000-000000000002' and status = 'awaiting_approval'$$,
+  'en espera: pasa a completed, solo el estado (settleRun, approvals.ts)');
 select throws_ok(
   $$update public.agent_runs set trigger = 'staff_instruction' where id = 'a7000000-0000-4000-8000-000000000001'$$,
   '42501', null, 'ni cambia su origen (columna sin privilegio)');
