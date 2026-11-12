@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canReplyOn,
   encodeCursor,
   ilikePattern,
   inboxErrorFor,
@@ -213,9 +214,9 @@ describe("el cursor de la lista", () => {
     const before = encodeCursor(withMessages);
     const href = inboxHref({ filter: "human", search: "", scope: null, before });
     expect(new URL(href, "http://x").searchParams.get("before")).toBe(before);
-    expect(new URL(inboxHref({ filter: "open", search: "", scope: null, before }, "c-1"), "http://x").searchParams.get("before")).toBe(
-      before,
-    );
+    expect(
+      new URL(inboxHref({ filter: "open", search: "", scope: null, before }, "c-1"), "http://x").searchParams.get("before"),
+    ).toBe(before);
   });
 });
 
@@ -226,4 +227,20 @@ describe("inboxErrorFor", () => {
     expect(inboxErrorFor("XX000")).toBe("failed");
     expect(inboxErrorFor(undefined)).toBe("failed");
   });
+});
+
+// Auditoría de preproducción, M-01: el equipo solo escribe donde el mensaje
+// llega de verdad. Hasta la capa de canales (O-01), un mensaje del equipo por
+// WhatsApp, Instagram, email o voz se quedaría «pendiente» para siempre.
+describe("canReplyOn", () => {
+  it("el chat web entrega lo que escribe el equipo: se puede contestar", () => {
+    expect(canReplyOn("webchat")).toBe(true);
+  });
+
+  it.each(["whatsapp", "instagram", "email", "voice", "test", null, undefined, "otro"])(
+    "%j aún no entrega: el cuadro de respuesta queda bloqueado",
+    (channel) => {
+      expect(canReplyOn(channel)).toBe(false);
+    },
+  );
 });

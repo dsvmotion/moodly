@@ -34,6 +34,11 @@ const embedder: Embedder = {
   },
   async embedWithUsage(texts) {
     await misbehave(texts);
+    // Como el embedder del gateway cuando falla el segundo lote: el error lleva lo
+    // ya pagado del primero (7 tokens), para que la ingesta lo anote igual.
+    if (texts.some((text) => text.includes("FALLA-LOTE-2"))) {
+      throw Object.assign(new EmbeddingError("el segundo lote falló"), { usage: { tokens: 7, costEur: 7 * EUR_PER_TOKEN } });
+    }
     const vectors = await fake.embed(texts);
     const tokens = texts.reduce((sum, text) => sum + (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).length, 0);
     return { vectors, usage: { tokens, costEur: tokens * EUR_PER_TOKEN } };

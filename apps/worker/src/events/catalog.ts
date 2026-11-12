@@ -60,6 +60,13 @@ export const eventPayloads = {
   "knowledge_source.pending": z.object({
     source_id: z.uuid(),
   }),
+  // public.check_budget_thresholds, una sola vez por organización, mes (UTC) y
+  // umbral (PL-ledger). Lo consume notify.budget_email: el aviso a los org_admin.
+  // Sin importes: se leen del aviso guardado.
+  "usage.budget_threshold": z.object({
+    month: z.string().regex(/^\d{4}-\d{2}-01$/),
+    threshold: z.union([z.literal(80), z.literal(100)]),
+  }),
 } satisfies Record<string, z.ZodType<Record<string, unknown>>>;
 
 export type EventType = keyof typeof eventPayloads;
