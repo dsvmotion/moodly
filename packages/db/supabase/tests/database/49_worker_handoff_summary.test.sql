@@ -5,7 +5,7 @@
 -- persona, conversations.mode, está en 48_worker_executions_messages.)
 begin;
 \ir _fixtures/tenants.psql
-select plan(15);
+select plan(17);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -58,6 +58,16 @@ select results_eq(
   format($$select summary, model from public.conversation_summaries where conversation_id = %L$$, :'conv_a'),
   $$values ('Ana quiere láser el lunes'::text, 'fake/fast2'::text)$$,
   'con el texto y el modelo nuevos');
+-- La sentencia de saveSummary (summary.ts) con un resumen que cubre hasta antes
+-- (un turno viejo que termina tarde): no pisa al nuevo.
+select lives_ok(
+  format($$update public.conversation_summaries set summary = 'Viejo', covered_until = now() - interval '1 hour', model = 'fake/viejo'
+           where conversation_id = %L and covered_until <= now() - interval '1 hour'$$, :'conv_a'),
+  'un resumen viejo que llega tarde no falla');
+select results_eq(
+  format($$select summary, model from public.conversation_summaries where conversation_id = %L$$, :'conv_a'),
+  $$values ('Ana quiere láser el lunes'::text, 'fake/fast2'::text)$$,
+  'pero no pisa al nuevo');
 select throws_ok(
   format($$insert into public.conversation_summaries (conversation_id, organization_id, summary, covered_until)
            values (%L, %L, 'x', now())$$, :'conv_b', :org_b),
