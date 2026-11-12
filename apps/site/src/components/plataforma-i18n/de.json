@@ -1684,7 +1684,6 @@
 "Sesiones abiertas": "Offene Sitzungen",
 "Si": "Wenn",
 "Si activas un proveedor o una región nueva (p. ej. BYOC o «solo EE. UU.»), la lista y el DPA se actualizan y puede requerirse volver a aceptar.": "Wenn Sie einen neuen Anbieter oder eine neue Region aktivieren (z. B. BYOC oder „nur USA“), werden Liste und AVV aktualisiert und eine erneute Zustimmung kann nötig sein.",
-"Si fijas residencia «solo UE», el enrutador se queda aquí.": "Bei Datenstandort „nur EU“ bleibt der Router hier.",
 "Si la aceptáis, decirlo en la web y en el agente podría traer nuevos pacientes.": "Wenn Sie sie annehmen, könnte ein Hinweis auf der Website und im Agenten neue Patienten bringen.",
 "Si me paso del consumo incluido…": "Wenn ich das Inklusivvolumen überschreite…",
 "Si ningún modelo cumple la política →": "Wenn kein Modell die Richtlinie erfüllt →",
@@ -2217,5 +2216,7 @@
 "✓ Verificación en dos pasos activada": "✓ Zwei-Schritt-Verifizierung aktiviert",
 "✦ Asistente de Moodly": "✦ Moodly-Assistent",
 "⬆ Subir audio (mp3, m4a, wav)": "⬆ Audio hochladen (mp3, m4a, wav)",
-"🔒 Bloqueado": "🔒 Gesperrt"
+"🔒 Bloqueado": "🔒 Gesperrt",
+"Residencia «solo UE»: en hoja de ruta.": "Datenstandort „nur EU“: auf der Roadmap.",
+"En hoja de ruta": "Auf der Roadmap"
 }
