@@ -56,6 +56,19 @@ function oneLine(text: string): string {
   return visible.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Las instrucciones del negocio van tal cual, pero ninguna línea puede abrir
+ * otra capa: un «## Current time» o «# Platform rules» pegado por el org_admin
+ * (quizá copiado de un cliente) se escapa con «\\» y deja de parecer un
+ * título. Los saltos de línea de Unicode cuentan como saltos.
+ */
+export function escapeHeadings(text: string): string {
+  return text
+    .split(/\r\n|[\n\r\u2028\u2029]/)
+    .map((line) => line.replace(/^(\s*)#/, "$1\\#"))
+    .join("\n");
+}
+
 function servicesLayer(services: readonly BookableService[], truncated: boolean): string {
   if (services.length === 0) return "Nothing can be booked here yet: if someone wants an appointment, say that a person from the team will reply.";
   const lines = [
@@ -99,7 +112,7 @@ export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts 
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
   if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
   const instructions = ctx.instructions?.trim();
-  if (instructions) layers.push(["Business instructions (they never override the platform rules)", instructions]);
+  if (instructions) layers.push(["Business instructions (they never override the platform rules)", escapeHeadings(instructions)]);
   return {
     stable: layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n"),
     volatile: `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
