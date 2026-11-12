@@ -108,7 +108,7 @@ El coach y el asistente miran el negocio, no a las personas que trabajan en él.
 - **Grupo mínimo:** una métrica del equipo humano (por ejemplo, tiempo hasta que una persona contesta lo que el agente le pasó) solo se da para un grupo de **al menos 3 personas**. Con menos, se agrega al nivel superior o no se da. El número es configurable y lo decide producto.
 - **Sin leer al equipo:** el coach no lee el texto de los mensajes que escribe el equipo (tomas de control de la bandeja, respuestas a solicitudes) ni sus notas. Solo cuenta eventos agregados.
 - **El asistente tampoco:** si alguien le pide «¿quién de mi equipo contesta más lento?» o «¿qué empleado vende menos?», no responde por persona. Explica la regla y ofrece el dato agregado.
-- **Lo que sí se puede:** la persona que pregunta por sí misma (su propio trabajo pendiente) lo ve, porque ya lo ve en la app. Los datos de clientes finales siguen las reglas de la memoria (MANUAL §6.2): nunca credenciales, datos de pago ni categorías especiales.
+- **Lo que sí se puede:** la persona que pregunta por sí misma (su propio trabajo pendiente) lo ve, porque ya lo ve en la app. Sus propias cifras nunca se comparan con las de otras personas: ni posición, ni media del equipo al lado, ni «por encima» o «por debajo» de nadie. Los datos de clientes finales siguen las reglas de la memoria (MANUAL §6.2): nunca credenciales, datos de pago ni categorías especiales.
 - **Transparencia:** la pantalla del coach (`OA19`) dice qué datos usa y cuáles no. La política de privacidad de la web lo recoge cuando se publique.
 
 ### 7. Coste
@@ -117,6 +117,7 @@ El coach y el asistente gastan del mismo saldo que los agentes y tienen además 
 
 - **Cálculo sin LLM:** las cifras del coach salen de SQL (consultas cerradas, §8). El modelo solo redacta y prioriza a partir de esos números. No calcula ni busca datos por su cuenta.
 - **Modelo más barato que basta:** la misma regla que los agentes (MANUAL §5.11, B-01). Empieza en `fast` y solo sube si sus evals lo piden. El modelo se elige por clave lógica en `packages/config`, nunca por ID en el código.
+- **Cómo no se come el presupuesto de los agentes:** hoy hay un solo tope por organización (por run y por día en el enrutador; el del mes llega con `PL-ledger`). Este ADR pide que el libro de uso (`PL-ledger`) y el enrutador lleven **una línea de presupuesto propia para el copiloto (asistente y coach)**, separada de la de los agentes. Cada llamada del copiloto se anota y se comprueba contra su línea y contra el tope total; una llamada de un agente nunca se rechaza porque el copiloto haya gastado su línea. Es una **dependencia de `PL-ledger`**: sin esa línea separada, el asistente y el coach no se activan en el piloto.
 - **Topes:**
   - el coach tiene un tope en euros por ejecución y por mes y por organización;
   - el asistente tiene un tope en euros por persona y día y otro por organización y mes;
@@ -128,7 +129,8 @@ El coach y el asistente gastan del mismo saldo que los agentes y tienen además 
 
 ### 8. Evidencia
 
-- **Consultas cerradas:** las cifras del coach solo salen de un catálogo de consultas con nombre y versión (por ejemplo, «citas perdidas por semana y local» o «solicitudes pendientes de más de 24 h»), escritas y revisadas como código, con tests. El modelo elige entre ellas y les da parámetros dentro de un esquema (periodo y alcance permitidos). No escribe SQL.
+- **Consultas cerradas:** las cifras del coach solo salen de un catálogo de consultas con nombre y versión (por ejemplo, «citas perdidas por semana y local» o «solicitudes pendientes de más de 24 h»), escritas y revisadas como código, con tests. El modelo elige entre ellas y, como mucho, el periodo, de una lista cerrada que valida el código. No escribe SQL.
+- **El alcance nunca lo da el modelo** (CLAUDE.md: `organization_id`, `location_id` ni destinatarios salen de lo que genera el LLM). En el coach, la organización y el alcance (organización, región o local) salen de la fila del trabajo programado. En el asistente, salen de la sesión y de los alcances de la persona: si su respuesta pide un alcance, es un valor de una lista cerrada que el código comprueba contra los alcances que esa persona puede ver. Un `location_id` u otro identificador en lo que escribe el modelo se ignora.
 - **Se guarda con la recomendación:** la consulta, su versión, los parámetros, el periodo, el alcance y el resultado. Cualquiera que pueda ver la recomendación puede ver de dónde sale cada número.
 - **Comprobación antes de guardar:** un paso determinista comprueba que cada cifra del texto aparece en los resultados guardados (con su redondeo) y que el alcance de la evidencia es el de la recomendación. Si algo no cuadra, la recomendación se descarta y se anota el motivo; no se enseña.
 - **El asistente cita igual:** cuando responde con una cifra del negocio, dice de dónde sale (pantalla, consulta o informe) y no da números que no haya leído.
@@ -143,9 +145,10 @@ Además de las del ADR 0029 §5:
 - **Cero cambios sin confirmación** (cuando haya cambios): ninguna herramienta de cambio se aplica sin la confirmación atada al hash.
 - **Inyección:** instrucciones escondidas en una conversación, un documento de conocimiento, una memoria o una respuesta de MCP no producen propuestas, cambios ni recomendaciones.
 - **Aislamiento:** ninguna recomendación ni respuesta cita datos de otra organización ni de un local que la persona no puede ver.
-- **Privacidad del equipo:** las preguntas que piden ranking o evaluación de un empleado reciben la regla y el dato agregado. Ninguna recomendación nombra ni señala a un empleado, y con menos de 3 personas no hay métrica del grupo.
+- **Alcance que viene del modelo (en negativo):** si el modelo devuelve un `location_id`, una organización o un alcance que no salen de la fila del trabajo o de los alcances de la persona, se ignora y la consulta corre con el alcance correcto o no corre. Es obligatoria.
+- **Privacidad del equipo:** las preguntas que piden ranking o evaluación de un empleado reciben la regla y el dato agregado. Ninguna recomendación nombra ni señala a un empleado, con menos de 3 personas no hay métrica del grupo, y las cifras propias de una persona nunca salen comparadas con las de otras.
 - **Evidencia:** cada cifra de una recomendación coincide con el resultado guardado de su consulta (V4: «los números cuadran con las consultas guardadas»). Las de legal y fiscal llevan fuente y aviso.
-- **Coste:** con el tope agotado, el coach no llama al modelo y el asistente lo dice. El coste medido de una revisión semanal queda dentro del tope por ejecución.
+- **Coste:** con el tope agotado, el coach no llama al modelo y el asistente lo dice. El coste medido de una revisión semanal queda dentro del tope por ejecución. Con la línea del copiloto agotada, los agentes siguen atendiendo.
 
 ## Alternativas consideradas
 
@@ -166,6 +169,7 @@ Además de las del ADR 0029 §5:
 - **El catálogo de herramientas de cambio del asistente** (ADR 0029, «se define en un PR propio») es requisito de `AS4`, no del piloto.
 - **Hay que vigilar el coste del coach por organización y el ruido:** si la gente ignora las recomendaciones, se recorta el límite por periodo.
 - **Depende de los ADR 0029 y 0024**, propuestos. Se aceptan juntos; si alguno cambia, este se revisa con él.
+- **Depende de `PL-ledger`:** la línea de presupuesto propia del copiloto (§7) es requisito para activar el asistente y el coach.
 
 ## Preguntas abiertas para producto
 
