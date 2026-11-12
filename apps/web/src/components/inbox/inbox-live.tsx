@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { COALESCE_MS, FALLBACK_REFRESH_MS, LIVE_EVENTS } from "@/lib/inbox-live";
+import { COALESCE_MS, createIdleTimer, FALLBACK_REFRESH_MS, IDLE_CLOSE_MS, LIVE_EVENTS } from "@/lib/inbox-live";
 
 const EVENTS_URL = "/app/inbox/events";
+/** Lo que cuenta como actividad en la pestaña para no cerrar la conexión por inactividad. */
+const ACTIVITY_EVENTS = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart", "focus"] as const;
 
 /**
  * La bandeja en vivo (auditoría M-10, ADR 0054). Escucha /app/inbox/events (el
@@ -13,6 +15,9 @@ const EVENTS_URL = "/app/inbox/events";
  * cambio se juntan en una sola relectura.
  * - Solo con la pestaña a la vista: al ocultarla se cierra la conexión (no
  *   cuesta nada en el servidor) y al volver se abre y se relee.
+ * - Tras IDLE_CLOSE_MS sin actividad en la pestaña (ratón, teclado, toque o
+ *   foco), también se cierra y se para la relectura periódica; con la
+ *   siguiente actividad se abre y se relee.
  * - Al (re)conectar, una relectura: lo que cambió mientras no escuchaba.
  * - Cada FALLBACK_REFRESH_MS, una relectura aunque no llegue nada: un aviso de
  *   Realtime se puede perder (realtime.send no corta la transacción).
@@ -27,12 +32,22 @@ export function InboxLive() {
 
   useEffect(() => {
     let source: EventSource | null = null;
+    const idle = createIdleTimer({
+      timeoutMs: IDLE_CLOSE_MS,
+      onIdle: () => close(),
+      onActive: () => {
+        if (document.visibilityState !== "visible") return;
+        open();
+        refreshSoon();
+      },
+    });
+    const onActivity = () => idle.activity();
     const refreshSoon = () => {
       clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => router.refresh(), COALESCE_MS);
     };
     const open = () => {
-      if (source) return;
+      if (source || idle.isIdle()) return;
       source = new EventSource(EVENTS_URL);
       source.addEventListener("ready", () => {
         setStatus("open");
@@ -56,6 +71,7 @@ export function InboxLive() {
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
+        idle.activity();
         open();
         refreshSoon();
       } else {
@@ -65,10 +81,14 @@ export function InboxLive() {
 
     if (document.visibilityState === "visible") open();
     const fallback = setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
+      // Inactiva, tampoco: con la siguiente actividad ya se relee.
+      if (document.visibilityState === "visible" && !idle.isIdle()) router.refresh();
     }, FALLBACK_REFRESH_MS);
     document.addEventListener("visibilitychange", onVisibility);
+    for (const event of ACTIVITY_EVENTS) window.addEventListener(event, onActivity, { passive: true });
     return () => {
+      idle.stop();
+      for (const event of ACTIVITY_EVENTS) window.removeEventListener(event, onActivity);
       close();
       clearInterval(fallback);
       clearTimeout(refreshTimer.current);

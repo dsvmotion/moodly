@@ -71,3 +71,65 @@ export function liveEvent(event: string, payload: unknown): LiveEvent | null {
 export function sseMessage(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
+
+/** Sin actividad en la pestaña (ratón, teclado, foco) durante este tiempo, la conexión se cierra (V1, coste del relé). */
+export const IDLE_CLOSE_MS = 15 * 60_000;
+/** La actividad seguida (mover el ratón) no reprograma el temporizador más de una vez por este intervalo. */
+export const IDLE_THROTTLE_MS = 5_000;
+
+export interface IdleTimer {
+  /** Hubo actividad: vuelve a contar y, si estaba inactiva, avisa con onActive. */
+  activity(): void;
+  isIdle(): boolean;
+  stop(): void;
+}
+
+/**
+ * Cuenta el tiempo sin actividad: al llegar a `timeoutMs` llama una vez a
+ * `onIdle`; con la siguiente actividad llama a `onActive` y vuelve a contar.
+ */
+export function createIdleTimer({
+  timeoutMs,
+  onIdle,
+  onActive,
+  throttleMs = IDLE_THROTTLE_MS,
+}: {
+  timeoutMs: number;
+  onIdle: () => void;
+  onActive: () => void;
+  throttleMs?: number;
+}): IdleTimer {
+  let idle = false;
+  let stopped = false;
+  let armedAt = Date.now();
+  let timer = setTimeout(goIdle, timeoutMs);
+
+  function goIdle() {
+    if (stopped || idle) return;
+    idle = true;
+    onIdle();
+  }
+  function arm() {
+    clearTimeout(timer);
+    armedAt = Date.now();
+    timer = setTimeout(goIdle, timeoutMs);
+  }
+
+  return {
+    activity() {
+      if (stopped) return;
+      if (idle) {
+        idle = false;
+        arm();
+        onActive();
+        return;
+      }
+      if (Date.now() - armedAt >= throttleMs) arm();
+    },
+    isIdle: () => idle,
+    stop() {
+      stopped = true;
+      clearTimeout(timer);
+    },
+  };
+}

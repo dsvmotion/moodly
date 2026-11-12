@@ -37,9 +37,11 @@
 - **Navegador** (`apps/web/src/components/inbox/inbox-live.tsx`, un `EventSource`):
   - con cada aviso, una relectura de la página con `router.refresh()`; los de un mismo cambio se juntan en 300 ms (un mensaje trae también el aviso de su conversación);
   - **solo con la pestaña a la vista:** al ocultarla se cierra la conexión, y al volver se abre otra y se relee;
+  - **solo con actividad:** tras **15 min** sin actividad en la pestaña (ratón, teclado, toque o foco) se cierra también y se para la relectura periódica; con la siguiente actividad se abre otra y se relee (`createIdleTimer`, `IDLE_CLOSE_MS`). La actividad seguida reprograma el temporizador como mucho una vez cada 5 s;
   - al (re)conectar, una relectura de lo que cambió mientras no escuchaba;
   - **cada 60 s, una relectura aunque no llegue nada**, porque `realtime.send` no corta la transacción si falla y un aviso se puede perder;
   - se monta con `key` = organización activa: al cambiar de organización, salir de la bandeja o cerrar sesión se desmonta y la conexión se cierra.
+- **Fluid compute fijado en el código:** `"fluid": true` en `apps/web/vercel.json` (el del proyecto de la web), con un test que lo comprueba (`apps/web/src/vercel-config.test.ts`). Así no depende del ajuste del panel de Vercel.
 - **CI:** el job e2e levanta también Realtime (antes se excluía), para probarlo de verdad.
 
 ## Consecuencias
@@ -47,7 +49,7 @@
 - **Seguridad:**
   - no cambia lo que ve el navegador: no recibe tokens y no habla con terceros;
   - quien pierde un local, cierra sesión o cambia de organización deja de recibir avisos, como tarde, al acabar la conexión en curso (≤ 270 s; el navegador la cierra antes al salir de la página). Son solo identificadores, y lo que se relee pasa por RLS en ese momento.
-- **Coste (estimación para el piloto; la valida V9 con los precios vigentes de Vercel).** Supuestos: 20 personas a la vez, 8 h al día, con la bandeja a la vista todo ese tiempo (peor caso; con la pestaña oculta no hay conexión).
+- **Coste (estimación para el piloto; V9 la revisó con los precios vigentes de Vercel en #264: ~7–15 $/mes si las conexiones comparten instancia con Fluid, ~146 $/mes si cada una ocupa la suya).** Supuestos: 20 personas a la vez, 8 h al día, con la bandeja a la vista todo ese tiempo (peor caso; con la pestaña oculta no hay conexión).
   - **Invocaciones:** una cada 270 s por persona, es decir ~13 por hora → 20 × 8 × 13 ≈ **2.100 al día** (~64.000 al mes), más las relecturas de la página: cada aviso o cada 60 s, como las de antes, pero muchas menos que con la consulta cada 5 s (de ~720 por hora y pestaña a ~60 más los avisos).
   - **CPU activa:** casi nula. La conexión pasa el tiempo esperando (un ping cada 25 s y algún aviso), y con Fluid compute se cobra la CPU activa.
   - **Memoria aprovisionada (GB-h):** mientras haya conexiones abiertas hay una instancia viva. Con concurrencia dentro de la función (Fluid), las conexiones comparten instancia: entre ~1–2 instancias × 8 h × la memoria de la función (mejor caso) y 20 × 8 h × la memoria (peor caso, una instancia por persona). Con 2 GB: **entre ~16–32 y ~320 GB-h al día**.
@@ -55,4 +57,7 @@
 - **Límites:**
   - una conexión abierta por pestaña visible de la bandeja;
   - si Realtime no está disponible, la bandeja se pone al día cada 60 s como mínimo.
-- **Si hace falta escalar:** juntar las conexiones de una misma organización en un proceso fuera de las funciones (el worker, por ejemplo). Se decide con datos de uso.
+- **Vigilancia del gasto (V1, 2026-11-12):**
+  - una **alerta de gasto en Vercel de ~30 $/mes** (la configura producto en el panel de facturación de Vercel; no está en el código);
+  - en la **primera semana del piloto**, medir en Vercel Observability la ruta `/app/inbox/events`: invocaciones, conexiones a la vez, instancias, CPU activa y GB-h aprovisionados, y comparar con la estimación de arriba.
+- **Plan B:** si el coste del relé pasa de **30–40 $/mes**, se mueve al worker de Railway (always-on): un proceso que junta las conexiones de cada organización y reenvía por SSE con la misma regla (solo identificadores, temas del alcance de la sesión). Necesita su propio ADR, porque el navegador hablaría con otro origen (`connect-src`) o la web haría de proxy.

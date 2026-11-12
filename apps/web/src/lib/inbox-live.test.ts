@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { inboxTopics, liveEvent, sseMessage } from "./inbox-live";
+import { describe, expect, it, vi } from "vitest";
+import { createIdleTimer, IDLE_CLOSE_MS, inboxTopics, liveEvent, sseMessage } from "./inbox-live";
 
 // La bandeja en vivo (M-10, ADR 0054): el servidor escucha los temas privados
 // de Realtime de la persona (#216) y reenvía al navegador solo identificadores.
@@ -71,5 +71,83 @@ describe("sseMessage", () => {
     expect(sseMessage("message", { conversationId: CONVERSATION })).toBe(
       `event: message\ndata: {"conversationId":"${CONVERSATION}"}\n\n`,
     );
+  });
+});
+
+// V1 (coste del relé, ADR 0054): sin actividad en la pestaña durante 15 min,
+// la conexión se cierra; con la siguiente actividad se abre otra y se relee.
+describe("createIdleTimer", () => {
+  it("pasa a inactiva tras el tiempo sin actividad, una sola vez", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const onActive = vi.fn();
+    const idle = createIdleTimer({ timeoutMs: IDLE_CLOSE_MS, onIdle, onActive });
+    vi.advanceTimersByTime(IDLE_CLOSE_MS - 1);
+    expect(onIdle).not.toHaveBeenCalled();
+    expect(idle.isIdle()).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(onIdle).toHaveBeenCalledTimes(1);
+    expect(idle.isIdle()).toBe(true);
+    vi.advanceTimersByTime(IDLE_CLOSE_MS * 3);
+    expect(onIdle).toHaveBeenCalledTimes(1);
+    expect(onActive).not.toHaveBeenCalled();
+    idle.stop();
+    vi.useRealTimers();
+  });
+
+  it("la actividad vuelve a contar desde cero", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const idle = createIdleTimer({ timeoutMs: 1_000, onIdle, onActive: vi.fn(), throttleMs: 0 });
+    vi.advanceTimersByTime(900);
+    idle.activity();
+    vi.advanceTimersByTime(900);
+    expect(onIdle).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(onIdle).toHaveBeenCalledTimes(1);
+    idle.stop();
+    vi.useRealTimers();
+  });
+
+  it("al volver la actividad tras estar inactiva, avisa (para abrir y releer) y vuelve a contar", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const onActive = vi.fn();
+    const idle = createIdleTimer({ timeoutMs: 1_000, onIdle, onActive, throttleMs: 0 });
+    vi.advanceTimersByTime(1_000);
+    idle.activity();
+    expect(onActive).toHaveBeenCalledTimes(1);
+    expect(idle.isIdle()).toBe(false);
+    idle.activity();
+    expect(onActive).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1_000);
+    expect(onIdle).toHaveBeenCalledTimes(2);
+    idle.stop();
+    vi.useRealTimers();
+  });
+
+  it("mucha actividad seguida (mover el ratón) no reprograma el temporizador cada vez", () => {
+    vi.useFakeTimers();
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    const idle = createIdleTimer({ timeoutMs: 60_000, onIdle: vi.fn(), onActive: vi.fn(), throttleMs: 5_000 });
+    const before = clearSpy.mock.calls.length;
+    for (let i = 0; i < 100; i++) idle.activity();
+    expect(clearSpy.mock.calls.length - before).toBe(0);
+    vi.advanceTimersByTime(5_000);
+    idle.activity();
+    expect(clearSpy.mock.calls.length - before).toBe(1);
+    idle.stop();
+    clearSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("después de parar, no avisa", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const idle = createIdleTimer({ timeoutMs: 1_000, onIdle, onActive: vi.fn() });
+    idle.stop();
+    vi.advanceTimersByTime(5_000);
+    expect(onIdle).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
