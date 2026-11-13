@@ -11,6 +11,13 @@ name: Staging · salud
 # Actions → Variables) solo las sustituyen, si se definen:
 #   STAGING_WEB_HEALTH_URL     por defecto https://staging.moodlycrm.com/health
 #   STAGING_WORKER_HEALTH_URL  por defecto https://worker-staging-47c75e8c.up.railway.app/health
+# /health solo dice que ALGÚN worker responde: Railway deja activo el despliegue
+# anterior si el nuevo no arranca. Por eso, con el secreto RAILWAY_TOKEN (el mismo
+# token de proyecto que usa deploy-staging.yml), también se mira el despliegue más
+# reciente del servicio worker (API pública de Railway, «List deployments»): si
+# terminó en FAILED o CRASHED, o lleva 30 minutos sin terminar, es una caída aunque /health
+# responda 200. Sin el
+# secreto, esa comprobación no se hace (y se dice en el log).
 # Si una comprobación falla, el job falla (en rojo en Actions) y el issue lleva
 # la etiqueta `alerta-staging`. Los workflows programados solo corren desde la
 # rama por defecto (main).
@@ -44,6 +51,11 @@ jobs:
       WEB_URL: ${{ vars.STAGING_WEB_HEALTH_URL || 'https://staging.moodlycrm.com/health' }}
       WORKER_URL: ${{ inputs.worker_url || vars.STAGING_WORKER_HEALTH_URL || 'https://worker-staging-47c75e8c.up.railway.app/health' }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      # Servicio `worker` del entorno `staging` del proyecto moodly-staging (los de deploy-staging.yml).
+      RAILWAY_PROJECT_ID: a245ed57-493e-47a6-9981-bd79682e1feb
+      RAILWAY_SERVICE_ID: f608c7af-ef9e-43d6-9852-97ae42cb73ef
+      RAILWAY_ENVIRONMENT_ID: 14a5990a-b326-472d-b27f-84b74d0bcd47
     steps:
       - name: Comprobar los endpoints de salud
         id: probe
@@ -70,6 +82,30 @@ jobs:
           }
           probe web "$WEB_URL"
           probe worker "$WORKER_URL"
+          # El despliegue más reciente del worker (por fecha de creación, entre los cinco últimos).
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::notice::worker-despliegue: sin RAILWAY_TOKEN; no se comprueba el último despliegue"
+          else
+            checked=$((checked+1))
+            query=$(jq -n --arg p "$RAILWAY_PROJECT_ID" --arg s "$RAILWAY_SERVICE_ID" --arg e "$RAILWAY_ENVIRONMENT_ID" \
+              '{query: "query($input: DeploymentListInput!, $first: Int){deployments(input:$input, first:$first){edges{node{id status createdAt}}}}", variables: {input: {projectId:$p, serviceId:$s, environmentId:$e}, first: 5}}')
+            if latest=$(curl --silent --show-error --fail --max-time 30 --retry 2 https://backboard.railway.com/graphql/v2 \
+                -H "Project-Access-Token: $RAILWAY_TOKEN" -H 'Content-Type: application/json' --data "$query" \
+                | jq -er '[.data.deployments.edges[].node] | max_by(.createdAt)
+                  | "\(.status) \(.createdAt) \((now - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) / 60 | floor)"'); then
+              echo "worker-despliegue: $latest"
+              read -r status _ minutes <<< "$latest"
+              case "$status" in
+                FAILED|CRASHED) failures="$failures worker-despliegue($status)" ;;
+                # Un despliegue que no termina tampoco sirve (el contenedor nuevo reinicia en bucle).
+                QUEUED|WAITING|INITIALIZING|BUILDING|DEPLOYING)
+                  [ "$minutes" -ge 30 ] && failures="$failures worker-despliegue($status-${minutes}min)" ;;
+              esac
+            else
+              # Un fallo de la API de Railway no es una caída de staging: aviso, sin alerta.
+              echo "::warning::worker-despliegue: no se pudo leer la API de Railway"
+            fi
+          fi
           echo "checked=$checked" >> "$GITHUB_OUTPUT"
           echo "failures=${failures# }" >> "$GITHUB_OUTPUT"
 
