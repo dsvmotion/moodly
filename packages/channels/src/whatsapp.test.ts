@@ -239,6 +239,22 @@ describe("parseWhatsAppWebhook: estados", () => {
     ]);
   });
 
+  it("biz_opaque_callback_data vuelve como referencia solo si es un id nuestro", () => {
+    const at = "1749416390";
+    const ours = "0A000000-0000-4000-8000-0000000000AA";
+    const { statuses } = parseWhatsAppWebhook(
+      JSON.stringify(
+        metaWebhook({
+          statuses: [
+            { id: "wamid.r1", status: "delivered", timestamp: at, recipient_id: "34600111222", biz_opaque_callback_data: ours },
+            { id: "wamid.r2", status: "delivered", timestamp: at, recipient_id: "34600111222", biz_opaque_callback_data: "otra cosa" },
+          ],
+        }),
+      ),
+    );
+    expect(statuses.map((status) => status.reference)).toEqual([ours.toLowerCase(), undefined]);
+  });
+
   it("cada aviso va con la cuenta de su número, aunque lleguen dos en el mismo webhook", () => {
     const status = (id: string) => ({ id, status: "delivered", timestamp: "1749416390", recipient_id: "34600111222" });
     const body = {
@@ -295,6 +311,14 @@ describe("createWhatsAppAdapter: envíos", () => {
       type: "text",
       text: { body: "Te esperamos el sábado a las 10:00.", preview_url: false },
     });
+  });
+
+  it("con nuestra referencia, la manda en biz_opaque_callback_data (Meta la devuelve en los avisos)", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(okResponse());
+    const reference = "0a000000-0000-4000-8000-0000000000aa";
+    await adapterWith(fetchMock).send(outbound({ reference }));
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(JSON.parse(init?.body as string)).toMatchObject({ to: "34600111222", biz_opaque_callback_data: reference });
   });
 
   it("una plantilla con sus variables en orden, y un texto con botones de respuesta", async () => {
