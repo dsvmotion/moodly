@@ -161,7 +161,10 @@ describe("qué casos se cumplen pasando la conversación a una persona", () => {
   it("son exactamente los revisados, y de comportamiento solo los que esperan el paso", async () => {
     const satisfied: string[] = [];
     for (const testCase of conversationCases) {
-      const run = await runCase(testCase, scriptedTransport([handOff(), { say: "—" }]));
+      const run = await runCase(testCase, scriptedTransport([handOff()]));
+      // El paso acaba el turno: lo que miden las comprobaciones es el texto fijo, no otra respuesta del modelo.
+      expect(isExplicitHandOff(run.outcome.result), testCase.id).toBe(true);
+      expect(run.outcome.reply, testCase.id).toBe(HAND_OFF_TEXTS.es);
       if (run.failures.length === 0) satisfied.push(testCase.id);
     }
     expect(satisfied.sort()).toEqual([...EXPECTED].sort());

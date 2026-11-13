@@ -87,6 +87,8 @@ export const normalizedOutboundSchema = z
     attachments: z.array(attachmentSchema).max(10).default([]),
     /** La clave de idempotencia del envío (la de messages.idempotency_key): un reintento no envía dos veces. */
     idempotencyKey: z.string().min(1).max(200),
+    /** Nuestro id del mensaje (messages.id), si el proveedor puede devolverlo en sus avisos de estado. */
+    reference: z.uuid().optional(),
   })
   .refine((message) => (message.text !== undefined && message.text.trim().length > 0) !== (message.template !== undefined), {
     message: "un mensaje que sale lleva texto o una plantilla, no las dos cosas ni ninguna",
