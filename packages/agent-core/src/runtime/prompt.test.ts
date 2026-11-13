@@ -111,7 +111,10 @@ describe("composeSystemPrompt", () => {
     expect(prompt).toContain("Reply with text, without calling request_human, only when no person needs to step in");
     // Un cliente que quiere comprar o contratar (decisión de producto, 2026-11-13): primero se le cualifica, nunca se pasa de entrada.
     expect(prompt).toContain("never hand over as your first reply to it");
-    expect(prompt).toContain("ask what they need, when, and how best to reach them");
+    // Cualificar no se salta las herramientas: primero busca lo que pregunta y contesta con eso.
+    expect(prompt).toContain("Qualifying does not skip your tools");
+    expect(prompt).toContain("do that first and answer with what you find. Then qualify them with a question");
+    expect(prompt).toContain("what they need, when, and how best to reach them");
     expect(prompt).toContain("once you have those details, or as soon as they ask for a person");
     const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
