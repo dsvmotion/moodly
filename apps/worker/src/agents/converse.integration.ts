@@ -1,3 +1,4 @@
+import { HAND_OFF_TEXTS } from "@repo/agent-core";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -301,6 +302,7 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
       "find_slots",
       "join_waitlist",
       "list_my_appointments",
+      "request_human",
       "reschedule_appointment",
       "search_knowledge",
     ]);
@@ -364,6 +366,38 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
     await waitFor(async () => delivered(await eventOf(next)), "la entrega termina");
     expect(await runFor(next)).toEqual([]);
     expect(await agentMessages()).toHaveLength(before);
+    await admin.query("update public.conversations set mode = 'agent' where id = $1", [ids.conversation]);
+  });
+
+  it("si el cliente pide una persona, la pasa con su motivo (CU3): con la respuesta autónoma, el texto fijo una vez; en borrador, nada", async () => {
+    // Con la respuesta autónoma (la de este archivo): el cliente recibe el texto fijo de la plataforma, una vez.
+    const before = (await agentMessages()).length;
+    const asked = await customerSays("Quiero hablar con una persona, por favor");
+    await waitFor(async () => (await runFor(asked))[0]?.status === "handed_off", "el run pasa a una persona");
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [ids.conversation]);
+    expect(rows[0]?.mode).toBe("human");
+    expect((await agentMessages()).slice(before).map((message) => message.content)).toEqual([HAND_OFF_TEXTS.es]);
+    const { rows: executions } = await admin.query<{ skill_key: string; status: string }>(
+      "select skill_key, status from public.executions where run_id = $1 order by created_at",
+      [(await runFor(asked))[0]?.id],
+    );
+    expect(executions).toEqual([
+      { skill_key: "request_human", status: "executed" },
+      { skill_key: "reply", status: "executed" },
+    ]);
+    await admin.query("update public.conversations set mode = 'agent' where id = $1", [ids.conversation]);
+
+    // Con la respuesta en borrador: pasa y no deja un borrador que nunca saldría (R-02).
+    await setAutonomy("reply", "draft");
+    const middle = (await agentMessages()).length;
+    const again = await customerSays("Necesito hablar con una persona del centro");
+    await waitFor(async () => (await runFor(again))[0]?.status === "handed_off", "el segundo paso");
+    expect(await agentMessages()).toHaveLength(middle);
+    const { rows: second } = await admin.query<{ skill_key: string }>("select skill_key from public.executions where run_id = $1", [
+      (await runFor(again))[0]?.id,
+    ]);
+    expect(second.map((row) => row.skill_key)).toEqual(["request_human"]);
+    await setAutonomy("reply", "autonomous");
     await admin.query("update public.conversations set mode = 'agent' where id = $1", [ids.conversation]);
   });
 

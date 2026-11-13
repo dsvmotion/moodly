@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPromptParts, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import {
+  AUTONOMY_LEVELS,
+  EFFECT_CLASSES,
+  HAND_OFF_TEXTS,
+  REQUEST_HUMAN_SKILL_KEY,
+  composeSystemPromptParts,
+  decide,
+  policyAllows,
+  policyFromSettings,
+  runAgentTurn,
+} from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -23,6 +33,7 @@ import {
   createJoinWaitlistSkill,
   createReceptionSkills,
   createReplySkill,
+  createRequestHumanSkill,
   createSearchKnowledgeSkill,
 } from "@repo/skills";
 import type { Logger } from "pino";
@@ -323,8 +334,15 @@ export function codeSkills(
   // En un turno, cada consulta va al libro de consumo con su run (PL-ledger).
   const embedder = options.embedder && options.searchUsage ? meteredSearchEmbedder(db, options.embedder, options.searchUsage) : options.embedder;
   const knowledge = embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, embedder) })] : [];
-  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge] as unknown as SkillDefinition<unknown>[];
+  // Pasar a una persona (CU3): solo el motivo; el turno se acaba y finishRun pasa la conversación.
+  const requestHuman = createRequestHumanSkill();
+  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge, requestHuman] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
+}
+
+/** El texto del paso a una persona en el idioma de la organización: inglés si es «en», si no, español. */
+export function handOffTextFor(locale: string | null | undefined): string {
+  return locale?.toLowerCase().startsWith("en") ? HAND_OFF_TEXTS.en : HAND_OFF_TEXTS.es;
 }
 
 /** Las que lanza la plataforma y no el modelo (los recordatorios, 4e, y las ofertas de la lista de espera, 4f-2): nunca se le ofrecen como herramienta. */
@@ -714,6 +732,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ctx.logger,
       );
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      const handsOff = skills.has(REQUEST_HUMAN_SKILL_KEY) && settings.get(REQUEST_HUMAN_SKILL_KEY)?.enabled === true;
       let heldAny = false;
       const prompt = composeSystemPromptParts({
         agentName: context.agent.display_name ?? context.agent.type_name,
@@ -723,6 +742,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         now: new Date(prepared.now),
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
+        handOff: handsOff,
       });
       // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
       const unrecorded: TurnModelCall[] = [];
@@ -749,6 +769,8 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
+        // Lo que se le dice al cliente si el modelo la pasa a una persona (CU3, opción b).
+        handOffText: handOffTextFor(context.organization.default_locale),
         intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
         recordModelCall: async (call) => {
