@@ -10,7 +10,7 @@ export type {
   PlatformConnection,
   ProxyRequest,
 } from "./types.js";
-export { PLATFORM_INTEGRATIONS, platformIntegration, platformIntegrationByKey } from "./catalog.js";
+export { PLATFORM_INTEGRATIONS, platformIntegration, platformIntegrationByKey, platformIntegrationsIn } from "./catalog.js";
 export type { PlatformCategory, PlatformIntegration } from "./catalog.js";
 export { NANGO_DEFAULT_HOST, createNangoPlatform, parseNangoHost } from "./transports/nango.js";
 export type { NangoPlatformOptions } from "./transports/nango.js";

@@ -100,6 +100,20 @@ describe("connectFlow: nunca deja una pendiente sin salida", () => {
     expect(store.row()?.status).toBe("pending");
   });
 
+  it("Outlook: la sesión pide los permisos mínimos del catálogo (leer el calendario y refrescar)", async () => {
+    const outlook = platformIntegration("outlook-calendar");
+    if (!outlook) throw new Error("outlook-calendar no está en el catálogo");
+    const platform = createFakeConnectorPlatform();
+    await connectFlow(memoryStore(null), platform, outlook, TAGS);
+    expect(platform.sessions).toEqual([
+      {
+        integrationKey: "outlook",
+        tags: { organization_id: "org-a", end_user_id: "user-a", integration_id: "int-new" },
+        scopes: ["offline_access", "Calendars.Read"],
+      },
+    ]);
+  });
+
   it("una nueva: si Nango falla, vuelve a desconectada", async () => {
     const platform = createFakeConnectorPlatform();
     platform.failNext("createConnectSession");

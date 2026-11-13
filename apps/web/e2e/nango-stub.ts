@@ -3,7 +3,8 @@
 // producción no tiene ningún interruptor de «falso». Lo arranca Playwright
 // (playwright.config.ts → webServer). Solo escucha en loopback.
 //
-// - POST /connect/sessions: guarda la petición y devuelve un enlace a /connect.
+// - POST /connect/sessions: guarda la petición (con los permisos, si los lleva) y
+//   devuelve un enlace a /connect.
 // - GET /connect: la «ventana de autorización» (una página sin más).
 // - DELETE /connections/:id: guarda el borrado; un id que empieza por «fail-»
 //   responde 503, para probar que la web no desconecta si Nango falla.
@@ -15,7 +16,11 @@ export const NANGO_STUB_PORT = 3999;
 export const NANGO_STUB_KEY = "e2e-nango-stub-key-not-secret";
 
 interface Calls {
-  sessions: { tags: Record<string, string>; allowed_integrations: string[] }[];
+  sessions: {
+    tags: Record<string, string>;
+    allowed_integrations: string[];
+    integrations_config_defaults?: Record<string, { connection_config?: Record<string, string> }>;
+  }[];
   deleted: { connectionId: string; integrationKey: string | null }[];
 }
 

@@ -66,6 +66,29 @@ describe("createNangoPlatform", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  it("con permisos en la petición, la sesión los fija para esa integración (oauth_scopes_override, separados por comas)", async () => {
+    const fetch = fakeFetch((_url, init) => {
+      expect(JSON.parse(String(init.body))).toEqual({
+        tags: TAGS,
+        allowed_integrations: ["outlook"],
+        integrations_config_defaults: { outlook: { connection_config: { oauth_scopes_override: "offline_access,Calendars.Read" } } },
+      });
+      return jsonResponse({ data: { token: "t", connect_link: "https://connect.nango.dev/?session_token=t", expires_at: "2026-11-13T01:30:00Z" } }, 201);
+    });
+    const nango = createNangoPlatform({ secretKey: KEY, fetch });
+    await nango.createConnectSession({ integrationKey: "outlook", tags: TAGS, scopes: ["offline_access", "Calendars.Read"] });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it.each([["a b"], ["a,b"], [""]])("un permiso con forma rara (%j) no sale hacia Nango", async (scope) => {
+    const fetch = fakeFetch(() => jsonResponse({}));
+    const nango = createNangoPlatform({ secretKey: KEY, fetch });
+    await expect(nango.createConnectSession({ integrationKey: "outlook", tags: TAGS, scopes: [scope] })).rejects.toBeInstanceOf(
+      ConnectorPlatformError,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it.each(["javascript:alert(1)", "http://connect.evil.example/", "no-es-url"])("rechaza un enlace de conexión %s", async (link) => {
     const fetch = fakeFetch(() => jsonResponse({ data: { token: "t", connect_link: link, expires_at: "2026-11-13T01:30:00Z" } }));
     const nango = createNangoPlatform({ secretKey: KEY, fetch });
