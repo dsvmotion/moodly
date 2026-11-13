@@ -7,18 +7,27 @@ import { CHANNELS } from "./message.js";
 // reglas que private.next_delivery_status en la base de datos (la matriz de
 // delivery.test.ts es la misma que la de 41_inbound_events.test.sql).
 
-export const DELIVERY_STATUSES = ["pending", "sent", "delivered", "read", "failed"] as const;
+// «unknown» es de quien envía, no del proveedor: el envío salió y no se sabe si
+// el proveedor lo recibió (un corte de red, un timeout, un 5xx). No se reintenta
+// (podría duplicarse al cliente): queda para una persona, o lo concilia el
+// primer aviso del proveedor que llegue, que siempre gana.
+export const DELIVERY_STATUSES = ["pending", "sent", "delivered", "read", "failed", "unknown"] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
-const RANK: Record<DeliveryStatus, number> = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
+const RANK: Record<Exclude<DeliveryStatus, "unknown">, number> = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
 
 /**
  * El estado que queda al recibir un aviso. Nunca retrocede (un «delivered» que
  * llega después de un «read» no cambia nada), y un «failed» no se deshace. Un
  * «failed» después de «delivered» o «read» tampoco cuenta: el mensaje llegó.
+ * «unknown» no es definitivo: cualquier aviso del proveedor lo resuelve.
  */
 export function nextDeliveryStatus(current: DeliveryStatus | "received", incoming: DeliveryStatus): DeliveryStatus {
   if (current === "failed") return "failed";
+  // Solo un envío que aún no había salido pasa a «no se sabe».
+  if (incoming === "unknown") return current === "pending" || current === "received" ? "unknown" : current;
+  // Desde «no se sabe», cualquier aviso del proveedor gana (no vuelve a pending).
+  if (current === "unknown") return incoming === "pending" ? "unknown" : incoming;
   if (incoming === "failed") return current === "delivered" || current === "read" ? current : "failed";
   // «received» no es un estado de lo que sale: si aparece, gana el aviso (como en la base de datos).
   if (current === "received") return incoming;
@@ -45,5 +54,11 @@ export const deliveryUpdateSchema = z.object({
   at: z.iso.datetime({ offset: true }),
   /** El código del proveedor, sin texto libre (puede llevar datos); lo que cabe en messages.delivery_error. */
   errorCode: z.string().min(1).max(100).regex(/^[\w.:-]+$/).optional(),
+  /**
+   * Nuestro id del mensaje, si el proveedor lo devuelve (en WhatsApp,
+   * biz_opaque_callback_data): con él se concilia un aviso que llega antes de
+   * guardar el id del proveedor, o el de un envío con resultado desconocido.
+   */
+  reference: z.uuid().optional(),
 });
 export type DeliveryUpdate = z.infer<typeof deliveryUpdateSchema>;

@@ -488,7 +488,8 @@
     },
     "status": {
       "pending": "Not sent yet",
-      "failed": "Could not be sent"
+      "failed": "Could not be sent",
+      "unknown": "Sent, but delivery could not be confirmed: check with the customer before resending"
     },
     "channels": {
       "whatsapp": "WhatsApp",
