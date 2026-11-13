@@ -5,44 +5,45 @@ import { ConversationNotAgentModeError, NOT_AGENT_MODE_CODE, createConversationS
 // El envío del mensaje del agente (R-02): si la base de datos lo rechaza porque
 // la conversación ya no la lleva el agente, no se guarda y se dice por qué.
 
-/** Una base de datos de mentira: la búsqueda por clave no encuentra nada y el insert contesta lo que se le diga. */
-function fakeDb(insertResult: { data: { id: string } | null; error: { code: string } | null }) {
-  const inserted: unknown[] = [];
-  const chain = {
-    select: () => chain,
-    eq: () => chain,
-    limit: () => chain,
-    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+/**
+ * Una base de datos de mentira con la transacción bajo RLS (PL-T1 3c-2): la
+ * búsqueda por clave no encuentra nada y el insert contesta lo que se le diga
+ * (la fila, o un error de Postgres con su código).
+ */
+function fakeDb(insertResult: { id: string } | { code: string }) {
+  const inserted: { text: string; values: readonly unknown[] }[] = [];
+  const query = async (text: string, values: readonly unknown[] = []) => {
+    if (/^\s*select/.test(text)) return [];
+    inserted.push({ text, values });
+    if ("code" in insertResult) throw Object.assign(new Error("pg"), { code: insertResult.code });
+    return [insertResult];
   };
   const db = {
-    from: () => ({
-      ...chain,
-      insert: (row: unknown) => {
-        inserted.push(row);
-        return { select: () => ({ single: () => Promise.resolve(insertResult) }) };
-      },
-    }),
+    organizationId: "org-1",
+    transaction: async <T>(fn: (sql: { query: typeof query }) => Promise<T>) => fn({ query }),
   } as unknown as TenantDb;
   return { db, inserted };
 }
 
 describe("createConversationSender", () => {
   it("con la conversación en manos del agente, guarda el mensaje como del agente", async () => {
-    const { db, inserted } = fakeDb({ data: { id: "m-1" }, error: null });
+    const { db, inserted } = fakeDb({ id: "m-1" });
     await expect(createConversationSender(db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-1" })).resolves.toEqual({
       messageId: "m-1",
     });
-    expect(inserted).toEqual([expect.objectContaining({ conversation_id: "c-1", author: "agent", direction: "out", idempotency_key: "k-1" })]);
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]?.text).toMatch(/values \(\$1, \$2, 'out', 'agent', \$3, 'sent', \$4\)/);
+    expect(inserted[0]?.values).toEqual(["org-1", "c-1", "Hola", "k-1"]);
   });
 
   it("si la base de datos lo rechaza porque la lleva una persona, lanza ConversationNotAgentModeError", async () => {
-    const { db } = fakeDb({ data: null, error: { code: NOT_AGENT_MODE_CODE } });
+    const { db } = fakeDb({ code: NOT_AGENT_MODE_CODE });
     const sent = createConversationSender(db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-2" });
     await expect(sent).rejects.toBeInstanceOf(ConversationNotAgentModeError);
   });
 
   it("cualquier otro error sigue siendo un error de guardado", async () => {
-    const { db } = fakeDb({ data: null, error: { code: "23505" } });
+    const { db } = fakeDb({ code: "23505" });
     const sent = createConversationSender(db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-3" });
     await expect(sent).rejects.toThrow("no se pudo guardar la respuesta (23505)");
     await expect(sent).rejects.not.toBeInstanceOf(ConversationNotAgentModeError);

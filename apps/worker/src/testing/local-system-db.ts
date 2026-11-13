@@ -51,3 +51,18 @@ export function localSystemDatabaseUrl(): string {
   url.password = password;
   return url.toString();
 }
+
+/** Postgres local como moodly_worker (ADR 0049): los datos de las organizaciones bajo RLS. Su contraseña la pone `pnpm db:seed`. */
+export function localWorkerDatabaseUrl(): string {
+  const dbUrl = localStatus()["DB_URL"];
+  if (!dbUrl) throw new Error("supabase status no devuelve DB_URL: ¿está levantado (pnpm db:start)?");
+  const url = new URL(dbUrl);
+  if (!LOCAL_HOSTS.has(url.hostname)) throw new Error(`Solo contra Supabase local; DB_URL apunta a ${url.hostname}`);
+  const keysFile = resolve(dbRoot, ".seed/server-keys.local.json");
+  if (!existsSync(keysFile)) throw new Error("Falta la contraseña local de moodly_worker: ejecuta antes pnpm db:seed.");
+  const password = (JSON.parse(readFileSync(keysFile, "utf8")) as Record<string, string | undefined>)["worker_rls_password"];
+  if (!password) throw new Error("server-keys.local.json no tiene worker_rls_password: ejecuta pnpm db:seed.");
+  url.username = "moodly_worker";
+  url.password = password;
+  return url.toString();
+}
