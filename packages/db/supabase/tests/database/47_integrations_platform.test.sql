@@ -5,7 +5,7 @@
 -- no ve ni toca las conexiones de otra.
 begin;
 \ir _fixtures/tenants.psql
-select plan(45);
+select plan(46);
 
 create function pg_temp.status_of(p_id uuid) returns text language sql as $$
   select status from public.integrations where id = p_id;
@@ -106,12 +106,13 @@ reset role;
 -- ===========================================================================
 -- 5. El worker la activa, solo en su organización
 -- ===========================================================================
+insert into public.integrations (organization_id, provider, kind) values (:org_a, 'otra-nativa', 'native') returning id as int_native \gset
 grant moodly_worker to postgres with set true;
 grant usage on schema extensions to moodly_worker;
 set local role moodly_worker;
 select is((select count(*)::int from public.integrations), 0, 'sin organización fijada, el worker no ve ninguna');
 select set_config('moodly.organization_id', :org_a, true) as _org \gset
-select is((select array_agg(id) from public.integrations), array[:'int_a'::uuid], 'con A fijada ve solo la de A');
+select is((select array_agg(id order by id) from public.integrations where kind = 'platform'), array[:'int_a'::uuid], 'con A fijada ve solo la de plataforma de A');
 update public.integrations set status = 'active', external_connection_id = 'conn-intrusa' where id = :'int_b';
 select lives_ok(
   format($$update public.integrations set status = 'active', external_connection_id = 'conn-a', last_health_check = now() where id = %L$$, :'int_a'),
@@ -124,6 +125,8 @@ select throws_ok(format($$update public.integrations set status = 'disconnected'
   '42501', null, 'ni a desconectada (eso lo decide una persona)');
 select throws_ok(format($$update public.integrations set status = 'error', external_connection_id = 'conn-z' where id = %L$$, :'int_a'),
   '42501', null, 'ni cambia el id de la conexión sin activarla');
+select throws_ok(format($$update public.integrations set status = 'error' where id = %L$$, :'int_native'),
+  '42501', null, 'guard_worker_integration: el worker no toca una integración que no es de plataforma');
 select throws_ok(format($$insert into public.integrations (organization_id, provider, kind) values (%L, 'x', 'platform')$$, :org_a),
   '42501', null, 'ni crea integraciones');
 select throws_ok(format($$delete from public.integrations where id = %L$$, :'int_a'),

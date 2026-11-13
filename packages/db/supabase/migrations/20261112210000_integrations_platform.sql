@@ -19,8 +19,8 @@
 --    20261112040500).
 --
 -- 4. guard_worker_integration (solo para moodly_worker): el worker no es «la
---    plataforma» (V1, 2026-11-12) y también tiene su lista blanca: solo pone
---    activa (con un id de conexión) o en error, nunca pendiente ni
+--    plataforma» (V1, 2026-11-12) y también tiene su lista blanca: solo toca
+--    las de plataforma; solo pone activa (con un id de conexión) o en error, nunca pendiente ni
 --    desconectada; no reactiva una que una persona desconectó; y el id de la
 --    conexión solo lo cambia al activarla, nunca a null.
 --
@@ -132,6 +132,10 @@ as $$
 begin
   if current_user <> 'moodly_worker' then
     return new;
+  end if;
+  -- Las mcp y native no las toca el worker (su conexión no viene de un webhook).
+  if old.kind <> 'platform' then
+    raise exception 'el worker solo cambia integraciones de plataforma' using errcode = '42501';
   end if;
   if new.status is distinct from old.status then
     if old.status = 'disconnected' then
