@@ -1,5 +1,6 @@
 import { ChannelSendError } from "./adapter.js";
 import type { ChannelAdapter, ChannelCapabilities, ParsedWebhook, RawWebhook, SendResult, VerifiedSender } from "./adapter.js";
+import { deliveryUpdateSchema } from "./delivery.js";
 import type { Channel, NormalizedOutbound } from "./message.js";
 import { normalizedInboundSchema } from "./message.js";
 import { hmacSha256Hex, metaHandshake, verifyHmacSha256 } from "./signature.js";
@@ -60,7 +61,7 @@ export function createFakeAdapter(options: {
       const body = JSON.parse(webhook.rawBody) as { messages?: unknown[]; statuses?: ParsedWebhook["statuses"] };
       return {
         messages: (body.messages ?? []).map((message) => normalizedInboundSchema.parse(message)),
-        statuses: body.statuses ?? [],
+        statuses: (body.statuses ?? []).map((status) => deliveryUpdateSchema.parse(status)),
       };
     },
     send(message: NormalizedOutbound) {

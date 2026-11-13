@@ -40,8 +40,8 @@ select is(
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name)
    from information_schema.column_privileges
    where grantee = 'moodly_worker' and privilege_type = 'UPDATE' and table_name in ('conversations', 'executions', 'messages')),
-  'conversations.mode, executions.output, executions.status',
-  'de una ejecución solo cambia el estado y la salida; de una conversación, el modo; de un mensaje, nada');
+  'conversations.mode, executions.output, executions.status, messages.delivery_error, messages.status',
+  'de una ejecución solo cambia el estado y la salida; de una conversación, el modo; de un mensaje, su estado de entrega (20261113110000)');
 select ok(not has_table_privilege('moodly_worker', 'public.executions', 'delete')
           and not has_table_privilege('moodly_worker', 'public.messages', 'delete')
           and not has_table_privilege('moodly_worker', 'public.executions', 'truncate')

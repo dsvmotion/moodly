@@ -36,16 +36,26 @@ function fakeDb(
     existingErrorCode?: string;
     /** El error con el que falla el insert de un evento, por su providerEventId. */
     insertErrors?: Record<string, string>;
+    /** Cuántos mensajes encuentra un aviso de estado (1 por defecto). */
+    statusMatches?: number;
+    /** El error con el que falla aplicar un aviso de estado. */
+    statusError?: string;
   } = {},
 ) {
   const resolve = vi.fn().mockResolvedValue(options.account === undefined ? { id: "acc-1", organizationId: ORG, status: "active" } : options.account);
   const inserts: { org: string; row: unknown }[] = [];
+  const statusUpdates: { org: string; values: readonly unknown[] }[] = [];
   // Como moodly_worker, por SQL en una transacción de la organización (20261112230000).
   const forOrganization = vi.fn((org: string) => ({
     organizationId: org,
     transaction: async <T>(fn: (sql: { query: (text: string, values?: readonly unknown[]) => Promise<unknown[]> }) => Promise<T>) =>
       fn({
         query: (text: string, values: readonly unknown[] = []) => {
+          if (/^\s*update public\.messages/.test(text)) {
+            statusUpdates.push({ org, values });
+            if (options.statusError) return Promise.reject(Object.assign(new Error("pg"), { code: options.statusError }));
+            return Promise.resolve(Array.from({ length: options.statusMatches ?? 1 }, (_, i) => ({ id: `msg-${i}` })));
+          }
           if (/^\s*insert into public\.inbound_events/.test(text)) {
             const row = {
               organization_id: values[0],
@@ -64,7 +74,7 @@ function fakeDb(
       }),
   }));
   const db = { channelAccounts: { resolve }, forOrganization, outbox: {} } as unknown as ServiceDb;
-  return { db, resolve, forOrganization, inserts };
+  return { db, resolve, forOrganization, inserts, statusUpdates };
 }
 
 function deps(db: ServiceDb) {
@@ -214,5 +224,86 @@ describe("la entrada de un webhook (ADR 0052 §2)", () => {
     expect(resolve).toHaveBeenCalledTimes(1);
     expect(inserts).toHaveLength(1);
     expect(startIngest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("los avisos de estado (ADR 0052 §4)", () => {
+  const status = (overrides: Record<string, unknown> = {}) => ({
+    channel: "webchat",
+    accountExternalId: "widget-1",
+    providerMessageId: "out-1",
+    status: "delivered",
+    at: "2026-11-11T10:00:05Z",
+    ...overrides,
+  });
+
+  it("se aplica al mensaje que salió, en la organización de la cuenta que lo envió y solo en sus conversaciones", async () => {
+    const { db, resolve, forOrganization, statusUpdates } = fakeDb();
+    const { deps: d, startIngest } = deps(db);
+    await expect(receiveWebhook("webchat", webhook({ statuses: [status()] }), d)).resolves.toEqual({
+      status: 200,
+      accepted: 0,
+      duplicates: 0,
+      ignored: 0,
+    });
+    expect(resolve).toHaveBeenCalledWith("webchat", "widget-1");
+    expect(forOrganization.mock.calls.map(([org]) => org)).toEqual([ORG]);
+    // organización, cuenta, id del proveedor, estado y código.
+    expect(statusUpdates).toEqual([{ org: ORG, values: [ORG, "acc-1", "out-1", "delivered", null] }]);
+    expect(startIngest).not.toHaveBeenCalled();
+  });
+
+  it("un fallo lleva su código; los demás avisos, ninguno", async () => {
+    const { db, statusUpdates } = fakeDb();
+    const { deps: d } = deps(db);
+    await receiveWebhook("webchat", webhook({ statuses: [status({ status: "failed", errorCode: "fake:131047" })] }), d);
+    expect(statusUpdates[0]?.values).toEqual([ORG, "acc-1", "out-1", "failed", "fake:131047"]);
+  });
+
+  it("un aviso de un mensaje que no se conoce, o de una cuenta que no existe, se confirma sin tocar nada", async () => {
+    const unmatched = fakeDb({ statusMatches: 0 });
+    await expect(receiveWebhook("webchat", webhook({ statuses: [status()] }), deps(unmatched.db).deps)).resolves.toMatchObject({ status: 200 });
+    const noAccount = fakeDb({ account: null });
+    await expect(receiveWebhook("webchat", webhook({ statuses: [status()] }), deps(noAccount.db).deps)).resolves.toMatchObject({ status: 200 });
+    expect(noAccount.forOrganization).not.toHaveBeenCalled();
+    expect(noAccount.statusUpdates).toEqual([]);
+  });
+
+  it("una cuenta desactivada sigue recibiendo los avisos de lo que ya envió", async () => {
+    const { db, statusUpdates } = fakeDb({ account: { id: "acc-1", organizationId: ORG, status: "disabled" } });
+    await receiveWebhook("webchat", webhook({ statuses: [status()] }), deps(db).deps);
+    expect(statusUpdates).toHaveLength(1);
+  });
+
+  it("con la firma de una cuenta, el aviso de otra se ignora sin resolverla; el de otro canal también", async () => {
+    const { db, resolve, statusUpdates } = fakeDb();
+    const adapter = createFakeAdapter({ secret: SECRET });
+    const signed = (body: object) => {
+      const rawBody = JSON.stringify(body);
+      return { headers: fakeSignature(SECRET, rawBody, "widget-1"), rawBody };
+    };
+    const d = { ...deps(db).deps, adapters: new Map([["webchat", adapter]]) };
+    await receiveWebhook("webchat", signed({ statuses: [status({ accountExternalId: "widget-2" })] }), d);
+    await receiveWebhook("webchat", webhook({ statuses: [status({ channel: "whatsapp" })] }), d);
+    expect(resolve).not.toHaveBeenCalled();
+    expect(statusUpdates).toEqual([]);
+  });
+
+  it("si la base de datos falla de forma pasajera, 500 para que el proveedor lo repita; si no lo admite, se confirma", async () => {
+    const transient = fakeDb({ statusError: "08006" });
+    await expect(receiveWebhook("webchat", webhook({ statuses: [status()] }), deps(transient.db).deps)).resolves.toMatchObject({ status: 500 });
+    const permanent = fakeDb({ statusError: "23514" });
+    await expect(receiveWebhook("webchat", webhook({ statuses: [status()] }), deps(permanent.db).deps)).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("los mensajes y los avisos del mismo webhook se atienden los dos", async () => {
+    const { db, inserts, statusUpdates } = fakeDb();
+    const { deps: d } = deps(db);
+    await expect(receiveWebhook("webchat", webhook({ messages: [message()], statuses: [status()] }), d)).resolves.toMatchObject({
+      status: 200,
+      accepted: 1,
+    });
+    expect(inserts).toHaveLength(1);
+    expect(statusUpdates).toHaveLength(1);
   });
 });
