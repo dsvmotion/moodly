@@ -119,6 +119,19 @@ describe("createNangoWebhookHandler, montado en el servidor de salud bajo /webho
     expect(await (await fetch(`${base}/health`)).json()).toEqual({ status: "stopping" });
   });
 
+  it("503 con Retry-After mientras el worker no está en marcha, sin leer el cuerpo ni tocar la base de datos (como /channels/)", async () => {
+    let running = false;
+    const base = await listen(createNangoWebhookHandler(deps({ ready: () => running })));
+    const body = authBody();
+    const signed = { method: "POST", body, headers: { "X-Nango-Hmac-Sha256": signNangoWebhook(body, SIGNING_KEY) } };
+    const early = await fetch(`${base}${NANGO_WEBHOOK_PATH}`, signed);
+    expect(early.status).toBe(503);
+    expect(early.headers.get("retry-after")).toBe("5");
+    running = true;
+    const later = await fetch(`${base}${NANGO_WEBHOOK_PATH}`, { ...signed, body: JSON.stringify({ type: "sync" }), headers: { "X-Nango-Hmac-Sha256": signNangoWebhook(JSON.stringify({ type: "sync" }), SIGNING_KEY) } });
+    expect(later.status).toBe(200);
+  });
+
   it("un fallo pasajero responde 500 (Nango reintenta)", async () => {
     const platform = createFakeConnectorPlatform();
     platform.failNext("getConnection");

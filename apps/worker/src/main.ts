@@ -75,7 +75,14 @@ const worker = createWorker(config, logger, {
 let nangoWebhook: ReturnType<typeof createNangoWebhookHandler> | undefined;
 if (config.nango) {
   const platform = createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host });
-  nangoWebhook = createNangoWebhookHandler({ db: worker.db, platform, signingKey: config.nango.webhookSigningKey, logger });
+  nangoWebhook = createNangoWebhookHandler({
+    db: worker.db,
+    platform,
+    signingKey: config.nango.webhookSigningKey,
+    logger,
+    // Como /channels/: 503 hasta que el worker está en marcha (Nango reintenta).
+    ready: () => worker.probe.phase() === "running",
+  });
 } else {
   logger.warn("sin NANGO_API_KEY o NANGO_WEBHOOK_SIGNING_KEY: no se activan integraciones de plataforma (/webhooks/nango no existe)");
 }

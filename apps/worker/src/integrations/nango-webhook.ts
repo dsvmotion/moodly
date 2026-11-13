@@ -39,6 +39,11 @@ export interface NangoWebhookDeps {
   platform: ConnectorPlatform;
   signingKey: string;
   logger: Logger;
+  /**
+   * Si el worker ya está en marcha. Mientras no (esperando el lock, arrancando
+   * o parando), 503 con Retry-After, como /channels/: Nango reintenta.
+   */
+  ready?: () => boolean;
 }
 
 export type NangoWebhookResult =
@@ -184,7 +189,7 @@ function reply(res: ServerResponse, status: number, body: Record<string, string>
 /**
  * El handler de /webhooks/ para el servidor del worker (se monta como el de
  * /channels/, health.ts): atiende POST /webhooks/nango; cualquier otra ruta
- * bajo /webhooks/, 404.
+ * bajo /webhooks/, 404; y 503 mientras el worker no está en marcha.
  */
 export function createNangoWebhookHandler(deps: NangoWebhookDeps) {
   return (req: IncomingMessage, res: ServerResponse): void => {
@@ -195,6 +200,10 @@ export function createNangoWebhookHandler(deps: NangoWebhookDeps) {
     }
     if (req.method !== "POST") {
       reply(res, 405, { error: "method_not_allowed" });
+      return;
+    }
+    if (deps.ready && !deps.ready()) {
+      res.writeHead(503, { "content-type": "application/json", "cache-control": "no-store", "retry-after": "5" }).end("{}");
       return;
     }
     readBody(req, NANGO_WEBHOOK_MAX_BYTES)
