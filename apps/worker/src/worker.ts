@@ -61,7 +61,10 @@ export interface WorkerOptions {
    */
   channelAdapters?: readonly ChannelAdapter[];
   /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
-  ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "beforeRecordFailure" | "backoffMs" | "sweepMinAgeMs">;
+  ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "beforeRecordFailure" | "backoffMs" | "sweepMinAgeMs"> & {
+    /** Solo para tests: cuándo corre el barrido de la entrada (cron de 6 campos; por defecto SWEEP_SCHEDULE, cada minuto). */
+    sweepSchedule?: string;
+  };
 }
 
 /** Lo que el worker comparte con los consumidores que registran workflows propios. */
@@ -146,7 +149,8 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       phase = "launching";
       registerSmokeWorkflow();
       const outbox = registerOutboxWorkflows({ db, registry, logger });
-      const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries, ...options.ingestTesting });
+      const { sweepSchedule, ...ingestOverrides } = options.ingestTesting ?? {};
+      const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries, ...ingestOverrides });
       // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
       // (system-db-pool.ts). La URL se le sigue pasando: DBOS la usa (sin
       // contraseña) en su log de arranque y en sus mensajes de error.
@@ -181,7 +185,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
       await startOutbox(outbox);
-      await startIngestQueue(ingest.sweep);
+      await startIngestQueue(ingest.sweep, sweepSchedule);
       if (adapters.size > 0) {
         ingress = createIngressHandler(
           (channel, webhook) => receiveWebhook(channel, webhook, { db, adapters, startIngest: ingest.start, logger }),
