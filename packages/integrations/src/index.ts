@@ -73,3 +73,21 @@ export type { FakeConnectorPlatform, FakeConnectorPlatformOptions } from "./plat
 export { GOOGLE_CALENDAR_EVENTS_PATH, createGoogleCalendarReader } from "./calendar/google.js";
 export { OUTLOOK_CALENDAR_HORIZON_DAYS, OUTLOOK_CALENDAR_VIEW_PATH, createOutlookCalendarReader } from "./calendar/outlook.js";
 export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./calendar/common.js";
+// Koibox (int-koibox, O-02): API abierta con la clave del centro. Solo lectura.
+export {
+  KOIBOX_DEFAULT_API_BASE,
+  KOIBOX_KEY_HEADER,
+  KOIBOX_MAX_SLOT_DAYS,
+  KoiboxError,
+  createKoiboxReader,
+  parseKoiboxApiBase,
+} from "./booking/koibox/client.js";
+export type {
+  KoiboxAppointment,
+  KoiboxErrorKind,
+  KoiboxKeyInfo,
+  KoiboxReader,
+  KoiboxReaderOptions,
+  KoiboxService,
+  KoiboxSlot,
+} from "./booking/koibox/client.js";
