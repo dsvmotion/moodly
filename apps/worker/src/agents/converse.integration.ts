@@ -337,43 +337,57 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
   it("lo que ya pidió y espera al equipo llega al turno siguiente, solo en su conversación y mientras siga pendiente (CU3)", async () => {
     const PENDING = "## Requests waiting for the team in this conversation";
     const summary = "Reservar Láser con Cabina 1 el lunes, 3 de junio de 2030, 9:00";
-    const turn = async (question: string, conversationId = ids.conversation) => {
+    const newConversation = () =>
+      one(
+        `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+      );
+    const turn = async (question: string, conversationId: string) => {
       const messageId = await customerSays(question, conversationId);
       await waitFor(async () => !["running", undefined].includes((await runFor(messageId))[0]?.status), `el run de «${question}» se cierra`);
       const call = modelCalls().find((entry) => entry.customer?.endsWith(question));
       if (!call) throw new Error(`el modelo no vio «${question}»`);
       return call;
     };
+    // Su propia conversación: la reserva queda en borrador, pendiente del equipo.
+    const mine = await newConversation();
+    const other = await newConversation();
+    try {
+      const first = await turn("Resérvame el lunes a las 9, por favor", mine);
+      expect(first.context).not.toContain(PENDING);
 
-    // La reserva del test anterior sigue en borrador: el turno siguiente la ve, en la parte que cambia.
-    const next = await turn("¿Y eso ya está confirmado?");
-    expect(next.context).toContain(PENDING);
-    expect(next.context).toContain(`- ${summary}`);
-    expect(next.system).not.toContain(PENDING);
+      // El turno siguiente la ve, en la parte que cambia (nunca en la estable).
+      const next = await turn("¿Y eso ya está confirmado?", mine);
+      expect(next.context).toContain(PENDING);
+      expect(next.context).toContain(`- ${summary}`);
+      expect(next.system).not.toContain(PENDING);
 
-    // Otra conversación de la misma organización no la ve.
-    const other = await one(
-      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
-       values ($1, $2, $3, $4, $5) returning id`,
-      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
-    );
-    const elsewhere = await turn("Hola desde otra conversación", other);
-    expect(elsewhere.context).not.toContain(PENDING);
+      // Otra conversación de la misma organización no la ve.
+      const elsewhere = await turn("Hola desde otra conversación", other);
+      expect(elsewhere.context).not.toContain(PENDING);
 
-    // Rechazada por el equipo, deja de estar pendiente.
-    const { rows: approvals } = await admin.query<{ id: string }>(
-      `select a.id from public.approvals a join public.executions e on e.id = a.execution_id
-       where e.organization_id = $1 and e.skill_key = 'book_appointment' and e.status in ('drafted', 'needs_approval') and a.status = 'pending'`,
-      [ids.org],
-    );
-    expect(approvals).toHaveLength(1);
-    await admin.query("update public.approvals set status = 'rejected', decided_at = now() where id = $1", [approvals[0]?.id]);
-    const afterRejection = await turn("¿Y ahora qué tengo pendiente?");
-    expect(afterRejection.context).not.toContain(PENDING);
-    // Vuelve a estar pendiente para los tests que siguen.
-    await admin.query("update public.approvals set status = 'pending', decided_at = null where id = $1", [approvals[0]?.id]);
-    const restored = await turn("¿Sigue pendiente lo mío?");
-    expect(restored.context).toContain(`- ${summary}`);
+      // Caducada, deja de estar pendiente. (Rechazarla solo puede una persona con su
+      // sesión, guard de approvals; caducarla la hace la plataforma, como aquí.)
+      const { rows: approvals } = await admin.query<{ id: string }>(
+        `select a.id from public.approvals a
+         join public.executions e on e.id = a.execution_id
+         join public.agent_runs r on r.id = e.run_id
+         join public.messages m on m.id::text = r.trigger_ref
+         where m.conversation_id = $1 and e.skill_key = 'book_appointment' and a.status = 'pending'`,
+        [mine],
+      );
+      expect(approvals).toHaveLength(1);
+      await admin.query("update public.approvals set status = 'expired' where id = $1", [approvals[0]?.id]);
+      const afterExpiry = await turn("¿Y ahora qué tengo pendiente?", mine);
+      expect(afterExpiry.context).not.toContain(PENDING);
+    } finally {
+      // Lo de estas dos conversaciones no cuenta para los tests que siguen.
+      await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = any($1))", [
+        [mine, other],
+      ]);
+      await admin.query("delete from public.conversations where id = any($1)", [[mine, other]]);
+    }
   });
 
   it("con la respuesta en borrador, no se envía nada: queda para una persona", async () => {
