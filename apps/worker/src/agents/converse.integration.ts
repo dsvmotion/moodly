@@ -403,13 +403,21 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
       [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
     );
     // En el local de su run (validate_execution): el de esta organización, o ninguno.
-    const pendingExecution = (organizationId: string, locationId: string | null, runId: string, summary: string) =>
-      admin.query(
+    // Con su aprobación pendiente y sin caducar: lo que el equipo ve en la bandeja.
+    const pendingExecution = async (organizationId: string, locationId: string | null, runId: string, summary: string) => {
+      const executionId = await one(
         `insert into public.executions (organization_id, location_id, run_id, skill_key, skill_version, effect_class, autonomy_applied,
                                         input, target, input_hash, preview, status, idempotency_key)
-         values ($1, $2, $3, 'book_appointment', 1, 'internal_write', 'draft', '{}', '{"kind": "appointment"}', $4, $5, 'drafted', $6)`,
+         values ($1, $2, $3, 'book_appointment', 1, 'internal_write', 'draft', '{}', '{"kind": "appointment"}', $4, $5, 'drafted', $6)
+         returning id`,
         [organizationId, locationId, runId, "0".repeat(64), JSON.stringify({ summary }), randomUUID()],
       );
+      await admin.query(
+        `insert into public.approvals (execution_id, organization_id, location_id, effect_class, input_hash, required_role, expires_at)
+         values ($1, $2, $3, 'internal_write', $4, $5, now() + interval '1 day')`,
+        [executionId, organizationId, locationId, "0".repeat(64), locationId ? "staff" : "org_admin"],
+      );
+    };
     try {
       const messageId = await customerSays("Quiero una cita", conversation);
       await waitFor(async () => !["running", undefined].includes((await runFor(messageId))[0]?.status), "el run del mensaje se cierra");
@@ -428,6 +436,79 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
       ]);
       // Con la organización de la otra, tampoco: el mensaje y la conversación no son suyos.
       expect(await loadPendingRequests(asAdmin, orgB, conversation)).toEqual([]);
+    } finally {
+      await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = $1)", [conversation]);
+      await admin.query("delete from public.conversations where id = $1", [conversation]);
+    }
+  });
+
+  it("pendiente para el agente es lo que el equipo ve en la bandeja: con aprobación pendiente y sin caducar, y con la hora aún por llegar (CU3)", async () => {
+    // Hallazgo de staging (V1, 2026-11-13): el agente decía que seguía pendiente
+    // una cita del lunes 9 a las 9:00 el viernes 13. Era un borrador de antes de
+    // que el worker creara aprobaciones: sin aprobación, nada lo quitaba.
+    const asAdmin = { query: async <T,>(text: string, params?: readonly unknown[]) => (await admin.query(text, params as unknown[])).rows as T[] };
+    const conversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    const hash = "1".repeat(64);
+    type Approval = "pending" | "none" | "approved" | "expired_by_time";
+    const request = async (summary: string, input: Record<string, unknown>, approval: Approval, runId: string) => {
+      const executionId = await one(
+        `insert into public.executions (organization_id, location_id, run_id, skill_key, skill_version, effect_class, autonomy_applied,
+                                        input, target, input_hash, preview, status, idempotency_key)
+         values ($1, $2, $3, 'book_appointment', 1, 'internal_write', 'draft', $4, '{"kind": "appointment"}', $5, $6, 'drafted', $7)
+         returning id`,
+        [ids.org, ids.location, runId, JSON.stringify(input), hash, JSON.stringify({ summary }), randomUUID()],
+      );
+      if (approval === "none") return;
+      await admin.query(
+        `insert into public.approvals (execution_id, organization_id, location_id, effect_class, input_hash, required_role, expires_at)
+         values ($1, $2, $3, 'internal_write', $4, 'staff', now() + interval '1 day')`,
+        [executionId, ids.org, ids.location, hash],
+      );
+      if (approval === "pending") return;
+      // Sin triggers (como decide()): la fila como la deja la base de datos, sin
+      // evento. «approved» es la aprobada que no llegó a ejecutarse (el worker
+      // estaba caído o no tenía el consumidor); «expired_by_time», la que pasó
+      // su expires_at sin que nadie la decidiera (nadie la pasa a «expired»).
+      await admin.query("begin");
+      try {
+        await admin.query("set local session_replication_role = replica");
+        await admin.query(
+          approval === "approved"
+            ? "update public.approvals set status = 'approved', decided_at = now() where execution_id = $1"
+            : "update public.approvals set created_at = now() - interval '2 days', expires_at = now() - interval '1 day' where execution_id = $1",
+          [executionId],
+        );
+        await admin.query("commit");
+      } catch (error) {
+        await admin.query("rollback");
+        throw error;
+      }
+    };
+    try {
+      const messageId = await customerSays("Quiero una cita", conversation);
+      await waitFor(async () => !["running", undefined].includes((await runFor(messageId))[0]?.status), "el run del mensaje se cierra");
+      const runId = (await runFor(messageId))[0]?.id;
+      if (!runId) throw new Error("no hay run");
+      // Lo que el run del turno haya dejado no cuenta para este test.
+      await admin.query("delete from public.executions where run_id = $1", [runId]);
+
+      const future = "2030-06-03T09:00:00+02:00";
+      await request("Viva, sin hora", {}, "pending", runId);
+      await request("Viva, con la hora por llegar", { starts_at: future }, "pending", runId);
+      await request("Viva, con una hora que no es una fecha", { starts_at: "el lunes" }, "pending", runId);
+      await request("Sin aprobación", { starts_at: future }, "none", runId);
+      await request("Aprobada sin ejecutar", { starts_at: future }, "approved", runId);
+      await request("Caducada por la hora", { starts_at: future }, "expired_by_time", runId);
+      await request("Con la hora ya pasada", { starts_at: "2020-11-09T09:00:00+01:00" }, "pending", runId);
+
+      const pending = await loadPendingRequests(asAdmin, ids.org as string, conversation);
+      expect(pending.map((row) => row.summary).sort()).toEqual(
+        ["Viva, con la hora por llegar", "Viva, con una hora que no es una fecha", "Viva, sin hora"].sort(),
+      );
     } finally {
       await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = $1)", [conversation]);
       await admin.query("delete from public.conversations where id = $1", [conversation]);
