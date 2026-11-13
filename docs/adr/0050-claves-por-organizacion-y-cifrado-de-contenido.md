@@ -1,6 +1,6 @@
 # 0050 — Claves por organización: cifrado de sobre de los mensajes y los datos de contacto, y borrado destruyendo la clave (T4)
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-11-11
 - **Secciones del MANUAL afectadas:** §4.2 (`messages`, `contacts`, `contact_identities`), §10.3, §10.4, §11 (borrado)
 - **Relación:**

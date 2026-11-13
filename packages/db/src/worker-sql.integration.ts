@@ -94,7 +94,8 @@ describe("forOrganization(org).transaction (moodly_worker, RLS)", () => {
 
   it("no puede escribir donde solo lee, y el error deshace la transacción", async () => {
     await expect(
-      service.forOrganization(ORG_A).transaction((sql) => sql.query("update public.conversations set mode = mode")),
+      // contact_id: de una conversación, el worker solo cambia el modo (PL-T1 3c-2).
+      service.forOrganization(ORG_A).transaction((sql) => sql.query("update public.conversations set contact_id = contact_id")),
     ).rejects.toThrow(/permission denied/);
     // La conexión vuelve sana al pool: la siguiente transacción funciona.
     const rows = await service.forOrganization(ORG_A).transaction((sql) => sql.query("select 1 as ok"));

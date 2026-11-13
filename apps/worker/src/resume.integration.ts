@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { localSupabaseApi, localSystemDatabaseUrl } from "./testing/local-system-db.ts";
+import { localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "./testing/local-system-db.ts";
 
 // Tarea 6 de la Fase 0 (ADR 0027): el worker real, con el rol sin DDL y el
 // esquema que migra el CI, retoma un workflow tras matar el proceso con SIGKILL
@@ -93,6 +93,7 @@ describe("worker con DBOS: reanudación tras SIGKILL", () => {
     LOG_LEVEL: "info",
     SUPABASE_URL: api.url,
     SUPABASE_SECRET_KEY: api.secretKey,
+    WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
   };
 
   it("muere tras el paso 2, vuelve con el mismo executorID y solo ejecuta el 3", async () => {

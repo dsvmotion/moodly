@@ -1,6 +1,6 @@
 # 0023 — Fuente de verdad única y vocabulario canónico (agentes, rutas, residencia, modelo de datos)
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-10-20
 - **Secciones del MANUAL afectadas:** §0, §1.4, §3.1, §3.4, §4.2, §5.2, §5.8, §9.2, §9.4, §11, §17, §19, §20
 

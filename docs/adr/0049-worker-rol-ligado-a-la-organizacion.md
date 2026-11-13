@@ -1,6 +1,6 @@
 # 0049 — Acceso del worker a los datos: transacciones SQL con un rol ligado a la organización y RLS (T1)
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-11-11
 - **Secciones del MANUAL afectadas:** §3.2, §4.4, §18.0 (arquitectura: T1 «ya»)
 - **Relación:**
