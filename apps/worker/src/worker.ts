@@ -24,6 +24,8 @@ export interface Worker {
   stop(): Promise<void>;
   /** Lo que mira el endpoint de salud (health.ts). */
   probe: WorkerProbe;
+  /** El acceso a los datos de las organizaciones, para las rutas HTTP del worker (el webhook de Nango). */
+  db: ServiceDb;
 }
 
 export interface WorkerOptions {
@@ -81,6 +83,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let launched = false;
   let phase: WorkerPhase = "checking";
   return {
+    db,
     probe: {
       phase: () => phase,
       async pingDatabase() {

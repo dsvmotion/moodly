@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Logger } from "pino";
 
 // Salud del worker para el healthcheck de Railway y para la alerta de staging
@@ -109,8 +109,14 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   };
 }
 
-/** Servidor HTTP mínimo: GET/HEAD /health. Cualquier otra ruta, 404. */
-export function createHealthServer(options: HealthOptions & { logger: Logger }): Server {
+/**
+ * Otra ruta del mismo servidor (p. ej. el webhook de Nango, O-02): devuelve
+ * true si atiende la petición; si no, false y sigue la siguiente.
+ */
+export type HttpRoute = (req: IncomingMessage, res: ServerResponse, url: URL) => boolean;
+
+/** Servidor HTTP mínimo: GET/HEAD /health y las rutas que se le pasen. Cualquier otra, 404. */
+export function createHealthServer(options: HealthOptions & { logger: Logger; routes?: readonly HttpRoute[] }): Server {
   const cacheMs = options.cacheMs ?? 10_000;
   const now = options.now ?? Date.now;
   let cached: { at: number; result: Promise<HealthResult> } | undefined;
@@ -126,6 +132,7 @@ export function createHealthServer(options: HealthOptions & { logger: Logger }):
 
   return createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://worker.internal");
+    if (url.pathname !== "/health" && options.routes?.some((route) => route(req, res, url))) return;
     if ((req.method !== "GET" && req.method !== "HEAD") || url.pathname !== "/health") {
       res.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" }).end('{"error":"not_found"}');
       return;

@@ -44,3 +44,31 @@ export { renderBudgetEmail } from "./email/budget.js";
 export type { BudgetEmailInput } from "./email/budget.js";
 export { EmailSendError, RESEND_API_URL, createResendSender } from "./email/resend.js";
 export type { EmailAddress, EmailSendErrorKind, EmailSender, ResendSenderOptions, SendEmailRequest } from "./email/resend.js";
+// Integraciones de plataforma (O-02, ADR 0053): la interfaz, el catálogo, Nango
+// (el único que habla con él, platform/transports) y la lectura del calendario.
+export { ConnectorPlatformError } from "./platform/types.js";
+export type {
+  ConnectSession,
+  ConnectSessionRequest,
+  ConnectionTags,
+  ConnectorPlatform,
+  ConnectorPlatformErrorKind,
+  PlatformConnection,
+  ProxyRequest,
+} from "./platform/types.js";
+export { PLATFORM_INTEGRATIONS, platformIntegration, platformIntegrationByKey } from "./platform/catalog.js";
+export type { PlatformCategory, PlatformIntegration } from "./platform/catalog.js";
+export { NANGO_DEFAULT_HOST, createNangoPlatform, parseNangoHost } from "./platform/transports/nango.js";
+export type { NangoPlatformOptions } from "./platform/transports/nango.js";
+export {
+  NANGO_SIGNATURE_HEADER,
+  NANGO_WEBHOOK_MAX_BYTES,
+  parseNangoWebhook,
+  signNangoWebhook,
+  verifyNangoWebhook,
+} from "./platform/transports/nango-webhook.js";
+export type { NangoAuthWebhook } from "./platform/transports/nango-webhook.js";
+export { createFakeConnectorPlatform } from "./platform/fake.js";
+export type { FakeConnectorPlatform, FakeConnectorPlatformOptions } from "./platform/fake.js";
+export { GOOGLE_CALENDAR_EVENTS_PATH, createGoogleCalendarReader } from "./calendar/google.js";
+export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./calendar/google.js";
