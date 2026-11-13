@@ -22,7 +22,7 @@ on:
         required: true
         type: choice
         default: saludo
-        options: [saludo, huecos, reservar]
+        options: [saludo, huecos, reservar, precio]
 
 permissions:
   contents: read
@@ -65,6 +65,8 @@ jobs:
             saludo) text="Hola, ¿qué podéis hacer por mí?" ;;
             huecos) text="¿Tenéis hueco el próximo lunes por la mañana para una primera visita?" ;;
             reservar) text="Quiero reservar una primera visita el próximo lunes a primera hora." ;;
+            # OA04: el precio de la primera visita, el que haya puesto el org_admin en Ajustes → Servicios.
+            precio) text="¿Cuánto cuesta una primera visita?" ;;
             *) echo "::error::Mensaje desconocido"; exit 1 ;;
           esac
           echo "text=$text" >> "$GITHUB_OUTPUT"
@@ -97,6 +99,13 @@ jobs:
           jq "$first" "$RUNNER_TEMP/summary.json"
           case "$state" in
             completed | awaiting_approval) echo "El agente contestó (estado: $state)." ;;
-            handed_off) echo "::warning::El agente pasó la conversación a una persona: mira los logs del worker en Railway (¿falta AI_GATEWAY_API_KEY?)." ; exit 1 ;;
+            # Con «precio» y la primera visita sin precio publicado (OA04), pasarla a una persona es lo esperado:
+            # en «ejecuciones» sale request_human. Con precio, el agente contesta con él.
+            handed_off)
+              if [ "$MESSAGE" = "precio" ]; then
+                echo "::notice::El agente pasó la conversación a una persona: es lo esperado si la primera visita no tiene precio publicado (mira que en ejecuciones salga request_human)."
+              else
+                echo "::warning::El agente pasó la conversación a una persona: mira los logs del worker en Railway (¿falta AI_GATEWAY_API_KEY?)." ; exit 1
+              fi ;;
             *) echo "::error::Sin run terminado en 3 minutos (estado: $state): mira los logs del worker en Railway." ; exit 1 ;;
           esac

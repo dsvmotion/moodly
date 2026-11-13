@@ -124,6 +124,9 @@ interface ServiceRow {
   name: string;
   duration_minutes: number;
   location_id: string | null;
+  /** El precio de Ajustes (OA04); null = sin precio publicado. */
+  price_cents: number | null;
+  currency: string;
 }
 
 /**
@@ -141,7 +144,12 @@ export function bookableServices(
     .filter((row) => row.location_id === null || row.location_id === locationId)
     .sort((a, b) => a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id));
   return {
-    services: here.slice(0, max).map((row) => ({ id: row.id, name: row.name, durationMinutes: row.duration_minutes })),
+    services: here.slice(0, max).map((row) => ({
+      id: row.id,
+      name: row.name,
+      durationMinutes: row.duration_minutes,
+      price: row.price_cents === null ? null : { cents: row.price_cents, currency: row.currency },
+    })),
     truncated: here.length > max,
   };
 }
@@ -322,7 +330,7 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     const serviceRows =
       books && conversation.location_id
         ? await sql.query<ServiceRow>(
-            `select id, name, duration_minutes, location_id from public.services
+            `select id, name, duration_minutes, location_id, price_cents, currency from public.services
              where active and (location_id is null or location_id = $1)
              order by name limit $2`,
             [conversation.location_id, MAX_PROMPT_SERVICES + 1],
@@ -916,6 +924,8 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
         timezone: prepared.location?.timezone ?? "UTC",
         now: new Date(prepared.now),
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+        // Los precios de los servicios, con el formato del idioma del negocio (OA04).
+        locale: context.organization.default_locale,
         knowledge: searchesKnowledge,
         handOff: handsOff,
         pendingRequests: prepared.pendingRequests,

@@ -25,6 +25,11 @@ export interface PromptContext {
   services?: readonly BookableService[];
   /** true si la lista se cortó: el agente no debe decir que algo no se ofrece. */
   servicesTruncated?: boolean;
+  /**
+   * Con qué formato se escriben los precios de los servicios (BCP 47, el
+   * default_locale de la organización). Sin él, es-ES, el de la base de datos.
+   */
+  locale?: string;
   /** true si el agente puede buscar en el conocimiento del negocio (search_knowledge, B20-2). */
   knowledge?: boolean;
   /** Si el agente puede pasar la conversación a una persona (request_human, CU3). */
@@ -53,6 +58,33 @@ export interface BookableService {
   id: string;
   name: string;
   durationMinutes: number;
+  /**
+   * El precio que ha puesto el negocio en Ajustes (OA04). null = sin precio
+   * publicado: el agente no lo dice ni se lo inventa. Sin la propiedad, la
+   * capa no habla de precios (quien compone el prompt no los conoce).
+   */
+  price?: ServicePrice | null;
+}
+
+/** Un precio en céntimos de una moneda ISO 4217 (services.price_cents y currency). */
+export interface ServicePrice {
+  cents: number;
+  currency: string;
+}
+
+const DEFAULT_PRICE_LOCALE = "es-ES";
+
+/**
+ * El precio como lo leería el cliente en el idioma del negocio: «45,00 €» en
+ * es-ES, «£20.00» en en-GB. Con un locale que Intl no conoce, el de por defecto.
+ */
+export function formatPrice(price: ServicePrice, locale: string = DEFAULT_PRICE_LOCALE): string {
+  const amount = price.cents / 100;
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: price.currency }).format(amount);
+  } catch {
+    return new Intl.NumberFormat(DEFAULT_PRICE_LOCALE, { style: "currency", currency: price.currency }).format(amount);
+  }
 }
 
 export const PLATFORM_RULES = [
@@ -89,12 +121,24 @@ export function escapeHeadings(text: string): string {
     .join("\n");
 }
 
-function servicesLayer(services: readonly BookableService[], truncated: boolean): string {
+const PRICES_RULES = [
+  "The prices here are the business's current prices: quote them exactly as written, in that currency, without searching for them. They win over any other source.",
+  'A service with "no published price" has no price you can give: never make one up, estimate it or take it from another service.',
+].join("\n");
+
+function serviceLine(service: BookableService, locale: string | undefined): string {
+  const details = [`${service.durationMinutes} min`];
+  if (service.price !== undefined) details.push(service.price === null ? "no published price" : formatPrice(service.price, locale));
+  return `- ${oneLine(service.name)} (${details.join(", ")}): service_id ${service.id}`;
+}
+
+function servicesLayer(services: readonly BookableService[], truncated: boolean, locale: string | undefined): string {
   if (services.length === 0) return "Nothing can be booked here yet: if someone wants an appointment, say that a person from the team will reply.";
   const lines = [
     "What can be booked here. Send the service_id to the tools; never show it to the customer.",
     "The names are in the business's language: when the customer writes in another language, reply in theirs and translate the names.",
-    ...services.map((service) => `- ${oneLine(service.name)} (${service.durationMinutes} min): service_id ${service.id}`),
+    ...(services.some((service) => service.price !== undefined) ? [PRICES_RULES] : []),
+    ...services.map((service) => serviceLine(service, locale)),
   ];
   if (truncated) lines.push("This list is incomplete: if someone asks for a service that is not listed, say that a person from the team will reply.");
   return lines.join("\n");
@@ -155,7 +199,7 @@ export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts 
       [`You are ${ctx.agentName}, working for ${where}.`, `Give times in the ${ctx.timezone} time zone, and send them to tools with their offset.`].join("\n"),
     ],
   ];
-  if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
+  if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false, ctx.locale)]);
   if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
   if (ctx.handOff) layers.push(["Handing over to a person", HAND_OFF_LAYER]);
   const instructions = ctx.instructions?.trim();
