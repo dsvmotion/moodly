@@ -8,7 +8,7 @@ import { defineSkill } from "../skill.js";
 import type { SkillContext, SkillDefinition } from "../skill.js";
 import { INTENT_CALL_INDEX } from "./intent.js";
 import { SUMMARY_MARK } from "./summary.js";
-import { REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
+import { HAND_OFF_TEXTS, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
 import type { Step, TurnExecution, TurnParams } from "./turn.js";
 
 const RUN = "run-1";
@@ -674,6 +674,36 @@ describe("pasar a una persona (request_human)", () => {
     expect(result.status).toBe("replied");
     expect(executed.map((call) => call.key)).toEqual([REPLY_SKILL_KEY]);
     expect(result.executions[0]).toMatchObject({ skillKey: REQUEST_HUMAN_SKILL_KEY, status: "rejected" });
+  });
+
+  // V1, 2026-11-13 (opción b): al pasar, el cliente recibe un texto fijo de la
+  // plataforma por la reply de siempre, con su autonomía.
+  it("con el texto del paso y la respuesta autónoma, se lo dice al cliente antes de acabar", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } })]);
+    const result = await runAgentTurn(params(transport, { skills, settings: withRequestHuman, handOffText: HAND_OFF_TEXTS.es }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "customer_asked" });
+    expect(executed.map((call) => [call.key, call.input])).toEqual([
+      [REQUEST_HUMAN_SKILL_KEY, { reason: "customer_asked" }],
+      [REPLY_SKILL_KEY, { text: HAND_OFF_TEXTS.es }],
+    ]);
+  });
+
+  it("con la respuesta en borrador, no deja un borrador que nunca podría salir: la conversación ya la lleva una persona (R-02)", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "out_of_scope" } })]);
+    const settings = settingsWith({ request_human: { enabled: true }, reply: { autonomy: "draft" } });
+    const result = await runAgentTurn(params(transport, { skills, settings, handOffText: HAND_OFF_TEXTS.es }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "out_of_scope" });
+    expect(executed.map((call) => call.key)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+    expect(result.executions.map((execution) => execution.skillKey)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+  });
+
+  it("los textos del paso dicen que es una IA y que contestará una persona, en español y en inglés", () => {
+    expect(HAND_OFF_TEXTS.es).toMatch(/IA/);
+    expect(HAND_OFF_TEXTS.es).toMatch(/persona del equipo/);
+    expect(HAND_OFF_TEXTS.en).toMatch(/AI/);
+    expect(HAND_OFF_TEXTS.en).toMatch(/person from the team/);
   });
 
   it("desactivada para el agente, no pasa nada a una persona", async () => {

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   AUTONOMY_LEVELS,
   EFFECT_CLASSES,
+  HAND_OFF_TEXTS,
   REQUEST_HUMAN_SKILL_KEY,
   composeSystemPromptParts,
   decide,
@@ -337,6 +338,11 @@ export function codeSkills(
   const requestHuman = createRequestHumanSkill();
   const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge, requestHuman] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
+}
+
+/** El texto del paso a una persona en el idioma de la organización: inglés si es «en», si no, español. */
+export function handOffTextFor(locale: string | null | undefined): string {
+  return locale?.toLowerCase().startsWith("en") ? HAND_OFF_TEXTS.en : HAND_OFF_TEXTS.es;
 }
 
 /** Las que lanza la plataforma y no el modelo (los recordatorios, 4e, y las ofertas de la lista de espera, 4f-2): nunca se le ofrecen como herramienta. */
@@ -763,6 +769,8 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         router,
         policy,
         spend: { runEur: 0, dayEur: prepared.dayEur, monthEur: prepared.monthEur },
+        // Lo que se le dice al cliente si el modelo la pasa a una persona (CU3, opción b).
+        handOffText: handOffTextFor(context.organization.default_locale),
         intentRouting: routing,
         step: (name, fn) => ctx.step(name, fn),
         recordModelCall: async (call) => {

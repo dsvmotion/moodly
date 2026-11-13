@@ -54,7 +54,7 @@ export type { GatewayTransportOptions } from "./models/transports/gateway.js";
 export type { FakeTransport, FakeTransportOptions } from "./models/transports/fake.js";
 export { InvalidModelSettingsError, policyFromSettings } from "./models/settings.js";
 export type { ModelSettingsRow } from "./models/settings.js";
-export { CUSTOMER_MESSAGE_MARK, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./runtime/turn.js";
+export { CUSTOMER_MESSAGE_MARK, HAND_OFF_TEXTS, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./runtime/turn.js";
 export type {
   ExecutionStatus,
   HandOffReason,
