@@ -42,7 +42,7 @@ export const RICH = {
       skills: { recepcion: ["Book viewings by agent", "Confirmation the day before", "Reschedule if someone is late"], atencion: ["Reply with each property's details", "Rental documentation", "Tenant issues"], comercial: ["Qualify portal leads", "Follow-up after the viewing", "Attract owners"], administracion: ["Rent receipts and collections", "Contracts for signing", "Maintenance alerts"] },
       custom: ["Portals and property portfolio", "Qualification criteria", "Viewing allocation by agent", "Rental requirements"],
       special: ["Connected to your portals.", "Leads come in on their own and nobody is left without a reply.", ["Leads from [portals] straight to the agent", "Replies with the property's real details", "Offers and counter-offers always to a person", "Everything logged in your CRM"]],
-      faq: [["Which portals connect?", "[Compatible portals: to be confirmed]. Also web forms and social media."], ["Can it negotiate prices?", "No. Offers always go to a person."]],
+      faq: [["Which portals connect?", "None yet: Idealista and Fotocasa are on the roadmap; their status is on the Integrations page."], ["Can it negotiate prices?", "No. Offers always go to a person."]],
     },
     profesionales: {
       kw: "AI agent for accounting firms, advisories and law firms",
@@ -156,7 +156,7 @@ export const RICH = {
       skills: { recepcion: ["Planifier les visites par agent", "Confirmation la veille", "Replanifier en cas de retard"], atencion: ["Répondre avec la fiche de chaque bien", "Documents pour louer", "Incidents des locataires"], comercial: ["Qualifier les leads des portails", "Suivi après la visite", "Prospection de propriétaires"], administracion: ["Quittances et encaissements de loyer", "Contrats à signer", "Alertes à la maintenance"] },
       custom: ["Portails et portefeuille de biens", "Critères de qualification", "Répartition des visites par agent", "Conditions de location"],
       special: ["Connecté à vos portails.", "Les leads entrent seuls et personne ne reste sans réponse.", ["Leads des [portails] directement à l'agent", "Réponses avec la fiche réelle du bien", "Offres et contre-offres toujours à une personne", "Tout enregistré dans votre CRM"]],
-      faq: [["Quels portails se connectent ?", "[Portails compatibles : à confirmer]. Aussi formulaires web et réseaux."], ["Peut-il négocier les prix ?", "Non. Les offres passent toujours par une personne."]],
+      faq: [["Quels portails se connectent ?", "Aucun pour l'instant : Idealista et Fotocasa sont sur la feuille de route ; leur état est sur la page Intégrations."], ["Peut-il négocier les prix ?", "Non. Les offres passent toujours par une personne."]],
     },
     profesionales: {
       kw: "Agent IA pour cabinets comptables, conseils et cabinets d'avocats",
@@ -270,7 +270,7 @@ export const RICH = {
       skills: { recepcion: ["Besichtigungen je Makler planen", "Bestätigung am Vortag", "Verschieben bei Verspätung"], atencion: ["Mit dem Datenblatt jedes Objekts antworten", "Unterlagen zum Mieten", "Vorfälle von Mietern"], comercial: ["Portal-Leads qualifizieren", "Nachfassen nach der Besichtigung", "Eigentümer gewinnen"], administracion: ["Mietquittungen und Inkasso", "Verträge zur Unterschrift", "Hinweise an die Wartung"] },
       custom: ["Portale und Objektbestand", "Qualifizierungskriterien", "Besichtigungsverteilung je Makler", "Mietvoraussetzungen"],
       special: ["Mit deinen Portalen verbunden.", "Leads kommen von allein herein und niemand bleibt ohne Antwort.", ["Leads von [Portalen] direkt an den Makler", "Antworten mit dem echten Datenblatt des Objekts", "Angebote und Gegenangebote immer an eine Person", "Alles im CRM erfasst"]],
-      faq: [["Welche Portale werden verbunden?", "[Kompatible Portale: zu bestätigen]. Auch Web-Formulare und soziale Netzwerke."], ["Kann er Preise verhandeln?", "Nein. Angebote gehen immer an eine Person."]],
+      faq: [["Welche Portale werden verbunden?", "Noch keines: Idealista und Fotocasa stehen auf der Roadmap; ihren Stand findest du auf der Seite Integrationen."], ["Kann er Preise verhandeln?", "Nein. Angebote gehen immer an eine Person."]],
     },
     profesionales: {
       kw: "KI-Agent für Steuerberatungen, Beratungen und Anwaltskanzleien",

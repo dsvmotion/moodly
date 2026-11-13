@@ -4,6 +4,10 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
+
+// Cada capacidad del ejemplo, con su unidad de docs/scope.yaml (N-01): el estado sale del registro.
+const Units = ({ units, lang, dark }) => (<span style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>{units.map(([label, id]) => (<span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", lineHeight: "18px", opacity: dark ? 0.9 : 1 }}>{label} <AvailabilityBadge id={id} lang={lang} /></span>))}</span>);
 
 const CARD_BG = ["#ff6301", "#f6f2e8", "#ffbab5"];
 
@@ -23,12 +27,12 @@ export default function Page() {
       <section style={{ padding: "0 clamp(16px, 4vw, 40px)" }}>
         <div style={{ maxWidth: "1232px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "40px" }}>
           <LangLink href="/#demo" style={{ borderRadius: "12px", background: "#000000", color: "#ffffff", padding: "clamp(32px, 5vw, 64px)", display: "flex", gap: "48px", flexWrap: "wrap", alignItems: "flex-end", minHeight: "420px", boxSizing: "border-box" }}>
-            <div style={{ flex: "2 1 420px", display: "flex", flexDirection: "column", gap: "16px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ffffff33", fontSize: "12px" }}>{t.heroBadge}</span><span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.heroTitle}</span><span style={{ fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.heroText}</span></div>
+            <div style={{ flex: "2 1 420px", display: "flex", flexDirection: "column", gap: "16px" }}><span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: "800px", background: "#ffffff33", fontSize: "12px" }}>{t.heroBadge}</span><span style={{ fontSize: "32px", lineHeight: "35.2px", letterSpacing: "-0.64px" }}>{t.heroTitle}</span><span style={{ fontSize: "16px", lineHeight: "24px", opacity: ".75" }}>{t.heroText}</span><Units units={t.heroUnits} lang={lang} dark /></div>
           </LangLink>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
-            {t.cards.map(([photo, meta, title], i) => (
-              <LangLink key={i} href="/#demo" style={{ display: "flex", flexDirection: "column", gap: "14px" }}><span style={{ height: "280px", borderRadius: "12px", background: CARD_BG[i], display: "flex", alignItems: "flex-end", padding: "20px", boxSizing: "border-box", fontSize: "12px" }}>{photo}</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>{meta}</span><span style={{ fontSize: "18px", lineHeight: "23px", letterSpacing: "-0.36px" }}>{title}</span></LangLink>
+            {t.cards.map(([photo, meta, title, units], i) => (
+              <LangLink key={i} href="/#demo" style={{ display: "flex", flexDirection: "column", gap: "14px" }}><span style={{ height: "280px", borderRadius: "12px", background: CARD_BG[i], display: "flex", alignItems: "flex-end", padding: "20px", boxSizing: "border-box", fontSize: "12px" }}>{photo}</span><span style={{ fontSize: "12px", color: "#6b6b70" }}>{meta}</span><span style={{ fontSize: "18px", lineHeight: "23px", letterSpacing: "-0.36px" }}>{title}</span><Units units={units} lang={lang} /></LangLink>
             ))}
           </div>
 
