@@ -77,7 +77,7 @@ export const VERTICALS = [
     },
     custom: ["Portales y cartera de inmuebles", "Criterios de cualificación", "Reparto de visitas por agente", "Requisitos para alquilar"],
     special: ["Conectado a tus portales.", "Los leads entran solos y nadie se queda sin respuesta.", ["Leads de [portales] directos al agente", "Respuestas con la ficha real del inmueble", "Ofertas y contraofertas siempre a una persona", "Todo registrado en tu CRM"]],
-    faq: [["¿Qué portales se conectan?", "[Portales compatibles: por confirmar]. También formularios web y redes."], ["¿Puede negociar precios?", "No. Las ofertas pasan siempre a una persona."]],
+    faq: [["¿Qué portales se conectan?", "Todavía ninguno: Idealista y Fotocasa están en la hoja de ruta; su estado, en Integraciones."], ["¿Puede negociar precios?", "No. Las ofertas pasan siempre a una persona."]],
   },
   {
     id: "profesionales", name: "Despachos y asesorías", kw: "Agente de IA para gestorías, asesorías y despachos de abogados", text: "Gestorías, abogados, consultoras, agencias.", color: "#f6f2e8", on: "#000000",
