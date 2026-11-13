@@ -34,10 +34,23 @@ export function redactConnectionStrings(text: string): string {
   return text.replace(PG_URL_CREDENTIALS, `$1:${REDACTED}@`).replace(SUPABASE_SECRET_KEY, `sb_secret_${REDACTED}`);
 }
 
+// El serializador de pino junta los mensajes de la cadena de causas pero pierde
+// sus campos (el code de pg o de la red: 28P01, ECONNREFUSED…): la causa va
+// además entera, serializada igual.
+function serializeError(err: Error): Record<string, unknown> {
+  const serialized: Record<string, unknown> = { ...pino.stdSerializers.err(err) };
+  if (err.cause instanceof Error) serialized["cause"] = serializeError(err.cause);
+  return serialized;
+}
+
 // Lo mismo en todos los campos de un evento, a cualquier profundidad.
 function redactFields(value: unknown, depth = 0): unknown {
   if (typeof value === "string") return redactConnectionStrings(value);
   if (depth > 8 || value === null || typeof value !== "object") return value;
+  // Un error, ya serializado (tipo, mensaje, pila, code, cause y los errors de un
+  // AggregateError) y censurado: sus campos no son enumerables, y sin esto el
+  // error llegaba vacío ({message: "", stack: ""}) a cualquier campo del log.
+  if (value instanceof Error) return redactFields(serializeError(value), depth + 1);
   if (Array.isArray(value)) return value.map((item) => redactFields(item, depth + 1));
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactFields(item, depth + 1)]));
 }
@@ -65,13 +78,12 @@ export function createLogger(level: string, destination?: DestinationStream): Lo
         },
       },
       serializers: {
+        // Llega ya serializado por redactFields; lo que no es un error (un texto
+        // o un objeto lanzado) se registra como texto, censurado.
         err: (err: unknown) => {
-          const serialized = pino.stdSerializers.err(err as Error);
-          return {
-            ...serialized,
-            message: redactConnectionStrings(String(serialized.message ?? "")),
-            stack: redactConnectionStrings(String(serialized.stack ?? "")),
-          };
+          if (err instanceof Error) return redactFields(serializeError(err));
+          if (err !== null && typeof err === "object") return err;
+          return { type: typeof err, message: redactConnectionStrings(String(err)) };
         },
       },
     },
