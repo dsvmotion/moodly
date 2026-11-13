@@ -35,11 +35,11 @@ select is(
   'effect_class, execution_id, expires_at, input_hash, location_id, organization_id, reason, required_role',
   'crea una aprobación sin estado, decisión ni quién la pidió');
 select ok(not has_table_privilege('moodly_worker', 'public.approvals', 'update')
-          and not exists (select 1 from information_schema.column_privileges
-                          where grantee = 'moodly_worker' and table_name = 'approvals' and privilege_type = 'UPDATE')
+          and (select string_agg(column_name, ', ' order by column_name) from information_schema.column_privileges
+               where grantee = 'moodly_worker' and table_name = 'approvals' and privilege_type = 'UPDATE') = 'status'
           and not has_table_privilege('moodly_worker', 'public.approvals', 'delete')
           and not has_table_privilege('moodly_worker', 'public.approvals', 'truncate'),
-  'no cambia ni borra aprobaciones (ninguna columna)');
+  'no borra aprobaciones y de una solo puede tocar el estado (20261113130000: caducar una respuesta que ya no toca, 56); nada más');
 
 -- Como moodly_worker, con A fijada (solo para este test; ver 42_worker_role).
 grant moodly_worker to postgres with set true;
@@ -70,7 +70,7 @@ select throws_ok(
 select throws_ok($$update public.approvals set status = 'approved' where execution_id = 'e5100000-0000-4000-8000-000000000001'$$,
   '42501', null, 'no aprueba una aprobación');
 select throws_ok($$update public.approvals set status = 'expired' where execution_id = 'e5100000-0000-4000-8000-000000000001'$$,
-  '42501', null, 'ni la caduca');
+  '42501', null, 'ni la caduca (su respuesta sigue viva: guard_worker_approval)');
 select throws_ok(format($$select pg_temp.request(%L, %L, %L, %L)$$, 'e5100000-0000-4000-8000-0000000000b1', :org_b, :loc_b1, repeat('b', 64)),
   '42501', null, 'no pide aprobaciones de otra organización (RLS, WITH CHECK)');
 select throws_ok($$update public.executions set status = 'rejected' where id = 'e5100000-0000-4000-8000-000000000001'$$,

@@ -76,6 +76,18 @@ describe("el turno del agente en el worker", () => {
     expect(finalRunStatus({ status: "replied", executions: [], usage } as TurnResult, true, false)).toBe("completed");
   });
 
+  it("si el cliente escribió otra vez a mitad del turno, el run se cierra completed y no pasa la conversación a nadie (gate M1)", () => {
+    // La respuesta autónoma falló porque ya no tocaba: el turno dice handed_off (reply_failed), pero no lo es.
+    const failed = { status: "handed_off", reason: "reply_failed", executions: [], usage } as TurnResult;
+    expect(finalRunStatus(failed, false, false, true)).toBe("completed");
+    const drafted = { status: "reply_drafted", executions: [], usage } as TurnResult;
+    expect(finalRunStatus(drafted, false, false, true)).toBe("completed");
+    // Si otra cosa del turno sigue esperando a una persona (una reserva en borrador), espera.
+    expect(finalRunStatus(drafted, false, true, true)).toBe("awaiting_approval");
+    // Sin superseded, lo de siempre.
+    expect(finalRunStatus(failed, false, false)).toBe("handed_off");
+  });
+
   it("consume solo message.received, con una clave estable", () => {
     const handler = createConverseHandler({ router: { generate: () => Promise.reject(new Error("sin modelo")) } });
     expect(handler.key).toBe(CONVERSE_HANDLER_KEY);

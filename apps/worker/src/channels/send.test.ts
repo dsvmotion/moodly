@@ -45,6 +45,10 @@ function fakeDb(options: { status?: string; phone?: string | null; channel?: str
       state.externalId ??= values[2] as string;
       return [];
     }
+    if (/set delivery_error = \$3 where .* status = 'unknown'/.test(text)) {
+      if (state.status === "unknown") state.deliveryError = values[2] as string;
+      return [];
+    }
     if (/set status = 'failed'/.test(text)) {
       state.status = "failed";
       state.deliveryError = values[2] as string;
@@ -127,12 +131,12 @@ describe("channels.send (O-01)", () => {
     ["un 502", unknown502],
     ["un timeout", timeout],
     ["un corte de red", network],
-  ])("con %s (resultado desconocido) envía una sola vez y lo deja «unknown», aunque sea retryable", async (_what, error) => {
+  ])("con %s (resultado desconocido) envía una sola vez y lo deja «unknown» con el código, aunque sea retryable", async (_what, error) => {
     const { db, state } = fakeDb();
     const { adapter, send } = adapterThat(error(), "wamid.never");
     await deliver(db, adapter);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(state).toEqual({ status: "unknown", externalId: null, deliveryError: null });
+    expect(state).toEqual({ status: "unknown", externalId: null, deliveryError: error().providerCode });
   });
 
   it("si DBOS repite el paso de envío después de un 502, no hay un segundo envío: ya no está pending", async () => {
