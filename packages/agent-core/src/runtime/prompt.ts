@@ -29,7 +29,25 @@ export interface PromptContext {
   knowledge?: boolean;
   /** Si el agente puede pasar la conversación a una persona (request_human, CU3). */
   handOff?: boolean;
+  /**
+   * Lo que el agente ya pidió en esta conversación y espera al equipo (CU3):
+   * las ejecuciones en borrador o pendientes de aprobación de turnos
+   * anteriores, con el resumen que ve quien aprueba. Sin ellas, el agente solo
+   * veía el texto de los turnos y volvía a pedir la misma cita. Van en la
+   * parte que cambia en cada turno, nunca en la estable (caché de prompt).
+   */
+  pendingRequests?: readonly PendingRequest[];
 }
+
+/** Una solicitud de la conversación que espera al equipo: la skill y el resumen de su vista previa. */
+export interface PendingRequest {
+  skillKey: string;
+  summary: string;
+}
+
+/** Las solicitudes pendientes que caben en el prompt; si hay más, se dice cuántas. */
+export const MAX_PROMPT_PENDING = 10;
+const MAX_PENDING_CHARS = 200;
 
 export interface BookableService {
   id: string;
@@ -90,9 +108,25 @@ const KNOWLEDGE_LAYER = [
 const HAND_OFF_LAYER = [
   "If the customer asks to talk to a person, call request_human with reason customer_asked instead of replying.",
   "If they ask for something you cannot do with your tools and this prompt, call request_human with reason out_of_scope.",
+  "Only call request_human in these two cases.",
   "Do not use it for questions you can answer, nor when search_knowledge finds nothing: then say that a person from the team will reply.",
+  "For medical questions, other people's data or anything else sensitive, do not call it either: reply yourself that a person from the team will reply, and give no data and no advice.",
   "Never promise what the team will do.",
 ].join("\n");
+
+const PENDING_LAYER =
+  "The team has not confirmed these yet. Do not request them again. If the customer asks about one, say it is waiting for a person from the team to confirm it, and never say it is confirmed.";
+
+/** Las solicitudes pendientes, una por línea, en una sola línea cada una y cortadas. */
+function pendingLayer(pending: readonly PendingRequest[]): string {
+  const lines = pending.slice(0, MAX_PROMPT_PENDING).map((request) => {
+    const summary = oneLine(request.summary);
+    return `- ${summary.length > MAX_PENDING_CHARS ? `${summary.slice(0, MAX_PENDING_CHARS - 1)}…` : summary}`;
+  });
+  const more = pending.length - MAX_PROMPT_PENDING;
+  if (more > 0) lines.push(`- (and ${more} more)`);
+  return [PENDING_LAYER, ...lines].join("\n");
+}
 
 function localNow(now: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(now);
@@ -125,7 +159,12 @@ export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts 
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", escapeHeadings(instructions)]);
   return {
     stable: layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n"),
-    volatile: `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
+    volatile: [
+      `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
+      ...(ctx.pendingRequests && ctx.pendingRequests.length > 0
+        ? [`## Requests waiting for the team in this conversation\n${pendingLayer(ctx.pendingRequests)}`]
+        : []),
+    ].join("\n\n"),
   };
 }
 
