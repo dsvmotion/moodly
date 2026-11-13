@@ -45,6 +45,9 @@ jobs:
     name: staging · salud
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # RAILWAY_TOKEN es un secreto del entorno `staging` (como en deploy-staging.yml):
+    # sin el entorno, el job lo recibe vacío (V10).
+    environment: staging
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -91,10 +94,17 @@ jobs:
               '{query: "query($input: DeploymentListInput!, $first: Int){deployments(input:$input, first:$first){edges{node{id status createdAt}}}}", variables: {input: {projectId:$p, serviceId:$s, environmentId:$e}, first: 5}}')
             if latest=$(curl --silent --show-error --fail --max-time 30 --retry 2 https://backboard.railway.com/graphql/v2 \
                 -H "Project-Access-Token: $RAILWAY_TOKEN" -H 'Content-Type: application/json' --data "$query" \
-                | jq -er '[.data.deployments.edges[].node] | max_by(.createdAt)
-                  | "\(.status) \(.createdAt) \((now - (.createdAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) / 60 | floor)"'); then
+                | jq -er '[.data.deployments.edges[].node] | max_by(.createdAt) | "\(.status) \(.createdAt)"'); then
               echo "worker-despliegue: $latest"
-              read -r status _ minutes <<< "$latest"
+              read -r status created <<< "$latest"
+              # La fecha la lee GNU date (vale «Z», «+00:00» y fracciones de segundo).
+              if created_s=$(date -u -d "$created" +%s 2>/dev/null); then
+                minutes=$(( ($(date -u +%s) - created_s) / 60 ))
+              else
+                echo "::warning::worker-despliegue: no se pudo leer la fecha «$created»"
+                minutes=0
+              fi
+              echo "worker-despliegue: lleva $minutes min"
               case "$status" in
                 FAILED|CRASHED) failures="$failures worker-despliegue($status)" ;;
                 # Un despliegue que no termina tampoco sirve (el contenedor nuevo reinicia en bucle).
