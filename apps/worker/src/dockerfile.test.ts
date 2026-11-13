@@ -44,7 +44,15 @@ function usedPackages(): string[] {
 
 describe("imagen del worker", () => {
   it("sabe qué paquetes del monorepo usa el worker", () => {
-    expect(usedPackages()).toEqual(["@repo/agent-core", "@repo/config", "@repo/db", "@repo/integrations", "@repo/knowledge", "@repo/skills"]);
+    expect(usedPackages()).toEqual([
+      "@repo/agent-core",
+      "@repo/channels",
+      "@repo/config",
+      "@repo/db",
+      "@repo/integrations",
+      "@repo/knowledge",
+      "@repo/skills",
+    ]);
   });
 
   it.each(usedPackages())("copia %s: lo compilado, su package.json y sus dependencias", (name) => {

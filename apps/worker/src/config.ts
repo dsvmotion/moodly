@@ -1,4 +1,5 @@
 import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
+import { parseNangoHost } from "@repo/integrations";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -45,6 +46,12 @@ export interface WorkerConfig {
   intentRouting: boolean;
   /** Puerto del endpoint de salud (PL-health). Railway da PORT; en local, 8080 por defecto. */
   healthPort: number;
+  /**
+   * Nango, la plataforma de conectores (O-02, ADR 0053). Sin la clave secreta o
+   * sin la de firma de los webhooks no se monta /webhooks/nango y ninguna
+   * integración de plataforma se activa. Nunca van a los logs.
+   */
+  nango: { secretKey: string; webhookSigningKey: string; host: string } | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -136,6 +143,28 @@ const schema = z.object({
       return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
     }, "WEB_APP_URL: https://dominio (o http:// solo en local), sin ruta, credenciales ni parámetros")
     .optional(),
+  // Nango (O-02). Vacías cuentan como ausentes. La URL base: https, o http solo en loopback.
+  NANGO_API_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "NANGO_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
+    .optional(),
+  NANGO_WEBHOOK_SIGNING_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "NANGO_WEBHOOK_SIGNING_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
+    .optional(),
+  NANGO_HOST: z
+    .string()
+    .refine((value) => {
+      try {
+        parseNangoHost(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "NANGO_HOST: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
+    .optional(),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -169,5 +198,13 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
     intentRouting: !parsed.data.INTENT_ROUTING ? INTENT_ROUTING_DEFAULT_ENABLED : ["on", "true", "1"].includes(parsed.data.INTENT_ROUTING),
     healthPort: Number(parsed.data.PORT ?? "8080"),
+    nango:
+      parsed.data.NANGO_API_KEY && parsed.data.NANGO_WEBHOOK_SIGNING_KEY
+        ? {
+            secretKey: parsed.data.NANGO_API_KEY,
+            webhookSigningKey: parsed.data.NANGO_WEBHOOK_SIGNING_KEY,
+            host: parseNangoHost(parsed.data.NANGO_HOST),
+          }
+        : null,
   };
 }

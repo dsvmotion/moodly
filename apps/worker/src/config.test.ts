@@ -28,7 +28,14 @@ describe("loadConfig", () => {
       webAppUrl: null,
       intentRouting: false,
       healthPort: 8080,
+      nango: null,
     });
+  });
+
+  it("la entrada de canales no tiene puerto propio: va en el de salud (PORT), y INGRESS_PORT ya no se lee", () => {
+    const config = loadConfig({ ...valid, INGRESS_PORT: "9999", PORT: "3001" });
+    expect(config).not.toHaveProperty("ingressPort");
+    expect(config.healthPort).toBe(3001);
   });
 
   it("WORKER_DATABASE_URL es obligatoria y tiene que ser moodly_worker (directo o por el pooler)", () => {
@@ -54,6 +61,26 @@ describe("loadConfig", () => {
     } catch (error) {
       expect((error as Error).message).not.toContain("muy-secreta");
     }
+  });
+
+  it("Nango (O-02): hacen falta las dos claves; la URL base por defecto es Nango Cloud; http solo en loopback", () => {
+    const secret = `nango-${"s".repeat(24)}`;
+    const signing = "00000000-0000-4000-8000-00000000000a";
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret }).nango).toBeNull();
+    expect(loadConfig({ ...valid, NANGO_WEBHOOK_SIGNING_KEY: signing }).nango).toBeNull();
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret, NANGO_WEBHOOK_SIGNING_KEY: signing }).nango).toEqual({
+      secretKey: secret,
+      webhookSigningKey: signing,
+      host: "https://api.nango.dev",
+    });
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret, NANGO_WEBHOOK_SIGNING_KEY: signing, NANGO_HOST: "https://nango.eu.example.com/" }).nango?.host).toBe(
+      "https://nango.eu.example.com",
+    );
+    for (const bad of ["http://nango.example.com", "https://u:p@nango.example.com", "nango"]) {
+      expect(() => loadConfig({ ...valid, NANGO_HOST: bad })).toThrow(/NANGO_HOST/);
+    }
+    expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).toThrow(/NANGO_API_KEY/);
+    expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).not.toThrow(/corta un poco/);
   });
 
   it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {
