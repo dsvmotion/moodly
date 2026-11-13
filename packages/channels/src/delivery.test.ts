@@ -66,7 +66,7 @@ describe("nextDeliveryStatus y la base de datos dicen lo mismo", () => {
 });
 
 describe("deliveryUpdateSchema", () => {
-  const update = { providerMessageId: "wamid.1", status: "delivered", at: "2026-11-11T10:00:00Z" };
+  const update = { channel: "whatsapp", accountExternalId: "106540352242922", providerMessageId: "wamid.1", status: "delivered", at: "2026-11-11T10:00:00Z" };
   it("acepta un aviso bien formado, con o sin código de error", () => {
     expect(deliveryUpdateSchema.safeParse(update).success).toBe(true);
     expect(deliveryUpdateSchema.safeParse({ ...update, status: "failed", errorCode: "131026" }).success).toBe(true);
@@ -78,5 +78,11 @@ describe("deliveryUpdateSchema", () => {
     expect(deliveryUpdateSchema.safeParse({ ...update, errorCode: "x".repeat(101) }).success).toBe(false);
     expect(deliveryUpdateSchema.safeParse({ ...update, errorCode: "número no válido: +34 600" }).success).toBe(false);
     expect(deliveryUpdateSchema.safeParse({ ...update, providerMessageId: "" }).success).toBe(false);
+  });
+
+  it("rechaza un aviso sin la cuenta que lo envió, o de un canal que no existe", () => {
+    expect(deliveryUpdateSchema.safeParse({ ...update, accountExternalId: undefined }).success).toBe(false);
+    expect(deliveryUpdateSchema.safeParse({ ...update, accountExternalId: "" }).success).toBe(false);
+    expect(deliveryUpdateSchema.safeParse({ ...update, channel: "fax" }).success).toBe(false);
   });
 });
