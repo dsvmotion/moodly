@@ -439,6 +439,8 @@ describe("herramientas", () => {
     const [result] = toolMessages(transport.calls[1]);
     expect(result).toMatchObject({ id: "c1", status: "failed", error: "CalendarUnavailableError", note: FAILED_TOOL_NOTES["CalendarUnavailableError"] });
     expect(String(result?.["note"])).toContain("request_human");
+    // Pasa a una persona en ese mismo turno, también con un lead: la regla de cualificar no manda aquí (corrida real de V1 sobre 63672e0).
+    expect(String(result?.["note"])).toContain("now, in this same turn, even if the customer wants to buy or book: do not ask for more details first");
     // El detalle del proveedor nunca llega al modelo.
     expect(JSON.stringify(transport.calls[1]?.messages)).not.toContain("graph.microsoft.com");
   });

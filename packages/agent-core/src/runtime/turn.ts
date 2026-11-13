@@ -227,7 +227,7 @@ function toModelMessage(message: HistoryMessage): ModelMessage | null {
  */
 export const FAILED_TOOL_NOTES: Readonly<Record<string, string>> = Object.freeze({
   CalendarUnavailableError:
-    "Availability can't be checked right now (the business's connected calendar is not responding). Do not offer, guess or book any time. Tell the customer, in their language, that you can't confirm availability right now and that a person from the team will help, and call request_human with reason out_of_scope.",
+    "Availability can't be checked right now (the business's connected calendar is not responding). Do not offer, guess or book any time. Tell the customer, in their language, that you can't confirm availability right now and that a person from the team will help, and call request_human with reason out_of_scope now, in this same turn, even if the customer wants to buy or book: do not ask for more details first.",
 });
 
 function toolResult(execution: TurnExecution): string {
