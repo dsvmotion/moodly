@@ -4,6 +4,7 @@ import {
   EFFECT_CLASSES,
   HAND_OFF_TEXTS,
   MAX_PROMPT_PENDING,
+  REPLY_SKILL_KEY,
   REQUEST_HUMAN_SKILL_KEY,
   composeSystemPromptParts,
   decide,
@@ -48,7 +49,7 @@ import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffe
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
 import { DB_STEP, type DomainEvent, type EventContext, type EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
-import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
+import { createConversationSender, isNotAgentMode, supersededBy } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
 import { bookSummaryUsage, loadSummary, saveSummary, summarizeStep } from "./summary.ts";
 import { checkBudgetSafely } from "../usage/budget-check.ts";
@@ -371,10 +372,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
  */
 export function codeSkills(
   db: TenantDb,
-  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext } = {},
+  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext; inReplyTo?: string } = {},
 ): Map<string, SkillDefinition<unknown>> {
   const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
-  const reply = createReplySkill({ sender: createConversationSender(db) });
+  // En un turno, la respuesta solo sale si su mensaje sigue siendo el último del cliente (gate M1).
+  const reply = createReplySkill({ sender: createConversationSender(db, options.inReplyTo ? { inReplyTo: options.inReplyTo } : {}) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
   // En un turno, cada consulta va al libro de consumo con su run (PL-ledger).
   const embedder = options.embedder && options.searchUsage ? meteredSearchEmbedder(db, options.embedder, options.searchUsage) : options.embedder;
@@ -435,7 +437,59 @@ export function holdsForPerson(effectClass: string, target: Target | undefined, 
   return effectClass === "external_message" && target?.kind === "conversation" && mode !== "agent";
 }
 
-/** Guarda la ejecución y, si espera a una persona, pide su aprobación. Devuelve si se retuvo (R-02). */
+/** Lo que se apunta en output de una respuesta que ya no toca: el cliente escribió otra vez. */
+export const SUPERSEDED_NEWER_MESSAGE = "newer_message";
+
+/**
+ * Los borradores de respuesta de turnos anteriores que siguen esperando a una
+ * persona en esta conversación: caducan (su aprobación pasa a expired, la
+ * ejecución a failed con superseded) y su run, si no espera nada más, se cierra.
+ * Así la bandeja nunca tiene dos respuestas pendientes a la vez (gate M1).
+ */
+export async function supersedeOlderReplyDrafts(
+  sql: Pick<TenantSql, "query">,
+  organizationId: string,
+  runId: string,
+  conversationId: string,
+): Promise<void> {
+  // La organización, explícita en cada consulta (AGENTS.md, «Prohibido»): bajo RLS ya
+  // no vería otra, pero la consulta no depende de ello.
+  const stale = await sql.query<{ id: string; run_id: string }>(
+    `select e.id, e.run_id from public.executions e
+     where e.organization_id = $1 and e.skill_key = $2 and e.status = any($3::text[]) and e.run_id <> $4
+       and e.target->>'kind' = 'conversation' and e.target->>'conversationId' = $5`,
+    [organizationId, REPLY_SKILL_KEY, [...AWAITING_PERSON], runId, conversationId],
+  );
+  if (stale.length === 0) return;
+  const ids = stale.map((row) => row.id);
+  // Primero la ejecución: guard_worker_approval solo deja caducar la aprobación de una respuesta ya superseded.
+  await sql.query(
+    `update public.executions set status = 'failed', output = $3
+     where organization_id = $1 and id = any($2::uuid[]) and status = any($4::text[])`,
+    [organizationId, ids, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
+  );
+  await sql.query(
+    "update public.approvals set status = 'expired' where organization_id = $1 and execution_id = any($2::uuid[]) and status = 'pending'",
+    [organizationId, ids],
+  );
+  await sql.query(
+    `update public.agent_runs r set status = 'completed'
+     where r.organization_id = $1 and r.id = any($2::uuid[]) and r.status = 'awaiting_approval'
+       and not exists (select 1 from public.executions e
+                       where e.organization_id = $1 and e.run_id = r.id and e.status = any($3::text[]))`,
+    [organizationId, [...new Set(stale.map((row) => row.run_id))], [...AWAITING_PERSON]],
+  );
+}
+
+/** Qué pasó al guardar: se retuvo (R-02), ya no tocaba (gate M1) o nada especial. */
+export type RecordOutcome = "held" | "superseded" | null;
+
+/**
+ * Guarda la ejecución y, si espera a una persona, pide su aprobación. Con
+ * triggerMessageId, la respuesta del agente (borrador o enviada) se mide contra
+ * el último mensaje del cliente: un borrador que ya no toca no pide aprobación,
+ * y una respuesta que sí toca hace caducar los borradores de turnos anteriores.
+ */
 async function recordExecution(
   db: TenantDb,
   runId: string,
@@ -443,8 +497,9 @@ async function recordExecution(
   skill: SkillDefinition<unknown>,
   execution: TurnExecution,
   now: Date,
-): Promise<boolean> {
-  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
+  triggerMessageId?: string,
+): Promise<RecordOutcome> {
+  if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return null;
   // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112140000): guardar,
   // encontrar y, si hace falta, retener la ejecución, en una transacción.
   const target = execution.target;
@@ -473,7 +528,11 @@ async function recordExecution(
         execution.idempotencyKey,
       ],
     );
-    if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false };
+    const isReply = execution.skillKey === REPLY_SKILL_KEY && target?.kind === "conversation" && triggerMessageId !== undefined;
+    // Una respuesta que ya salió (autónoma) no toca los borradores que esperan a
+    // una persona: esos los decide el equipo. Solo un borrador nuevo releva a
+    // los borradores de respuesta de turnos anteriores (gate M1, más abajo).
+    if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false, superseded: false };
     // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
     const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
     if (!row) throw new Error("no se encontró la ejecución guardada");
@@ -490,13 +549,26 @@ async function recordExecution(
            where id = $1 and status = any($3::text[])`,
           [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON]],
         );
-        return { executionId: row.id, held: true };
+        return { executionId: row.id, held: true, superseded: false };
+      }
+      if (isReply) {
+        // Un borrador de respuesta a un mensaje que ya no es el último: no pide aprobación (gate M1).
+        if (await supersededBy(sql, db.organizationId, target.conversationId, triggerMessageId)) {
+          await sql.query(
+            `update public.executions set status = 'failed', output = $3
+             where organization_id = $1 and id = $2 and status = any($4::text[])`,
+            [db.organizationId, row.id, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
+          );
+          return { executionId: row.id, held: false, superseded: true };
+        }
+        await supersedeOlderReplyDrafts(sql, db.organizationId, runId, target.conversationId);
       }
     }
-    return { executionId: row.id, held: false };
+    return { executionId: row.id, held: false, superseded: false };
   });
-  if (!saved.executionId) return false;
-  if (saved.held) return true;
+  if (!saved.executionId) return null;
+  if (saved.held) return "held";
+  if (saved.superseded) return "superseded";
   const executionId = saved.executionId;
   await requestApproval(db, {
     executionId,
@@ -506,7 +578,7 @@ async function recordExecution(
     summary: execution.preview?.summary ?? null,
     now,
   });
-  return false;
+  return null;
 }
 
 /**
@@ -569,25 +641,40 @@ async function recordUsage(db: TenantDb, runId: string, conversation: Conversati
  * a una persona no espera nada porque la conversación ya la lleva una persona,
  * el run no queda esperando aprobación para siempre: queda en sus manos.
  */
-export function finalRunStatus(result: TurnResult, heldAny: boolean, stillAwaiting: boolean): ReturnType<typeof runStatusFor> {
+export function finalRunStatus(
+  result: TurnResult,
+  heldAny: boolean,
+  stillAwaiting: boolean,
+  superseded = false,
+): ReturnType<typeof runStatusFor> {
+  // El cliente escribió otra vez y contesta el turno de su último mensaje: este
+  // run acabó su parte (no pasa la conversación a nadie).
+  if (superseded && !stillAwaiting) return "completed";
   const status = runStatusFor(result);
   if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
   return status;
 }
 
-async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult, heldAny: boolean): Promise<void> {
+async function finishRun(
+  db: TenantDb,
+  runId: string,
+  conversationId: string,
+  result: TurnResult,
+  heldAny: boolean,
+  superseded = false,
+): Promise<void> {
   // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): lo que queda del
   // run, el paso a una persona y el cierre del run, en una transacción.
   await db.transaction(async (sql) => {
     let stillAwaiting = false;
-    if (heldAny) {
+    if (heldAny || superseded) {
       const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
         runId,
         [...AWAITING_PERSON],
       ]);
       stillAwaiting = pending.length > 0;
     }
-    const status = finalRunStatus(result, heldAny, stillAwaiting);
+    const status = finalRunStatus(result, heldAny, stillAwaiting, superseded);
     if (status === "handed_off") {
       // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
       // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
@@ -772,13 +859,14 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ? { route: knowledge.route, runId, agentId: conversation.agent_id, locationId: conversation.location_id, logger: ctx.logger }
         : undefined;
       const { skills, settings } = agentSkills(
-        codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null, ...(searchUsage ? { searchUsage } : {}) }),
+        codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null, ...(searchUsage ? { searchUsage } : {}), inReplyTo: messageId }),
         context.skills,
         ctx.logger,
       );
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
       const handsOff = skills.has(REQUEST_HUMAN_SKILL_KEY) && settings.get(REQUEST_HUMAN_SKILL_KEY)?.enabled === true;
       let heldAny = false;
+      let supersededAny = false;
       const prompt = composeSystemPromptParts({
         agentName: context.agent.display_name ?? context.agent.type_name,
         businessName: context.organization.name,
@@ -830,22 +918,28 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
           }
           const skill = skills.get(execution.skillKey);
           if (!skill) return;
-          const held = await ctx.step(`record:${execution.idempotencyKey}`, () =>
-            recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date()),
+          const recorded = await ctx.step(`record:${execution.idempotencyKey}`, () =>
+            recordExecution(ctx.db, runId, conversation.location_id, skill, execution, new Date(), messageId),
           );
-          if (held) {
+          if (recorded === "held") {
             heldAny = true;
             ctx.logger.info({ runId, skillKey: execution.skillKey, reason: HELD_NOT_AGENT_MODE }, "la conversación la lleva una persona: el mensaje del agente no pide aprobación");
+          } else if (recorded === "superseded") {
+            supersededAny = true;
+            ctx.logger.info({ runId, skillKey: execution.skillKey, reason: SUPERSEDED_NEWER_MESSAGE }, "el cliente escribió otra vez: este borrador no pide aprobación");
           }
         },
       });
       // El mensaje del agente lo rechazó la base de datos: alguien tomó el control a mitad del turno (R-02).
       const notAgentMode = result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationNotAgentModeError");
+      // O el cliente escribió otra vez mientras pensaba: contesta el turno de su último mensaje (gate M1).
+      const superseded =
+        supersededAny || result.executions.some((execution) => execution.status === "failed" && execution.error === "ConversationSupersededError");
       // El run se cierra antes de resumir: pase lo que pase con el resumen, queda con su estado y su coste.
       await ctx.step("run:finish", async () => {
         // Lo que no se pudo anotar durante el turno, otra vez (sin lanzar tampoco).
         for (const call of unrecorded) await recordUsageSafely(ctx.db, ctx.logger, runId, conversation, call);
-        await finishRun(ctx.db, runId, conversation.id, result, heldAny);
+        await finishRun(ctx.db, runId, conversation.id, result, heldAny, superseded);
       });
       if (prepared.summaryError) ctx.logger.warn({ runId, error: prepared.summaryError }, "no se pudo leer el resumen: el turno fue con la historia entera");
       // El resumen continuo (PL-T3): con el modelo barato, después del turno y con lo que quede de presupuesto.
@@ -880,7 +974,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         {
           runId,
           status: finished.status,
-          reason: notAgentMode ? HELD_NOT_AGENT_MODE : finished.reason,
+          reason: notAgentMode ? HELD_NOT_AGENT_MODE : superseded ? SUPERSEDED_NEWER_MESSAGE : finished.reason,
           error: finished.error,
           executions: finished.executions.length,
           costEur: finished.usage.costEur,

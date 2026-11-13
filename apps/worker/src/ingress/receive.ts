@@ -224,7 +224,7 @@ async function applyStatus(
     updated = await tenant.transaction(async (sql) => {
       const rows = await sql.query<{ id: string }>(
         `update public.messages m
-         set status = $4, delivery_error = case when $4 = 'failed' then $5 else m.delivery_error end,
+         set status = $4, delivery_error = case when $4 = 'failed' then $5 else null end,
              external_message_id = coalesce(m.external_message_id, $3)
          where m.organization_id = $1 and m.direction = 'out'
            and (m.external_message_id = $3 or ($6::uuid is not null and m.id = $6::uuid and m.external_message_id is null))
