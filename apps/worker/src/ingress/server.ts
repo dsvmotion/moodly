@@ -66,7 +66,11 @@ export function createIngressHandler(receive: Receive, logger: Logger, handshake
     const channel = route[1];
     if (request.method === "GET") {
       const challenge = handshake(channel, url.searchParams);
-      if (challenge === null) return reply(403);
+      // Un alta que no cuadra: 403 a secas, sin cuerpo (ni el challenge ni por qué).
+      if (challenge === null) {
+        response.writeHead(403).end();
+        return;
+      }
       response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end(challenge);
       return;
     }

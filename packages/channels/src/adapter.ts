@@ -46,8 +46,9 @@ export class ChannelSendError extends Error {
     message: string,
     readonly retryable: boolean,
     readonly providerCode?: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 

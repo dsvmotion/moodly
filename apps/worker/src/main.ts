@@ -1,5 +1,7 @@
 // Proceso del worker: `pnpm --filter @repo/worker start` (o `dev` en local).
 import { createGatewayEmbedder } from "@repo/agent-core";
+import { createWhatsAppAdapter } from "@repo/channels";
+import { WHATSAPP_GRAPH_API_VERSION } from "@repo/config";
 import { createNangoPlatform, createResendSender } from "@repo/integrations";
 import { createApprovalHandler } from "./agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
@@ -34,9 +36,14 @@ if (!embedder) logger.warn("sin AI_GATEWAY_API_KEY: las fuentes de conocimiento 
 const emailSender = config.resendApiKey ? createResendSender({ apiKey: config.resendApiKey }) : null;
 if (!emailSender) logger.warn("sin RESEND_API_KEY: no se avisa por email de las aprobaciones nuevas");
 if (!config.webAppUrl) logger.warn("sin WEB_APP_URL: no se avisa por email de las aprobaciones nuevas");
+// WhatsApp por la Cloud API de Meta (O-01, ADR 0020). Sin sus tres variables no
+// se abre /channels/whatsapp (404) y los mensajes de WhatsApp no entran.
+const whatsapp = config.whatsapp ? createWhatsAppAdapter({ ...config.whatsapp, graphApiVersion: WHATSAPP_GRAPH_API_VERSION }) : null;
+if (!whatsapp) logger.warn("sin WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN: no entra nada por WhatsApp");
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
+  channelAdapters: whatsapp ? [whatsapp] : [],
   // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3),
   // que busca en el conocimiento del negocio con los mismos embeddings (B20-2).
   // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).

@@ -7,3 +7,4 @@ export * from "./templates.js";
 export * from "./adapter.js";
 export * from "./outbound.js";
 export * from "./signature.js";
+export * from "./whatsapp.js";
