@@ -1,4 +1,5 @@
-import { HAND_OFF_TEXTS } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, executionHash } from "@repo/agent-core";
+import type { Target } from "@repo/agent-core";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -930,6 +931,63 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
       await admin.query("delete from public.integrations where id = $1", [calendar]);
       rmSync(`${effectsFile}.plan`, { force: true });
       rmSync(`${effectsFile}.busy`, { force: true });
+    }
+  });
+
+  it("una reserva aprobada cuya hora ya pasó no se escribe: falla cerrada al ejecutarla (OA02, revisión de V10)", async () => {
+    writeFileSync(`${effectsFile}.plan`, JSON.stringify({ serviceId: ids.service, resourceId: ids.resource, startsAt: "2030-06-03T12:00:00+02:00" }));
+    try {
+      const messageId = await customerSays("Resérvame el lunes a las 12, por favor.");
+      await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera la aprobación");
+      const booking = (await pendingApprovals()).find((approval) => approval.skill_key === "book_appointment");
+      if (!booking) throw new Error("no hay reserva pendiente");
+
+      // Como si se aprobara cuando la hora ya pasó: la misma reserva, para una
+      // hora pasada, con el hash recalculado (verifyApproval la daría por
+      // buena). Lo que la para es la hora. guard_execution no deja cambiar la
+      // entrada a nadie; aquí se salta a propósito.
+      const past = "2020-06-01T12:00:00+02:00";
+      const { rows } = await admin.query<{
+        organization_id: string;
+        location_id: string | null;
+        run_id: string;
+        skill_key: string;
+        skill_version: number;
+        input: Record<string, unknown>;
+        target: unknown;
+      }>("select organization_id, location_id, run_id, skill_key, skill_version, input, target from public.executions where id = $1", [booking.execution_id]);
+      const row = rows[0];
+      if (!row) throw new Error("no hay ejecución");
+      const input = { ...row.input, starts_at: past };
+      const hash = executionHash({
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        runId: row.run_id,
+        skillKey: row.skill_key,
+        skillVersion: row.skill_version,
+        input,
+        target: row.target as Target,
+      });
+      await admin.query("begin");
+      await admin.query("set local session_replication_role = replica");
+      await admin.query("update public.executions set input = $2, input_hash = $3 where id = $1", [booking.execution_id, JSON.stringify(input), hash]);
+      await admin.query("update public.approvals set input_hash = $2 where id = $1", [booking.id, hash]);
+      await admin.query("commit");
+
+      const eventId = await decide(booking.id, "approved");
+      await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+      expect(await executionStatus(booking.execution_id)).toBe("failed");
+      const { rows: appointments } = await admin.query("select id from public.appointments where location_id = $1 and starts_at = $2", [
+        ids.location,
+        new Date(past).toISOString(),
+      ]);
+      expect(appointments).toHaveLength(0);
+      // La paró la hora al ejecutarla (SlotUnavailableError), no el hash: la aprobación cuadraba.
+      const lines = (worker?.output() ?? "").split("\n").filter((line) => line.includes(booking.id));
+      expect(lines.some((line) => line.includes("aprobada, pero no se pudo ejecutar") && line.includes("SlotUnavailableError"))).toBe(true);
+      expect(lines.some((line) => line.includes("no cuadra"))).toBe(false);
+    } finally {
+      rmSync(`${effectsFile}.plan`, { force: true });
     }
   });
 });
