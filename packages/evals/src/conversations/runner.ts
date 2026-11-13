@@ -1,4 +1,4 @@
-import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, composeSystemPromptParts, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, composeSystemPromptParts, createFakeTransport, createModelRouter, handOffTextForConversation, runAgentTurn } from "@repo/agent-core";
 import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
@@ -130,7 +130,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     result,
     world,
     // Con un paso explícito sin respuesta, el texto fijo que vería el cliente (CU3).
-    reply: replyOf(result, HAND_OFF_TEXTS.es),
+    reply: replyOf(result, handOffTextForConversation(testCase.history, HAND_OFF_TEXTS.es)),
     calls: result.executions.filter((execution) => execution.skillKey !== "reply"),
     appointmentsBefore,
   };

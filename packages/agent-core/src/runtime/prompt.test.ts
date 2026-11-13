@@ -107,7 +107,9 @@ describe("composeSystemPrompt", () => {
     // falta nadie (rechazar un consejo médico o datos de otro, sin nada pendiente).
     expect(prompt).toContain("it is the only way the team finds out");
     expect(prompt).toContain("Never tell the customer that a person will reply without calling request_human.");
-    expect(prompt).toContain('something a tool returned as "pending_review" is already with the team');
+    // Una solicitud en borrador o pendiente de aprobación ya la tiene el equipo, como pending_review (corrida real sobre 165e840).
+    expect(prompt).toContain('something a tool already left pending for the team (it returned "pending_review", or it stayed as a draft or needs approval) is already with the team');
+    expect(prompt).toContain("Tell the customer it is pending, and do not call request_human.");
     expect(prompt).toContain("Reply with text, without calling request_human, only when no person needs to step in");
     // Un cliente que quiere comprar o contratar (decisión de producto, 2026-11-13): primero se le cualifica, nunca se pasa de entrada.
     expect(prompt).toContain("never hand over as your first reply to it");

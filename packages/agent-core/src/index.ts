@@ -69,6 +69,8 @@ export type {
   TurnUsage,
 } from "./runtime/turn.js";
 export { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts } from "./runtime/prompt.js";
+export { LANGUAGES, detectLanguage, handOffTextForConversation, languageScores } from "./runtime/language.js";
+export type { Language } from "./runtime/language.js";
 export { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/config";
 export { INTENTS, INTENT_CALL_INDEX, INTENT_INSTRUCTIONS, classifyIntent, deterministicIntent, modelForIntent, parseIntent } from "./runtime/intent.js";
 export type { Classification, ClassifyParams, Intent } from "./runtime/intent.js";
