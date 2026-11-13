@@ -6,7 +6,7 @@ export const COPY = {
     intro: "Tus datos y los de tus clientes, protegidos y bajo tu control. La base de datos está en la UE; los modelos de IA procesan de forma global, con un acuerdo de tratamiento con cada proveedor. Así protegemos cada conversación.",
     talk: "Hablar con seguridad", docs: "Documentos legales",
     certs: [
-      ["RGPD", "Diseñado para el RGPD", "Base de datos en la UE (Supabase). Los modelos de IA procesan de forma global, con un acuerdo de tratamiento con cada proveedor; solo en la UE, si lo pides. DPA disponible antes del piloto [por confirmar].", "Desde el inicio"],
+      ["RGPD", "Diseñado para el RGPD", "Base de datos en la UE (Supabase). Los modelos de IA procesan de forma global, con un acuerdo de tratamiento con cada proveedor; solo en la UE, si lo pides. DPA disponible antes del piloto.", "Desde el inicio"],
       ["ISO", "ISO 27001", "Sistema de gestión de la seguridad de la información.", "[En hoja de ruta]"],
       ["SOC 2", "SOC 2 Type II", "Auditoría independiente de controles.", "[En hoja de ruta]"],
       ["IA", "Sin entrenamiento", "Tus datos no entrenan modelos de IA.", "Política de proveedores"],
@@ -38,7 +38,7 @@ export const COPY = {
     model: [
       ["Enrutador de modelos", "Un único punto de acceso a OpenAI, Anthropic, Google, Mistral y modelos abiertos, con cambio automático si un proveedor falla."],
       ["Tus propias claves (BYOK)", "Podrás conectar tus claves o tu nube, para que el tráfico vaya con tus contratos y tus regiones."],
-      ["Modelos por agente", "Podrás fijar qué modelo usa cada agente o dejar que Moodly elija según calidad, coste y región."],
+      ["Modelos por agente", "Podrás fijar qué modelo usa cada agente o dejar que la plataforma elija según calidad, coste y región."],
     ],
     govA: "Gobierno y administración.", govB: "Control total para quien administra.",
     gov: [
@@ -52,7 +52,7 @@ export const COPY = {
     faqTitle: "Preguntas frecuentes",
     faq: [
       ["¿Dónde se guardan mis datos?", "La base de datos está en la Unión Europea (Supabase, Fráncfort). Los modelos de IA procesan de forma global, también fuera de la UE, con un acuerdo de tratamiento con cada proveedor; solo en la UE, si lo pides. No todo se queda en la UE: Resend guarda en EE. UU. los metadatos de los emails, Sentry los datos de la cuenta de monitorización, y Railway, donde corren los agentes (en Ámsterdam), declara su tratamiento principal en EE. UU. La nube dedicada para Enterprise está en hoja de ruta."],
-      ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "DPA disponible antes del piloto [por confirmar]."],
+      ["¿Firmáis un contrato de encargo de tratamiento (DPA)?", "DPA disponible antes del piloto."],
       ["¿Qué pasa si un agente se equivoca?", "Defines qué puede hacer solo y qué necesita aprobación. Todo queda registrado y puedes corregirlo o revertirlo."],
       ["¿Cómo informo de una vulnerabilidad?", "Escribe a {email}. Respondemos en menos de 3 días laborables y no emprendemos acciones contra investigaciones de buena fe."],
     ],
@@ -63,7 +63,7 @@ export const COPY = {
     intro: "Your data and your customers' data, protected and under your control. The database is in the EU; AI models process globally, under a data processing agreement with each provider. Here's how we protect every conversation.",
     talk: "Talk to security", docs: "Legal documents",
     certs: [
-      ["GDPR", "Designed for GDPR", "Database in the EU (Supabase). AI models process globally, under a data processing agreement with each provider; EU-only if you ask. DPA available before the pilot [to be confirmed].", "From the start"],
+      ["GDPR", "Designed for GDPR", "Database in the EU (Supabase). AI models process globally, under a data processing agreement with each provider; EU-only if you ask. DPA available before the pilot.", "From the start"],
       ["ISO", "ISO 27001", "Information security management system.", "[On the roadmap]"],
       ["SOC 2", "SOC 2 Type II", "Independent audit of controls.", "[On the roadmap]"],
       ["AI", "No training", "Your data does not train AI models.", "Provider policy"],
@@ -95,7 +95,7 @@ export const COPY = {
     model: [
       ["Model router", "A single access point to OpenAI, Anthropic, Google, Mistral and open models, with automatic switching if a provider fails."],
       ["Your own keys (BYOK)", "You'll be able to connect your keys or your cloud, so traffic runs under your contracts and your regions."],
-      ["Models per agent", "You'll be able to set which model each agent uses or let Moodly choose by quality, cost and region."],
+      ["Models per agent", "You'll be able to set which model each agent uses or let the platform choose by quality, cost and region."],
     ],
     govA: "Governance and administration.", govB: "Full control for whoever administers.",
     gov: [
@@ -109,7 +109,7 @@ export const COPY = {
     faqTitle: "Frequently asked questions",
     faq: [
       ["Where is my data stored?", "The database is in the European Union (Supabase, Frankfurt). AI models process globally, outside the EU too, under a data processing agreement with each provider; EU-only if you ask. Not everything stays in the EU: Resend keeps email metadata in the US, Sentry its monitoring account data, and Railway, where the agents run (in Amsterdam), states its primary processing is in the US. A dedicated cloud for Enterprise is on the roadmap."],
-      ["Do you sign a data processing agreement (DPA)?", "DPA available before the pilot [to be confirmed]."],
+      ["Do you sign a data processing agreement (DPA)?", "DPA available before the pilot."],
       ["What if an agent makes a mistake?", "You define what it can do alone and what needs approval. Everything is logged and you can correct or revert it."],
       ["How do I report a vulnerability?", "Write to {email}. We respond within 3 working days and take no action against good-faith research."],
     ],
@@ -120,7 +120,7 @@ export const COPY = {
     intro: "Vos données et celles de vos clients, protégées et sous votre contrôle. La base de données est dans l'UE ; les modèles d'IA traitent les données à l'échelle mondiale, avec un accord de traitement avec chaque fournisseur. Voici comment nous protégeons chaque conversation.",
     talk: "Parler à la sécurité", docs: "Documents juridiques",
     certs: [
-      ["RGPD", "Conçu pour le RGPD", "Base de données dans l'UE (Supabase). Les modèles d'IA traitent à l'échelle mondiale, avec un accord de traitement avec chaque fournisseur ; uniquement dans l'UE, si vous le demandez. DPA disponible avant le pilote [à confirmer].", "Dès le départ"],
+      ["RGPD", "Conçu pour le RGPD", "Base de données dans l'UE (Supabase). Les modèles d'IA traitent à l'échelle mondiale, avec un accord de traitement avec chaque fournisseur ; uniquement dans l'UE, si vous le demandez. DPA disponible avant le pilote.", "Dès le départ"],
       ["ISO", "ISO 27001", "Système de management de la sécurité de l'information.", "[Dans la feuille de route]"],
       ["SOC 2", "SOC 2 Type II", "Audit indépendant des contrôles.", "[Dans la feuille de route]"],
       ["IA", "Aucun entraînement", "Vos données n'entraînent pas de modèles d'IA.", "Politique des fournisseurs"],
@@ -152,7 +152,7 @@ export const COPY = {
     model: [
       ["Routeur de modèles", "Un point d'accès unique à OpenAI, Anthropic, Google, Mistral et aux modèles ouverts, avec bascule automatique si un fournisseur tombe en panne."],
       ["Vos propres clés (BYOK)", "Vous pourrez connecter vos clés ou votre cloud, pour que le trafic passe sous vos contrats et vos régions."],
-      ["Modèles par agent", "Vous pourrez fixer quel modèle utilise chaque agent ou laisser Moodly choisir selon la qualité, le coût et la région."],
+      ["Modèles par agent", "Vous pourrez fixer quel modèle utilise chaque agent ou laisser la plateforme choisir selon la qualité, le coût et la région."],
     ],
     govA: "Gouvernance et administration.", govB: "Contrôle total pour qui administre.",
     gov: [
@@ -166,7 +166,7 @@ export const COPY = {
     faqTitle: "Questions fréquentes",
     faq: [
       ["Où mes données sont-elles stockées ?", "La base de données est dans l'Union européenne (Supabase, Francfort). Les modèles d'IA traitent à l'échelle mondiale, y compris hors de l'UE, avec un accord de traitement avec chaque fournisseur ; uniquement dans l'UE, si vous le demandez. Tout ne reste pas dans l'UE : Resend conserve aux États-Unis les métadonnées des emails, Sentry les données du compte de supervision, et Railway, où tournent les agents (à Amsterdam), déclare son traitement principal aux États-Unis. Le cloud dédié pour Enterprise est sur la feuille de route."],
-      ["Signez-vous un contrat de sous-traitance (DPA) ?", "DPA disponible avant le pilote [à confirmer]."],
+      ["Signez-vous un contrat de sous-traitance (DPA) ?", "DPA disponible avant le pilote."],
       ["Que se passe-t-il si un agent se trompe ?", "Vous définissez ce qu'il peut faire seul et ce qui nécessite une validation. Tout est enregistré et vous pouvez le corriger ou l'annuler."],
       ["Comment signaler une vulnérabilité ?", "Écrivez à {email}. Nous répondons sous 3 jours ouvrables et n'engageons aucune action contre les recherches de bonne foi."],
     ],
@@ -177,7 +177,7 @@ export const COPY = {
     intro: "Deine Daten und die deiner Kunden, geschützt und unter deiner Kontrolle. Die Datenbank liegt in der EU; die KI-Modelle verarbeiten weltweit, mit einem Auftragsverarbeitungsvertrag mit jedem Anbieter. So schützen wir jedes Gespräch.",
     talk: "Mit der Sicherheit sprechen", docs: "Rechtsdokumente",
     certs: [
-      ["DSGVO", "Für die DSGVO entworfen", "Datenbank in der EU (Supabase). Die KI-Modelle verarbeiten weltweit, mit einem Auftragsverarbeitungsvertrag mit jedem Anbieter; nur in der EU, wenn du es verlangst. AVV vor dem Pilotprojekt verfügbar [zu bestätigen].", "Von Anfang an"],
+      ["DSGVO", "Für die DSGVO entworfen", "Datenbank in der EU (Supabase). Die KI-Modelle verarbeiten weltweit, mit einem Auftragsverarbeitungsvertrag mit jedem Anbieter; nur in der EU, wenn du es verlangst. AVV vor dem Pilotprojekt verfügbar.", "Von Anfang an"],
       ["ISO", "ISO 27001", "Managementsystem für Informationssicherheit.", "[In der Roadmap]"],
       ["SOC 2", "SOC 2 Type II", "Unabhängige Prüfung der Kontrollen.", "[In der Roadmap]"],
       ["KI", "Kein Training", "Deine Daten trainieren keine KI-Modelle.", "Anbieterrichtlinie"],
@@ -209,7 +209,7 @@ export const COPY = {
     model: [
       ["Modell-Router", "Ein einziger Zugangspunkt zu OpenAI, Anthropic, Google, Mistral und offenen Modellen, mit automatischem Wechsel, wenn ein Anbieter ausfällt."],
       ["Deine eigenen Schlüssel (BYOK)", "Du wirst deine Schlüssel oder deine Cloud verbinden können, damit der Verkehr unter deinen Verträgen und deinen Regionen läuft."],
-      ["Modelle pro Agent", "Du wirst festlegen können, welches Modell jeder Agent nutzt, oder Moodly nach Qualität, Kosten und Region wählen lassen."],
+      ["Modelle pro Agent", "Du wirst festlegen können, welches Modell jeder Agent nutzt, oder die Plattform nach Qualität, Kosten und Region wählen lassen."],
     ],
     govA: "Governance und Administration.", govB: "Volle Kontrolle für die Administration.",
     gov: [
@@ -223,7 +223,7 @@ export const COPY = {
     faqTitle: "Häufige Fragen",
     faq: [
       ["Wo werden meine Daten gespeichert?", "Die Datenbank liegt in der Europäischen Union (Supabase, Frankfurt). Die KI-Modelle verarbeiten weltweit, auch außerhalb der EU, mit einem Auftragsverarbeitungsvertrag mit jedem Anbieter; nur in der EU, wenn du es verlangst. Nicht alles bleibt in der EU: Resend speichert die Metadaten der E-Mails in den USA, Sentry die Daten des Monitoring-Kontos, und Railway, wo die Agenten laufen (in Amsterdam), gibt die USA als Hauptort der Verarbeitung an. Eine dedizierte Cloud für Enterprise steht auf der Roadmap."],
-      ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "AVV vor dem Pilotprojekt verfügbar [zu bestätigen]."],
+      ["Unterzeichnet ihr einen Auftragsverarbeitungsvertrag (AVV)?", "AVV vor dem Pilotprojekt verfügbar."],
       ["Was passiert, wenn ein Agent einen Fehler macht?", "Du legst fest, was er allein darf und was eine Freigabe braucht. Alles wird protokolliert und du kannst es korrigieren oder rückgängig machen."],
       ["Wie melde ich eine Schwachstelle?", "Schreibe an {email}. Wir antworten innerhalb von 3 Werktagen und gehen nicht gegen gutgläubige Forschung vor."],
     ],
