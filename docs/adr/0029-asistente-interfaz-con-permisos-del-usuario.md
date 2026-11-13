@@ -1,6 +1,6 @@
 # 0029 — Asistente (orquestador): una interfaz que actúa con los permisos del usuario, no un actor con permisos propios
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-10-20
 - **Secciones del MANUAL afectadas:** §5 (nuevo §5.13), §9.4, §10.1, §17
 - **Relación:** `docs/design/edge-y-postura-enterprise.md` §3.bis, `mapa-pantallas-datos.md` §3 y §7, ADR 0022 (permisos)
