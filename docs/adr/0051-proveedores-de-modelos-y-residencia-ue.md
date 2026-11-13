@@ -7,7 +7,7 @@
   - auditoría de preproducción §17.3 T6, §18.1 #4 y #6, §18.2 («Model providers»), §18.5 V1 #2 y #3, hallazgos H-01 y B-01;
   - fija lo que los ADR 0033 y 0035 dejaron «cambiado en parte» el 2026-11-10: proveedores y residencia (la propuesta de residencia `eu` por defecto queda sustituida por la decisión del 2026-11-12, abajo);
   - decisión de producto del 2026-11-11: los agentes usan el modelo más barato que pasa las evals;
-  - unidades `PL-T6` (M1), `SE02` (M1) y `PL-ledger` (M1) de `docs/scope.yaml`; puerta de M1: «an `eu` organization completes a turn».
+  - unidades `PL-T6` (M1), `SE02` (M1) y `PL-ledger` (M1) de `docs/scope.yaml`; la puerta de M1 «an `eu` organization completes a turn» queda sustituida el 2026-11-12: la ruta UE es una opción posterior, así que la puerta pasa a ser que una organización completa un turno por una vía con su DPA y que el proveedor y la región de la llamada quedan registrados.
 
 ## Contexto
 

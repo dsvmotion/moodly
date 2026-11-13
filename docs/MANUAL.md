@@ -1349,7 +1349,7 @@ Fuente: `docs/audits/2026-11-10-auditoria-preproduccion.md` §18.1 y §18.2, don
 
 **Arquitectura, stack y seguridad (auditoría §18.2):**
 - **Ya:** acceso del worker a Postgres con un rol ligado a la organización y RLS (T1); claves de cifrado por organización (T4); capa de canales (T10: WhatsApp, chat web, email, voz, Slack, Discord, Signal y los que se puedan; Instagram y Facebook a través de ManyChat o similar).
-- **Proveedores de modelos:** todos detrás del enrutador: modelos alojados en la UE, Amazon Bedrock, Google Vertex, Azure y el gateway actual. El cliente elige proveedor y región. **Sustituye a «sin Bedrock, Vertex ni Azure hasta que lo pida un cliente»** y cambia en parte los ADR 0033 y 0035; lo fija el ADR 0051 (aceptado el 2026-11-12), que **sustituye la residencia `eu` por defecto por inferencia global bajo DPA** (§18.0 bis).
+- **Proveedores de modelos:** todos detrás del enrutador, con inferencia global bajo un DPA con cada proveedor (ADR 0051, §18.0 bis). Las rutas en la UE (Amazon Bedrock y Google Vertex en una región europea, un proveedor alojado en la UE, Azure) y la residencia por organización quedan como opción posterior, cuando un cliente la pida; el gateway actual es una vía válida. **Sustituye a «sin Bedrock, Vertex ni Azure hasta que lo pida un cliente»** y cambia en parte los ADR 0033 y 0035; lo fija el ADR 0051 (aceptado el 2026-11-12), que **sustituye la residencia `eu` por defecto por inferencia global bajo DPA** (§18.0 bis).
 - **Aceptado para el plan:** *pipeline* híbrido (T3), enmascarado de datos personales (T5), trazas y puntuación nocturna (T7), tiempo real (T8) y resistencia a la inyección (T9).
 - **La seguridad como argumento de venta** (auditoría §17.4): todo.
 
