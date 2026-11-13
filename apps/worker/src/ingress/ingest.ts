@@ -2,7 +2,7 @@ import { DBOS } from "@dbos-inc/dbos-sdk";
 import type { WorkflowStatusString } from "@dbos-inc/dbos-sdk";
 import { normalizedInboundSchema } from "@repo/channels";
 import type { NormalizedInbound } from "@repo/channels";
-import type { ServiceDb, TenantDb } from "@repo/db/service";
+import type { ServiceDb, TenantDb, TenantSql } from "@repo/db/service";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { DEAD_LETTER, runAttempts } from "./attempts.ts";
@@ -124,9 +124,23 @@ const IDENTITY_KINDS = new Set(["phone", "email", "instagram", "webchat"]);
 
 const DB_STEP = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 } as const;
 
-function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
-  if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
-  return result.data;
+// Todo lo de la entrada, como moodly_worker por SQL bajo RLS (20261112230000):
+// cada función es una transacción de forOrganization(org), y solo puede leer y
+// escribir en esa organización y las columnas que la migración le concede.
+
+/** El código de Postgres de un error (sin el mensaje: puede llevar datos). */
+function pgCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : "unknown";
+}
+
+/** Lo mismo que lanza la transacción, con solo el código: el mensaje de Postgres puede llevar datos. */
+async function tx<T>(db: TenantDb, what: string, fn: (sql: TenantSql) => Promise<T>): Promise<T> {
+  try {
+    return await db.transaction(fn);
+  } catch (error) {
+    throw Object.assign(new Error(`${what} (${pgCode(error)})`, { cause: error }), { code: pgCode(error) });
+  }
 }
 
 interface Loaded {
@@ -136,120 +150,152 @@ interface Loaded {
 }
 
 async function load(db: TenantDb, inboundEventId: string): Promise<Loaded | null> {
-  const row = check(
-    await db.from("inbound_events").select("status, channel_account_id, payload").eq("id", inboundEventId).maybeSingle(),
-    "el evento de entrada",
+  const [row] = await tx(db, "no se pudo leer el evento de entrada", (sql) =>
+    sql.query<{ status: string; channel_account_id: string; payload: unknown }>(
+      "select status, channel_account_id, payload from public.inbound_events where id = $1",
+      [inboundEventId],
+    ),
   );
   if (!row) return null;
   return { status: row.status, channelAccountId: row.channel_account_id, message: normalizedInboundSchema.parse(row.payload) };
 }
 
 async function settle(db: TenantDb, inboundEventId: string, status: "ignored" | "failed", errorCode: string): Promise<void> {
-  const { error } = await db.from("inbound_events").update({ status, error_code: errorCode }).eq("id", inboundEventId).in("status", ["received", "failed"]);
-  if (error) throw new Error(`no se pudo cerrar el evento de entrada (${error.code})`);
+  await tx(db, "no se pudo cerrar el evento de entrada", (sql) =>
+    sql.query("update public.inbound_events set status = $2, error_code = $3 where id = $1 and status in ('received', 'failed')", [
+      inboundEventId,
+      status,
+      errorCode,
+    ]),
+  );
 }
 
-/** El contacto de esa identidad en la organización; si no existe, se crea con su identidad. */
+/**
+ * El contacto de esa identidad en la organización; si no existe, se crea con su
+ * identidad, en una sola transacción. Si otro mensaje del mismo cliente lo crea
+ * a la vez, la identidad choca (23505), esta transacción se deshace entera (y
+ * con ella su contacto: el worker nunca borra contactos) y vale el del otro.
+ */
 async function ensureContact(db: TenantDb, message: NormalizedInbound): Promise<string> {
-  const found = async () =>
-    check(
-      await db.from("contact_identities").select("contact_id").eq("kind", message.from.kind).eq("external_id", message.from.value).maybeSingle(),
-      "la identidad del contacto",
-    )?.contact_id ?? null;
-  const existing = await found();
-  if (existing) return existing;
-  const contact = await db
-    .from("contacts")
-    .insert({ display_name: message.displayName?.trim().slice(0, 200) || null })
-    .select("id")
-    .single();
-  if (contact.error) throw new Error(`no se pudo crear el contacto (${contact.error.code})`);
-  const identity = await db.from("contact_identities").insert({ contact_id: contact.data.id, kind: message.from.kind, external_id: message.from.value });
-  if (identity.error?.code === "23505") {
-    // Otro mensaje del mismo cliente lo creó a la vez: vale el suyo; el contacto sobrante se borra.
-    await db.from("contacts").delete().eq("id", contact.data.id);
-    const winner = await found();
-    if (!winner) throw new Error("la identidad del contacto desapareció");
+  const find = (sql: TenantSql) =>
+    sql
+      .query<{ contact_id: string }>("select contact_id from public.contact_identities where kind = $1 and external_id = $2 limit 1", [
+        message.from.kind,
+        message.from.value,
+      ])
+      .then((rows) => rows[0]?.contact_id ?? null);
+  try {
+    return await db.transaction(async (sql) => {
+      const existing = await find(sql);
+      if (existing) return existing;
+      const [contact] = await sql.query<{ id: string }>(
+        "insert into public.contacts (organization_id, display_name) values ($1, $2) returning id",
+        [db.organizationId, message.displayName?.trim().slice(0, 200) || null],
+      );
+      if (!contact) throw new Error("no se pudo crear el contacto");
+      await sql.query("insert into public.contact_identities (organization_id, contact_id, kind, external_id) values ($1, $2, $3, $4)", [
+        db.organizationId,
+        contact.id,
+        message.from.kind,
+        message.from.value,
+      ]);
+      return contact.id;
+    });
+  } catch (error) {
+    if (pgCode(error) !== "23505") throw Object.assign(new Error(`no se pudo crear el contacto (${pgCode(error)})`, { cause: error }), { code: pgCode(error) });
+    const winner = await tx(db, "no se pudo leer la identidad del contacto", find);
+    if (!winner) throw new Error("la identidad del contacto desapareció", { cause: error });
     return winner;
   }
-  if (identity.error) throw new Error(`no se pudo guardar la identidad del contacto (${identity.error.code})`);
-  return contact.data.id;
 }
 
 const turnContextSchema = z.object({ agent: z.object({ type_key: z.string() }) });
 
 /** La conversación abierta del contacto en esa cuenta, o una nueva con el agente por defecto de la cuenta. */
 async function ensureConversation(db: TenantDb, channelAccountId: string, contactId: string): Promise<string | { failed: string }> {
-  const open = check(
-    await db
-      .from("conversations")
-      .select("id")
-      .eq("contact_id", contactId)
-      .eq("channel_account_id", channelAccountId)
-      .in("mode", ["agent", "human"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "la conversación abierta",
-  );
-  if (open) return open.id;
-  const account = check(
-    await db.from("channel_accounts").select("channel, location_id, default_agent_type").eq("id", channelAccountId).maybeSingle(),
-    "la cuenta del canal",
-  );
-  if (!account) return { failed: "channel_account_missing" };
-  const agents = check(await db.from("agents").select("id").order("created_at").limit(50), "los agentes") ?? [];
-  let agentId: string | null = null;
-  for (const agent of agents) {
-    const parsed = turnContextSchema.safeParse(await db.agentTurnContext(agent.id));
-    if (parsed.success && parsed.data.agent.type_key === account.default_agent_type) {
-      agentId = agent.id;
-      break;
+  return tx(db, "no se pudo abrir la conversación", async (sql) => {
+    const [open] = await sql.query<{ id: string }>(
+      `select id from public.conversations
+       where contact_id = $1 and channel_account_id = $2 and mode in ('agent', 'human')
+       order by created_at desc limit 1`,
+      [contactId, channelAccountId],
+    );
+    if (open) return open.id;
+    const [account] = await sql.query<{ channel: string; location_id: string | null; default_agent_type: string }>(
+      "select channel, location_id, default_agent_type from public.channel_accounts where id = $1",
+      [channelAccountId],
+    );
+    if (!account) return { failed: "channel_account_missing" };
+    const agents = await sql.query<{ id: string }>("select id from public.agents order by created_at limit 50");
+    let agentId: string | null = null;
+    for (const agent of agents) {
+      // El contexto del agente con la organización de la transacción (20261112110000).
+      const [context] = await sql.query<{ context: unknown }>("select private.worker_agent_turn_context($1) as context", [agent.id]);
+      const parsed = turnContextSchema.safeParse(context?.context);
+      if (parsed.success && parsed.data.agent.type_key === account.default_agent_type) {
+        agentId = agent.id;
+        break;
+      }
     }
-  }
-  if (!agentId) return { failed: "no_default_agent" };
-  const created = await db
-    .from("conversations")
-    // El canal lo pone la base de datos desde la cuenta (validate_conversation); el tipo lo pide.
-    .insert({ location_id: account.location_id, contact_id: contactId, channel_account_id: channelAccountId, channel: account.channel, agent_id: agentId })
-    .select("id")
-    .single();
-  if (created.error) throw new Error(`no se pudo crear la conversación (${created.error.code})`);
-  return created.data.id;
+    if (!agentId) return { failed: "no_default_agent" };
+    // El canal es el de la cuenta (validate_conversation lo comprueba); nace con el agente.
+    const [created] = await sql.query<{ id: string }>(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, channel, agent_id)
+       values ($1, $2, $3, $4, $5, $6) returning id`,
+      [db.organizationId, account.location_id, contactId, channelAccountId, account.channel, agentId],
+    );
+    if (!created) throw new Error("no se pudo crear la conversación");
+    return created.id;
+  });
 }
 
 /** El mensaje del cliente; si ya se guardó (reintento del paso), el mismo, con o sin id del proveedor. */
 async function insertMessage(db: TenantDb, conversationId: string, message: NormalizedInbound): Promise<string> {
   const key = inboundMessageKey(message);
-  const existing = check(
-    await db.from("messages").select("id").eq("conversation_id", conversationId).eq("external_message_id", key).limit(1).maybeSingle(),
-    "el mensaje ya guardado",
+  return tx(db, "no se pudo guardar el mensaje", async (sql) => {
+    const [existing] = await sql.query<{ id: string }>(
+      "select id from public.messages where conversation_id = $1 and external_message_id = $2 limit 1",
+      [conversationId, key],
+    );
+    if (existing) return existing.id;
+    const [inserted] = await sql.query<{ id: string }>(
+      `insert into public.messages (organization_id, conversation_id, direction, author, content, attachments, external_message_id, status)
+       values ($1, $2, 'in', 'contact', $3, $4::jsonb, $5, 'received') returning id`,
+      [db.organizationId, conversationId, message.text, JSON.stringify(message.attachments), key],
+    );
+    if (!inserted) throw new Error("no se pudo guardar el mensaje");
+    return inserted.id;
+  });
+}
+
+async function markProcessed(db: TenantDb, inboundEventId: string, conversationId: string, messageId: string): Promise<void> {
+  await tx(db, "no se pudo marcar el evento de entrada", (sql) =>
+    sql.query(
+      `update public.inbound_events set status = 'processed', conversation_id = $2, message_id = $3, error_code = null
+       where id = $1 and status in ('received', 'failed')`,
+      [inboundEventId, conversationId, messageId],
+    ),
   );
-  if (existing) return existing.id;
-  const inserted = await db
-    .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      direction: "in",
-      author: "contact",
-      content: message.text,
-      attachments: message.attachments,
-      external_message_id: inboundMessageKey(message),
-      status: "received",
-    })
-    .select("id")
-    .single();
-  if (inserted.error) throw new Error(`no se pudo guardar el mensaje (${inserted.error.code})`);
-  return inserted.data.id;
+}
+
+/** El message.received que emitió la base de datos al guardar el mensaje (emit_message_received). */
+async function messageReceivedEvent(db: TenantDb, messageId: string): Promise<{ id: string; type: string } | null> {
+  const [event] = await tx(db, "no se pudo leer el evento del mensaje", (sql) =>
+    sql.query<{ id: string; type: string }>(
+      "select id, type from public.domain_events where type = 'message.received' and payload->>'message_id' = $1 limit 1",
+      [messageId],
+    ),
+  );
+  return event ?? null;
 }
 
 async function recordFailure(db: TenantDb, inboundEventId: string, attempt: number, code: string): Promise<void> {
-  const { error } = await db
-    .from("inbound_events")
-    .update({ status: "failed", attempts: attempt, error_code: code.slice(0, 100) })
-    .eq("id", inboundEventId)
-    .in("status", ["received", "failed"]);
-  if (error) throw new Error(`no se pudo apuntar el intento fallido (${error.code})`);
+  await tx(db, "no se pudo apuntar el intento fallido", (sql) =>
+    sql.query(
+      "update public.inbound_events set status = 'failed', attempts = $2, error_code = $3 where id = $1 and status in ('received', 'failed')",
+      [inboundEventId, attempt, code.slice(0, 100)],
+    ),
+  );
 }
 
 export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, beforeRecordFailure, backoffMs, sweepMinAgeMs = SWEEP_MIN_AGE_MS }: IngestOptions) {
@@ -310,32 +356,9 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
       return { outcome: "failed", reason: conversation.failed };
     }
     const messageId = await DBOS.runStep(() => insertMessage(tenant, conversation, message), { name: "message", ...DB_STEP });
-    await DBOS.runStep(
-      async () => {
-        const { error } = await tenant
-          .from("inbound_events")
-          .update({ status: "processed", conversation_id: conversation, message_id: messageId, error_code: null })
-          .eq("id", input.inboundEventId)
-          .in("status", ["received", "failed"]);
-        if (error) throw new Error(`no se pudo marcar el evento de entrada (${error.code})`);
-      },
-      { name: "processed", ...DB_STEP },
-    );
+    await DBOS.runStep(() => markProcessed(tenant, input.inboundEventId, conversation, messageId), { name: "processed", ...DB_STEP });
     // El turno, ya: la entrega de message.received con el mismo id que la del publicador.
-    const event = await DBOS.runStep(
-      async () =>
-        check(
-          await tenant
-            .from("domain_events")
-            .select("id, type")
-            .eq("type", "message.received")
-            .eq("payload->>message_id", messageId)
-            .limit(1)
-            .maybeSingle(),
-          "el evento del mensaje",
-        ),
-      { name: "event", ...DB_STEP },
-    );
+    const event = await DBOS.runStep(() => messageReceivedEvent(tenant, messageId), { name: "event", ...DB_STEP });
     if (event) await enqueueDeliveries({ id: event.id, organizationId: input.organizationId, type: event.type });
     log.info({ ...fields, conversationId: conversation, messageId }, "mensaje de entrada guardado");
     return { outcome: "processed", conversationId: conversation, messageId, eventId: event?.id ?? null };

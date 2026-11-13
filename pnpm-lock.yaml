@@ -142,8 +142,8 @@ importers:
   apps/worker:
     dependencies:
       '@dbos-inc/dbos-sdk':
-        specifier: 5.3.0
-        version: 5.3.0
+        specifier: 5.4.0
+        version: 5.4.0
       '@repo/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
@@ -407,12 +407,12 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@dbos-inc/dbos-sdk@5.3.0':
-    resolution: {integrity: sha512-SuoJ8Rk9jU+s7KZ42nAsVsX7dHRymsb0mlnvOJxgPV8uAbaQikRYlVjkVZjSG8jKJM06TMlfDD8OtzjX0C66eg==}
+  '@dbos-inc/dbos-sdk@5.4.0':
+    resolution: {integrity: sha512-Iyk/ifg0coIki3ExtwKAU/At89CZXEKyI3XqFjWDJrx6xn2KEClwaD7cgnniCMsOSOfSXH94B8coPcWgIxG19A==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
-      '@dbos-inc/dbos-enterprise': ~5.3.0
+      '@dbos-inc/dbos-enterprise': ~5.4.0
     peerDependenciesMeta:
       '@dbos-inc/dbos-enterprise':
         optional: true
@@ -3841,7 +3841,7 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@dbos-inc/dbos-sdk@5.3.0':
+  '@dbos-inc/dbos-sdk@5.4.0':
     dependencies:
       commander: 12.1.0
       pg: 8.23.1

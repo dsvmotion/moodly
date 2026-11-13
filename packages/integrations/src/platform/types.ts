@@ -25,6 +25,8 @@ export interface ConnectSessionRequest {
   /** La clave de la integración en la plataforma (Nango: el «integration id»). */
   integrationKey: string;
   tags: ConnectionTags;
+  /** Los permisos que se piden (los del catálogo). Sin ellos, los de la integración en la plataforma. */
+  scopes?: readonly string[];
 }
 
 export interface ConnectSession {
