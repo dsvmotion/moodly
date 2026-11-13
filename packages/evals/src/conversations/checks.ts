@@ -181,6 +181,89 @@ export function replyMatches(pattern: RegExp, what: string): Check {
   return withReply(`la respuesta ${what}`, (reply) => (pattern.test(reply) ? null : `no ${what}: «${reply}»`));
 }
 
+/**
+ * Pregunta algo para cualificar al cliente. Vale de dos formas:
+ * - la palabra clave poco antes del «?» («¿Cuántas habitaciones necesitas?»);
+ * - una pregunta que abre una lista de lo que pide («¿me dices?:», o la lista en
+ *   las líneas siguientes), con una palabra clave en esa lista. El «?» tiene que
+ *   ir seguido de «:» o de una lista: «¿Quieres verlo? El presupuesto es…» no es
+ *   una pregunta para cualificar;
+ * - una petición en imperativo («dime qué necesitas (habitaciones, presupuesto…)»,
+ *   «let me know your budget»), con una palabra clave poco después (decisión de
+ *   V1: cualificar es pedir esos datos, con pregunta o con petición). «Te dije el
+ *   presupuesto» o «el presupuesto mínimo es…» no piden nada.
+ */
+/** Peticiones en imperativo que piden datos al cliente (tú y usted, con y sin tilde). */
+const REQUEST_VERBS = [
+  "dime",
+  "dímelo",
+  "dígame",
+  "digame",
+  "cuéntame",
+  "cuentame",
+  "cuénteme",
+  "cuenteme",
+  "indícame",
+  "indicame",
+  "indíqueme",
+  "indiqueme",
+  "coméntame",
+  "comentame",
+  "coménteme",
+  "comenteme",
+  "házmelo saber",
+  "hazmelo saber",
+  "hazme saber",
+  "tell me",
+  "let me know",
+];
+
+/** Lo que puede ir delante de la palabra clave en un elemento de la lista que pide datos («tu presupuesto», «número de habitaciones»). */
+const ITEM_LEAD = "(?:(?:tu|su|vuestro|vuestra|el|la|los|las|número de|numero de|n\\.?º de|cuántas|cuántos|cuantas|cuantos|qué|para|your|the|number of|how many)\\s+){0,3}";
+
+export function asksToQualify(keywords: readonly string[]): Check {
+  const words = keywords.join("|");
+  // La palabra clave dentro de la misma pregunta: sin fin de frase ni otro «¿» en medio («3 habitaciones,
+  // 1.250 €. ¿Te encaja?» no pregunta por las habitaciones; V10). Un punto entre cifras («1.250») no corta.
+  const before = new RegExp(`(?:${words})(?:[^?!¿\\n.]|\\.(?=\\d)){0,80}\\?`, "iu");
+  // Un elemento que pide datos: empieza por la palabra clave (con su artículo) o es una pregunta.
+  // «- Alonso Cano: 3 habitaciones, 1.250 €» es la oferta, no lo que se pide (V10).
+  const asksItem = new RegExp(`^${ITEM_LEAD}(?:${words})`, "iu");
+  // Un elemento que afirma algo («- El presupuesto mínimo es 1.250 €») no pide nada (V10): ni cifras ni verbos de estado.
+  const STATES = /(?<![\p{L}])(?:es|son|está|están|cuesta|cuestan|tiene|tienen|incluye|is|are|has|have|costs?)(?![\p{L}])|\p{N}/iu;
+  const isAskingItem = (item: string) => (asksItem.test(item.trim()) && !STATES.test(item)) || item.includes("?");
+  const LIST_LINE = /^\s*(?:[-•*]|\d+[.)])\s*(.*)$/u;
+  const listAfterQuestion = (reply: string): boolean => {
+    for (const [index, char] of [...reply].entries()) {
+      if (char !== "?") continue;
+      const rest = [...reply].slice(index + 1).join("");
+      // «¿me dices?: tu presupuesto, …»: lo que sigue a los dos puntos tiene que empezar pidiendo.
+      const colon = /^\s*:\s*([^\n]*)/u.exec(rest);
+      if (colon && isAskingItem(colon[1] ?? "")) return true;
+      // La lista en las líneas siguientes: algún elemento tiene que pedir.
+      const lines = rest.split("\n").slice(1);
+      const items: string[] = [];
+      for (const line of lines) {
+        if (line.trim() === "" && items.length === 0) continue;
+        const match = LIST_LINE.exec(line);
+        if (!match) break;
+        items.push(match[1] ?? "");
+      }
+      if (items.some(isAskingItem)) return true;
+    }
+    return false;
+  };
+  // La petición: el verbo, sin «si»/«if» detrás («dime si quieres verlo» no pide nada), y la palabra
+  // clave en la misma frase (V10).
+  const request = new RegExp(
+    `(?<![\\p{L}])(?:${REQUEST_VERBS.join("|")})(?![\\p{L}])(?!\\s*,?\\s*(?:si|if|whether)(?![\\p{L}]))[^.!?\\n]{0,150}?(?:${words})`,
+    "iu",
+  );
+  return withReply("la respuesta cualifica con una pregunta", (reply) =>
+    before.test(reply) || listAfterQuestion(reply) || request.test(reply) ? null : `no cualifica con una pregunta: «${reply}»`,
+  );
+}
+
 export function replyAvoids(pattern: RegExp, what: string): Check {
   return withReply(`la respuesta no ${what}`, (reply) => {
     const match = pattern.exec(reply);

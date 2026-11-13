@@ -1,5 +1,6 @@
 import {
   appointmentsUnchanged,
+  asksToQualify,
   calls,
   doesNotClaimDone,
   givesNoAppointmentTimes,
@@ -313,7 +314,7 @@ const realEstate: readonly ConversationCase[] = [
     checks: [
       searched,
       quotesOnlyKnownPrices([1250, 1600]),
-      replyMatches(/(?:presupuesto|habitaciones|cuándo|fecha|entrar|mudarte|mudanza|personas|mascotas)[^?]{0,80}\?/iu, "cualifica con una pregunta"),
+      asksToQualify(["presupuesto", "habitaciones", "cuándo", "fecha", "entrar", "mudarte", "mudanza", "personas", "mascotas"]),
     ],
   },
 ];
