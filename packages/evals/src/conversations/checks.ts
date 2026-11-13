@@ -181,6 +181,23 @@ export function replyMatches(pattern: RegExp, what: string): Check {
   return withReply(`la respuesta ${what}`, (reply) => (pattern.test(reply) ? null : `no ${what}: «${reply}»`));
 }
 
+/**
+ * Pregunta algo para cualificar al cliente. Vale de dos formas:
+ * - la palabra clave poco antes del «?» («¿Cuántas habitaciones necesitas?»);
+ * - una pregunta que abre una lista de lo que pide («¿me dices?:», o la lista en
+ *   las líneas siguientes), con una palabra clave en esa lista. El «?» tiene que
+ *   ir seguido de «:» o de una lista: «¿Quieres verlo? El presupuesto es…» no es
+ *   una pregunta para cualificar.
+ */
+export function asksToQualify(keywords: readonly string[]): Check {
+  const words = keywords.join("|");
+  const before = new RegExp(`(?:${words})[^?]{0,80}\\?`, "iu");
+  const listAfter = new RegExp(`\\?\\s*(?::|\\n\\s*(?:[-•*]|\\d+[.)]))[\\s\\S]{0,300}?(?:${words})`, "iu");
+  return withReply("la respuesta cualifica con una pregunta", (reply) =>
+    before.test(reply) || listAfter.test(reply) ? null : `no cualifica con una pregunta: «${reply}»`,
+  );
+}
+
 export function replyAvoids(pattern: RegExp, what: string): Check {
   return withReply(`la respuesta no ${what}`, (reply) => {
     const match = pattern.exec(reply);
