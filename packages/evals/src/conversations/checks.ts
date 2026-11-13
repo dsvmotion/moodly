@@ -187,14 +187,44 @@ export function replyMatches(pattern: RegExp, what: string): Check {
  * - una pregunta que abre una lista de lo que pide («¿me dices?:», o la lista en
  *   las líneas siguientes), con una palabra clave en esa lista. El «?» tiene que
  *   ir seguido de «:» o de una lista: «¿Quieres verlo? El presupuesto es…» no es
- *   una pregunta para cualificar.
+ *   una pregunta para cualificar;
+ * - una petición en imperativo («dime qué necesitas (habitaciones, presupuesto…)»,
+ *   «let me know your budget»), con una palabra clave poco después (decisión de
+ *   V1: cualificar es pedir esos datos, con pregunta o con petición). «Te dije el
+ *   presupuesto» o «el presupuesto mínimo es…» no piden nada.
  */
+/** Peticiones en imperativo que piden datos al cliente (tú y usted, con y sin tilde). */
+const REQUEST_VERBS = [
+  "dime",
+  "dímelo",
+  "dígame",
+  "digame",
+  "cuéntame",
+  "cuentame",
+  "cuénteme",
+  "cuenteme",
+  "indícame",
+  "indicame",
+  "indíqueme",
+  "indiqueme",
+  "coméntame",
+  "comentame",
+  "coménteme",
+  "comenteme",
+  "házmelo saber",
+  "hazmelo saber",
+  "hazme saber",
+  "tell me",
+  "let me know",
+];
+
 export function asksToQualify(keywords: readonly string[]): Check {
   const words = keywords.join("|");
   const before = new RegExp(`(?:${words})[^?]{0,80}\\?`, "iu");
   const listAfter = new RegExp(`\\?\\s*(?::|\\n\\s*(?:[-•*]|\\d+[.)]))[\\s\\S]{0,300}?(?:${words})`, "iu");
+  const request = new RegExp(`(?<![\\p{L}])(?:${REQUEST_VERBS.join("|")})(?![\\p{L}])[\\s\\S]{0,150}?(?:${words})`, "iu");
   return withReply("la respuesta cualifica con una pregunta", (reply) =>
-    before.test(reply) || listAfter.test(reply) ? null : `no cualifica con una pregunta: «${reply}»`,
+    before.test(reply) || listAfter.test(reply) || request.test(reply) ? null : `no cualifica con una pregunta: «${reply}»`,
   );
 }
 
