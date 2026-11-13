@@ -41,6 +41,13 @@ describe("withExternalBusy.findSlots", () => {
     expect(await booking.findSlots({ locationId: LOCATION, serviceId: SERVICE, from: FROM, to: TO, limit: 5 })).toEqual(plain);
   });
 
+  it("si los ocupados se comen la primera página de candidatos, pide más y sigue devolviendo los primeros libres", async () => {
+    // limit 2 → páginas de 6 candidatos (09:00…10:15); de 09:00 a 10:30 todo ocupado.
+    const booking = withExternalBusy(moodly(), fixedBusy([{ startsAt: new Date("2026-11-14T09:00:00Z"), endsAt: new Date("2026-11-14T10:30:00Z") }]));
+    const slots = await booking.findSlots({ locationId: LOCATION, serviceId: SERVICE, from: FROM, to: new Date("2026-11-14T14:00:00Z"), limit: 2 });
+    expect(slots.map((slot) => slot.startsAt.toISOString())).toEqual(["2026-11-14T10:30:00.000Z", "2026-11-14T10:45:00.000Z"]);
+  });
+
   it("si el calendario conectado falla, no ofrece nada (fail-closed)", async () => {
     const booking = withExternalBusy(moodly(), { list: () => Promise.reject(new CalendarUnavailableError("x")) });
     await expect(booking.findSlots({ locationId: LOCATION, serviceId: SERVICE, from: FROM, to: TO, limit: 5 })).rejects.toBeInstanceOf(
@@ -63,6 +70,32 @@ describe("withExternalBusy.book", () => {
     const booking = withExternalBusy(moodly(), fixedBusy([{ startsAt: new Date("2026-11-14T09:00:00Z"), endsAt: new Date("2026-11-14T09:30:00Z") }]));
     const appointment = await booking.book({ locationId: LOCATION, serviceId: SERVICE, resourceId: RESOURCE, contactId: CONTACT, conversationId: null, startsAt: new Date("2026-11-14T10:00:00Z"), idempotencyKey: "k2" });
     expect(appointment.startsAt).toEqual(new Date("2026-11-14T10:00:00Z"));
+  });
+});
+
+describe("withExternalBusy.reschedule", () => {
+  async function bookedAt(base: BookingProvider, iso: string) {
+    return base.book({ locationId: LOCATION, serviceId: SERVICE, resourceId: RESOURCE, contactId: CONTACT, conversationId: null, startsAt: new Date(iso), idempotencyKey: iso });
+  }
+
+  it("no mueve a una hora cuyo tramo entero (la duración de la cita) pisa algo ocupado", async () => {
+    const base = moodly();
+    const appointment = await bookedAt(base, "2026-11-14T09:00:00Z");
+    // Ocupado de 11:15 a 11:30: el inicio (11:00) está libre, pero la cita de 30 min lo pisa.
+    const booking = withExternalBusy(base, fixedBusy([{ startsAt: new Date("2026-11-14T11:15:00Z"), endsAt: new Date("2026-11-14T11:30:00Z") }]));
+    await expect(booking.reschedule({ appointmentId: appointment.id, contactId: CONTACT, startsAt: new Date("2026-11-14T11:00:00Z") })).rejects.toBeInstanceOf(
+      SlotUnavailableError,
+    );
+    const [still] = await base.upcomingForContact({ contactId: CONTACT, from: new Date(0), limit: 10 });
+    expect(still?.startsAt).toEqual(new Date("2026-11-14T09:00:00Z"));
+  });
+
+  it("mueve a una hora libre en el calendario conectado", async () => {
+    const base = moodly();
+    const appointment = await bookedAt(base, "2026-11-14T09:00:00Z");
+    const booking = withExternalBusy(base, fixedBusy([{ startsAt: new Date("2026-11-14T11:15:00Z"), endsAt: new Date("2026-11-14T11:30:00Z") }]));
+    const moved = await booking.reschedule({ appointmentId: appointment.id, contactId: CONTACT, startsAt: new Date("2026-11-14T12:00:00Z") });
+    expect(moved.startsAt).toEqual(new Date("2026-11-14T12:00:00Z"));
   });
 });
 

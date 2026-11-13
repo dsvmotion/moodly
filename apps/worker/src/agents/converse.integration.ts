@@ -734,6 +734,43 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
     expect(await agentMessages()).toHaveLength(before);
     await setAutonomy("reply", "autonomous");
   });
+
+  it("una reserva aprobada sobre una hora que el calendario conectado ya tiene ocupada no se escribe (O-02)", async () => {
+    // 11:30 de Madrid (09:30 UTC): libre en el calendario propio. El calendario
+    // conectado del local es el de la plataforma falsa del worker de pruebas.
+    const startsAt = "2030-06-03T09:30:00.000Z";
+    writeFileSync(`${effectsFile}.plan`, JSON.stringify({ serviceId: ids.service, resourceId: ids.resource, startsAt: "2030-06-03T11:30:00+02:00" }));
+    const calendar = await one(
+      `insert into public.integrations (organization_id, location_id, provider, kind, status, external_connection_id)
+       values ($1, $2, 'google-calendar', 'platform', 'active', 'conn-calendario-pruebas') returning id`,
+      [ids.org, ids.location],
+    );
+    try {
+      const messageId = await customerSays("Resérvame otra cita para el lunes, por favor.");
+      await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera la aprobación");
+      const booking = (await pendingApprovals()).find((approval) => approval.skill_key === "book_appointment");
+      if (!booking) throw new Error("no hay reserva pendiente");
+
+      // Entre el borrador y la aprobación, la hora se ocupa fuera (en Google).
+      writeFileSync(
+        `${effectsFile}.busy`,
+        JSON.stringify({ items: [{ id: "fuera", start: { dateTime: "2030-06-03T09:30:00Z" }, end: { dateTime: "2030-06-03T10:00:00Z" } }] }),
+      );
+      const readsBefore = effects("calendar").length;
+      const eventId = await decide(booking.id, "approved");
+      await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+
+      expect(await executionStatus(booking.execution_id)).toBe("failed");
+      // Se miró el calendario conectado al aprobar, y la cita no existe.
+      expect(effects("calendar").length).toBeGreaterThan(readsBefore);
+      const { rows } = await admin.query("select id from public.appointments where location_id = $1 and starts_at = $2", [ids.location, startsAt]);
+      expect(rows).toHaveLength(0);
+    } finally {
+      await admin.query("delete from public.integrations where id = $1", [calendar]);
+      rmSync(`${effectsFile}.plan`, { force: true });
+      rmSync(`${effectsFile}.busy`, { force: true });
+    }
+  });
 });
 
 describe("la baja de los recordatorios contestando (paso 4e-3)", () => {

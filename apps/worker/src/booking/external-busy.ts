@@ -40,15 +40,16 @@ export async function resolveLocationCalendar(
     .map((entry) => entry.provider)
     .filter((provider) => provider in CALENDAR_READERS);
   if (providers.length === 0) return null;
+  // organization_id explícito (AGENTS.md, «Prohibido»), además de RLS.
   const [row] = await db.transaction((sql) =>
     sql.query<CalendarRow>(
       `select provider, external_connection_id from public.integrations
-        where provider = any($1::text[]) and kind = 'platform' and status = 'active'
+        where organization_id = $3 and provider = any($1::text[]) and kind = 'platform' and status = 'active'
           and external_connection_id is not null
           and (location_id is null or location_id = $2)
         order by (location_id is null), last_health_check desc nulls last, provider
         limit 1`,
-      [providers, locationId],
+      [providers, locationId, db.organizationId],
     ),
   );
   if (!row) return null;
@@ -64,6 +65,23 @@ export interface BusySourceOptions {
   integrationKey: string;
   timeoutMs?: number;
   logger?: Logger;
+}
+
+/**
+ * La fuente del calendario conectado para un local, o null si no hay plataforma
+ * o ningún calendario conectado. La fila se resuelve en un paso de DBOS (un
+ * replay usa el id guardado). La usan todos los caminos que reservan: el turno,
+ * la aprobación de una reserva en borrador y el «sí» a la lista de espera.
+ */
+export async function externalBusyFor(
+  ctx: { db: TenantDb; logger: Logger; step: <T>(name: string, fn: () => Promise<T>) => Promise<T> },
+  platform: ConnectorPlatform | undefined,
+  locationId: string | null,
+  stepName = "calendar:resolve",
+): Promise<BusySource | null> {
+  if (!platform) return null;
+  const row = await ctx.step(stepName, () => resolveLocationCalendar(ctx.db, locationId));
+  return row ? createBusySource({ platform, ...row, logger: ctx.logger }) : null;
 }
 
 /** La fuente de tramos ocupados del calendario conectado (lector del catálogo + memo + tope de tiempo). */

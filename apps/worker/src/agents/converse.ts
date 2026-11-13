@@ -41,7 +41,7 @@ import {
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
-import { createBusySource, resolveLocationCalendar, type BusySource } from "../booking/external-busy.ts";
+import { externalBusyFor, type BusySource } from "../booking/external-busy.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
@@ -593,10 +593,18 @@ interface AcceptDecision {
  * autonomía del agente (de serie, a la bandeja de aprobaciones). Devuelve si
  * el mensaje era eso; si no, el turno sigue como siempre.
  */
-async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId: string, messageId: string): Promise<boolean> {
+async function acceptOffer(
+  event: DomainEvent,
+  ctx: EventContext,
+  conversationId: string,
+  messageId: string,
+  platform: ConnectorPlatform | undefined,
+): Promise<boolean> {
   const found = await ctx.step("waitlist-accept:find", () => findAcceptance(ctx.db, conversationId, messageId, new Date()));
   if (found.kind === "none") return false;
-  const book = codeSkills(ctx.db).get(BOOK_SKILL_KEY);
+  // También aquí cuenta el calendario conectado: el hueco pudo ocuparse fuera desde que se ofreció (O-02).
+  const externalBusy = await externalBusyFor(ctx, platform, found.conversation.locationId, "waitlist-accept:calendar");
+  const book = codeSkills(ctx.db, externalBusy ? { externalBusy } : {}).get(BOOK_SKILL_KEY);
   const row = found.book;
   if (!book || !row || row.kind !== "code" || row.version !== book.version || row.effectClass !== book.effectClass) return false;
   if (!agentAnswers(found.agentStatus, found.channel)) return false;
@@ -717,7 +725,7 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
         return;
       }
       // Un «sí» a una oferta viva de la lista de espera: la reserva, sin modelo (4f-3).
-      if (await acceptOffer(event, ctx, conversationId, messageId)) return;
+      if (await acceptOffer(event, ctx, conversationId, messageId, platform)) return;
       // Con reintentos: si moodly_worker no entra un momento (el pooler, un
       // reinicio), el mensaje no se pierde; si no entra nunca, el worker no
       // habría arrancado (worker.ts, verifyWorkerConnection).
@@ -741,11 +749,7 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
       // plataforma está configurada. Resolver la fila es un paso de DBOS: un
       // replay usa el id guardado, no vuelve a consultarlo. La lectura de las
       // horas ocupadas ocurre después, dentro del paso de cada skill.
-      const externalBusy = platform
-        ? await ctx.step("calendar:resolve", () => resolveLocationCalendar(ctx.db, conversation.location_id)).then((row) =>
-            row ? createBusySource({ platform, ...row, logger: ctx.logger }) : null,
-          )
-        : null;
+      const externalBusy = await externalBusyFor(ctx, platform, conversation.location_id);
       const { skills, settings } = agentSkills(
         codeSkills(ctx.db, {
           embedder: knowledgeAllowed ? knowledge.embedder : null,

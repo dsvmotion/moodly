@@ -12,6 +12,10 @@ import { CalendarUnavailableError, SlotUnavailableError, type BookingProvider, t
 // arriesgar una doble reserva.
 
 export const BUSY_TIMEOUT_MS = 3_000;
+/** Candidatos por página (× limit) y páginas como mucho al quitar los ocupados. */
+const PAGE_FACTOR = 3;
+const MAX_PAGES = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface BusySource {
   /** Los tramos ocupados en [from, to). Lanza CalendarUnavailableError si no se puede leer. */
@@ -70,34 +74,51 @@ function overlapsBusy(start: Date, end: Date, busy: readonly BusyInterval[]): bo
 export function withExternalBusy(provider: BookingProvider, busy: BusySource): BookingProvider {
   return {
     async findSlots(request) {
-      // Se piden más candidatos y se filtran: así, tras quitar los ocupados,
-      // siguen quedando los primeros `limit` que pide la skill.
-      const candidates = await provider.findSlots({ ...request, limit: request.limit * 3 });
-      if (candidates.length === 0) return candidates;
-      // La ventana cubre hasta el fin del último candidato (findSlots los acota a [from, to]).
-      let until = request.to.getTime();
-      for (const slot of candidates) until = Math.max(until, slot.endsAt.getTime());
-      const occupied = await busy.list(request.from, new Date(Math.max(until, request.from.getTime() + 60_000)));
+      const first = await provider.findSlots({ ...request, limit: request.limit * PAGE_FACTOR });
+      if (first.length === 0) return first;
+      // Una sola lectura del calendario conectado para toda la ventana (más un
+      // día: un hueco que empieza antes de `to` puede acabar después).
+      const occupied = await busy.list(request.from, new Date(request.to.getTime() + DAY_MS));
+      // Por páginas: si los ocupados se comen los candidatos, se piden más, para
+      // que sigan saliendo los primeros `limit` libres (y la skill sepa si hay más).
       const free: BookingSlot[] = [];
-      for (const slot of candidates) {
-        if (!overlapsBusy(slot.startsAt, slot.endsAt, occupied)) free.push(slot);
-        if (free.length >= request.limit) break;
+      const seen = new Set<string>();
+      let batch = first;
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        let added = false;
+        for (const slot of batch) {
+          const key = `${slot.resourceId}|${slot.startsAt.getTime()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          added = true;
+          if (!overlapsBusy(slot.startsAt, slot.endsAt, occupied)) free.push(slot);
+          if (free.length >= request.limit) return free;
+        }
+        const last = batch[batch.length - 1];
+        if (!added || !last || batch.length < request.limit * PAGE_FACTOR) break;
+        batch = await provider.findSlots({ ...request, from: last.startsAt, limit: request.limit * PAGE_FACTOR });
       }
       return free;
     },
     async book(request) {
-      const end = await slotEnd(provider, request.locationId, request.serviceId, request.resourceId, request.startsAt);
+      const end = await slotEnd(provider, request.locationId, request.serviceId, request.resourceId, request.startsAt, 60_000);
       const occupied = await busy.list(request.startsAt, end);
       if (overlapsBusy(request.startsAt, end, occupied)) throw unavailable();
       return provider.book(request);
     },
     async reschedule(request) {
-      // Sin la hora de fin a mano (la petición de reschedule no trae servicio),
-      // se comprueba un tramo mínimo desde el inicio; el calendario propio hace
-      // el resto. Un choque claro con el inicio ya se evita.
-      const minute = new Date(request.startsAt.getTime() + 60_000);
-      const occupied = await busy.list(request.startsAt, minute);
-      if (overlapsBusy(request.startsAt, minute, occupied)) throw unavailable();
+      // El servicio y el local salen de la cita del contacto (la del runtime); si
+      // no es suya, el calendario propio la rechaza igual (AppointmentNotFoundError).
+      const current = (await provider.upcomingForContact({ contactId: request.contactId, from: new Date(0), limit: 50 })).find(
+        (appointment) => appointment.id === request.appointmentId,
+      );
+      if (current) {
+        const duration = current.endsAt.getTime() - current.startsAt.getTime();
+        const resourceId = request.resourceId ?? current.resourceId;
+        const end = await slotEnd(provider, current.locationId, current.serviceId, resourceId, request.startsAt, duration);
+        const occupied = await busy.list(request.startsAt, end);
+        if (overlapsBusy(request.startsAt, end, occupied)) throw unavailable();
+      }
       return provider.reschedule(request);
     },
     cancel: (request) => provider.cancel(request),
@@ -105,12 +126,20 @@ export function withExternalBusy(provider: BookingProvider, busy: BusySource): B
   };
 }
 
-async function slotEnd(provider: BookingProvider, locationId: string, serviceId: string, resourceId: string, startsAt: Date): Promise<Date> {
-  // La duración sale del propio calendario: se busca el hueco que empieza a esa
-  // hora para ese recurso. Si no está (ya no es un hueco), book lo rechazará.
+async function slotEnd(
+  provider: BookingProvider,
+  locationId: string,
+  serviceId: string,
+  resourceId: string,
+  startsAt: Date,
+  fallbackMs: number,
+): Promise<Date> {
+  // La duración sale del propio calendario: el hueco que empieza a esa hora para
+  // ese recurso. Si no está (al mover, la propia cita puede taparlo), se usa la
+  // duración conocida; si la hora no es un hueco, el calendario propio la rechaza.
   const slots = await provider.findSlots({ locationId, serviceId, from: startsAt, to: new Date(startsAt.getTime() + 60_000), limit: 10 });
   const match = slots.find((slot) => slot.resourceId === resourceId && slot.startsAt.getTime() === startsAt.getTime());
-  return match ? match.endsAt : new Date(startsAt.getTime() + 60_000);
+  return match ? match.endsAt : new Date(startsAt.getTime() + Math.max(fallbackMs, 60_000));
 }
 
 function unavailable(): Error {

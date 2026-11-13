@@ -68,7 +68,7 @@ const worker = createWorker(config, logger, {
       ...(embedder ? { knowledge: { embedder, route: embedder.route } } : {}),
       ...(platform ? { platform } : {}),
     }),
-    createApprovalHandler({ skills: codeSkills }),
+    createApprovalHandler({ skills: codeSkills, ...(platform ? { platform } : {}) }),
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
