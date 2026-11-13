@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_HANDLER_KEY } from "./approvals.ts";
-import { CONVERSE_HANDLER_KEY, loadPendingRequests } from "./converse.ts";
+import { CONVERSE_HANDLER_KEY, loadPendingRequests, supersedeOlderReplyDrafts } from "./converse.ts";
 
 // El turno del agente de punta a punta (paso 4d-2): un mensaje de un cliente
 // entra en la conversación, el outbox lo entrega a agent.converse en un worker
@@ -430,6 +430,65 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
       expect(await loadPendingRequests(asAdmin, orgB, conversation)).toEqual([]);
     } finally {
       await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = $1)", [conversation]);
+      await admin.query("delete from public.conversations where id = $1", [conversation]);
+    }
+  });
+
+  it("caducar los borradores anteriores (gate M1) va con la organización explícita, también sin RLS: los de otra organización no se tocan", async () => {
+    // El target de una ejecución es jsonb, sin clave ajena: un borrador de otra
+    // organización puede nombrar esta conversación. Con el cliente de administración
+    // no hay RLS ni guardas: lo que separa las organizaciones es el filtro explícito.
+    const asAdmin = { query: async <T,>(text: string, params?: readonly unknown[]) => (await admin.query(text, params as unknown[])).rows as T[] };
+    const orgB = await one("select id from public.organizations where name = 'Demo B'", []);
+    const agentB = await one("select id from public.agents where organization_id = $1 order by id limit 1", [orgB]);
+    const conversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    const hash = "0".repeat(64);
+    // Un turno anterior con su borrador de respuesta a esta conversación, pendiente de aprobar.
+    const olderDraft = async (organizationId: string, agentId: string, locationId: string | null) => {
+      const runId = await one(
+        `insert into public.agent_runs (organization_id, location_id, agent_id, trigger, trigger_ref, status)
+         values ($1, $2, $3, 'inbound_message', $4, 'awaiting_approval') returning id`,
+        [organizationId, locationId, agentId, randomUUID()],
+      );
+      const executionId = await one(
+        `insert into public.executions (organization_id, location_id, run_id, skill_key, skill_version, effect_class, autonomy_applied,
+                                        input, target, input_hash, preview, status, idempotency_key)
+         values ($1, $2, $3, 'reply', 1, 'external_message', 'draft', '{}', $4, $5, '{"summary": "Responder"}', 'drafted', $6)
+         returning id`,
+        [organizationId, locationId, runId, JSON.stringify({ kind: "conversation", conversationId: conversation }), hash, randomUUID()],
+      );
+      await admin.query(
+        `insert into public.approvals (execution_id, organization_id, location_id, effect_class, input_hash, required_role, expires_at)
+         values ($1, $2, $3, 'external_message', $4, $5, now() + interval '1 day')`,
+        [executionId, organizationId, locationId, hash, locationId ? "staff" : "org_admin"],
+      );
+      return { runId, executionId };
+    };
+    const state = async (draft: { runId: string; executionId: string }) =>
+      (
+        await admin.query(
+          `select r.status as run, e.status as execution, e.output, a.status as approval
+           from public.agent_runs r join public.executions e on e.run_id = r.id join public.approvals a on a.execution_id = e.id
+           where e.id = $1`,
+          [draft.executionId],
+        )
+      ).rows[0];
+    const runs: string[] = [];
+    try {
+      const mine = await olderDraft(ids.org as string, ids.agent as string, ids.location as string);
+      const theirs = await olderDraft(orgB, agentB, null);
+      runs.push(mine.runId, theirs.runId);
+
+      await supersedeOlderReplyDrafts(asAdmin, ids.org as string, randomUUID(), conversation);
+
+      expect(await state(mine)).toEqual({ run: "completed", execution: "failed", output: { superseded: "newer_message" }, approval: "expired" });
+      expect(await state(theirs)).toEqual({ run: "awaiting_approval", execution: "drafted", output: null, approval: "pending" });
+    } finally {
+      await admin.query("delete from public.agent_runs where id = any($1)", [runs]);
       await admin.query("delete from public.conversations where id = $1", [conversation]);
     }
   });

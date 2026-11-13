@@ -446,27 +446,38 @@ export const SUPERSEDED_NEWER_MESSAGE = "newer_message";
  * ejecución a failed con superseded) y su run, si no espera nada más, se cierra.
  * Así la bandeja nunca tiene dos respuestas pendientes a la vez (gate M1).
  */
-async function supersedeOlderReplyDrafts(sql: TenantSql, runId: string, conversationId: string): Promise<void> {
+export async function supersedeOlderReplyDrafts(
+  sql: Pick<TenantSql, "query">,
+  organizationId: string,
+  runId: string,
+  conversationId: string,
+): Promise<void> {
+  // La organización, explícita en cada consulta (AGENTS.md, «Prohibido»): bajo RLS ya
+  // no vería otra, pero la consulta no depende de ello.
   const stale = await sql.query<{ id: string; run_id: string }>(
     `select e.id, e.run_id from public.executions e
-     where e.skill_key = $1 and e.status = any($2::text[]) and e.run_id <> $3
-       and e.target->>'kind' = 'conversation' and e.target->>'conversationId' = $4`,
-    [REPLY_SKILL_KEY, [...AWAITING_PERSON], runId, conversationId],
+     where e.organization_id = $1 and e.skill_key = $2 and e.status = any($3::text[]) and e.run_id <> $4
+       and e.target->>'kind' = 'conversation' and e.target->>'conversationId' = $5`,
+    [organizationId, REPLY_SKILL_KEY, [...AWAITING_PERSON], runId, conversationId],
   );
   if (stale.length === 0) return;
   const ids = stale.map((row) => row.id);
   // Primero la ejecución: guard_worker_approval solo deja caducar la aprobación de una respuesta ya superseded.
   await sql.query(
-    `update public.executions set status = 'failed', output = $2
-     where id = any($1::uuid[]) and status = any($3::text[])`,
-    [ids, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
+    `update public.executions set status = 'failed', output = $3
+     where organization_id = $1 and id = any($2::uuid[]) and status = any($4::text[])`,
+    [organizationId, ids, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
   );
-  await sql.query("update public.approvals set status = 'expired' where execution_id = any($1::uuid[]) and status = 'pending'", [ids]);
+  await sql.query(
+    "update public.approvals set status = 'expired' where organization_id = $1 and execution_id = any($2::uuid[]) and status = 'pending'",
+    [organizationId, ids],
+  );
   await sql.query(
     `update public.agent_runs r set status = 'completed'
-     where r.id = any($1::uuid[]) and r.status = 'awaiting_approval'
-       and not exists (select 1 from public.executions e where e.run_id = r.id and e.status = any($2::text[]))`,
-    [[...new Set(stale.map((row) => row.run_id))], [...AWAITING_PERSON]],
+     where r.organization_id = $1 and r.id = any($2::uuid[]) and r.status = 'awaiting_approval'
+       and not exists (select 1 from public.executions e
+                       where e.organization_id = $1 and e.run_id = r.id and e.status = any($3::text[]))`,
+    [organizationId, [...new Set(stale.map((row) => row.run_id))], [...AWAITING_PERSON]],
   );
 }
 
@@ -544,13 +555,13 @@ async function recordExecution(
         // Un borrador de respuesta a un mensaje que ya no es el último: no pide aprobación (gate M1).
         if (await supersededBy(sql, db.organizationId, target.conversationId, triggerMessageId)) {
           await sql.query(
-            `update public.executions set status = 'failed', output = $2
-             where id = $1 and status = any($3::text[])`,
-            [row.id, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
+            `update public.executions set status = 'failed', output = $3
+             where organization_id = $1 and id = $2 and status = any($4::text[])`,
+            [db.organizationId, row.id, JSON.stringify({ superseded: SUPERSEDED_NEWER_MESSAGE }), [...AWAITING_PERSON]],
           );
           return { executionId: row.id, held: false, superseded: true };
         }
-        await supersedeOlderReplyDrafts(sql, runId, target.conversationId);
+        await supersedeOlderReplyDrafts(sql, db.organizationId, runId, target.conversationId);
       }
     }
     return { executionId: row.id, held: false, superseded: false };
