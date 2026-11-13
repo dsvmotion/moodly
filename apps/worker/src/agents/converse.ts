@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { AUTONOMY_LEVELS, EFFECT_CLASSES, composeSystemPromptParts, decide, policyAllows, policyFromSettings, runAgentTurn } from "@repo/agent-core";
+import {
+  AUTONOMY_LEVELS,
+  EFFECT_CLASSES,
+  REQUEST_HUMAN_SKILL_KEY,
+  composeSystemPromptParts,
+  decide,
+  policyAllows,
+  policyFromSettings,
+  runAgentTurn,
+} from "@repo/agent-core";
 import type {
   AutonomyLevel,
   BookableService,
@@ -717,6 +726,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ctx.logger,
       );
       const searchesKnowledge = skills.has(SEARCH_KNOWLEDGE_SKILL_KEY) && settings.get(SEARCH_KNOWLEDGE_SKILL_KEY)?.enabled === true;
+      const handsOff = skills.has(REQUEST_HUMAN_SKILL_KEY) && settings.get(REQUEST_HUMAN_SKILL_KEY)?.enabled === true;
       let heldAny = false;
       const prompt = composeSystemPromptParts({
         agentName: context.agent.display_name ?? context.agent.type_name,
@@ -726,6 +736,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         now: new Date(prepared.now),
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
+        handOff: handsOff,
       });
       // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
       const unrecorded: TurnModelCall[] = [];
