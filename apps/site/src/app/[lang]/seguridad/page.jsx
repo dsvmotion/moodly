@@ -11,8 +11,8 @@ import { withContact } from "@/components/contact";
 // lo del piloto, «En el piloto»; lo de después, «En hoja de ruta»; null = sin unidad: no se
 // enseña. Mismo índice en los cuatro idiomas (si no, falla la compilación).
 const UNITS = {
-  certs: ["SE02", "SE12", "SE12", null],
-  foundations: ["SE02", null, "SE13", "PL-T4"],
+  certs: ["SE02", "SE12", "SE12"],
+  foundations: ["SE02", "SE13", "PL-T4"],
   deploy: ["PL-prod", "PL-cells", null, null],
   arch: ["PL-T1", "SE05", "OA02", "PL-T5", "PL-T9", "SE04"],
   model: ["PL-T6", "OA24", "OA24"],
