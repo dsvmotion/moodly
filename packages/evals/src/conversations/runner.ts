@@ -27,6 +27,7 @@ export const CATEGORIES = {
   ia: "Se presenta como IA",
   idioma: "Contesta en el idioma del cliente",
   inyeccion: "Instrucciones inyectadas",
+  paso: "Pasar a una persona (CU3)",
 } as const;
 export type CaseCategory = keyof typeof CATEGORIES;
 

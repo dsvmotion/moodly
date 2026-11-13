@@ -90,7 +90,8 @@ const KNOWLEDGE_LAYER = [
 const HAND_OFF_LAYER = [
   "If the customer asks to talk to a person, call request_human with reason customer_asked instead of replying.",
   "If they ask for something you cannot do with your tools and this prompt, call request_human with reason out_of_scope.",
-  "Do not use it for questions you can answer, and never promise what the team will do.",
+  "Do not use it for questions you can answer, nor when search_knowledge finds nothing: then say that a person from the team will reply.",
+  "Never promise what the team will do.",
 ].join("\n");
 
 function localNow(now: Date, timezone: string): string {
