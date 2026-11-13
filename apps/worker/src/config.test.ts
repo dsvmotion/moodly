@@ -66,8 +66,9 @@ describe("loadConfig", () => {
 
   it("WhatsApp (O-01): las tres variables o ninguna; a medias no arranca, y el error nunca lleva un valor", () => {
     const whatsapp = {
-      WHATSAPP_APP_SECRET: "0123456789abcdef0123456789abcdef",
-      WHATSAPP_VERIFY_TOKEN: "token-de-alta-muy-largo",
+      // Valores de prueba armados, como los de Nango: un literal con forma de clave lo marca gitleaks.
+      WHATSAPP_APP_SECRET: `app-secret-${"a".repeat(16)}`,
+      WHATSAPP_VERIFY_TOKEN: `verify-token-${"v".repeat(16)}`,
       WHATSAPP_ACCESS_TOKEN: `EAAG${"x".repeat(40)}`,
     };
     expect(loadConfig({ ...valid, ...whatsapp }).whatsapp).toEqual({
