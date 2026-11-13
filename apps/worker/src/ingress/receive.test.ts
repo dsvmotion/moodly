@@ -40,33 +40,28 @@ function fakeDb(
 ) {
   const resolve = vi.fn().mockResolvedValue(options.account === undefined ? { id: "acc-1", organizationId: ORG, status: "active" } : options.account);
   const inserts: { org: string; row: unknown }[] = [];
+  // Como moodly_worker, por SQL en una transacción de la organización (20261112230000).
   const forOrganization = vi.fn((org: string) => ({
-    from: () => ({
-      insert: (row: { provider_event_id: string }) => {
-        inserts.push({ org, row });
-        const failure = options.insertErrors?.[row.provider_event_id];
-        return {
-          select: () => ({
-            single: () =>
-              Promise.resolve(
-                failure
-                  ? { data: null, error: { code: failure } }
-                  : options.existingStatus
-                    ? { data: null, error: { code: "23505" } }
-                    : { data: { id: `ie-${inserts.length}` }, error: null },
-              ),
-          }),
-        };
-      },
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            single: () =>
-              Promise.resolve({ data: { id: "ie-old", status: options.existingStatus, error_code: options.existingErrorCode ?? null }, error: null }),
-          }),
-        }),
+    organizationId: org,
+    transaction: async <T>(fn: (sql: { query: (text: string, values?: readonly unknown[]) => Promise<unknown[]> }) => Promise<T>) =>
+      fn({
+        query: (text: string, values: readonly unknown[] = []) => {
+          if (/^\s*insert into public\.inbound_events/.test(text)) {
+            const row = {
+              organization_id: values[0],
+              channel_account_id: values[1],
+              provider_event_id: values[2] as string,
+              payload: JSON.parse(values[3] as string) as unknown,
+            };
+            inserts.push({ org, row });
+            const failure = options.insertErrors?.[row.provider_event_id];
+            if (failure) return Promise.reject(Object.assign(new Error("pg"), { code: failure }));
+            // on conflict do nothing: un evento repetido no devuelve fila.
+            return Promise.resolve(options.existingStatus ? [] : [{ id: `ie-${inserts.length}` }]);
+          }
+          return Promise.resolve([{ id: "ie-old", status: options.existingStatus, error_code: options.existingErrorCode ?? null }]);
+        },
       }),
-    }),
   }));
   const db = { channelAccounts: { resolve }, forOrganization, outbox: {} } as unknown as ServiceDb;
   return { db, resolve, forOrganization, inserts };
@@ -110,7 +105,9 @@ describe("la entrada de un webhook (ADR 0052 §2)", () => {
     expect(result).toEqual({ status: 200, accepted: 1, duplicates: 0, ignored: 0 });
     expect(resolve).toHaveBeenCalledWith("webchat", "widget-1");
     expect(forOrganization.mock.calls.map(([org]) => org)).toEqual([ORG]);
-    expect(inserts).toEqual([{ org: ORG, row: expect.objectContaining({ channel_account_id: "acc-1", provider_event_id: "evt-1" }) }]);
+    expect(inserts).toEqual([
+      { org: ORG, row: expect.objectContaining({ organization_id: ORG, channel_account_id: "acc-1", provider_event_id: "evt-1" }) },
+    ]);
     expect(startIngest).toHaveBeenCalledWith({ organizationId: ORG, inboundEventId: "ie-1" });
   });
 
