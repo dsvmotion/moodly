@@ -66,7 +66,9 @@ describe("acceso de plataforma acotado a una organización (3.2)", () => {
     const surface = /export interface ServiceDb \{([\s\S]*?)\n\}/.exec(service)?.[1] ?? "";
     const members = [...surface.matchAll(/^\s{2}(\w+)[(:]/gm)].map((match) => match[1]).sort();
     // end (de #231) solo cierra las conexiones de moodly_worker: no lee nada.
-    expect(members).toEqual(["channelAccounts", "end", "forOrganization", "outbox"]);
+    // verifyWorkerConnection (PL-T1, #268) solo comprueba el rol moodly_worker: no lee datos.
+    expect(members).toEqual(["channelAccounts", "end", "forOrganization", "outbox", "verifyWorkerConnection"]);
+    expect(surface).toMatch(/^\s{2}verifyWorkerConnection\(\): Promise<void>;$/m);
     expect(surface).toMatch(/^\s{2}end\(\): Promise<void>;$/m);
     // La cuenta de un canal: una sola tabla, solo id, organización y estado, por igualdad exacta.
     const resolver = readFileSync(join(ROOT, "packages", "db", "src", "channel-accounts.ts"), "utf8");

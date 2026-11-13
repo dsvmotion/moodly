@@ -1,6 +1,9 @@
 {
   "common": {
-    "loading": "Cargando…"
+    "loading": "Cargando…",
+    "notifications": "Avisos ({hotkey})",
+    "closeNotification": "Cerrar el aviso",
+    "loadingPage": "Cargando la página"
   },
   "states": {
     "notFound": {

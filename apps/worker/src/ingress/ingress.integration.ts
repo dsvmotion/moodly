@@ -6,7 +6,7 @@ import { fakeSignature } from "@repo/channels/testing";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { ingestWorkflowId } from "./ingest.ts";
 import { MAX_INBOUND_PAYLOAD_BYTES } from "./receive.ts";
 
@@ -136,6 +136,7 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       PORT: String(port),
       INGRESS_TEST_SECRET: secret,
     },

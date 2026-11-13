@@ -16,6 +16,7 @@ import { getProfileName } from "@/lib/profile-data";
 import { getScopeContext } from "@/lib/scope-data";
 import { signOut } from "./actions";
 import { setActiveOrganization } from "./organization-actions";
+import { Toaster } from "@repo/ui/components/toast";
 
 // App shell (MANUAL §9.2). El layout pinta la estructura; la comprobación que
 // protege los datos está en cada página (requireUser, cerca de los datos):
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     getProfileName(user.id),
     getTranslations("records.roles"),
   ]);
+  const tCommon = await getTranslations("common");
   const { options, organizations, organization, role } = scopeContext;
   // Del catálogo, con RLS (ADR 0030): la web no supone cuántos agentes hay.
   // Los contadores de la barra (M-02) cuentan todo lo que ve la persona, no el
@@ -66,6 +68,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       }
     >
       {children}
+      {/* Los avisos de la app (auditoría M-10: el componente existía, pero nadie lo montaba). */}
+      <Toaster label={tCommon("notifications", { hotkey: "F8" })} closeLabel={tCommon("closeNotification")} />
     </AppFrame>
   );
 }

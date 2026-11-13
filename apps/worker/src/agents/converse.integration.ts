@@ -6,7 +6,7 @@ import { join } from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_HANDLER_KEY } from "./approvals.ts";
 import { CONVERSE_HANDLER_KEY } from "./converse.ts";
 
@@ -188,6 +188,7 @@ beforeAll(async () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       CONVERSE_PLAN: JSON.stringify({ serviceId: ids.service, resourceId: ids.resource, startsAt: "2030-06-03T09:00:00+02:00" }),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -441,7 +442,17 @@ describe("el conocimiento del negocio (paso B20-2)", () => {
     return rows[0]?.status === "ready";
   }
   /** El turno de un mensaje, ya cerrado, con sus ejecuciones. */
-  async function turnOf(messageId: string) {
+  /** Las filas de embeddings del libro de consumo de un run (las consultas de search_knowledge, PL-ledger). */
+async function searchUsageOf(runId: string) {
+  const { rows } = await admin.query<{ organization_id: string; agent_id: string | null; location_id: string | null; call_index: number; tokens_in: number; cost_eur: string; model: string }>(
+    `select organization_id, agent_id, location_id, call_index, tokens_in, cost_eur::text, model
+       from public.usage_records where run_id = $1 and source = 'embedding' order by call_index`,
+    [runId],
+  );
+  return rows;
+}
+
+async function turnOf(messageId: string) {
     await waitFor(async () => ["completed", "awaiting_approval", "handed_off"].includes((await runFor(messageId))[0]?.status ?? ""), "el run se cierra");
     const [run] = await runFor(messageId);
     return { run, executions: await executionsOf(run?.id ?? "") };
@@ -473,6 +484,12 @@ describe("el conocimiento del negocio (paso B20-2)", () => {
     const question = "¿Cuánto cuesta el láser de axilas?";
     const { run, executions } = await turnOf(await customerSays(question));
     expect(run?.status).toBe("completed");
+    // La consulta sale hacia el proveedor de embeddings: va al libro de consumo con el run, el agente y el local del turno.
+    const searchUsage = await searchUsageOf(run?.id as string);
+    expect(searchUsage.map((row) => ({ ...row, cost_eur: Number(row.cost_eur) }))).toEqual([
+      { organization_id: ids.org, agent_id: ids.agent, location_id: ids.location, call_index: 4000, tokens_in: expect.any(Number), cost_eur: 0, model: "fake-hash-256" },
+    ]);
+    expect(searchUsage[0]?.tokens_in).toBeGreaterThan(0);
     expect(executions.map((execution) => [execution.skill_key, execution.status])).toEqual([
       ["search_knowledge", "executed"],
       ["reply", "executed"],
@@ -503,8 +520,10 @@ describe("el conocimiento del negocio (paso B20-2)", () => {
     policySet = true;
     const question = "¿Qué precio tiene el láser de piernas?";
     const messageId = await customerSays(question);
-    const { executions } = await turnOf(messageId);
+    const { run, executions } = await turnOf(messageId);
     expect(executions.map((execution) => execution.skill_key)).not.toContain("search_knowledge");
+    // Sin consulta, nada en el libro.
+    expect(await searchUsageOf(run?.id as string)).toEqual([]);
     const call = callFor(question);
     expect(call?.tools).not.toContain("search_knowledge");
     expect(call?.system).not.toContain("Business knowledge");

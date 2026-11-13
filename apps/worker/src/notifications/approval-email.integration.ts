@@ -7,7 +7,7 @@ import { BRAND_NAME, NOTIFICATION_EMAIL_FROM } from "@repo/config";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_EMAIL_HANDLER_KEY, EMAIL_UNAUTHORIZED_EVENT } from "./approval-email.ts";
 import { BUDGET_EMAIL_HANDLER_KEY } from "./budget-email.ts";
 
@@ -212,6 +212,7 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       RESEND_API_KEY: RESEND_KEY,
       WEB_APP_URL: WEB,
       FAKE_RESEND_URL: resendUrl,
@@ -304,6 +305,7 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
       LOG_LEVEL: "info",
       SUPABASE_URL: api.url,
       SUPABASE_SECRET_KEY: api.secretKey,
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       RESEND_API_KEY: RESEND_KEY,
       WEB_APP_URL: WEB,
       FAKE_RESEND_URL: resendUrl,

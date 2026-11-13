@@ -9,7 +9,7 @@ import type { Database } from "./database.types.js";
 import { channelAccounts, type ChannelAccounts } from "./channel-accounts.ts";
 import { outbox, type Outbox } from "./outbox.ts";
 import { tenantDb, type TenantDb } from "./tenant-db.ts";
-import { createWorkerSql } from "./worker-sql.ts";
+import { WorkerSqlError, createWorkerSql } from "./worker-sql.ts";
 
 export { ChannelAccountError, type ChannelAccounts, type ResolvedChannelAccount } from "./channel-accounts.ts";
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
@@ -42,6 +42,12 @@ export interface ServiceDb {
    * comprobar la firma del proveedor.
    */
   channelAccounts: ChannelAccounts;
+  /**
+   * Comprueba que la conexión de moodly_worker funciona (login, rol, sin
+   * BYPASSRLS). El worker la llama al arrancar: si falla, no arranca, en vez de
+   * fallar después en cada turno.
+   */
+  verifyWorkerConnection(): Promise<void>;
   /** Cierra las conexiones SQL del rol moodly_worker, si las hay. */
   end(): Promise<void>;
 }
@@ -65,6 +71,10 @@ export function createServiceDb(options: {
     forOrganization: (organizationId) => tenantDb(client, organizationId, workerSql),
     outbox: outbox(client),
     channelAccounts: channelAccounts(client),
+    verifyWorkerConnection: async () => {
+      if (!workerSql) throw new WorkerSqlError("sin WORKER_DATABASE_URL no hay conexión de moodly_worker");
+      await workerSql.verify();
+    },
     end: async () => {
       await workerSql?.end();
     },

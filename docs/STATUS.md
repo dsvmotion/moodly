@@ -52,7 +52,7 @@
   - **#163** (V4, `[M0][K-03]`): mergeado (`723d604`) y verificado; restaura el check de afirmaciones que relajó #156. Con el modelo real: seguridad 24/24, comportamiento 22/27 (`recepcion-no-duplica-solicitud`, que arregla #160, y `taller-lead-venta`, que espera la skill de leads).
 - **#197** (`[M1][R-02]`, mergeado en `769e181`; con #236): el agente solo escribe en una conversación que lleva él (guarda en la base de datos, FOR SHARE); pgTAP 40 y 44, integración del worker y prueba en negativo en el PR.
   - **D-01/D-02** (#192, #225): se puede borrar a una persona del equipo que decidió, pidió o escribió algo (las filas se quedan, con la columna a null). La base de datos, para todos los roles (también la service role): lo que se registró esperando a una persona solo pasa a `approved` o `executed` con su aprobación aprobada y el mismo hash; `executed`, `failed` y `rejected` son finales; y una ejecución no nace con más autonomía que el techo de su clase, así que lo financiero y lo destructivo nunca nacen ejecutados sin aprobación. Lo que no sabe la base de datos: si una skill de otra clase pedía aprobación (`requiresApproval`); eso lo sigue decidiendo el motor de políticas. La service role no borra runs, ejecuciones ni aprobaciones.
-- **M-10** (#216): la bandeja recibe avisos por Realtime (Broadcast privado `inbox:<org>:<local|org>`, solo identificadores; escucha quien ve ese local, con la sesión activa). Límites: la política se comprueba al unirse al canal y vale hasta que caduca el JWT; un aviso puede perderse (la web relee al reconectar); los canales públicos no reciben nada, y desactivar el acceso público de Realtime en el proyecto los cierra del todo (ajuste de producto).
+- **M-10** (#216, #264, ADR 0054; hecho, verificado en staging por producto el 2026-11-12): la bandeja recibe avisos por Realtime a través de un relé SSE en el mismo origen (el navegador no habla con Supabase) (Broadcast privado `inbox:<org>:<local|org>`, solo identificadores; escucha quien ve ese local, con la sesión activa). Límites: la política se comprueba al unirse al canal y vale hasta que caduca el JWT; un aviso puede perderse (la web relee al reconectar); los canales públicos no reciben nada, y el acceso público de Realtime está desactivado en el proyecto de staging (producto, 2026-11-12); el proyecto de producción necesita el mismo ajuste antes del primer dato real (condición 10, abajo).
 - **PRs abiertos y qué hacer con ellos (producto, 2026-11-10):**
   - **#159** (V1, B20-4b, `ask_team`): espera a que exista la pantalla del equipo para contestar las preguntas (unidad OA07, de V2). El check de evals (no obligatorio) está en rojo por `recepcion-no-duplica-solicitud`, que ya fallaba sobre `main` y arregla #160.
   - **#160** (V1, borrador, sobre #159): va después de #159 y **sin meter en el prompt el texto de las respuestas en borrador**; solo que hay algo esperando a una persona.
@@ -60,25 +60,25 @@
   - **#164** (V1, heredado de la sesión de auditoría): las órdenes de M0 (`docs/audits/2026-11-10-ordenes-m0.md`) y las tareas de producto (`founder_tasks`, F01 a F13) en `docs/scope.yaml`. Va justo después de #162.
   - **#131** (Dependabot, 8 parches y menores): se rebasa sobre `main` y se lanzan las evals a mano antes de mergearlo.
   - **#117**: cerrado; su contenido (el aviso de `pg`, verificado) está en este archivo.
-- **ADR 0049 a 0053** (V1, #195, mergeado): T1, T4, T6, T10 y el hub de integraciones. El 0053 está **aceptado** (producto, 2026-11-11: Nango autoalojado en la UE; modifica el 0034 y el 0036, ver su nota); el 0049 a 0052 siguen propuestos.
+- **ADR 0049 a 0053** (V1, #195, mergeado): T1, T4, T6, T10 y el hub de integraciones. El 0053 está **aceptado** (producto, 2026-11-11: Nango autoalojado en la UE; modifica el 0034 y el 0036, ver su nota); el 0049 a 0052 se aceptaron el 2026-11-12 (producto; ver «Decisiones del 2026-11-12»).
 - **#191** (V1 vía sesión trabajadora, `[M0][G-03][G-04]`): `login_record_success` exige sesión activa (aal2 con factor) y aceptar una invitación exige email confirmado; confirmación de email activada también en local.
 - **Coordinación (producto, 2026-11-10):** V1 coordina a las demás sesiones y es la única a la que escribe producto. Encargo: `docs/audits/2026-11-10-ordenes-m0.md` (#164). Ahora abren PRs V1 y V2; V4, solo el de K-03; V3 espera (`docs/WORKSTREAMS.md` → «Cómo se coordina»).
 
 ### Bloqueado
 - **P-05 (evals con modelo real fuera de los PRs):** la clave `AI_GATEWAY_EVALS_API_KEY` sigue en un secreto del repositorio; falta que producto la mueva al entorno `evals` de GitHub y borre el secreto del repositorio.
-- **Crédito del AI Gateway:** el gateway responde 402; sin crédito, los agentes de staging pasan cada conversación a una persona y no corren las evals con el modelo real ni la Revisora con modelo (lo recarga producto en la cuenta dueña de las claves).
+- **GitHub Actions (2026-11-12):** desde las 20:50 UTC ninguna corrida arrancaba (`startup_failure`, sin jobs) por el límite de gasto de la cuenta; producto lo subió a 50 $/mes y lo dio por resuelto el 2026-11-13. Las corridas fallidas no se pueden relanzar: el CI vuelve con el siguiente push de cada rama.
+- **Nango (ADR 0053):** cuenta de Nango Cloud creada por producto (entornos `dev` y `prod`, conector autorizado), 2026-11-12. Vale para desarrollo con datos de prueba; antes del primer dato real, autoalojado en la UE como dice el ADR.
+- **Crédito del AI Gateway y Revisora sin crédito:** el gateway respondía 402; sin crédito, los agentes de staging pasan cada conversación a una persona y no corren las evals con el modelo real ni la Revisora con modelo. Crédito recargado por producto el 2026-11-12; falta verificar con «Staging · agente».
 - **WhatsApp real (B19):** falta la cuenta de Meta Business verificada, el número y la plantilla de recordatorio aprobada.
 - **Voz:** falta la cuenta de ElevenLabs y el proveedor de telefonía con número español.
-- **Créditos y prueba de 7 días (B5/B6):** falta la cuenta de Stripe (la crea producto) y autorizar su conector.
+- **Créditos y prueba de 7 días (B5/B6):** la cuenta de Stripe existe y su conector está autorizado; la clave de prueba está en las variables de Vercel (producto, 2026-11-12). Falta decidir los importes (§15.1) para construirlo.
 - **App móvil:** falta la prueba en un iPhone real (la hace producto).
 - **Cliente piloto:** sin elegir (MANUAL §18 #3).
-- **Regla de `main` (producto):** añadir los checks estrictos y «evals · modelo falso» (K-01) a la protección de `main`.
 - **Despliegue ordenado a staging (PL-deploy):** faltan los secretos `VERCEL_TOKEN` y `RAILWAY_TOKEN` en el entorno de staging, y la variable `STAGING_WEB_HEALTH_URL` para la alerta de salud.
-- **Realtime (M-10):** desactivar el acceso público de Realtime en el proyecto de Supabase (ajuste de producto).
-- **Worker con rol propio (PL-T1):** #238 y #239 necesitan los secretos de base de datos del worker en staging.
-- **Inferencia en la UE:** el AI Gateway no fija la región de los modelos (ADR 0051, propuesto); lo decide producto antes del primer dato real (condición 9, abajo).
+- **Worker con rol propio (PL-T1):** los secretos de base de datos del worker en staging ya están (producto, 2026-11-12); falta mergear la pila (#238 a #268) y ejecutar «Staging · worker» `rls-role` y `rls-connect`.
+- **Inferencia en la UE:** decidido (producto, 2026-11-12, ADR 0051): inferencia global bajo un DPA con cada proveedor, sin afirmación pública de «inferencia en la UE». Lo que falta es la condición: los DPAs firmados (F10) antes del primer dato real (condiciones 3 y 9, abajo).
 - **Sistemas de reservas del lote C (O-02):** Booksy, Treatwell, Koibox, Timp y Wilapp no están en Nango (#247): hay que confirmar si tienen API abierta o hace falta acuerdo de socio, antes de M4.
-- **ADR pendientes de aceptar:** 0049 a 0052 (#195) y el 0046 con el 0024 y el 0029; las seis preguntas del 0046.
+- **ADR:** ya no hay pendientes de aceptar. Se aceptaron el 2026-11-12 el 0023, 0024, 0029, 0046, 0049, 0050, 0051 y 0052 (F13); el 0046 con los valores por defecto que propone el propio ADR para sus seis preguntas, hasta que producto los cambie.
 - **Datos reales:** ninguno hasta cumplir las condiciones de salida a producción (abajo).
 
 ### Próximo: hito M0, seguro para construir rápido
@@ -94,7 +94,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
   - #162 y #164;
   - la guarda desde la rama base (P-01);
   - el workflow de la Revisora (SE01), que espera la clave y una decisión;
-  - CI de `main` sin cancelación (P-04, hecho: #186, #193 y #212; los checks estrictos de la regla de `main` son de producto) y el secreto de las evals fuera de los PRs (P-05, no hecho, bloqueado: lo mueve producto);
+  - CI de `main` sin cancelación (P-04, hecho: #186, #193 y #212; checks estrictos en la regla de `main`, producto 2026-11-12) y el secreto de las evals fuera de los PRs (P-05, no hecho, bloqueado: lo mueve producto);
   - G-03 y G-04 (hechos, #191); D-01 y D-02 (hechos, #192 mergeado en `2a42093`: borrar a una persona del equipo, máquina de estados de las ejecuciones y sin DELETE/TRUNCATE sobre `agent_runs`, `executions` ni `approvals`) y R-08 (hecho, #198 mergeado en `4a4ef82`);
   - los ADR de T1, T4, T6, T10 y del hub;
   - STATUS generado del registro (P-08).
@@ -127,9 +127,13 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 - **Evals:** 30 $ al mes en M0 y M1, con el tope ya puesto en la clave, más 2 € por corrida.
 - **Plataforma de conectores (2026-11-11):** Nango autoalojado en la UE (ADR 0053, aceptado; modifica el 0034 y el 0036).
 
+**Decididas el 2026-11-12 (F13):**
+- **ADR aceptados:** 0023, 0024, 0029, 0046 (con los valores por defecto del propio ADR), 0049, 0050, 0051 y 0052.
+- **Inferencia de los modelos (ADR 0051):** global, bajo un DPA con cada proveedor, en lugar de fijarla a la UE.
+
 **Siguen abiertas:**
 - **Bandeja (V2):** cerrar y reabrir conversaciones; un mensaje del sistema al tomar el control; enseñar el nombre de quien atiende; largo máximo de un mensaje del equipo (WhatsApp admite 4.096 caracteres).
-- **Coach (V3):** las seis preguntas abiertas del ADR 0046 (nombre, cambios de cadena, recomendaciones por semana, patrones entre organizaciones, topes por defecto y grupo mínimo del equipo), y aceptarlo con el 0024 y el 0029.
+- **Coach (V3):** el ADR 0046 está aceptado (2026-11-12) con los valores por defecto del ADR para sus seis preguntas (nombre, cambios de cadena, recomendaciones por semana, patrones entre organizaciones, topes por defecto y grupo mínimo del equipo); producto los puede cambiar.
 - **Web pública (V3):** los precios de los planes; la región del servicio `site` de Railway (hoy en EE. UU.).
 - **Marca:** la comprobación legal de «Moodly», el símbolo definitivo del icono y la tipografía (Geist del diseño frente a la actual, ADR 0018).
 
@@ -137,17 +141,18 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y ya anotadas aquí:
 1. Reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (`sensitive-paths.txt`), y que el job `sensitive-paths` lea la lista de la rama base.
 2. Supabase Pro en la UE, con una restauración de copia probada y la caducidad de sesiones de `config.toml` aplicada.
-3. DPAs firmados con cada proveedor que trate datos, y confirmar que el AI Gateway fija proveedor y modelo con procesamiento en la UE o con un DPA válido.
+3. DPAs firmados con cada proveedor que trate datos (F10), también cada proveedor de modelos, y confirmar que el AI Gateway fija proveedor y modelo o que su DPA es válido. La inferencia ya no se fija a la UE (decisión del 2026-11-12, ADR 0051).
 4. El `KeyProvider` de AWS KMS (`eu-central-1`) y una clave por entorno antes del primer secreto real.
 5. Claves de servidor de staging rotadas; las de producción las genera una persona en Vercel.
 6. URLs de vuelta de Auth exactas en producción (sin comodines).
 7. Registro público cerrado hasta B5/B6 (método de pago y créditos).
 8. Claves por organización (T4) antes del primer mensaje real, y la revisión por la sesión revisora y por producto (decisión #7) en marcha.
-9. **Inferencia en la UE:** hoy los modelos no están fijados a la UE (el AI Gateway no fija la región; ADR 0051, propuesto). Producto decide antes del primer dato real de un cliente; hasta entonces, ninguna afirmación pública de «inferencia en la UE» (la web dice «región de los modelos por confirmar», #241).
+9. **Inferencia en la UE: decidida el 2026-11-12 (ADR 0051).** Inferencia global bajo un DPA con cada proveedor de modelos; la condición que queda es que los DPAs estén firmados antes del primer dato real (F10, condición 3). Ninguna afirmación pública de «inferencia en la UE» (la web dice «región de los modelos por confirmar», #241: hay que cambiarla a algo que no prometa la UE ni diga que falta decidir). La residencia por organización y la ruta UE quedan como opción posterior.
+10. Acceso público de Realtime desactivado también en el proyecto de producción (hoy solo en staging), antes del primer dato real.
 
 
 ## Hecho y verificado
-- Hecho de P-04 y P-05 (#186, #193 y #212): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; staging solo despliega el head actual de `main` con el CI en verde (#212, `056b5c2`); las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. **P-04 está hecho**; activar los checks estrictos en la regla de `main` es de producto (Bloqueado). **P-05 no está hecho:** sigue bloqueado hasta que producto mueva la clave (ver Bloqueado).
+- Hecho de P-04 y P-05 (#186, #193 y #212): el CI de `main` ya no se cancela y alerta con el issue «main en rojo»; staging solo despliega el head actual de `main` con el CI en verde (#212, `056b5c2`); las evals con modelo real salen de los PRs (entorno `evals`, solo `main`) y su tope de 2 € es duro en el código. **P-04 está hecho**; los checks estrictos y «evals · modelo falso» ya están en la regla de `main` (producto, 2026-11-12). **P-05 no está hecho:** sigue bloqueado hasta que producto mueva la clave (ver Bloqueado).
 - Scaffold del monorepo (Fase 0 · tarea 1): pnpm 11 + Turborepo, 13 workspaces vacíos `@repo/*` (`apps/{web,worker}`, `packages/*`), TypeScript strict, ESLint (typescript-eslint strict), Vitest con un test trivial, CI en GitHub Actions y comandos en `AGENTS.md`/`CLAUDE.md` — verificado con una instalación limpia en local (`pnpm install --frozen-lockfile`, `pnpm typecheck`/`lint`/`test`/`build`: 13/13 tareas OK, 1 test pasando), una prueba negativa de las tres puertas (tsc exit 2, eslint exit 1, vitest exit 1) y el CI en verde en el PR (run 36454243122, Node 24.21.0) — 2026-09-28 — https://github.com/dsvmotion/moodly/pull/1
 - Supabase local + primera migración de tenants con RLS (Fase 0 · tarea 2): `organizations`, `regions`, `locations`, `users` y `memberships` con RLS activado y forzado, helpers `security definer` en `private`, guardas de negocio (campos de la organización, columnas inmutables, estado y estructura del local, último `org_admin`) y mínimo privilegio (sin TRUNCATE/REFERENCES/TRIGGER para `authenticated`, nada para `anon`) — verificado con 158 tests pgTAP, pruebas negativas por cada protección, rollback probado, `supabase db lint` limpio, revisión humana aplicada y CI en verde (run 36566349349, Supabase CLI 2.118.0); tras el merge, 158/158 también sobre `main` (`a04b9f8`) — 2026-09-29 — https://github.com/dsvmotion/moodly/pull/2
 - Auth + seed (Fase 0 · tarea 3): seed idempotente solo local (`pnpm db:seed`), Supabase Auth en `apps/web` (Next.js 16.3.6, `@supabase/ssr`), proxy con `getClaims()` y DAL con `getUser()`, página "Mi organización" vía RLS, registro público cerrado y redirección tras login blindada — verificado con 27 e2e por rol y de seguridad (con pruebas negativas), revisión de seguridad de la autenticación (9 puntos) aplicada y CI en verde (run 36700076225); tras el merge, sobre `main` (`b4c26d3`) pasan `pnpm check` 52/52, pgTAP 158/158 y e2e 27/27 — 2026-09-30 — https://github.com/dsvmotion/moodly/pull/3
@@ -278,7 +283,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 
 - WhatsApp real (B19): con la cuenta de Meta for Developers ya creada, falta la cuenta de Meta Business verificada, el número de WhatsApp y la plantilla de recordatorio aprobada por Meta. Hasta entonces, los recordatorios salen por el chat web y el chat de pruebas.
 - Voz: falta la cuenta de ElevenLabs (su clave va en el gestor de secretos, nunca en el chat) y el proveedor de telefonía con número español.
-- Créditos y prueba de 7 días (B5/B6): falta la cuenta de Stripe (la crea producto; en modo de prueba para empezar) y autorizar su conector.
+- Créditos y prueba de 7 días (B5/B6): cuenta de Stripe y conector listos (producto, 2026-11-12); faltan los importes.
 
 ## Próximo: orden anterior (histórico; sustituido el 2026-11-10 por el hito M0, arriba)
 

@@ -33,9 +33,14 @@ function check<T>(result: { data: T; error: { code: string } | null }, what: str
 /** El resumen guardado; si no se puede leer, ninguno (el turno va con la historia entera) y el porqué. */
 export async function loadSummary(db: TenantDb, conversationId: string): Promise<{ summary: StoredSummary | null; error: string | null }> {
   try {
-    const row = check(
-      await db.from("conversation_summaries").select("summary, covered_until").eq("conversation_id", conversationId).maybeSingle(),
-      "el resumen de la conversación",
+    // Por SQL bajo RLS como moodly_worker (ADR 0049, PL-T1). covered_until como
+    // texto ISO con sus microsegundos (to_json): un Date de JS los perdería y el
+    // corte de la historia se movería.
+    const [row] = await db.transaction((sql) =>
+      sql.query<{ summary: string; covered_until: string }>(
+        "select summary, to_json(covered_until) #>> '{}' as covered_until from public.conversation_summaries where conversation_id = $1",
+        [conversationId],
+      ),
     );
     return { summary: row ? { summary: row.summary, coveredUntil: row.covered_until } : null, error: null };
   } catch (error) {
@@ -45,7 +50,14 @@ export async function loadSummary(db: TenantDb, conversationId: string): Promise
 
 /** El nombre del error y, si viene de la base de datos, su código: nunca el mensaje (puede llevar datos). */
 function errorName(error: unknown): string {
-  const code = error instanceof Error ? /\(([A-Z0-9]{5})\)$/.exec(error.message)?.[1] : undefined;
+  // El de pg va en .code; el de PostgREST, al final del mensaje (check).
+  const pgCode = (error as { code?: unknown } | null)?.code;
+  const code =
+    typeof pgCode === "string" && /^[A-Z0-9]{5}$/.test(pgCode)
+      ? pgCode
+      : error instanceof Error
+        ? /\(([A-Z0-9]{5})\)$/.exec(error.message)?.[1]
+        : undefined;
   return `${error instanceof Error ? error.name : "Error"}${code ? `(${code})` : ""}`;
 }
 
@@ -103,13 +115,25 @@ export async function summarizeStep(params: RefreshParams): Promise<SummaryStep>
 /** Guarda el resumen nuevo: una fila por conversación, de la organización de ctx.db. Devuelve el error, sin lanzar. */
 export async function saveSummary(db: TenantDb, conversationId: string, step: Extract<SummaryStep, { kind: "updated" }>): Promise<string | null> {
   try {
-    const values = { summary: step.summary, covered_until: step.coveredUntil, model: step.usage.model };
-    const updated = await db.from("conversation_summaries").update(values).eq("conversation_id", conversationId).select("conversation_id");
-    if (updated.error) throw new Error(`no se pudo guardar el resumen (${updated.error.code})`);
-    if ((updated.data ?? []).length > 0) return null;
-    const inserted = await db.from("conversation_summaries").insert({ conversation_id: conversationId, ...values });
-    // 23505: otro turno lo creó entre medias; se queda el suyo, el siguiente lo pone al día.
-    if (inserted.error && inserted.error.code !== "23505") throw new Error(`no se pudo guardar el resumen (${inserted.error.code})`);
+    // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): poner al día la
+    // fila de la conversación o, si no hay, crearla, en una transacción. Solo la
+    // pisa un resumen que cubre hasta igual o más tarde: si dos turnos terminan
+    // fuera de orden, el resumen viejo no pisa al nuevo (revisión de V10).
+    await db.transaction(async (sql) => {
+      const updated = await sql.query(
+        `update public.conversation_summaries set summary = $2, covered_until = $3, model = $4
+         where conversation_id = $1 and covered_until <= $3 returning conversation_id`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model],
+      );
+      if (updated.length > 0) return;
+      // Sin fila pisada: no la había, o la que hay cubre hasta más tarde (on conflict: se queda esa).
+      // on conflict: ya la había (más nueva, u otro turno la creó entre medias); se queda la suya.
+      await sql.query(
+        `insert into public.conversation_summaries (conversation_id, organization_id, summary, covered_until, model)
+         values ($1, $5, $2, $3, $4) on conflict do nothing`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model, db.organizationId],
+      );
+    });
     return null;
   } catch (error) {
     return errorName(error);
@@ -127,11 +151,16 @@ export async function bookSummaryUsage(
   total: { tokensIn: number; tokensOut: number; costEur: number },
 ): Promise<string | null> {
   try {
-    const { error } = await db
-      .from("agent_runs")
-      .update({ tokens_in: total.tokensIn, tokens_out: total.tokensOut, cost_eur: total.costEur })
-      .eq("id", runId);
-    if (error) throw new Error(`no se pudo apuntar el coste del resumen (${error.code})`);
+    // Como moodly_worker, bajo RLS (PL-T1 3c-1): solo los tokens y el coste, y
+    // con el run ya cerrado solo pueden subir (guard_worker_agent_run).
+    await db.transaction((sql) =>
+      sql.query(
+        `update public.agent_runs
+         set tokens_in = greatest(tokens_in, $2), tokens_out = greatest(tokens_out, $3), cost_eur = greatest(cost_eur, $4)
+         where id = $1`,
+        [runId, total.tokensIn, total.tokensOut, total.costEur],
+      ),
+    );
     return null;
   } catch (error) {
     return errorName(error);

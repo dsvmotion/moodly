@@ -1,6 +1,6 @@
 # 0052 — Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10)
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-11-11
 - **Secciones del MANUAL afectadas:** §3.3 (`packages/channels`), §7.2, §8, §18.0 (arquitectura: T10 «ya»)
 - **Relación:**

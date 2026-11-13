@@ -5,15 +5,22 @@ name: Staging · worker
 #
 #   role           da login al rol dbos_worker con el secreto DBOS_WORKER_DB_PASSWORD
 #                  (como verificador SCRAM: la contraseña en claro no llega a Postgres)
+#   rls-role       lo mismo para moodly_worker (datos de las organizaciones bajo RLS,
+#                  ADR 0049) con el secreto MOODLY_WORKER_DB_PASSWORD
+#   rls-connect    entra como moodly_worker por el pooler en modo sesión, con TLS
+#                  verificado, y comprueba que es el rol, que no se salta RLS y que
+#                  sin organización fijada (o con una que no existe) no ve nada
 #   connect        entra como dbos_worker por el pooler en modo sesión, con TLS verificado
 #   lease          el pooler suelta el lock de un proceso muerto (regla 1)
 #   smoke-enqueue  encola el workflow de comprobación; el worker de Railway lo empieza
 #   smoke-finish   lo despierta por NOTIFY (regla 8) y comprueba que el paso 1 no se
 #                  repitió (con «expect_restart», que el último paso lo hizo otro proceso)
 #
-# Idempotente. Solo toca el rol dbos_worker y el esquema dbos; ningún dato de
-# clientes. Secretos del entorno `staging`: los del despliegue y DBOS_WORKER_DB_PASSWORD
-# (32 o más letras o dígitos; la misma en la variable del servicio de Railway).
+# Idempotente. Solo toca los roles dbos_worker y moodly_worker y el esquema dbos;
+# no lee ni escribe datos de clientes (rls-connect solo cuenta filas visibles,
+# que tienen que ser 0). Secretos del entorno `staging`: los del despliegue,
+# DBOS_WORKER_DB_PASSWORD y MOODLY_WORKER_DB_PASSWORD (32 o más letras o dígitos;
+# las mismas que van en las URLs del servicio de Railway).
 
 on:
   workflow_dispatch:
@@ -22,7 +29,7 @@ on:
         description: Qué hacer
         required: true
         type: choice
-        options: [role, connect, lease, smoke-enqueue, smoke-finish]
+        options: [role, connect, lease, smoke-enqueue, smoke-finish, rls-role, rls-connect]
       workflow_id:
         description: ID del workflow de comprobación (smoke-enqueue y smoke-finish)
         required: false
@@ -54,6 +61,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       DBOS_WORKER_DB_PASSWORD: ${{ secrets.DBOS_WORKER_DB_PASSWORD }}
+      MOODLY_WORKER_DB_PASSWORD: ${{ secrets.MOODLY_WORKER_DB_PASSWORD }}
       # Por variable de entorno, nunca interpolados en el script.
       ACTION: ${{ inputs.action }}
       WORKFLOW_ID: ${{ inputs.workflow_id }}
@@ -62,7 +70,12 @@ jobs:
     steps:
       - name: Entradas válidas
         run: |
-          if [[ ! "$DBOS_WORKER_DB_PASSWORD" =~ ^[A-Za-z0-9]{32,128}$ ]]; then
+          if [[ "$ACTION" == rls-* ]]; then
+            if [[ ! "$MOODLY_WORKER_DB_PASSWORD" =~ ^[A-Za-z0-9]{32,128}$ ]]; then
+              echo "::error::MOODLY_WORKER_DB_PASSWORD falta o no tiene entre 32 y 128 letras o dígitos"
+              exit 1
+            fi
+          elif [[ ! "$DBOS_WORKER_DB_PASSWORD" =~ ^[A-Za-z0-9]{32,128}$ ]]; then
             echo "::error::DBOS_WORKER_DB_PASSWORD falta o no tiene entre 32 y 128 letras o dígitos"
             exit 1
           fi
@@ -98,6 +111,15 @@ jobs:
           rm -f "$RUNNER_TEMP/worker-role.sql"
           echo "Rol dbos_worker con login (verificador SCRAM)."
 
+      - name: Rol moodly_worker con login
+        if: inputs.action == 'rls-role'
+        working-directory: packages/db
+        run: |
+          node bootstrap/worker-role.ts moodly_worker > "$RUNNER_TEMP/worker-role.sql"
+          supabase db query --linked --file "$RUNNER_TEMP/worker-role.sql" > /dev/null
+          rm -f "$RUNNER_TEMP/worker-role.sql"
+          echo "Rol moodly_worker con login (verificador SCRAM)."
+
       # El host del pooler: la variable del entorno si existe; si no, el que
       # guarda `supabase link`. No es secreto: va también en la URL de Railway.
       - name: Pooler en modo sesión
@@ -115,7 +137,7 @@ jobs:
           echo "Pooler en modo sesión: $host:5432 (usuario dbos_worker.$SUPABASE_PROJECT_REF)"
 
       - name: Comprobación
-        if: inputs.action != 'role'
+        if: inputs.action != 'role' && !startsWith(inputs.action, 'rls-')
         env:
           HOST: ${{ steps.pooler.outputs.host }}
         run: |
@@ -127,3 +149,17 @@ jobs:
           url="postgresql://dbos_worker.${SUPABASE_PROJECT_REF}:${DBOS_WORKER_DB_PASSWORD}@${HOST}:5432/postgres?sslmode=verify-full&sslrootcert=${ca}"
           echo "::add-mask::$url"
           WORKER_SYSTEM_DATABASE_URL="$url" node apps/worker/scripts/staging-check.ts "$ACTION" "$WORKFLOW_ID"
+
+      - name: Comprobación de moodly_worker
+        if: inputs.action == 'rls-connect'
+        env:
+          HOST: ${{ steps.pooler.outputs.host }}
+        run: |
+          ca="$GITHUB_WORKSPACE/apps/worker/certs/supabase-prod-ca-2021.crt"
+          if [ ! -f "$ca" ]; then
+            echo "::error::Falta la CA de Supabase en apps/worker/certs (ver su README)"
+            exit 1
+          fi
+          url="postgresql://moodly_worker.${SUPABASE_PROJECT_REF}:${MOODLY_WORKER_DB_PASSWORD}@${HOST}:5432/postgres?sslmode=verify-full&sslrootcert=${ca}"
+          echo "::add-mask::$url"
+          WORKER_DATABASE_URL="$url" node apps/worker/scripts/staging-rls-check.ts

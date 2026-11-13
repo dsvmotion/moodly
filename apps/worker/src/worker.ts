@@ -84,7 +84,14 @@ function dbosLogger(logger: Logger): DLogger {
 }
 
 export function createWorker(config: WorkerConfig, logger: Logger, options: WorkerOptions): Worker {
-  const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
+  const db = createServiceDb({
+    url: config.supabaseUrl,
+    secretKey: config.supabaseSecretKey,
+    workerDatabaseUrl: config.workerDatabaseUrl,
+    // Solo el mensaje (redactado por si llevara la URL): nunca la conexión.
+    onWorkerSqlError: (error) =>
+      logger.warn({ reason: redactConnectionStrings(error.message) }, "error en una conexión libre de moodly_worker"),
+  });
   // Antes de DBOS.launch(): un consumidor puede registrar aquí sus workflows.
   const handlers = typeof options.eventHandlers === "function" ? options.eventHandlers({ db, logger }) : options.eventHandlers;
   const registry = createEventRegistry(handlers);
@@ -93,7 +100,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let ingress: RequestHandler | undefined;
   let launched = false;
   const adapters = new Map((options.channelAdapters ?? []).map((adapter) => [adapter.channel as string, adapter]));
-  let phase: WorkerPhase = "waiting-lease";
+  let phase: WorkerPhase = "checking";
   function channels(request: IncomingMessage, response: ServerResponse): void {
     if (adapters.size === 0) {
       response.writeHead(404, { "content-type": "application/json" }).end("{}");
@@ -116,6 +123,16 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       oldestPendingEventAt: () => db.outbox.oldestPendingAt(),
     },
     async start() {
+      // Antes del lock y de DBOS: sin moodly_worker, cada turno fallaría después
+      // (ADR 0049). Si no entra, el worker no arranca y /health no dice «ok».
+      try {
+        await db.verifyWorkerConnection();
+      } catch (err) {
+        throw new Error(`WORKER_DATABASE_URL: no se pudo entrar como moodly_worker (${redactConnectionStrings((err as Error).message)})`, {
+          cause: err,
+        });
+      }
+      phase = "waiting-lease";
       lease = await acquireExecutorLease({
         connectionString: config.systemDatabaseUrl,
         executorId: config.executorId,
@@ -187,6 +204,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       // Desde aquí, la entrada responde 503 (phase «stopping»): lo nuevo, el proveedor lo reintenta.
       if (launched) await DBOS.shutdown();
       await pool?.end();
+      await db.end();
       await lease?.release();
       logger.info({ executorId: config.executorId }, "worker parado");
     },
