@@ -100,7 +100,7 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
     }
   });
 
-  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, usageSpend, checkBudgetThresholds, budgetNotification) y la transacción bajo RLS", () => {
+  it("no expone upsert ni rpc: solo funciones con nombre y acotadas (searchKnowledge, findBookingSlots, agentTurnContext, approvalNotification, handoffNotification, usageSpend, checkBudgetThresholds, budgetNotification) y la transacción bajo RLS", () => {
     const query = db.from("locations");
     expect(Object.keys(query).sort()).toEqual(["delete", "insert", "select", "update"]);
     expect(Object.keys(db).sort()).toEqual([
@@ -110,6 +110,7 @@ describe("tenantDb: toda consulta queda acotada a la organización", () => {
       "checkBudgetThresholds",
       "findBookingSlots",
       "from",
+      "handoffNotification",
       "organizationId",
       "searchKnowledge",
       "transaction",
@@ -226,6 +227,23 @@ describe("tenantDb.approvalNotification (M-02)", () => {
 
   it("rechaza una aprobación que no es un UUID, sin llamar", async () => {
     await expect(db.approvalNotification(`${APPROVAL},x`)).rejects.toThrow(TenantScopeError);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("tenantDb.handoffNotification (CU3)", () => {
+  const CONVERSATION = "5eed000b-0000-4000-8000-0000000000b2";
+
+  it("llama a handoff_notification con la organización de este acceso", async () => {
+    await db.handoffNotification(CONVERSATION);
+    const { method, url, body } = only();
+    expect(method).toBe("POST");
+    expect(url.pathname).toBe("/rest/v1/rpc/handoff_notification");
+    expect(body).toEqual({ p_organization_id: ORG, p_conversation_id: CONVERSATION });
+  });
+
+  it("rechaza una conversación que no es un UUID, sin llamar", async () => {
+    await expect(db.handoffNotification(`${CONVERSATION},x`)).rejects.toThrow(TenantScopeError);
     expect(sent).toEqual([]);
   });
 });

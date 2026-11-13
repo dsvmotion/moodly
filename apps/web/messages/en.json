@@ -338,10 +338,6 @@
         "description": "Which AI models each agent uses and in which region data is processed.",
         "what": "the agent runtime"
       },
-      "integrations": {
-        "description": "WhatsApp, email, calendar and the rest of your agents' connections.",
-        "what": "channels and integrations"
-      },
       "audit": {
         "description": "Who changed what and when in your organization: access, permissions and settings.",
         "what": "the customer audit log"
@@ -687,6 +683,37 @@
     "errors": {
       "invalid": "Check the fields: the title can be up to 200 characters, the value is a number (a percentage, up to 100) and the due date can't be before the start.",
       "not_allowed": "You can't manage goals in that scope."
+    }
+  },
+  "integrationsPage": {
+    "title": "Integrations",
+    "description": "The business accounts your agents use. You connect them with your own account and can disconnect them at any time.",
+    "adminOnly": "Only organization admins can see and connect integrations.",
+    "mfaRequired": "You need two-step verification to connect or disconnect integrations.",
+    "mfaLink": "Turn it on in Security",
+    "unavailable": "Integrations are not available in this environment yet.",
+    "connect": "Connect",
+    "reconnect": "Reconnect",
+    "disconnect": "Disconnect",
+    "status": {
+      "none": "Not connected",
+      "pending": "Pending",
+      "expired": "Expired: reconnect",
+      "active": "Connected",
+      "error": "Error",
+      "disconnected": "Disconnected"
+    },
+    "providers": {
+      "google-calendar": {
+        "name": "Google Calendar",
+        "description": "Agents check the calendar of your Google account. Read-only for now."
+      }
+    },
+    "errors": {
+      "invalid": "That integration does not exist.",
+      "not_allowed": "You are not allowed to change this integration.",
+      "unavailable": "Integrations are not available in this environment yet.",
+      "platform_failed": "We could not reach the integration provider. Nothing has changed: try again in a few minutes."
     }
   }
 }

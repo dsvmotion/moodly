@@ -9,6 +9,7 @@ import {
   createJoinWaitlistSkill,
   createReceptionSkills,
   createReplySkill,
+  createRequestHumanSkill,
   createSearchKnowledgeSkill,
 } from "@repo/skills";
 import type { FakeConversationSender, ReceptionCatalog, WaitlistEntry, WaitlistStore } from "@repo/skills";
@@ -61,11 +62,12 @@ export const AGENTS = {
       "cancel_appointment",
       "join_waitlist",
       "search_knowledge",
+      "request_human",
       "reply",
     ],
   },
-  // 20261031150000_agent_converse y 20261109210000_search_knowledge.
-  customer: { name: "Atención al cliente", skills: ["search_knowledge", "reply"] },
+  // 20261031150000_agent_converse, 20261109210000_search_knowledge y la de request_human (CU3).
+  customer: { name: "Atención al cliente", skills: ["search_knowledge", "request_human", "reply"] },
 } as const;
 export type AgentKey = keyof typeof AGENTS;
 /** La clave de cada agente de la tabla, para que los casos no la escriban a mano (ADR 0030 §1). */
@@ -260,6 +262,7 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
     ...Object.values(createReceptionSkills({ booking, catalog })),
     createJoinWaitlistSkill({ store: waitlist }),
     createSearchKnowledgeSkill({ retriever: knowledge }),
+    createRequestHumanSkill(),
     createReplySkill({ sender }),
   ] as unknown as SkillDefinition<unknown>[];
   const keys: readonly string[] = AGENTS[agent].skills;
@@ -273,6 +276,7 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
     now: NOW,
     ...(books ? { services: business.services } : {}),
     knowledge: keys.includes("search_knowledge"),
+    handOff: keys.includes("request_human"),
   });
   return {
     agent,

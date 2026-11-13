@@ -27,6 +27,8 @@ export interface PromptContext {
   servicesTruncated?: boolean;
   /** true si el agente puede buscar en el conocimiento del negocio (search_knowledge, B20-2). */
   knowledge?: boolean;
+  /** Si el agente puede pasar la conversación a una persona (request_human, CU3). */
+  handOff?: boolean;
 }
 
 export interface BookableService {
@@ -85,6 +87,13 @@ const KNOWLEDGE_LAYER = [
   "If it returns nothing that answers the question, say that a person from the team will reply. Never make up prices, policies or facts.",
 ].join("\n");
 
+const HAND_OFF_LAYER = [
+  "If the customer asks to talk to a person, call request_human with reason customer_asked instead of replying.",
+  "If they ask for something you cannot do with your tools and this prompt, call request_human with reason out_of_scope.",
+  "Do not use it for questions you can answer, nor when search_knowledge finds nothing: then say that a person from the team will reply.",
+  "Never promise what the team will do.",
+].join("\n");
+
 function localNow(now: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(now);
 }
@@ -111,6 +120,7 @@ export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts 
   ];
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
   if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
+  if (ctx.handOff) layers.push(["Handing over to a person", HAND_OFF_LAYER]);
   const instructions = ctx.instructions?.trim();
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", escapeHeadings(instructions)]);
   return {
