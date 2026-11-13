@@ -517,6 +517,11 @@
       "not_allowed": "No puedes hacerlo aquí: la conversación no es de tu alcance, alguien ya cambió quién la lleva o está cerrada.",
       "channel_unavailable": "Por este canal aún no se puede contestar desde aquí.",
       "failed": "No ha funcionado. Inténtalo de nuevo."
+    },
+    "handoffNotice": {
+      "title": "Te han pasado una conversación",
+      "description": "El agente ha dejado de contestar y la ha pasado al equipo.",
+      "open": "Ver la conversación"
     }
   },
   "testChat": {

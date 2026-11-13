@@ -32,6 +32,19 @@ describe("store de toasts", () => {
     expect(getToasts()[0]?.variant).toBe("error");
   });
 
+  it("conserva una acción con enlace dentro de la app", () => {
+    toast({ title: "Te han pasado una conversación", action: { label: "Ver", href: "/app/inbox/c1" } });
+    expect(getToasts()[0]?.action).toEqual({ label: "Ver", href: "/app/inbox/c1" });
+  });
+
+  it.each(["https://evil.test/app", "//evil.test/app", "javascript:alert(1)", "app/inbox"])(
+    "una acción que no lleva a una ruta de la app (%j) no se guarda",
+    (href) => {
+      toast({ title: "Aviso", action: { label: "Ver", href } });
+      expect(getToasts()[0]?.action).toBeUndefined();
+    },
+  );
+
   it("deja de notificar tras cancelar la suscripción", () => {
     let calls = 0;
     const unsubscribe = subscribeToasts(() => {

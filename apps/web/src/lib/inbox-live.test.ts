@@ -49,6 +49,13 @@ describe("liveEvent", () => {
     });
   });
 
+  it("un paso a una persona (CU3) se reenvía con su conversación, y nada más", () => {
+    expect(liveEvent("handoff", { id: "x", conversation_id: CONVERSATION, mode: "human" })).toEqual({
+      type: "handoff",
+      conversationId: CONVERSATION,
+    });
+  });
+
   it.each([
     ["un evento desconocido", "spoof", { conversation_id: CONVERSATION }],
     ["sin conversación", "message", { op: "INSERT" }],

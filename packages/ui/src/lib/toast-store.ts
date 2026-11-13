@@ -5,7 +5,9 @@
  * sustituye a un estado de error de página.
  */
 export type ToastVariant = "default" | "success" | "error";
-export type ToastItem = { id: string; title: string; description?: string; variant: ToastVariant };
+/** Un enlace dentro de la app («Ver»). Solo rutas relativas de la app: nada que salga a otro sitio. */
+export type ToastAction = { label: string; href: string };
+export type ToastItem = { id: string; title: string; description?: string; variant: ToastVariant; action?: ToastAction };
 
 type Listener = () => void;
 
@@ -29,9 +31,16 @@ export function getToasts(): ToastItem[] {
 
 let counter = 0;
 
-export function toast(input: { title: string; description?: string; variant?: ToastVariant }): string {
+/** Una ruta de la app: empieza por una sola barra (no «//host») y no es un esquema. */
+function isAppPath(href: string): boolean {
+  return href.startsWith("/") && !href.startsWith("//") && !href.startsWith("/\\");
+}
+
+export function toast(input: { title: string; description?: string; variant?: ToastVariant; action?: ToastAction }): string {
   counter += 1;
-  const item: ToastItem = { id: `t${counter}`, variant: "default", ...input };
+  const { action, ...rest } = input;
+  const item: ToastItem = { id: `t${counter}`, variant: "default", ...rest };
+  if (action && isAppPath(action.href)) item.action = action;
   items = [...items, item];
   emit();
   return item.id;
