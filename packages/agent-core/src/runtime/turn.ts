@@ -218,12 +218,27 @@ function toModelMessage(message: HistoryMessage): ModelMessage | null {
   }
 }
 
+/**
+ * Lo que el modelo tiene que hacer ante algunos fallos, dicho en el resultado
+ * de la herramienta (el nombre del error solo no basta: con el modelo real, un
+ * calendario caído acababa en una respuesta con texto y sin pasar a una
+ * persona, O-02). Solo el nombre del error decide la nota; el detalle del
+ * proveedor nunca llega al modelo.
+ */
+export const FAILED_TOOL_NOTES: Readonly<Record<string, string>> = Object.freeze({
+  CalendarUnavailableError:
+    "Availability can't be checked right now (the business's connected calendar is not responding). Do not offer, guess or book any time. Tell the customer, in their language, that you can't confirm availability right now and that a person from the team will help, and call request_human with reason out_of_scope now, in this same turn, even if the customer wants to buy or book: do not ask for more details first.",
+});
+
 function toolResult(execution: TurnExecution): string {
   switch (execution.status) {
     case "executed":
       return JSON.stringify({ status: "executed", output: execution.output });
-    case "failed":
-      return JSON.stringify({ status: "failed", error: execution.error });
+    case "failed": {
+      // Solo claves propias de la tabla: un nombre como «constructor» o «__proto__» no da nota (V10).
+      const note = execution.error && Object.hasOwn(FAILED_TOOL_NOTES, execution.error) ? FAILED_TOOL_NOTES[execution.error] : undefined;
+      return JSON.stringify({ status: "failed", error: execution.error, ...(note ? { note } : {}) });
+    }
     case "rejected":
       return JSON.stringify({ status: "rejected", reason: execution.rejectReason });
     default:

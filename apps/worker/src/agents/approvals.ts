@@ -1,6 +1,8 @@
 import { verifyApproval } from "@repo/agent-core";
 import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
+import type { BusySource, ConnectorPlatform } from "@repo/integrations";
+import { busySourceFor, calendarFor } from "../booking/external-busy.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { isNotAgentMode } from "./conversation-sender.ts";
 
@@ -168,10 +170,16 @@ async function settleRun(db: TenantDb, runId: string): Promise<void> {
 
 export interface ApprovalHandlerOptions {
   /** Las skills de código que el worker sabe ejecutar, sobre los datos de la organización. */
-  skills: (db: TenantDb) => ReadonlyMap<string, SkillDefinition<unknown>>;
+  skills: (db: TenantDb, options?: { externalBusy?: BusySource | null }) => ReadonlyMap<string, SkillDefinition<unknown>>;
+  /**
+   * La plataforma de conectores (Nango). Con ella, una reserva aprobada se
+   * comprueba contra el calendario conectado del local antes de escribirse
+   * (O-02): entre el borrador y la aprobación, la hora pudo ocuparse fuera.
+   */
+  platform?: ConnectorPlatform;
 }
 
-export function createApprovalHandler({ skills }: ApprovalHandlerOptions): EventHandler {
+export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptions): EventHandler {
   return {
     key: APPROVAL_HANDLER_KEY,
     eventTypes: ["approval.decided"],
@@ -179,7 +187,13 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
       const approvalId = String(event.payload["approval_id"]);
       const executionId = String(event.payload["execution_id"]);
       const decision = String(event.payload["decision"]);
-      const loaded = await ctx.step("load", () => load(ctx.db, approvalId, executionId));
+      // El calendario conectado del local de la ejecución (O-02), dentro del mismo
+      // paso «load»: una aprobación a medias de antes de este cambio no trae
+      // `calendar` y sigue sin él (calendarFor explica por qué no es un paso nuevo).
+      const loaded = await ctx.step("load", async () => {
+        const found = await load(ctx.db, approvalId, executionId);
+        return found.kind === "skip" ? found : { ...found, calendar: await calendarFor(ctx.db, platform, found.execution.location_id) };
+      });
       if (loaded.kind === "skip") {
         if (loaded.reason === "superseded") {
           ctx.logger.warn(
@@ -200,7 +214,9 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
 
       // Lo que se ejecuta es lo que se aprobó: mismo hash, aprobada y a tiempo.
       const verdict = verifyApproval(execution, approval);
-      const skill = skills(ctx.db).get(execution.skill_key);
+      // El calendario del local de la ejecución (su fila guardada, nunca lo que dijo el modelo).
+      const externalBusy = busySourceFor(platform, "calendar" in loaded ? loaded.calendar : null, ctx.logger);
+      const skill = skills(ctx.db, externalBusy ? { externalBusy } : {}).get(execution.skill_key);
       if (!verdict.ok || !skill || skill.version !== execution.skill_version) {
         await ctx.step("settle:refused", () => settleExecution(ctx.db, execution.id, "failed"));
         ctx.logger.warn(
