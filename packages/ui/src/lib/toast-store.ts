@@ -31,9 +31,23 @@ export function getToasts(): ToastItem[] {
 
 let counter = 0;
 
-/** Una ruta de la app: empieza por una sola barra (no «//host») y no es un esquema. */
+const INTERNAL_ORIGIN = "https://app.invalid";
+
+/**
+ * Una ruta de la app: empieza por una sola barra, sin caracteres de control ni
+ * «\» (el navegador quita tabuladores y saltos de línea de la URL y lee «\»
+ * como «/»: «/\t/evil.test» acabaría en «//evil.test»), y resuelta como la
+ * resuelve el navegador se queda en el mismo origen (como safeNextPath de la web).
+ */
 function isAppPath(href: string): boolean {
-  return href.startsWith("/") && !href.startsWith("//") && !href.startsWith("/\\");
+  if (!href.startsWith("/") || href.startsWith("//")) return false;
+  // eslint-disable-next-line no-control-regex -- se buscan justo los caracteres de control
+  if (/[\u0000-\u001f\u007f\\]/.test(href)) return false;
+  try {
+    return new URL(href, INTERNAL_ORIGIN).origin === INTERNAL_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 
 export function toast(input: { title: string; description?: string; variant?: ToastVariant; action?: ToastAction }): string {

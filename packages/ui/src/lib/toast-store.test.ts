@@ -37,7 +37,19 @@ describe("store de toasts", () => {
     expect(getToasts()[0]?.action).toEqual({ label: "Ver", href: "/app/inbox/c1" });
   });
 
-  it.each(["https://evil.test/app", "//evil.test/app", "javascript:alert(1)", "app/inbox"])(
+  it.each([
+    "https://evil.test/app",
+    "//evil.test/app",
+    "javascript:alert(1)",
+    "app/inbox",
+    // El navegador quita tabuladores y saltos de línea de la URL (y lee «\» como
+    // «/»): con ellos, «/x/evil.test» acaba en «//evil.test», otro sitio.
+    "/\t/evil.test",
+    "/\n/evil.test",
+    "/\r/evil.test",
+    "/\\evil.test",
+    "/\t\\evil.test",
+  ])(
     "una acción que no lleva a una ruta de la app (%j) no se guarda",
     (href) => {
       toast({ title: "Aviso", action: { label: "Ver", href } });
