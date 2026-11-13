@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { Badge } from "@repo/ui/components/badge";
 import { DataTable, type DataTableColumn } from "@repo/ui/components/data-table";
 import { PreviewAttributes, PreviewDrawer } from "@repo/ui/components/preview-drawer";
+import { OpeningHoursForm } from "@/app/app/settings/locations/hours-form";
 import { summarizeOpeningHours } from "@/lib/records";
 import { useRecordParam } from "./use-record-param";
 import { useTableLabels } from "./use-table-labels";
@@ -20,8 +21,11 @@ export interface LocationRow {
   people: string[];
 }
 
-/** Registros → Locales (P2) con vista previa lateral (P4). */
-export function LocationsTable({ rows }: { rows: LocationRow[] }) {
+/**
+ * Registros → Locales (P2) con vista previa lateral (P4). Con `canEditHours`
+ * (org_admin con aal2, OA04), el horario de cada local se cambia desde ahí.
+ */
+export function LocationsTable({ rows, canEditHours = false }: { rows: LocationRow[]; canEditHours?: boolean }) {
   const t = useTranslations("records");
   const labels = useTableLabels();
   const { selected, open, close } = useRecordParam(rows);
@@ -63,37 +67,40 @@ export function LocationsTable({ rows }: { rows: LocationRow[] }) {
         closeLabel={t("close")}
       >
         {selected ? (
-          <PreviewAttributes
-            items={[
-              { label: t("locations.region"), value: selected.region ?? t("locations.noRegion") },
-              { label: t("locations.status"), value: status(selected.status) },
-              { label: t("locations.timezone"), value: selected.timezone },
-              { label: t("locations.address"), value: selected.address ?? t("locations.noAddress") },
-              {
-                label: t("locations.openingHours"),
-                value:
-                  summarizeOpeningHours(selected.openingHours, {
-                    mon: t("days.mon"),
-                    tue: t("days.tue"),
-                    wed: t("days.wed"),
-                    thu: t("days.thu"),
-                    fri: t("days.fri"),
-                    sat: t("days.sat"),
-                    sun: t("days.sun"),
-                  }) ?? t("locations.noHours"),
-              },
-              {
-                label: t("locations.people"),
-                value: (
-                  <ul data-testid="preview-people">
-                    {selected.people.map((name) => (
-                      <li key={name}>{name}</li>
-                    ))}
-                  </ul>
-                ),
-              },
-            ]}
-          />
+          <div className="flex flex-col gap-4">
+            <PreviewAttributes
+              items={[
+                { label: t("locations.region"), value: selected.region ?? t("locations.noRegion") },
+                { label: t("locations.status"), value: status(selected.status) },
+                { label: t("locations.timezone"), value: selected.timezone },
+                { label: t("locations.address"), value: selected.address ?? t("locations.noAddress") },
+                {
+                  label: t("locations.openingHours"),
+                  value:
+                    summarizeOpeningHours(selected.openingHours, {
+                      mon: t("days.mon"),
+                      tue: t("days.tue"),
+                      wed: t("days.wed"),
+                      thu: t("days.thu"),
+                      fri: t("days.fri"),
+                      sat: t("days.sat"),
+                      sun: t("days.sun"),
+                    }) ?? t("locations.noHours"),
+                },
+                {
+                  label: t("locations.people"),
+                  value: (
+                    <ul data-testid="preview-people">
+                      {selected.people.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  ),
+                },
+              ]}
+            />
+            {canEditHours ? <OpeningHoursForm key={selected.id} locationId={selected.id} openingHours={selected.openingHours} /> : null}
+          </div>
         ) : null}
       </PreviewDrawer>
     </>
