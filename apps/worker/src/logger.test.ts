@@ -122,6 +122,15 @@ describe("createLogger", () => {
     expect(JSON.stringify(lines[0])).not.toContain("ana@example.com");
   });
 
+  it("el valor de un 22P02 se censura también en los errors de un AggregateError", () => {
+    const { lines, logger } = capture();
+    const pgError = Object.assign(new Error('invalid input syntax for type uuid: "ana@example.com"'), { code: "22P02" });
+    const copy = new Error('copia: invalid input syntax for type uuid: "ana@example.com"');
+    logger.error({ err: new AggregateError([copy], "varios", { cause: pgError }) }, "error");
+    logger.error({ err: new AggregateError([copy, pgError], "varios") }, "error");
+    expect(JSON.stringify(lines)).not.toContain("ana@example.com");
+  });
+
   it("una cadena de causas larga se corta y no sale ninguna contraseña", () => {
     const { lines, logger } = capture();
     let err = new Error("raíz postgresql://u:s3cr3t@h/db");

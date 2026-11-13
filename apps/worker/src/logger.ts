@@ -53,16 +53,20 @@ const QUOTED = /"[^"]*"/g;
 
 // pino suma a cada mensaje y pila los de sus causas, y quien envuelve un error
 // suele copiar el mensaje de la causa: basta con un error así en la cadena.
-// Se recorre la cadena entera (pino también la recorre entera), con un Set
-// contra ciclos.
+// Se recorre todo lo que pino serializa (la cadena de causas y los errors de un
+// AggregateError, a cualquier profundidad), con un Set contra ciclos. El
+// resultado vale para todo el error: cada parte se censura igual.
 function carriesPgValue(err: Error): boolean {
   const seen = new Set<Error>();
-  let current: unknown = err;
-  while (current instanceof Error && !seen.has(current)) {
+  const pending: unknown[] = [err];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!(current instanceof Error) || seen.has(current)) continue;
     seen.add(current);
     const code = (current as unknown as Record<string, unknown>)["code"];
     if (typeof code === "string" && PG_VALUE_CLASSES.test(code)) return true;
-    current = current.cause;
+    pending.push(current.cause);
+    if (current instanceof AggregateError) pending.push(...(current.errors as unknown[]));
   }
   return false;
 }
@@ -79,7 +83,7 @@ function serializeError(err: Error, level = 0, pgValues = carriesPgValue(err)): 
   if (level >= MAX_ERROR_CHAIN) return serialized;
   if (err.cause instanceof Error) serialized["cause"] = serializeError(err.cause, level + 1, pgValues);
   if (err instanceof AggregateError) {
-    serialized["errors"] = err.errors.slice(0, 5).map((inner: unknown) => (inner instanceof Error ? serializeError(inner, level + 1) : { type: typeof inner }));
+    serialized["errors"] = err.errors.slice(0, 5).map((inner: unknown) => (inner instanceof Error ? serializeError(inner, level + 1, pgValues) : { type: typeof inner }));
   }
   return serialized;
 }
