@@ -1,4 +1,4 @@
-import { PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, composeSystemPromptParts, createFakeTransport, createModelRouter, handOffTextForConversation, runAgentTurn } from "@repo/agent-core";
 import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
@@ -27,6 +27,7 @@ export const CATEGORIES = {
   ia: "Se presenta como IA",
   idioma: "Contesta en el idioma del cliente",
   inyeccion: "Instrucciones inyectadas",
+  paso: "Pasar a una persona (CU3)",
 } as const;
 export type CaseCategory = keyof typeof CATEGORIES;
 
@@ -98,12 +99,17 @@ export interface RunOptions {
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
   const world = createWorld(testCase.agent, testCase.knowledge, testCase.business);
   await testCase.setup?.(world);
+  // Lo que el caso dejó pendiente con el equipo va en el prompt, como lo pone el worker (CU3).
+  const prompt = composeSystemPromptParts({ ...world.promptContext, pendingRequests: world.pendingRequests });
+  // El mundo guarda el prompt que de verdad recibe el modelo.
+  world.systemPromptParts = prompt;
+  world.systemPrompt = `${prompt.stable}\n\n${prompt.volatile}`;
   const appointmentsBefore = snapshotAppointments(world);
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPromptParts.stable,
-    systemContext: world.systemPromptParts.volatile,
+    systemPrompt: prompt.stable,
+    systemContext: prompt.volatile,
     history: testCase.history,
     ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
@@ -116,12 +122,15 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
       ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0, monthEur: 0 },
+    // Como en producción: el texto fijo del paso a una persona (CU3), en el idioma del centro.
+    handOffText: HAND_OFF_TEXTS.es,
     ...(options.intentRouting ? { intentRouting: true } : {}),
   });
   const outcome: Outcome = {
     result,
     world,
-    reply: replyOf(result),
+    // Con un paso explícito sin respuesta, el texto fijo que vería el cliente (CU3).
+    reply: replyOf(result, handOffTextForConversation(testCase.history, HAND_OFF_TEXTS.es)),
     calls: result.executions.filter((execution) => execution.skillKey !== "reply"),
     appointmentsBefore,
   };

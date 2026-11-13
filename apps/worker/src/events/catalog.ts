@@ -34,9 +34,23 @@ export const eventPayloads = {
     execution_id: z.uuid(),
     run_id: z.uuid(),
   }),
+  // private.emit_conversation_handed_off, en la misma transacción que el paso
+  // de la conversación de 'agent' a 'human' por la plataforma (CU3). Lo consume
+  // notify.handoff_email: el aviso a quien puede llevarla.
+  "conversation.handed_off": z.object({
+    conversation_id: z.uuid(),
+    agent_id: z.uuid(),
+  }),
   // private.emit_message_received, en la misma transacción que el mensaje de un
   // cliente (paso 4d-2). Lo consume agent.converse: el turno del agente.
   "message.received": z.object({
+    conversation_id: z.uuid(),
+    message_id: z.uuid(),
+  }),
+  // private.emit_message_outbound, en la misma transacción que un mensaje que
+  // sale pending por un canal que envía el worker (O-01, 20261113120000). Lo
+  // consume channels.send.
+  "message.outbound": z.object({
     conversation_id: z.uuid(),
     message_id: z.uuid(),
   }),

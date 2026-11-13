@@ -1,13 +1,17 @@
 // Cliente de plataforma (clave secreta de Supabase) para el worker: el único
 // sitio del código de producción que lo crea. No devuelve el cliente: solo un
-// acceso acotado a una organización (tenant-db.ts). Se importa desde
+// acceso acotado a una organización (tenant-db.ts) y dos lecturas entre
+// organizaciones, con nombre y acotadas: los metadatos del outbox (ADR 0009) y
+// la cuenta de un canal por (canal, id externo) (ADR 0052 §2). Se importa desde
 // @repo/db/service, que apps/web tiene prohibido (eslint.config.js).
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
+import { channelAccounts, type ChannelAccounts } from "./channel-accounts.ts";
 import { outbox, type Outbox } from "./outbox.ts";
 import { tenantDb, type TenantDb } from "./tenant-db.ts";
-import { createWorkerSql } from "./worker-sql.ts";
+import { WorkerSqlError, createWorkerSql } from "./worker-sql.ts";
 
+export { ChannelAccountError, type ChannelAccounts, type ResolvedChannelAccount } from "./channel-accounts.ts";
 export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
 export { WorkerSqlError, type TenantSql } from "./worker-sql.ts";
 export {
@@ -15,6 +19,7 @@ export {
   type AgentTurnContext,
   type ApprovalNotification,
   type BudgetNotification,
+  type HandoffNotification,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,
@@ -32,6 +37,18 @@ export interface ServiceDb {
   forOrganization(organizationId: string): TenantDb;
   /** El publicador del outbox: metadatos de los eventos pendientes de todas las organizaciones (ADR 0009). */
   outbox: Outbox;
+  /**
+   * La cuenta de un canal por (canal, id externo), para la entrada de canales
+   * (ADR 0052 §2): id, organización y estado, y nada más. Solo después de
+   * comprobar la firma del proveedor.
+   */
+  channelAccounts: ChannelAccounts;
+  /**
+   * Comprueba que la conexión de moodly_worker funciona (login, rol, sin
+   * BYPASSRLS). El worker la llama al arrancar: si falla, no arranca, en vez de
+   * fallar después en cada turno.
+   */
+  verifyWorkerConnection(): Promise<void>;
   /** Cierra las conexiones SQL del rol moodly_worker, si las hay. */
   end(): Promise<void>;
 }
@@ -54,6 +71,11 @@ export function createServiceDb(options: {
   return {
     forOrganization: (organizationId) => tenantDb(client, organizationId, workerSql),
     outbox: outbox(client),
+    channelAccounts: channelAccounts(client),
+    verifyWorkerConnection: async () => {
+      if (!workerSql) throw new WorkerSqlError("sin WORKER_DATABASE_URL no hay conexión de moodly_worker");
+      await workerSql.verify();
+    },
     end: async () => {
       await workerSql?.end();
     },

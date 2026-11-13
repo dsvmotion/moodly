@@ -25,6 +25,9 @@ export interface RawWebhook {
   rawBody: string;
 }
 
+/** A quién cubre una firma válida. */
+export type VerifiedSender = { scope: "platform" } | { scope: "account"; accountExternalId: string };
+
 /** Lo que trae un webhook, ya normalizado: mensajes nuevos y avisos de estado. */
 export interface ParsedWebhook {
   messages: NormalizedInbound[];
@@ -36,15 +39,24 @@ export interface SendResult {
   providerMessageId: string;
 }
 
-/** Un envío que no salió. retryable: si un reintento puede salir bien (red, 5xx, límite de ritmo). */
+/**
+ * Un envío que falló. retryable: si un reintento puede salir bien (red, 5xx,
+ * límite de ritmo). outcomeUnknown: el proveedor pudo recibirlo y entregarlo
+ * igualmente (corte de red, timeout, 5xx o respuesta sin id). Si además el
+ * proveedor no acepta claves de idempotencia, quien envía no lo repite a
+ * ciegas: un reintento podría duplicarlo al cliente.
+ */
 export class ChannelSendError extends Error {
   override name = "ChannelSendError";
+  readonly outcomeUnknown: boolean;
   constructor(
     message: string,
     readonly retryable: boolean,
     readonly providerCode?: string,
+    options?: ErrorOptions & { outcomeUnknown?: boolean },
   ) {
-    super(message);
+    super(message, options);
+    this.outcomeUnknown = options?.outcomeUnknown ?? false;
   }
 }
 
@@ -56,8 +68,20 @@ export class InvalidSignatureError extends Error {
 export interface ChannelAdapter {
   readonly channel: Channel;
   readonly capabilities: ChannelCapabilities;
-  /** Comprueba la firma con el secreto de la cuenta. Sin firma válida, nada más. */
-  verify(webhook: RawWebhook): Promise<boolean>;
+  /**
+   * Comprueba la firma (en tiempo constante, con el secreto de la plataforma).
+   * Sin firma válida, null y nada más. Con ella, a quién cubre: a toda la
+   * plataforma (p. ej. Meta, que firma con el secreto de la app: cada mensaje
+   * se atribuye por su propia cuenta) o a una sola cuenta (p. ej. el token del
+   * chat web: solo valen los mensajes de esa cuenta).
+   */
+  verify(webhook: RawWebhook): Promise<VerifiedSender | null>;
+  /**
+   * La comprobación del webhook que hacen algunos proveedores al darlo de alta
+   * (p. ej. el GET de Meta con hub.challenge): la respuesta en texto si la
+   * petición es buena, null si no. Los canales sin ella no la definen.
+   */
+  handshake?(query: URLSearchParams): string | null;
   /** Traduce un webhook ya verificado. Lo que no entiende lo ignora; nunca inventa un tenant. */
   parse(webhook: RawWebhook): ParsedWebhook;
   /** Envía un mensaje ya validado. Idempotente con message.idempotencyKey cuando el proveedor lo permite. */

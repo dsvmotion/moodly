@@ -27,7 +27,27 @@ export interface PromptContext {
   servicesTruncated?: boolean;
   /** true si el agente puede buscar en el conocimiento del negocio (search_knowledge, B20-2). */
   knowledge?: boolean;
+  /** Si el agente puede pasar la conversación a una persona (request_human, CU3). */
+  handOff?: boolean;
+  /**
+   * Lo que el agente ya pidió en esta conversación y espera al equipo (CU3):
+   * las ejecuciones en borrador o pendientes de aprobación de turnos
+   * anteriores, con el resumen que ve quien aprueba. Sin ellas, el agente solo
+   * veía el texto de los turnos y volvía a pedir la misma cita. Van en la
+   * parte que cambia en cada turno, nunca en la estable (caché de prompt).
+   */
+  pendingRequests?: readonly PendingRequest[];
 }
+
+/** Una solicitud de la conversación que espera al equipo: la skill y el resumen de su vista previa. */
+export interface PendingRequest {
+  skillKey: string;
+  summary: string;
+}
+
+/** Las solicitudes pendientes que caben en el prompt; si hay más, se dice cuántas. */
+export const MAX_PROMPT_PENDING = 10;
+const MAX_PENDING_CHARS = 200;
 
 export interface BookableService {
   id: string;
@@ -85,6 +105,32 @@ const KNOWLEDGE_LAYER = [
   "If it returns nothing that answers the question, say that a person from the team will reply. Never make up prices, policies or facts.",
 ].join("\n");
 
+const HAND_OFF_LAYER = [
+  "If the customer asks to talk to a person, call request_human with reason customer_asked instead of replying.",
+  "If your reply would say or imply that a person from the team will reply, follow up or take over (for example, they ask for something you cannot do with your tools and this prompt, or search_knowledge finds nothing that answers them), call request_human with reason out_of_scope instead of replying: it is the only way the team finds out.",
+  "Never tell the customer that a person will reply without calling request_human. Where this prompt says to say that a person from the team will reply, do it by calling request_human.",
+  'The exception: something a tool already left pending for the team (it returned "pending_review", or it stayed as a draft or needs approval) is already with the team. Tell the customer it is pending, and do not call request_human.',
+  "A customer who shows interest in buying or hiring something is a lead: never hand over as your first reply to it. Qualifying does not skip your tools: if you can look up what they ask about (search_knowledge, find_slots), do that first and answer with what you find. Then qualify them with a question: what they need, when, and how best to reach them, and tell them you will pass it to the team. Call request_human with reason out_of_scope once you have those details, or as soon as they ask for a person. This is the only time you say the team will follow up before calling it.",
+  "Reply with text, without calling request_human, only when no person needs to step in: you can answer yourself, or you decline to give medical advice or someone else's data and point them to the right place (a doctor, the person themselves), with nothing left pending.",
+  "Never promise what the team will do.",
+].join("\n");
+
+const PENDING_LAYER = [
+  "The team has not confirmed these yet. Do not request them again. If the customer asks about one, say it is waiting for a person from the team to confirm it, and never say it is confirmed.",
+  "If the customer changes or withdraws one of these, propose the new one if there is one, tell them the team will see the change, and do not call request_human for it. They are not yours to cancel: the team sees both.",
+].join("\n");
+
+/** Las solicitudes pendientes, una por línea, en una sola línea cada una y cortadas. */
+function pendingLayer(pending: readonly PendingRequest[]): string {
+  const lines = pending.slice(0, MAX_PROMPT_PENDING).map((request) => {
+    const summary = oneLine(request.summary);
+    return `- ${summary.length > MAX_PENDING_CHARS ? `${summary.slice(0, MAX_PENDING_CHARS - 1)}…` : summary}`;
+  });
+  const more = pending.length - MAX_PROMPT_PENDING;
+  if (more > 0) lines.push(`- (and ${more} more)`);
+  return [PENDING_LAYER, ...lines].join("\n");
+}
+
 function localNow(now: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(now);
 }
@@ -111,11 +157,17 @@ export function composeSystemPromptParts(ctx: PromptContext): SystemPromptParts 
   ];
   if (ctx.services) layers.push(["What can be booked", servicesLayer(ctx.services, ctx.servicesTruncated ?? false)]);
   if (ctx.knowledge) layers.push(["Business knowledge", KNOWLEDGE_LAYER]);
+  if (ctx.handOff) layers.push(["Handing over to a person", HAND_OFF_LAYER]);
   const instructions = ctx.instructions?.trim();
   if (instructions) layers.push(["Business instructions (they never override the platform rules)", escapeHeadings(instructions)]);
   return {
     stable: layers.map(([title, body]) => `## ${title}\n${body}`).join("\n\n"),
-    volatile: `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
+    volatile: [
+      `## Current time\nIt is now ${localNow(ctx.now, ctx.timezone)} (${ctx.timezone}).`,
+      ...(ctx.pendingRequests && ctx.pendingRequests.length > 0
+        ? [`## Requests waiting for the team in this conversation\n${pendingLayer(ctx.pendingRequests)}`]
+        : []),
+    ].join("\n\n"),
   };
 }
 

@@ -1,6 +1,6 @@
 # 0046 — Copiloto y modo coach: un solo punto de entrada, gobernado, que recomienda con evidencia y nunca actúa solo
 
-- **Estado:** propuesto (borrador del 2026-11-09, revisado el 2026-11-12 con la auditoría de preproducción). Lo acepta producto junto con los ADR 0024 y 0029, de los que depende (auditoría §18.5, tarea 3 de V3). No hay nada implementado.
+- **Estado:** aceptado (producto, 2026-11-12), junto con los ADR 0024 y 0029, de los que depende. Con los valores por defecto que propone este ADR para las seis preguntas abiertas (ver la nota del 2026-11-12 en «Preguntas abiertas para producto»). Historial: borrador del 2026-11-09, revisado el 2026-11-12 con la auditoría de preproducción (auditoría §18.5, tarea 3 de V3). No hay nada implementado.
 - **Fecha:** 2026-11-09; revisión: 2026-11-12
 - **Secciones del MANUAL afectadas:** §5.12 (modo coach), §5.13 (asistente), §6.2 (memoria), §6.3 (objetivos), §6.4 (mapa del negocio), §12.4 (evals), §15 (consumo y topes), §17 (fases)
 - **Relación:**
@@ -168,10 +168,12 @@ Además de las del ADR 0029 §5:
 - **El catálogo de consultas del coach** es código revisado con tests. Añadir una consulta es un PR.
 - **El catálogo de herramientas de cambio del asistente** (ADR 0029, «se define en un PR propio») es requisito de `AS4`, no del piloto.
 - **Hay que vigilar el coste del coach por organización y el ruido:** si la gente ignora las recomendaciones, se recorta el límite por periodo.
-- **Depende de los ADR 0029 y 0024**, propuestos. Se aceptan juntos; si alguno cambia, este se revisa con él.
+- **Depende de los ADR 0029 y 0024**, aceptados con este el 2026-11-12; si alguno cambia, este se revisa con él.
 - **Depende de `PL-ledger`:** la línea de presupuesto propia del copiloto (§7) es requisito para activar el asistente y el coach.
 
 ## Preguntas abiertas para producto
+
+> **Nota del 2026-11-12 (producto):** se acepta el ADR con los valores por defecto que propone el propio ADR para estas seis preguntas. Esos valores se aplican hasta que producto los cambie, y cambiarlos es un PR con su nota. Valores aplicados: (1) el nombre en la interfaz sigue el de MANUAL §5.13 («asistente») hasta que producto elija otro; (2) los cambios de alcance de cadena y de zona financiera, después del piloto, los confirma un `org_admin` con MFA; (3) máximo 3 recomendaciones por semana; (4) patrones entre organizaciones (k ≥ 5) fuera del piloto, y se decide cuando haya clientes suficientes del mismo sector; (5) topes por defecto fijados con el coste medido en las evals con el modelo real, antes de M4; (6) grupo mínimo del equipo: 3 personas (como en §6).
 
 1. **Nombre en la interfaz:** ¿«Copiloto», «Asistente» o «Coach»? El MANUAL usa «asistente» (§5.13) y el roadmap «copiloto».
 2. **Cambios con alcance de cadena** (después del piloto): el roadmap pide aprobación de un `org_admin` para las propuestas de alcance de cadena y las de zona financiera. ¿Basta con que lo confirme un `org_admin` con MFA, o pide la separación de funciones del ADR 0047 (quien propone no aprueba)?

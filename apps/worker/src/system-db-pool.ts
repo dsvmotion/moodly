@@ -2,7 +2,8 @@ import pg from "pg";
 import type { Logger } from "pino";
 
 // Pool de la base de datos de sistema de DBOS. Lo crea el worker, no DBOS, por
-// un fallo de DBOS 5.3.0 (igual en 5.4.0 y en 5.5.5-preview): su pool propio
+// un fallo de DBOS 5.3.0 (igual en 5.4.0, revisado al subir a ella, y en
+// 5.5.5-preview; tamaño, timeouts y application_name, también iguales): su pool propio
 // lanza `SET idle_in_transaction_session_timeout` desde el evento `connect` de
 // pg-pool, que llega antes de que la conexión esté lista para consultas. El SET
 // se queda en la cola del cliente y la primera consulta de quien pidió la

@@ -2,7 +2,10 @@ import { DBOS, Error as DBOSErrors } from "@dbos-inc/dbos-sdk";
 import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { isEventType, parsePayload } from "./catalog.ts";
-import { StepRetriesExhaustedError, type DeliveryQueue, type DomainEvent, type EventRegistry } from "./handlers.ts";
+import { DB_STEP, StepRetriesExhaustedError, type DeliveryQueue, type DomainEvent, type EventRegistry } from "./handlers.ts";
+
+// Las lecturas del outbox con DBOS.runStep directo: los reintentos de DB_STEP.
+const DB_RUN_STEP = { retriesAllowed: true, ...DB_STEP } as const;
 
 // Publicador y entregas del outbox (MANUAL §5.8, ADR 0009, ADR 0027):
 //
@@ -55,8 +58,6 @@ export interface OutboxOptions {
   logger: Logger;
 }
 
-// Lecturas de la base de datos: reintentos cortos, por si PostgREST falla un momento.
-const DB_STEP = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 } as const;
 
 interface EventRow {
   id: string;
@@ -91,7 +92,7 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
       return "unknown-handler";
     }
     const tenant = db.forOrganization(input.organizationId);
-    const row = await DBOS.runStep(() => loadEvent(tenant, input.eventId), { name: "load", ...DB_STEP });
+    const row = await DBOS.runStep(() => loadEvent(tenant, input.eventId), { name: "load", ...DB_RUN_STEP });
     if (!row) {
       log.warn({ eventId: input.eventId, organizationId: input.organizationId }, "el evento no está en su organización");
       return "missing";
@@ -127,24 +128,33 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 
   const deliverWorkflow = DBOS.registerWorkflow(deliver, { name: DELIVER_WORKFLOW });
 
+  /**
+   * Encola una entrega por consumidor suscrito, con el id determinista: si ya
+   * estaba encolada (por el publicador o por la entrada de canales), DBOS
+   * devuelve la que existe. Devuelve cuántas.
+   */
+  async function enqueueDeliveries(event: { id: string; organizationId: string; type: string }): Promise<number> {
+    let deliveries = 0;
+    for (const handler of registry.handlersFor(event.type)) {
+      await DBOS.startWorkflow(deliverWorkflow, {
+        workflowID: deliveryWorkflowId(event.id, handler.key),
+        queueName: handler.queue ?? EVENTS_QUEUE,
+        workflowIDReusePolicy: "return-existing",
+      })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
+      deliveries += 1;
+    }
+    return deliveries;
+  }
+
   // DBOS lo llama con la hora programada y un contexto; no usa ninguno de los dos.
   async function publish(): Promise<void> {
-    const pending = await DBOS.runStep(() => db.outbox.pending(BATCH), { name: "pending", ...DB_STEP });
+    const pending = await DBOS.runStep(() => db.outbox.pending(BATCH), { name: "pending", ...DB_RUN_STEP });
     if (pending.length === 0) return;
     let deliveries = 0;
-    for (const event of pending) {
-      for (const handler of registry.handlersFor(event.type)) {
-        await DBOS.startWorkflow(deliverWorkflow, {
-          workflowID: deliveryWorkflowId(event.id, handler.key),
-          queueName: handler.queue ?? EVENTS_QUEUE,
-          workflowIDReusePolicy: "return-existing",
-        })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
-        deliveries += 1;
-      }
-    }
+    for (const event of pending) deliveries += await enqueueDeliveries(event);
     const published = await DBOS.runStep(() => db.outbox.markPublished(pending.map((event) => event.id)), {
       name: "mark-published",
-      ...DB_STEP,
+      ...DB_RUN_STEP,
     });
     log.info({ events: pending.length, deliveries, published }, "eventos publicados");
   }
@@ -173,13 +183,13 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
           if (old.length < PRUNE_PAGE) return total;
         }
       },
-      { name: "prune", ...DB_STEP },
+      { name: "prune", ...DB_RUN_STEP },
     );
     if (deleted > 0) log.info({ deleted }, "vueltas terminadas del publicador borradas");
   }
 
   const pruneWorkflow = DBOS.registerWorkflow(prune, { name: PRUNE_WORKFLOW });
-  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow };
+  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow, enqueueDeliveries };
 }
 
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */

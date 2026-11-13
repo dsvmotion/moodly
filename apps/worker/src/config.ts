@@ -1,4 +1,5 @@
 import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
+import { parseKoiboxApiBase, parseNangoHost } from "@repo/integrations";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -18,6 +19,12 @@ export interface WorkerConfig {
   /** API de Supabase y su clave secreta: los datos de las organizaciones (createServiceDb, ADR 0009). */
   supabaseUrl: string;
   supabaseSecretKey: string;
+  /**
+   * Los datos de las organizaciones por SQL bajo RLS, con el rol moodly_worker
+   * (ADR 0049, PL-T1): forOrganization(org).transaction. @repo/db comprueba al
+   * conectar que la conexión es de verdad moodly_worker y no se salta RLS.
+   */
+  workerDatabaseUrl: string;
   /**
    * La clave de Vercel AI Gateway (ADR 0033 §7). Opcional: sin ella no hay
    * modelo, y cada conversación pasa a una persona en vez de quedarse sin
@@ -39,6 +46,26 @@ export interface WorkerConfig {
   intentRouting: boolean;
   /** Puerto del endpoint de salud (PL-health). Railway da PORT; en local, 8080 por defecto. */
   healthPort: number;
+  /**
+   * Nango, la plataforma de conectores (O-02, ADR 0053). Sin la clave secreta o
+   * sin la de firma de los webhooks no se monta /webhooks/nango y ninguna
+   * integración de plataforma se activa. Nunca van a los logs.
+   */
+  nango: { secretKey: string; webhookSigningKey: string; host: string } | null;
+  /**
+   * La URL base de la API de Koibox (int-koibox, O-02): KOIBOX_API_BASE, por
+   * defecto la de Koibox. https, o http solo en loopback (el stub de los tests).
+   * Nunca de una organización. La clave de cada centro va cifrada en
+   * integration_secrets (ADR 0034).
+   */
+  koiboxApiBase: string;
+  /**
+   * WhatsApp por la Cloud API de Meta (O-01, ADR 0020): el secreto de la app
+   * (firma de los webhooks), el token de verificación del alta y el token de
+   * acceso (envíos). Las tres o ninguna: sin ellas no se abre /channels/whatsapp.
+   * Nunca van a los logs.
+   */
+  whatsapp: { appSecret: string; verifyToken: string; accessToken: string } | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -60,6 +87,17 @@ const systemDatabaseUrl = z
     "WORKER_SYSTEM_DATABASE_URL apunta al pooler en modo transacción (6543): DBOS necesita una conexión de sesión o directa",
   );
 
+// moodly_worker: directo («moodly_worker») o por el pooler de Supabase
+// («moodly_worker.<ref>»). Cualquier otro usuario (postgres, service_role) se
+// saltaría RLS; @repo/db lo vuelve a comprobar en cada conexión.
+const workerDatabaseUrl = z
+  .string({ error: "falta WORKER_DATABASE_URL" })
+  .refine((value) => {
+    if (!URL.canParse(value)) return false;
+    const url = new URL(value);
+    return (url.protocol === "postgres:" || url.protocol === "postgresql:") && /^moodly_worker(\.[a-z0-9]+)?$/.test(decodeURIComponent(url.username));
+  }, "WORKER_DATABASE_URL: una URL de Postgres con el usuario moodly_worker (o moodly_worker.<ref> por el pooler)");
+
 // HTTPS fuera de local: la clave secreta viaja en cada petición.
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const supabaseUrl = z
@@ -70,6 +108,16 @@ const supabaseUrl = z
     if (url.username || url.password || url.search || url.hash) return false;
     return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
   }, "SUPABASE_URL: https://… (o http:// solo en local), sin credenciales ni parámetros");
+
+/** Un secreto opcional de una sola palabra de caracteres visibles; vacío cuenta como ausente. El mensaje nunca lleva el valor. */
+function visibleSecret(name: string, min: number, max: number) {
+  const pattern = new RegExp(`^[\\x21-\\x7e]{${min},${max}}$`);
+  return z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || pattern.test(value), `${name} no parece un secreto: de ${min} a ${max} caracteres visibles, sin espacios`)
+    .optional();
+}
 
 const schema = z.object({
   WORKER_SYSTEM_DATABASE_URL: systemDatabaseUrl,
@@ -85,6 +133,7 @@ const schema = z.object({
     .regex(/^[0-9a-f]{7,40}$/, "RAILWAY_GIT_COMMIT_SHA no es un commit")
     .optional(),
   SUPABASE_URL: supabaseUrl,
+  WORKER_DATABASE_URL: workerDatabaseUrl,
   SUPABASE_SECRET_KEY: z
     .string({ error: "falta SUPABASE_SECRET_KEY" })
     .regex(/^sb_secret_[A-Za-z0-9_-]{16,200}$/, "SUPABASE_SECRET_KEY no es una clave secreta de Supabase (sb_secret_…)"),
@@ -118,6 +167,44 @@ const schema = z.object({
       return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
     }, "WEB_APP_URL: https://dominio (o http:// solo en local), sin ruta, credenciales ni parámetros")
     .optional(),
+  // Nango (O-02). Vacías cuentan como ausentes. La URL base: https, o http solo en loopback.
+  NANGO_API_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "NANGO_API_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
+    .optional(),
+  NANGO_WEBHOOK_SIGNING_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || /^[\x21-\x7e]{16,512}$/.test(value), "NANGO_WEBHOOK_SIGNING_KEY no parece una clave: de 16 a 512 caracteres visibles, sin espacios")
+    .optional(),
+  NANGO_HOST: z
+    .string()
+    .refine((value) => {
+      try {
+        parseNangoHost(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "NANGO_HOST: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
+    .optional(),
+  // Koibox (O-02): la URL base, https o http solo en loopback. Vacía cuenta como ausente.
+  KOIBOX_API_BASE: z
+    .string()
+    .refine((value) => {
+      try {
+        parseKoiboxApiBase(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "KOIBOX_API_BASE: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
+    .optional(),
+  // WhatsApp Cloud API (O-01). Vacías cuentan como ausentes; las tres o ninguna.
+  WHATSAPP_APP_SECRET: visibleSecret("WHATSAPP_APP_SECRET", 16, 512),
+  WHATSAPP_VERIFY_TOKEN: visibleSecret("WHATSAPP_VERIFY_TOKEN", 16, 512),
+  WHATSAPP_ACCESS_TOKEN: visibleSecret("WHATSAPP_ACCESS_TOKEN", 16, 2048),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -144,11 +231,31 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     gitCommit: parsed.data.RAILWAY_GIT_COMMIT_SHA ?? null,
     supabaseUrl: parsed.data.SUPABASE_URL.replace(/\/+$/, ""),
     supabaseSecretKey: parsed.data.SUPABASE_SECRET_KEY,
+    workerDatabaseUrl: parsed.data.WORKER_DATABASE_URL,
     aiGatewayApiKey: parsed.data.AI_GATEWAY_API_KEY || null,
     resendApiKey: parsed.data.RESEND_API_KEY || null,
     webAppUrl: parsed.data.WEB_APP_URL || null,
     // Vacía cuenta como ausente (así se quita en Railway sin borrar la variable).
     intentRouting: !parsed.data.INTENT_ROUTING ? INTENT_ROUTING_DEFAULT_ENABLED : ["on", "true", "1"].includes(parsed.data.INTENT_ROUTING),
     healthPort: Number(parsed.data.PORT ?? "8080"),
+    nango:
+      parsed.data.NANGO_API_KEY && parsed.data.NANGO_WEBHOOK_SIGNING_KEY
+        ? {
+            secretKey: parsed.data.NANGO_API_KEY,
+            webhookSigningKey: parsed.data.NANGO_WEBHOOK_SIGNING_KEY,
+            host: parseNangoHost(parsed.data.NANGO_HOST),
+          }
+        : null,
+    koiboxApiBase: parseKoiboxApiBase(parsed.data.KOIBOX_API_BASE),
+    whatsapp: whatsappConfig(parsed.data),
   };
+}
+
+function whatsappConfig(data: { WHATSAPP_APP_SECRET?: string | undefined; WHATSAPP_VERIFY_TOKEN?: string | undefined; WHATSAPP_ACCESS_TOKEN?: string | undefined }): WorkerConfig["whatsapp"] {
+  const values = { appSecret: data.WHATSAPP_APP_SECRET || "", verifyToken: data.WHATSAPP_VERIFY_TOKEN || "", accessToken: data.WHATSAPP_ACCESS_TOKEN || "" };
+  const present = Object.values(values).filter(Boolean).length;
+  if (present === 0) return null;
+  // A medias es un error de configuración, no «sin WhatsApp»: se dice al arrancar.
+  if (present < 3) throw new WorkerConfigError("Configuración del worker no válida: WhatsApp necesita WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN, las tres o ninguna");
+  return values;
 }

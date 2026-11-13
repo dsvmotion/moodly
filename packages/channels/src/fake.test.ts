@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ChannelSendError } from "./adapter.js";
-import { FAKE_SIGNATURE_HEADER, createFakeAdapter } from "./fake.js";
+import { FAKE_ACCOUNT_HEADER, FAKE_SIGNATURE_HEADER, createFakeAdapter, fakeSignature } from "./fake.js";
 import { normalizedOutboundSchema } from "./message.js";
 
 const outbound = normalizedOutboundSchema.parse({
@@ -14,9 +14,22 @@ const outbound = normalizedOutboundSchema.parse({
 describe("el adaptador de prueba cumple el contrato", () => {
   it("sin la firma correcta no verifica", async () => {
     const adapter = createFakeAdapter({ secret: "s3cr3t" });
-    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "s3cr3t" }, rawBody: "{}" })).resolves.toBe(true);
-    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "otra" }, rawBody: "{}" })).resolves.toBe(false);
-    await expect(adapter.verify({ headers: {}, rawBody: "{}" })).resolves.toBe(false);
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}"), rawBody: "{}" })).resolves.toEqual({ scope: "platform" });
+    await expect(adapter.verify({ headers: fakeSignature("otra", "{}"), rawBody: "{}" })).resolves.toBeNull();
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}"), rawBody: '{"x":1}' })).resolves.toBeNull();
+    await expect(adapter.verify({ headers: { [FAKE_SIGNATURE_HEADER]: "s3cr3t" }, rawBody: "{}" })).resolves.toBeNull();
+    await expect(adapter.verify({ headers: {}, rawBody: "{}" })).resolves.toBeNull();
+  });
+
+  it("con scope de cuenta, la firma cubre la cuenta y el cuerpo: cambiar la cuenta la invalida", async () => {
+    const adapter = createFakeAdapter({ secret: "s3cr3t", scope: "account" });
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}", "w-1"), rawBody: "{}" })).resolves.toEqual({
+      scope: "account",
+      accountExternalId: "w-1",
+    });
+    const forged = { ...fakeSignature("s3cr3t", "{}", "w-1"), [FAKE_ACCOUNT_HEADER]: "w-2" };
+    await expect(adapter.verify({ headers: forged, rawBody: "{}" })).resolves.toBeNull();
+    await expect(adapter.verify({ headers: fakeSignature("s3cr3t", "{}"), rawBody: "{}" })).resolves.toBeNull();
   });
 
   it("traduce mensajes y avisos de estado, y rechaza un mensaje mal formado", () => {
@@ -29,7 +42,7 @@ describe("el adaptador de prueba cumple el contrato", () => {
       receivedAt: "2026-11-11T10:00:00Z",
       text: "Hola",
     };
-    const status = { providerMessageId: "fake-1", status: "delivered", at: "2026-11-11T10:00:05Z" };
+    const status = { channel: "webchat", accountExternalId: "w-1", providerMessageId: "fake-1", status: "delivered", at: "2026-11-11T10:00:05Z" };
     const parsed = adapter.parse({ headers: {}, rawBody: JSON.stringify({ messages: [message], statuses: [status] }) });
     expect(parsed.messages).toHaveLength(1);
     expect(parsed.statuses).toEqual([status]);

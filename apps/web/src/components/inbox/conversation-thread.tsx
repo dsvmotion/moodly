@@ -120,7 +120,9 @@ async function Message({
     );
   }
   const who = message.author === "agent" && agentLabel ? agentLabel : t(`author.${message.author}`);
-  const problem = message.status === "failed" ? "failed" : message.status === "pending" ? "pending" : null;
+  // «unknown» (O-01): salió sin saber si llegó; no se repite solo (podría duplicarse).
+  const problem =
+    message.status === "failed" || message.status === "pending" || message.status === "unknown" ? message.status : null;
   return (
     <li
       className={cn("flex flex-col gap-1", side === "start" ? "items-start" : "items-end")}

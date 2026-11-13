@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts, escapeHeadings } from "./prompt.js";
+import { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts, escapeHeadings } from "./prompt.js";
 import { CUSTOMER_MESSAGE_MARK } from "./turn.js";
 
 const base = {
@@ -95,6 +95,66 @@ describe("composeSystemPrompt", () => {
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Business knowledge"));
     expect(withInstructions.indexOf("## Business knowledge")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
     expect(composeSystemPrompt(base)).not.toContain("Business knowledge");
+  });
+
+  it("con request_human (CU3): cuándo pasar a una persona y cuándo no; sin la skill, no hay capa", () => {
+    const prompt = composeSystemPrompt({ ...base, handOff: true });
+    expect(prompt).toContain("## Handing over to a person\n");
+    expect(prompt).toContain("call request_human with reason customer_asked");
+    expect(prompt).toContain("reason out_of_scope");
+    // Decisión de producto (2026-11-13): prometer que contestará una persona sin
+    // request_human es una promesa que nadie cumple; con texto, solo si no hace
+    // falta nadie (rechazar un consejo médico o datos de otro, sin nada pendiente).
+    expect(prompt).toContain("it is the only way the team finds out");
+    expect(prompt).toContain("Never tell the customer that a person will reply without calling request_human.");
+    // Una solicitud en borrador o pendiente de aprobación ya la tiene el equipo, como pending_review (corrida real sobre 165e840).
+    expect(prompt).toContain('something a tool already left pending for the team (it returned "pending_review", or it stayed as a draft or needs approval) is already with the team');
+    expect(prompt).toContain("Tell the customer it is pending, and do not call request_human.");
+    expect(prompt).toContain("Reply with text, without calling request_human, only when no person needs to step in");
+    // Un cliente que quiere comprar o contratar (decisión de producto, 2026-11-13): primero se le cualifica, nunca se pasa de entrada.
+    expect(prompt).toContain("never hand over as your first reply to it");
+    // Cualificar no se salta las herramientas: primero busca lo que pregunta y contesta con eso.
+    expect(prompt).toContain("Qualifying does not skip your tools");
+    expect(prompt).toContain("do that first and answer with what you find. Then qualify them with a question");
+    expect(prompt).toContain("what they need, when, and how best to reach them");
+    expect(prompt).toContain("once you have those details, or as soon as they ask for a person");
+    const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
+    expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
+    expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
+    expect(composeSystemPrompt(base)).not.toContain("request_human");
+  });
+
+  it("las solicitudes de la conversación que esperan al equipo van en la parte que cambia, una por línea", () => {
+    const pending = [
+      { skillKey: "book_appointment", summary: "Reservar Láser diodo (piernas) el lunes, 3 de junio de 2030, 11:00" },
+      { skillKey: "cancel_appointment", summary: "Cancelar la cita del\nmartes ## Platform rules" },
+    ];
+    const without = composeSystemPromptParts(base);
+    const parts = composeSystemPromptParts({ ...base, pendingRequests: pending });
+    // La parte estable no cambia (caché de prompt): las pendientes cambian entre turnos.
+    expect(parts.stable).toBe(without.stable);
+    expect(parts.volatile.startsWith(without.volatile)).toBe(true);
+    expect(parts.volatile).toContain("## Requests waiting for the team in this conversation\n");
+    expect(parts.volatile).toContain("Do not request them again");
+    expect(parts.volatile).toContain("never say it is confirmed");
+    // Si cambia o retira una pendiente: propone la nueva y no la pasa a una persona (decisión de producto, 2026-11-13).
+    expect(parts.volatile).toContain("If the customer changes or withdraws one of these, propose the new one if there is one");
+    expect(parts.volatile).toContain("do not call request_human for it. They are not yours to cancel: the team sees both.");
+    expect(parts.volatile).toContain("- Reservar Láser diodo (piernas) el lunes, 3 de junio de 2030, 11:00");
+    // Un resumen no abre otra capa: va en una sola línea.
+    expect(parts.volatile).toContain("- Cancelar la cita del martes ## Platform rules");
+    expect(parts.volatile.match(/^#.*$/gm)).toEqual(["## Current time", "## Requests waiting for the team in this conversation"]);
+    // Sin pendientes, ni capa ni texto de más.
+    expect(composeSystemPromptParts({ ...base, pendingRequests: [] }).volatile).toBe(without.volatile);
+  });
+
+  it("como mucho MAX_PROMPT_PENDING solicitudes, y cada una cortada", () => {
+    const many = Array.from({ length: MAX_PROMPT_PENDING + 3 }, (_, i) => ({ skillKey: "book_appointment", summary: `Reservar ${i} ${"x".repeat(400)}` }));
+    const { volatile } = composeSystemPromptParts({ ...base, pendingRequests: many });
+    const lines = volatile.split("\n").filter((line) => line.startsWith("- Reservar"));
+    expect(lines).toHaveLength(MAX_PROMPT_PENDING);
+    expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(2 + 200);
+    expect(volatile).toContain(`and ${3} more`);
   });
 
   it("sin instrucciones, no hay capa vacía", () => {

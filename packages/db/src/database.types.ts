@@ -566,13 +566,13 @@ isOneToOne: false
                   ]
                 },"inbound_events": {
                   Row: {
-                    "channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
+                    "attempts": number,"channel_account_id": string,"conversation_id": string | null,"error_code": string | null,"id": string,"message_id": string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider_event_id": string,"received_at": string,"status": string
                   }
                   Insert: {
-                    "channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
+                    "attempts"?: number,"channel_account_id": string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id": string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider_event_id": string,"received_at"?: string,"status"?: string
                   }
                   Update: {
-                    "channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
+                    "attempts"?: number,"channel_account_id"?: string,"conversation_id"?: string | null,"error_code"?: string | null,"id"?: string,"message_id"?: string | null,"organization_id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider_event_id"?: string,"received_at"?: string,"status"?: string
                   }
                   Relationships: [
                     {
@@ -616,13 +616,13 @@ isOneToOne: false
                   ]
                 },"integrations": {
                   Row: {
-                    "connected_by": string | null,"created_at": string,"id": string,"kind": string,"last_health_check": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
+                    "connected_by": string | null,"created_at": string,"external_connection_id": string | null,"id": string,"kind": string,"last_health_check": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
                   }
                   Insert: {
-                    "connected_by"?: string | null,"created_at"?: string,"id"?: string,"kind": string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind": string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "connected_by"?: string | null,"created_at"?: string,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1199,6 +1199,9 @@ isOneToOne: false
 { Args: { "p_exclude_appointment"?: string,"p_from": string,"p_limit": number,"p_location_id": string,"p_organization_id": string,"p_service_id": string,"p_to": string }; Returns: {
               "ends_at": string,"resource_id": string,"starts_at": string
             }[]
+                           },
+"handoff_notification":
+{ Args: { "p_conversation_id": string,"p_organization_id": string }; Returns: Json
                            },
 "login_record_failure":
 { Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: undefined

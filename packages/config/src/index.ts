@@ -9,6 +9,13 @@ export const BRAND_NAME = "Moodly";
 export const NOTIFICATION_EMAIL_FROM = "notificaciones@moodlycrm.com";
 
 /**
+ * La versión de la Graph API de Meta para WhatsApp Cloud API (ADR 0020). Meta
+ * mantiene cada versión unos dos años; se sube a mano, comprobando los cambios
+ * de los webhooks y de los envíos en sus notas de versión.
+ */
+export const WHATSAPP_GRAPH_API_VERSION = "v23.0";
+
+/**
  * Tipos de agente canónicos (MANUAL §5). Fuente única para `apps/web` y el
  * backend (`agent_types`): clave estable en inglés (BD/API), nombre por defecto
  * en español y token de color de marca (ver packages/ui, `--agent-*`).

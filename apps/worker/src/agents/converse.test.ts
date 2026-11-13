@@ -1,8 +1,10 @@
+import { HAND_OFF_TEXTS } from "@repo/agent-core";
 import type { SkillDefinition, TurnResult } from "@repo/agent-core";
 import type { Logger } from "pino";
 import { describe, expect, it, vi } from "vitest";
 import { createEventRegistry } from "../events/handlers.ts";
 import {
+  handOffTextFor,
   CONVERSE_HANDLER_KEY,
   MAX_PROMPT_SERVICES,
   agentAnswers,
@@ -72,6 +74,18 @@ describe("el turno del agente en el worker", () => {
     expect(finalRunStatus(drafted, true, true)).toBe("awaiting_approval");
     expect(finalRunStatus(drafted, false, false)).toBe("awaiting_approval");
     expect(finalRunStatus({ status: "replied", executions: [], usage } as TurnResult, true, false)).toBe("completed");
+  });
+
+  it("si el cliente escribió otra vez a mitad del turno, el run se cierra completed y no pasa la conversación a nadie (gate M1)", () => {
+    // La respuesta autónoma falló porque ya no tocaba: el turno dice handed_off (reply_failed), pero no lo es.
+    const failed = { status: "handed_off", reason: "reply_failed", executions: [], usage } as TurnResult;
+    expect(finalRunStatus(failed, false, false, true)).toBe("completed");
+    const drafted = { status: "reply_drafted", executions: [], usage } as TurnResult;
+    expect(finalRunStatus(drafted, false, false, true)).toBe("completed");
+    // Si otra cosa del turno sigue esperando a una persona (una reserva en borrador), espera.
+    expect(finalRunStatus(drafted, false, true, true)).toBe("awaiting_approval");
+    // Sin superseded, lo de siempre.
+    expect(finalRunStatus(failed, false, false)).toBe("handed_off");
   });
 
   it("consume solo message.received, con una clave estable", () => {
@@ -174,31 +188,57 @@ describe("el libro de consumo durante el turno (PL-ledger)", () => {
     costEur: 0.001,
     startedAt: "2026-11-12T08:30:00.000Z",
   };
-  const dbWith = (insert: () => Promise<{ error: { code: string } | null }>) =>
-    ({ from: () => ({ insert }) }) as unknown as Parameters<typeof recordUsageSafely>[0];
+  // recordUsage escribe por SQL bajo RLS (forOrganization(org).transaction,
+  // PL-T1 3c-1): la consulta de mentira responde como Postgres (filas o error).
+  const dbWith = (query: (text: string, values?: readonly unknown[]) => Promise<unknown[]>) =>
+    ({
+      organizationId: "org-1",
+      transaction: async <T>(fn: (sql: { query: typeof query }) => Promise<T>) => fn({ query }),
+    }) as unknown as Parameters<typeof recordUsageSafely>[0];
+  const pgError = (code: string) => Object.assign(new Error("pg"), { code });
 
   it("anota la llamada", async () => {
     const logger = { error: vi.fn() };
-    await expect(recordUsageSafely(dbWith(async () => ({ error: null })), logger, "run-1", conversation, call)).resolves.toBe(true);
+    const query = vi.fn(async () => [] as unknown[]);
+    await expect(recordUsageSafely(dbWith(query), logger, "run-1", conversation, call)).resolves.toBe(true);
     expect(logger.error).not.toHaveBeenCalled();
+    const [text, values] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(text).toMatch(/insert into public\.usage_records/);
+    expect(values.slice(0, 4)).toEqual(["org-1", "loc-1", "run-1", "agent-1"]);
   });
 
-  it("si ya estaba (23505, un paso repetido), cuenta como anotada", async () => {
+  it("si ya estaba (un paso repetido), cuenta como anotada: on conflict do nothing, sin error", async () => {
     const logger = { error: vi.fn() };
-    await expect(recordUsageSafely(dbWith(async () => ({ error: { code: "23505" } })), logger, "run-1", conversation, call)).resolves.toBe(true);
+    const query = vi.fn(async () => [] as unknown[]);
+    await expect(recordUsageSafely(dbWith(query), logger, "run-1", conversation, call)).resolves.toBe(true);
+    expect((query.mock.calls[0] as unknown as [string])[0]).toMatch(/on conflict do nothing/);
   });
 
   it.each([
-    ["un error de la base de datos", async () => ({ error: { code: "08006" } })],
+    [
+      "un error de la base de datos",
+      async (): Promise<unknown[]> => {
+        throw pgError("08006");
+      },
+    ],
     [
       "una excepción",
-      async () => {
+      async (): Promise<unknown[]> => {
         throw new Error("conexión cortada");
       },
     ],
-  ])("con %s no lanza: lo registra como error con el run y devuelve false", async (_name, insert) => {
+  ])("con %s no lanza: lo registra como error con el run y devuelve false", async (_name, query) => {
     const logger = { error: vi.fn() };
-    await expect(recordUsageSafely(dbWith(insert), logger, "run-1", conversation, call)).resolves.toBe(false);
+    await expect(recordUsageSafely(dbWith(query), logger, "run-1", conversation, call)).resolves.toBe(false);
     expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ runId: "run-1", callIndex: 0 }), expect.stringContaining("libro de consumo"));
+  });
+});
+
+describe("handOffTextFor (CU3)", () => {
+  it("el texto del paso en el idioma de la organización: inglés con «en», si no, español", () => {
+    expect(handOffTextFor("en-GB")).toBe(HAND_OFF_TEXTS.en);
+    expect(handOffTextFor("es-ES")).toBe(HAND_OFF_TEXTS.es);
+    expect(handOffTextFor("fr-FR")).toBe(HAND_OFF_TEXTS.es);
+    expect(handOffTextFor(null)).toBe(HAND_OFF_TEXTS.es);
   });
 });

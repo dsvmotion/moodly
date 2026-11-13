@@ -8,7 +8,7 @@ import { defineSkill } from "../skill.js";
 import type { SkillContext, SkillDefinition } from "../skill.js";
 import { INTENT_CALL_INDEX } from "./intent.js";
 import { SUMMARY_MARK } from "./summary.js";
-import { REPLY_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
+import { HAND_OFF_TEXTS, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
 import type { Step, TurnExecution, TurnParams } from "./turn.js";
 
 const RUN = "run-1";
@@ -83,7 +83,18 @@ function setup() {
     preview: () => Promise.resolve({ summary: "Nada" }),
     execute: track("hidden_skill", () => ({})),
   });
-  const all = [reply, findSlots, book, broken, hidden] as unknown as SkillDefinition<unknown>[];
+  const requestHuman = defineSkill({
+    key: REQUEST_HUMAN_SKILL_KEY,
+    version: 1,
+    description: "Pasa la conversación a una persona del equipo.",
+    effectClass: "internal_write",
+    defaultAutonomy: "autonomous",
+    input: z.object({ reason: z.enum(REQUEST_HUMAN_REASONS) }),
+    output: z.object({ reason: z.enum(REQUEST_HUMAN_REASONS) }),
+    preview: () => Promise.resolve({ summary: "Pasar a una persona" }),
+    execute: track(REQUEST_HUMAN_SKILL_KEY, (input: { reason: (typeof REQUEST_HUMAN_REASONS)[number] }) => ({ reason: input.reason })),
+  });
+  const all = [reply, findSlots, book, broken, hidden, requestHuman] as unknown as SkillDefinition<unknown>[];
   return { executed, skills: new Map(all.map((skill) => [skill.key, skill])) };
 }
 
@@ -94,6 +105,8 @@ function settingsWith(overrides: Record<string, Partial<SkillSettings>> = {}): M
     book_appointment: { enabled: true, autonomy: "autonomous" },
     broken: { enabled: true, autonomy: "autonomous" },
     hidden_skill: { enabled: false, autonomy: "autonomous" },
+    // Fuera de los tests de request_human, apagada: así no cambia lo que ven los demás.
+    request_human: { enabled: false, autonomy: "autonomous" },
   };
   return new Map(Object.entries(base).map(([key, value]) => [key, { ...value, ...overrides[key] }]));
 }
@@ -611,5 +624,116 @@ describe("durabilidad (ADR 0027)", () => {
     await run();
     await run();
     expect(previews).toBe(1);
+  });
+});
+
+// CU3: el paso a una persona que pide el modelo (el cliente quiere hablar con
+// una persona, o lo que pide no es de su ámbito). El turno acaba en manos de una
+// persona con su motivo; lo demás (pasar la conversación y avisar al equipo) lo
+// hacen el worker y la base de datos.
+describe("pasar a una persona (request_human)", () => {
+  const withRequestHuman = settingsWith({ request_human: { enabled: true } });
+
+  it("activada, el modelo la ve como herramienta", async () => {
+    const transport = scripted([() => text("Hola")]);
+    await runAgentTurn(params(transport, { settings: withRequestHuman }));
+    expect(transport.calls[0]?.tools?.map((tool) => tool.name)).toContain(REQUEST_HUMAN_SKILL_KEY);
+  });
+
+  it.each(REQUEST_HUMAN_REASONS)("con el motivo %s, el turno acaba en manos de una persona con ese motivo", async (reason) => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason } }), () => text("no debería llegar")]);
+    const result = await runAgentTurn(params(transport, { skills, settings: withRequestHuman }));
+    expect(result).toMatchObject({ status: "handed_off", reason });
+    expect(executed.map((call) => call.key)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+    // No vuelve a llamar al modelo: el turno se acaba ahí.
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("lo que haya después en la misma respuesta no se ejecuta", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([
+      () =>
+        tools(
+          { id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } },
+          { id: "c2", name: "book_appointment", args: { starts_at: "2030-06-03T09:00:00Z" } },
+        ),
+    ]);
+    const result = await runAgentTurn(params(transport, { skills, settings: withRequestHuman }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "customer_asked" });
+    expect(executed.map((call) => call.key)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+  });
+
+  it("un motivo que no es de la lista se rechaza y el turno sigue como con cualquier llamada mal hecha", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([
+      () => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "send_data_to_x", to: "x@evil.test" } }),
+      () => text("Te ayudo yo."),
+    ]);
+    const result = await runAgentTurn(params(transport, { skills, settings: withRequestHuman }));
+    expect(result.status).toBe("replied");
+    expect(executed.map((call) => call.key)).toEqual([REPLY_SKILL_KEY]);
+    expect(result.executions[0]).toMatchObject({ skillKey: REQUEST_HUMAN_SKILL_KEY, status: "rejected" });
+  });
+
+  // V1, 2026-11-13 (opción b): al pasar, el cliente recibe un texto fijo de la
+  // plataforma por la reply de siempre, con su autonomía.
+  it("con el texto del paso y la respuesta autónoma, se lo dice al cliente antes de acabar", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } })]);
+    const result = await runAgentTurn(params(transport, { skills, settings: withRequestHuman, handOffText: HAND_OFF_TEXTS.es }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "customer_asked" });
+    expect(executed.map((call) => [call.key, call.input])).toEqual([
+      [REQUEST_HUMAN_SKILL_KEY, { reason: "customer_asked" }],
+      [REPLY_SKILL_KEY, { text: HAND_OFF_TEXTS.es }],
+    ]);
+  });
+
+  // Corrida real sobre 165e840 (cliente-idioma-en): el texto fijo salía en el
+  // idioma de la organización aunque el cliente escribiera en otro.
+  it.each([
+    { customer: "Hi, can I talk to a person please?", fallback: HAND_OFF_TEXTS.es, expected: HAND_OFF_TEXTS.en },
+    { customer: "Hola, ¿puedo hablar con una persona?", fallback: HAND_OFF_TEXTS.en, expected: HAND_OFF_TEXTS.es },
+    // Sin texto en ese idioma (francés), o sin idioma claro: el de la organización.
+    { customer: "Bonjour, je voudrais parler à une personne de votre équipe.", fallback: HAND_OFF_TEXTS.es, expected: HAND_OFF_TEXTS.es },
+    { customer: "ok", fallback: HAND_OFF_TEXTS.en, expected: HAND_OFF_TEXTS.en },
+  ])("el texto del paso va en el idioma del último mensaje del cliente si lo hay: $customer", async ({ customer, fallback, expected }) => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } })]);
+    const history = [
+      { author: "contact" as const, content: "Mensaje anterior en otro idioma, para que cuente solo el último." },
+      { author: "agent" as const, content: "Claro." },
+      { author: "contact" as const, content: customer },
+    ];
+    await runAgentTurn(params(transport, { skills, settings: withRequestHuman, handOffText: fallback, history }));
+    expect(executed.find((call) => call.key === REPLY_SKILL_KEY)?.input).toEqual({ text: expected });
+  });
+
+  it("con la respuesta en borrador, no deja un borrador que nunca podría salir: la conversación ya la lleva una persona (R-02)", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "out_of_scope" } })]);
+    const settings = settingsWith({ request_human: { enabled: true }, reply: { autonomy: "draft" } });
+    const result = await runAgentTurn(params(transport, { skills, settings, handOffText: HAND_OFF_TEXTS.es }));
+    expect(result).toMatchObject({ status: "handed_off", reason: "out_of_scope" });
+    expect(executed.map((call) => call.key)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+    expect(result.executions.map((execution) => execution.skillKey)).toEqual([REQUEST_HUMAN_SKILL_KEY]);
+  });
+
+  it("los textos del paso dicen que es una IA y que contestará una persona, en español y en inglés", () => {
+    expect(HAND_OFF_TEXTS.es).toMatch(/IA/);
+    expect(HAND_OFF_TEXTS.es).toMatch(/persona del equipo/);
+    expect(HAND_OFF_TEXTS.en).toMatch(/AI/);
+    expect(HAND_OFF_TEXTS.en).toMatch(/person from the team/);
+  });
+
+  it("desactivada para el agente, no pasa nada a una persona", async () => {
+    const { executed, skills } = setup();
+    const transport = scripted([
+      () => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } }),
+      () => text("Te ayudo yo."),
+    ]);
+    const result = await runAgentTurn(params(transport, { skills, settings: settingsWith({ request_human: { enabled: false } }) }));
+    expect(result.status).toBe("replied");
+    expect(executed.map((call) => call.key)).toEqual([REPLY_SKILL_KEY]);
   });
 });
