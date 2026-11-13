@@ -126,6 +126,7 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     const appointments = result.output?.appointments;
     if (appointments) {
       if (appointments.length > 0) return say("Ya tienes tu cita del lunes a las 9:00.");
+      const plan = currentPlan();
       return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
     }
     const answer = say(result.status === "executed" ? "Tengo hueco el lunes a las 9:00." : "Una persona del equipo te lo confirma enseguida.");
