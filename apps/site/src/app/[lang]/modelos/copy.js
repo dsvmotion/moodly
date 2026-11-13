@@ -39,7 +39,7 @@ export const COPY = {
     faq: [
       ["¿Tengo que elegir un modelo?", "No. Cada agente usa el modelo más barato que pasa sus pruebas de calidad y solo sube a uno más capaz cuando las pruebas lo piden. Elegir tú el modelo de cada agente está en hoja de ruta."],
       ["¿Puedo usar mis propias claves (BYOK)?", "Está en hoja de ruta: conectarás tu clave de OpenAI, Anthropic, Google, Mistral o de tu nube (Azure, AWS, Google Cloud) y el consumo irá a tu cuenta del proveedor. Hoy los agentes usan los modelos de la plataforma."],
-      ["¿Dónde se procesan los datos?", "Tus datos se guardan en la UE (Supabase). La región donde procesan los modelos de IA está por confirmar. Usar los modelos en tu propia nube o en tus servidores está en hoja de ruta."],
+      ["¿Dónde se procesan los datos?", "La base de datos está en la UE (Supabase). Los modelos de IA procesan de forma global, también fuera de la UE, con un acuerdo de tratamiento con cada proveedor; solo en la UE, si lo pides. Usar los modelos en tu propia nube o en tus servidores está en hoja de ruta."],
       ["¿Qué pasa si un proveedor falla?", "Si el modelo no responde, la conversación pasa a una persona de tu equipo. Hoy hay un solo proveedor detrás del enrutador; un respaldo en otro proveedor, con las mismas reglas de región, está en el piloto."],
     ],
   },
@@ -82,7 +82,7 @@ export const COPY = {
     faq: [
       ["Do I have to choose a model?", "No. Each agent uses the cheapest model that passes its quality tests and moves to a more capable one only when the tests call for it. Choosing each agent's model yourself is on the roadmap."],
       ["Can I use my own keys (BYOK)?", "It is on the roadmap: you will connect your OpenAI, Anthropic, Google, Mistral or cloud key (Azure, AWS, Google Cloud) and usage will go to your provider account. Today the agents use the platform's models."],
-      ["Where is the data processed?", "Your data is stored in the EU (Supabase). The region where the AI models process it is to be confirmed. Using the models in your own cloud or on your servers is on the roadmap."],
+      ["Where is the data processed?", "The database is in the EU (Supabase). AI models process globally, outside the EU too, under a data processing agreement with each provider; EU-only if you ask. Using the models in your own cloud or on your servers is on the roadmap."],
       ["What if a provider goes down?", "If the model does not respond, the conversation passes to a person on your team. Today there is a single provider behind the router; a backup with another provider, under the same region rules, is in the pilot."],
     ],
   },
@@ -125,7 +125,7 @@ export const COPY = {
     faq: [
       ["Dois-je choisir un modèle ?", "Non. Chaque agent utilise le modèle le moins cher qui réussit ses tests de qualité et ne passe à un modèle plus capable que lorsque les tests l'exigent. Choisir vous-même le modèle de chaque agent est sur la feuille de route."],
       ["Puis-je utiliser mes propres clés (BYOK) ?", "C'est sur la feuille de route : vous connecterez votre clé OpenAI, Anthropic, Google, Mistral ou de votre cloud (Azure, AWS, Google Cloud) et la consommation ira sur votre compte fournisseur. Aujourd'hui, les agents utilisent les modèles de la plateforme."],
-      ["Où les données sont-elles traitées ?", "Vos données sont stockées dans l'UE (Supabase). La région où les modèles d'IA les traitent reste à confirmer. Utiliser les modèles dans votre propre cloud ou sur vos serveurs est sur la feuille de route."],
+      ["Où les données sont-elles traitées ?", "La base de données est dans l'UE (Supabase). Les modèles d'IA traitent à l'échelle mondiale, y compris hors de l'UE, avec un accord de traitement avec chaque fournisseur ; uniquement dans l'UE, si vous le demandez. Utiliser les modèles dans votre propre cloud ou sur vos serveurs est sur la feuille de route."],
       ["Que se passe-t-il si un fournisseur tombe en panne ?", "Si le modèle ne répond pas, la conversation passe à une personne de votre équipe. Aujourd'hui, il y a un seul fournisseur derrière le routeur ; un secours chez un autre fournisseur, avec les mêmes règles de région, est dans le pilote."],
     ],
   },
@@ -168,7 +168,7 @@ export const COPY = {
     faq: [
       ["Muss ich ein Modell wählen?", "Nein. Jeder Agent nutzt das günstigste Modell, das seine Qualitätstests besteht, und wechselt nur zu einem stärkeren, wenn die Tests es verlangen. Das Modell jedes Agenten selbst zu wählen, steht auf der Roadmap."],
       ["Kann ich meine eigenen Schlüssel nutzen (BYOK)?", "Das steht auf der Roadmap: Du verbindest deinen OpenAI-, Anthropic-, Google-, Mistral- oder Cloud-Schlüssel (Azure, AWS, Google Cloud), und die Nutzung läuft über dein Anbieterkonto. Heute nutzen die Agenten die Modelle der Plattform."],
-      ["Wo werden die Daten verarbeitet?", "Deine Daten werden in der EU gespeichert (Supabase). In welcher Region die KI-Modelle sie verarbeiten, ist noch zu bestätigen. Die Modelle in deiner eigenen Cloud oder auf deinen Servern zu nutzen, steht auf der Roadmap."],
+      ["Wo werden die Daten verarbeitet?", "Die Datenbank liegt in der EU (Supabase). Die KI-Modelle verarbeiten weltweit, auch außerhalb der EU, mit einem Auftragsverarbeitungsvertrag mit jedem Anbieter; nur in der EU, wenn du es verlangst. Die Modelle in deiner eigenen Cloud oder auf deinen Servern zu nutzen, steht auf der Roadmap."],
       ["Was passiert, wenn ein Anbieter ausfällt?", "Antwortet das Modell nicht, geht das Gespräch an eine Person aus deinem Team. Heute steht ein einziger Anbieter hinter dem Router; eine Ausweichlösung bei einem anderen Anbieter, mit denselben Regionsregeln, ist im Pilotprojekt."],
     ],
   },
