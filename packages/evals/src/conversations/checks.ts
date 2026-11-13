@@ -223,11 +223,15 @@ const ITEM_LEAD = "(?:(?:tu|su|vuestro|vuestra|el|la|los|las|número de|numero d
 
 export function asksToQualify(keywords: readonly string[]): Check {
   const words = keywords.join("|");
-  const before = new RegExp(`(?:${words})[^?]{0,80}\\?`, "iu");
+  // La palabra clave dentro de la misma pregunta: sin fin de frase ni otro «¿» en medio («3 habitaciones,
+  // 1.250 €. ¿Te encaja?» no pregunta por las habitaciones; V10). Un punto entre cifras («1.250») no corta.
+  const before = new RegExp(`(?:${words})(?:[^?!¿\\n.]|\\.(?=\\d)){0,80}\\?`, "iu");
   // Un elemento que pide datos: empieza por la palabra clave (con su artículo) o es una pregunta.
   // «- Alonso Cano: 3 habitaciones, 1.250 €» es la oferta, no lo que se pide (V10).
   const asksItem = new RegExp(`^${ITEM_LEAD}(?:${words})`, "iu");
-  const isAskingItem = (item: string) => asksItem.test(item.trim()) || item.includes("?");
+  // Un elemento que afirma algo («- El presupuesto mínimo es 1.250 €») no pide nada (V10): ni cifras ni verbos de estado.
+  const STATES = /(?<![\p{L}])(?:es|son|está|están|cuesta|cuestan|tiene|tienen|incluye|is|are|has|have|costs?)(?![\p{L}])|\p{N}/iu;
+  const isAskingItem = (item: string) => (asksItem.test(item.trim()) && !STATES.test(item)) || item.includes("?");
   const LIST_LINE = /^\s*(?:[-•*]|\d+[.)])\s*(.*)$/u;
   const listAfterQuestion = (reply: string): boolean => {
     for (const [index, char] of [...reply].entries()) {

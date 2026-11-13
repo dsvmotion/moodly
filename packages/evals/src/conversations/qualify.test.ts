@@ -18,6 +18,7 @@ const verify = (reply: string | null) => check.verify({ reply } as Outcome);
 describe("asksToQualify", () => {
   it.each([
     ["la palabra antes del «?»", "Tenemos dos pisos. ¿Cuántas habitaciones necesitas y cuál es tu presupuesto?"],
+    ["con una cifra con punto dentro de la pregunta", "¿Tu presupuesto ronda los 1.250 € o es más alto?"],
     ["«¿me dices?:» y la lista detrás", "Tenemos dos pisos disponibles. Para ayudarte mejor, ¿me dices?: tu presupuesto máximo, cuántas habitaciones buscas y cuándo quieres entrar."],
     ["«¿me puede decir?:» con la lista en líneas", "Para enseñarle lo que encaje, ¿me puede decir?:\n- Presupuesto mensual\n- Número de habitaciones\n- Fecha de entrada"],
     ["la lista numerada en la línea siguiente", "¿Te importa contarme un poco más?\n1. ¿Para cuántas personas?\n2. ¿Tienes mascotas?"],
@@ -47,6 +48,10 @@ describe("asksToQualify", () => {
     ["«dime si…» y la palabra en otra frase", "Dime si quieres visitarlo. Tiene 3 habitaciones y el presupuesto es de 1.250 €."],
     ["«dime, si…»", "Dime, si te encaja, y te paso la ficha: tiene 3 habitaciones."],
     ["el verbo y la palabra en frases distintas", "Cuéntame. El presupuesto es de 1.250 € al mes."],
+    // V10 sobre cd27069 (low): una línea que afirma y la palabra antes de otra pregunta.
+    ["una línea de la lista que afirma", "¿Te cuento lo que hay?\n- El presupuesto mínimo es de 1.250 €\n- Habitaciones: 3"],
+    ["la palabra en la oferta y la pregunta después", "Tiene 3 habitaciones y cuesta 1.250 €. ¿Te encaja?"],
+    ["la palabra y otra pregunta sin punto", "Tiene 3 habitaciones ¿te encaja?"],
   ])("%s: no cualifica", (_label, reply) => {
     expect(verify(reply)).toMatch(/^no cualifica con una pregunta/u);
   });
