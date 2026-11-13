@@ -110,11 +110,11 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 ### 5. Rotar y desconectar
 
 - **Rotar** es otro envío sobre una integración activa o en error (la guarda lo admite): si la nueva clave vale, sustituye al secreto (`rotated_at`) y la integración queda activa; si no, la integración sigue con la anterior, sin cambiar de estado, y la pantalla avisa.
-- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, limpia el secreto exacto que tenía: el evento lleva el `secret_id` anterior (`OLD.secret_id`, lo pone el disparador; nunca el cliente). Las dos escrituras van en una sola `createServiceDb().forOrganization(org).transaction`, con `org` sacada de la fila del evento en el outbox (como en la sección 4):
+- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, limpia el secreto exacto que tenía: el evento lleva el `secret_id` anterior (`OLD.secret_id`, lo pone el disparador; nunca el cliente). La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí. Las dos escrituras van en una sola `createServiceDb().forOrganization(org).transaction`, con `org` sacada de la fila del evento en el outbox (como en la sección 4):
   1. `update integrations set secret_id = null where id = <integración> and organization_id = org and status = desconectada and secret_id = <secret_id del evento> returning id`. La guarda solo admite null en una que ya está desconectada;
   2. **solo si ese update tocó la fila**, `delete from integration_secrets where id = <secret_id del evento> and organization_id = org and kind = 'integration'`. Nunca se busca un secreto por nombre. Si el update no tocó nada, no se borra nada.
   - Si la persona reconectó antes de que llegara el evento, la fila ya no está desconectada (o apunta a otro secreto). El update no la toca, y el secreto que tenga, nuevo o rotado sobre el mismo id, sigue intacto.
-  - Al reconectar una integración desconectada que aún conserva su `secret_id`, el envío se trata como rotación: cambia la clave del mismo secreto, y la limpieza pendiente ya no lo borra, por la regla anterior. La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí.
+  - Al reconectar una integración desconectada que aún conserva su `secret_id`, el envío se trata como rotación: cambia la clave del mismo secreto, y la limpieza pendiente ya no lo borra, por la regla anterior.
 
 ## Consecuencias
 
