@@ -20,7 +20,7 @@
 -- service_role queda igual.
 --
 -- Sin funciones security definer.
--- Tests en 53_worker_delivery_status (y el privilegio exacto en 48).
+-- Tests en 54_worker_delivery_status (y el privilegio exacto en 48).
 -- Vuelta atrás: rollbacks/20261113110000_worker_delivery_status.down.sql.
 
 create function private.guard_worker_message_status()
