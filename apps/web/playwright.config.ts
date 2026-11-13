@@ -28,10 +28,21 @@ export default defineConfig({
     ...(process.env["CHROMIUM_PATH"] ? { launchOptions: { executablePath: process.env["CHROMIUM_PATH"] } } : {}),
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "pnpm start",
-    url: `${baseURL}/login`,
-    reuseExistingServer: !process.env["CI"],
-    timeout: 120_000,
-  },
+  // La app, y un Nango falso por HTTP en loopback (e2e/nango-stub.ts): la web usa
+  // su transporte real de Nango contra él (O-02), sin interruptor de «falso».
+  webServer: [
+    {
+      command: "node e2e/nango-stub.ts",
+      url: "http://127.0.0.1:3999/health",
+      reuseExistingServer: !process.env["CI"],
+      timeout: 30_000,
+    },
+    {
+      command: "pnpm start",
+      url: `${baseURL}/login`,
+      reuseExistingServer: !process.env["CI"],
+      timeout: 120_000,
+      env: { NANGO_API_KEY: "e2e-nango-stub-key-not-secret", NANGO_HOST: "http://127.0.0.1:3999" },
+    },
+  ],
 });

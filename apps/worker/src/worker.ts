@@ -29,6 +29,8 @@ export interface Worker {
   stop(): Promise<void>;
   /** Lo que mira el endpoint de salud (health.ts). */
   probe: WorkerProbe;
+  /** El acceso a los datos de las organizaciones, para las rutas HTTP del worker (el webhook de Nango). */
+  db: ServiceDb;
   /**
    * La entrada de canales (/channels/…), que se monta en el servidor de salud
    * (el único puerto público del servicio). 503 hasta que el worker está en
@@ -113,6 +115,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
     ingress(request, response);
   }
   return {
+    db,
     channels,
     probe: {
       phase: () => phase,
