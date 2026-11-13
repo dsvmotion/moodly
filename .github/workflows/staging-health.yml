@@ -19,6 +19,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+    inputs:
+      worker_url:
+        description: "Otra URL de salud del worker solo para esta corrida (https; p. ej. una ruta que no existe, para probar la alerta)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -37,7 +42,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       WEB_URL: ${{ vars.STAGING_WEB_HEALTH_URL || 'https://staging.moodlycrm.com/health' }}
-      WORKER_URL: ${{ vars.STAGING_WORKER_HEALTH_URL || 'https://worker-staging-47c75e8c.up.railway.app/health' }}
+      WORKER_URL: ${{ inputs.worker_url || vars.STAGING_WORKER_HEALTH_URL || 'https://worker-staging-47c75e8c.up.railway.app/health' }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Comprobar los endpoints de salud
