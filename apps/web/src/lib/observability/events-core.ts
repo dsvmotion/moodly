@@ -33,7 +33,12 @@ export type SecurityEvent =
   | "inbox.staff_message_sent"
   | "integration.connect_started"
   | "integration.disconnected"
-  | "integration.disconnect_failed";
+  | "integration.disconnect_failed"
+  | "business.service_created"
+  | "business.service_updated"
+  | "business.resource_created"
+  | "business.resource_updated"
+  | "business.opening_hours_updated";
 
 export interface SecurityEventFields {
   userId?: string | undefined;

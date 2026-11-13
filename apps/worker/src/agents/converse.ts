@@ -26,6 +26,8 @@ import type {
   TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
+import { withExternalBusy } from "@repo/integrations";
+import type { ConnectorPlatform } from "@repo/integrations";
 import type { TenantDb, TenantSql } from "@repo/db/service";
 import type { Embedder } from "@repo/knowledge";
 import {
@@ -42,6 +44,7 @@ import {
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
+import { busySourceFor, calendarFor, type BusySource } from "../booking/external-busy.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
@@ -98,6 +101,12 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /**
+   * La plataforma de conectores (Nango). Con ella, un calendario conectado
+   * (Google/Outlook) cuenta al ofrecer huecos (O-02). Sin ella, el agente solo
+   * mira el calendario propio de Moodly.
+   */
+  platform?: ConnectorPlatform;
   /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
   intentRouting?: boolean;
 }
@@ -372,9 +381,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
  */
 export function codeSkills(
   db: TenantDb,
-  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext; inReplyTo?: string } = {},
+  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext; inReplyTo?: string; externalBusy?: BusySource | null } = {},
 ): Map<string, SkillDefinition<unknown>> {
-  const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
+  // Con un calendario conectado, sus horas ocupadas restan huecos del calendario propio (O-02).
+  const booking = options.externalBusy ? withExternalBusy(createMoodlyCalendar(db), options.externalBusy) : createMoodlyCalendar(db);
+  const reception = createReceptionSkills({ booking, catalog: createReceptionCatalog(db) });
   // En un turno, la respuesta solo sale si su mensaje sigue siendo el último del cliente (gate M1).
   const reply = createReplySkill({ sender: createConversationSender(db, options.inReplyTo ? { inReplyTo: options.inReplyTo } : {}) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
@@ -714,10 +725,22 @@ interface AcceptDecision {
  * autonomía del agente (de serie, a la bandeja de aprobaciones). Devuelve si
  * el mensaje era eso; si no, el turno sigue como siempre.
  */
-async function acceptOffer(event: DomainEvent, ctx: EventContext, conversationId: string, messageId: string): Promise<boolean> {
-  const found = await ctx.step("waitlist-accept:find", () => findAcceptance(ctx.db, conversationId, messageId, new Date()));
+async function acceptOffer(
+  event: DomainEvent,
+  ctx: EventContext,
+  conversationId: string,
+  messageId: string,
+  platform: ConnectorPlatform | undefined,
+): Promise<boolean> {
+  // También aquí cuenta el calendario conectado: el hueco pudo ocuparse fuera desde
+  // que se ofreció (O-02). Se resuelve dentro del mismo paso, no en uno nuevo.
+  const found = await ctx.step("waitlist-accept:find", async () => {
+    const acceptance = await findAcceptance(ctx.db, conversationId, messageId, new Date());
+    return acceptance.kind === "none" ? acceptance : { ...acceptance, calendar: await calendarFor(ctx.db, platform, acceptance.conversation.locationId) };
+  });
   if (found.kind === "none") return false;
-  const book = codeSkills(ctx.db).get(BOOK_SKILL_KEY);
+  const externalBusy = busySourceFor(platform, "calendar" in found ? found.calendar : null, ctx.logger);
+  const book = codeSkills(ctx.db, externalBusy ? { externalBusy } : {}).get(BOOK_SKILL_KEY);
   const row = found.book;
   if (!book || !row || row.kind !== "code" || row.version !== book.version || row.effectClass !== book.effectClass) return false;
   if (!agentAnswers(found.agentStatus, found.channel)) return false;
@@ -823,7 +846,7 @@ export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): T
   };
 }
 
-export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
+export function createConverseHandler({ router, knowledge, platform, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -838,11 +861,21 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         return;
       }
       // Un «sí» a una oferta viva de la lista de espera: la reserva, sin modelo (4f-3).
-      if (await acceptOffer(event, ctx, conversationId, messageId)) return;
+      if (await acceptOffer(event, ctx, conversationId, messageId, platform)) return;
       // Con reintentos: si moodly_worker no entra un momento (el pooler, un
       // reinicio), el mensaje no se pierde; si no entra nunca, el worker no
       // habría arrancado (worker.ts, verifyWorkerConnection).
-      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId), DB_STEP);
+      // El calendario conectado del local (O-02) se resuelve dentro del mismo paso
+      // «load», no en uno nuevo: un turno a medias de antes de este cambio no
+      // trae `calendar` y sigue sin él (calendarFor explica por qué).
+      const prepared = await ctx.step(
+        "load",
+        async () => {
+          const loaded = await prepare(ctx.db, conversationId, messageId);
+          return loaded.kind === "turn" ? { ...loaded, calendar: await calendarFor(ctx.db, platform, loaded.conversation.location_id) } : loaded;
+        },
+        DB_STEP,
+      );
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");
         return;
@@ -858,8 +891,17 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       const searchUsage = knowledgeAllowed
         ? { route: knowledge.route, runId, agentId: conversation.agent_id, locationId: conversation.location_id, logger: ctx.logger }
         : undefined;
+      // El calendario conectado del local (o de la organización), resuelto dentro
+      // del paso «load» (sin paso nuevo). Las horas ocupadas se leen después,
+      // dentro del paso de cada skill.
+      const externalBusy = busySourceFor(platform, prepared.calendar, ctx.logger);
       const { skills, settings } = agentSkills(
-        codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null, ...(searchUsage ? { searchUsage } : {}), inReplyTo: messageId }),
+        codeSkills(ctx.db, {
+          embedder: knowledgeAllowed ? knowledge.embedder : null,
+          ...(searchUsage ? { searchUsage } : {}),
+          inReplyTo: messageId,
+          ...(externalBusy ? { externalBusy } : {}),
+        }),
         context.skills,
         ctx.logger,
       );

@@ -1,7 +1,8 @@
 -- Reservas con el calendario propio (20261031140000, paso 4b). Los huecos
 -- respetan el horario y la zona horaria del local (cambio de hora incluido);
 -- la base de datos nunca deja dos citas solapadas del mismo recurso ni dos
--- citas para la misma petición; cada uno ve lo de su alcance y la app solo lee.
+-- citas para la misma petición; cada uno ve lo de su alcance y la app no escribe
+-- citas (lo que escribe el org_admin desde OA04 está en 56_business_setup).
 begin;
 \ir _fixtures/tenants.psql
 select plan(34);
@@ -155,14 +156,18 @@ select throws_ok(
   format($$select * from public.find_booking_slots(%L, %L, %L, now(), now() + interval '1 day', 5)$$, :org_a, :loc_a1, :'svc_laser'),
   '42501', null, 'la app no busca huecos directamente: es del runtime');
 reset role;
+-- Desde OA04 (20261113140000) el org_admin con aal2 escribe servicios, recursos y
+-- lo que hace cada uno, por columna: lo prueba 56_business_setup. Las citas
+-- siguen siendo solo del worker, y servicios y recursos no se borran.
 select ok(
   not exists (
-    select 1 from unnest(array['services', 'booking_resources', 'resource_services', 'appointments']) t
-    where has_table_privilege('authenticated', 'public.' || t, 'insert')
-       or has_table_privilege('authenticated', 'public.' || t, 'update')
-       or has_table_privilege('authenticated', 'public.' || t, 'delete')
-  ),
-  'la app no escribe en ninguna de las tablas de reservas');
+    select 1 from unnest(array['insert', 'update']) p
+    where has_any_column_privilege('authenticated', 'public.appointments', p)
+  )
+  and not has_table_privilege('authenticated', 'public.appointments', 'delete')
+  and not has_table_privilege('authenticated', 'public.services', 'delete')
+  and not has_table_privilege('authenticated', 'public.booking_resources', 'delete'),
+  'la app no escribe citas, ni borra servicios ni recursos');
 
 select * from finish();
 rollback;

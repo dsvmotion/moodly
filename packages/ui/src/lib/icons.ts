@@ -33,6 +33,7 @@ export {
   StampIcon,
   StoreIcon,
   SunIcon,
+  TagsIcon,
   TargetIcon,
   TriangleAlertIcon,
   UserIcon,

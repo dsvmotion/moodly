@@ -27,6 +27,7 @@ import {
   SparklesIcon,
   StampIcon,
   StoreIcon,
+  TagsIcon,
   TargetIcon,
   UserIcon,
   UsersIcon,
@@ -86,6 +87,7 @@ const SETTINGS_GROUP_DEFS = [
     sections: [
       { key: "organization", slug: "general", icon: Building2Icon, ready: true },
       { key: "locations", slug: "locations", icon: StoreIcon, ready: true },
+      { key: "services", slug: "services", icon: TagsIcon, ready: true },
       { key: "plan", slug: "plan", icon: CreditCardIcon, ready: false },
       { key: "billing", slug: "billing", icon: ReceiptIcon, ready: false },
     ],

@@ -73,6 +73,8 @@ export interface BookingProvider {
   cancel(request: CancelRequest): Promise<Appointment>;
   /** Las próximas citas vivas de un contacto. */
   upcomingForContact(request: { contactId: string; from: Date; limit: number }): Promise<Appointment[]>;
+  /** Una cita del contacto por su id. AppointmentNotFoundError si no existe o es de otro contacto. */
+  getForContact(request: { appointmentId: string; contactId: string }): Promise<Appointment>;
 }
 
 /** El hueco ya no está libre (otra cita lo ocupó entre la búsqueda y la reserva). */
@@ -94,4 +96,13 @@ export class AppointmentNotChangeableError extends Error {
 /** El servicio no se ofrece en ese local, o el recurso no lo hace. */
 export class InvalidBookingError extends Error {
   override name = "InvalidBookingError";
+}
+/**
+ * No se pudo leer el calendario conectado (Google/Outlook) para saber qué horas
+ * están ocupadas, así que no se ofrecen huecos (fail-closed, O-02): mejor pasar
+ * a una persona que arriesgar una doble reserva. El nombre es lo que ve el
+ * modelo. Nunca lleva el detalle del proveedor.
+ */
+export class CalendarUnavailableError extends Error {
+  override name = "CalendarUnavailableError";
 }
