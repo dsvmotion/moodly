@@ -1323,6 +1323,26 @@ describe("gate M1: lo que hizo un turno relevado lo ve el siguiente, y no se dup
     expect((await runFor(second))[0]?.status).toBe("completed");
   });
 
+  it("si el turno relevado ya pidió una persona (request_human), se mantiene: la conversación pasa a una persona con los dos mensajes", async () => {
+    const conversation = await newConversation();
+    conversations.push(conversation);
+    const before = gates();
+    const first = await customerSays("Quiero hablar con una persona, un momento", conversation);
+    await waitFor(async () => gates() > before, "el turno 1 está pensando");
+    const second = await customerSays("¿Hola?", conversation);
+    writeFileSync(gate, "");
+    await waitFor(async () => settled(first), "termina el turno 1");
+    // El turno 1 ejecutó request_human: el relevo no lo deshace.
+    expect((await runFor(first))[0]?.status).toBe("handed_off");
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversation]);
+    expect(rows[0]?.mode).toBe("human");
+    // El agente ya no contesta el mensaje nuevo (lo lleva una persona), y el aviso del
+    // paso a una persona del turno 1 no sale: ya no tocaba.
+    await waitFor(async () => delivered(await eventOf(second)), "el mensaje nuevo se procesa");
+    expect(await runFor(second)).toEqual([]);
+    expect(await agentReplies(conversation)).toEqual([]);
+  });
+
   it("control: sin nada hecho antes, el mismo modelo sí reservaría (el test de abajo no pasa por casualidad)", async () => {
     await setAutonomy("book_appointment", "autonomous");
     const conversation = await newConversation();

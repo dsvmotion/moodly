@@ -91,6 +91,28 @@ describe("el turno del agente en el worker", () => {
     expect(finalRunStatus(failed, false, false)).toBe("handed_off");
   });
 
+  it("un request_human que el turno relevado ya ejecutó se mantiene: pasa la conversación a una persona (gate M1)", () => {
+    // El cliente pidió una persona (o el agente decidió pasarla): eso no lo deshace el relevo.
+    const asked = {
+      status: "handed_off",
+      reason: "customer_asked",
+      executions: [{ skillKey: "request_human", status: "executed", output: { reason: "customer_asked" } }],
+      usage,
+    } as unknown as TurnResult;
+    expect(finalRunStatus(asked, false, false, true)).toBe("handed_off");
+    // También con algo suyo pendiente (una reserva en borrador): la persona ve la conversación y lo pendiente.
+    expect(finalRunStatus(asked, false, true, true)).toBe("handed_off");
+    // Un request_human que no llegó a ejecutarse (rechazado o en borrador) no cuenta.
+    const notRun = {
+      status: "handed_off",
+      reason: "reply_failed",
+      executions: [{ skillKey: "request_human", status: "failed" }],
+      usage,
+    } as unknown as TurnResult;
+    expect(finalRunStatus(notRun, false, false, true)).toBe("completed");
+    expect(finalRunStatus(notRun, false, true, true)).toBe("awaiting_approval");
+  });
+
   it("consume solo message.received, con una clave estable", () => {
     const handler = createConverseHandler({ router: { generate: () => Promise.reject(new Error("sin modelo")) } });
     expect(handler.key).toBe(CONVERSE_HANDLER_KEY);

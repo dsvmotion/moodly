@@ -20,7 +20,8 @@
 // Si el cliente pide «un momento», el modelo se queda pensando hasta que exista
 // <archivo>.gate (lo crea el test después de tomar el control, R-02) y luego
 // contesta como siempre; si además pidió reservar, primero reserva y se queda
-// pensando con el resultado (gate M1: un turno que ya hizo algo y queda relevado).
+// pensando con el resultado (gate M1: un turno que ya hizo algo y queda relevado);
+// si pidió hablar con una persona, se queda pensando antes de llamar a request_human.
 //
 // Si pregunta «¿y mi cita?», hace lo que haría un modelo razonable: si el
 // prompt dice que hay una reserva pendiente del equipo, lo dice; si no, mira
@@ -123,9 +124,12 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     return call("join_waitlist", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00", until: "2030-06-10T00:00:00+02:00" });
   }
   if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
+  // Pide una persona (CU3): request_human con su motivo (con «un momento», después de pensar).
+  if (/hablar con una persona/i.test(customer)) {
+    const asked = call("request_human", { reason: "customer_asked" });
+    return /un momento/i.test(customer) ? gated(asked) : asked;
+  }
   if (/un momento/i.test(customer)) return gated(say("Ya está, te lo confirmo ahora mismo."));
-  // Pide una persona (CU3): request_human con su motivo.
-  if (/hablar con una persona/i.test(customer)) return call("request_human", { reason: "customer_asked" });
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");
   return say("Hola, soy el asistente de IA del centro.");
