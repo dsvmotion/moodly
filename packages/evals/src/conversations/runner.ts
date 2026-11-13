@@ -124,7 +124,8 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
   const outcome: Outcome = {
     result,
     world,
-    reply: replyOf(result),
+    // Con un paso explícito sin respuesta, el texto fijo que vería el cliente (CU3).
+    reply: replyOf(result, HAND_OFF_TEXTS.es),
     calls: result.executions.filter((execution) => execution.skillKey !== "reply"),
     appointmentsBefore,
   };
