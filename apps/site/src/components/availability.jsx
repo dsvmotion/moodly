@@ -2,19 +2,22 @@
 // decisión de producto del 2026-11-10). Sale del registro de alcance (docs/scope.yaml),
 // nunca caso a caso:
 //   status done                 → «Disponible»
+//   status in_progress          → «En construcción» (decisión de producto del 2026-11-13: lo
+//                                  construido sin probar con el proveedor real nunca sale como si funcionara)
 //   hito del piloto (M0–M4)     → «En el piloto»
 //   after o stretch             → «En hoja de ruta»
 // next.config.ts lee el registro al compilar y lo deja en NEXT_PUBLIC_SCOPE_STATUS.
 const SCOPE = JSON.parse(process.env.NEXT_PUBLIC_SCOPE_STATUS || "{}");
 const PILOT = new Set(["M0", "M1", "M2", "M3", "M4"]);
 
-/** @returns {"available" | "pilot" | "roadmap"} */
+/** @returns {"available" | "building" | "pilot" | "roadmap"} */
 export function availability(id) {
   const u = SCOPE[id];
   // Sin unidad en el registro no hay estado que enseñar: que falle la compilación
   // (las páginas se prerenderizan) en vez de publicar una afirmación sin respaldo.
   if (!u) throw new Error(`availability: «${id}» no está en docs/scope.yaml`);
   if (u.s === "done") return "available";
+  if (u.s === "in_progress") return "building";
   if (PILOT.has(u.m)) return "pilot";
   return "roadmap";
 }
@@ -47,14 +50,15 @@ export function ConnectNote({ id, lang }) {
 }
 
 export const AVAILABILITY_LABELS = {
-  es: { available: "Disponible", pilot: "En el piloto", roadmap: "En hoja de ruta" },
-  en: { available: "Available", pilot: "In the pilot", roadmap: "On the roadmap" },
-  fr: { available: "Disponible", pilot: "Dans le pilote", roadmap: "Sur la feuille de route" },
-  de: { available: "Verfügbar", pilot: "Im Pilotprojekt", roadmap: "Auf der Roadmap" },
+  es: { available: "Disponible", building: "En construcción", pilot: "En el piloto", roadmap: "En hoja de ruta" },
+  en: { available: "Available", building: "Being built", pilot: "In the pilot", roadmap: "On the roadmap" },
+  fr: { available: "Disponible", building: "En construction", pilot: "Dans le pilote", roadmap: "Sur la feuille de route" },
+  de: { available: "Verfügbar", building: "Im Aufbau", pilot: "Im Pilotprojekt", roadmap: "Auf der Roadmap" },
 };
 
 const STYLE = {
   available: { background: "#e3f1e5", color: "#1f5a2a" },
+  building: { background: "#fff3e0", color: "#7a4500" },
   pilot: { background: "#e8edff", color: "#1d3a9e" },
   roadmap: { background: "#f2f2f4", color: "#4a4a4f" },
 };
