@@ -174,13 +174,13 @@ isOneToOne: false
                   ]
                 },"approvals": {
                   Row: {
-                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"requested_by": string | null,"required_role": string,"status": string
+                    "created_at": string,"decided_at": string | null,"decided_by": string | null,"edited_input": Json | null,"effect_class": string,"execution_id": string,"expires_at": string,"id": string,"input_hash": string,"location_id": string | null,"organization_id": string,"reason": string | null,"requested_by": string | null,"required_role": string,"status": string
                   }
                   Insert: {
-                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class": string,"execution_id": string,"expires_at": string,"id"?: string,"input_hash": string,"location_id"?: string | null,"organization_id": string,"reason"?: string | null,"requested_by"?: string | null,"required_role": string,"status"?: string
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"edited_input"?: Json | null,"effect_class": string,"execution_id": string,"expires_at": string,"id"?: string,"input_hash": string,"location_id"?: string | null,"organization_id": string,"reason"?: string | null,"requested_by"?: string | null,"required_role": string,"status"?: string
                   }
                   Update: {
-                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"effect_class"?: string,"execution_id"?: string,"expires_at"?: string,"id"?: string,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"reason"?: string | null,"requested_by"?: string | null,"required_role"?: string,"status"?: string
+                    "created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"edited_input"?: Json | null,"effect_class"?: string,"execution_id"?: string,"expires_at"?: string,"id"?: string,"input_hash"?: string,"location_id"?: string | null,"organization_id"?: string,"reason"?: string | null,"requested_by"?: string | null,"required_role"?: string,"status"?: string
                   }
                   Relationships: [
                     {
