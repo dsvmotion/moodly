@@ -17,8 +17,8 @@
 //   externa sin este filtro. Sin upsert ni rpc: con la clave secreta, un upsert
 //   por id pisaría la fila de otra organización, y una función no recibe el
 //   filtro. Las excepciones son searchKnowledge, findBookingSlots,
-//   agentTurnContext, approvalNotification, usageSpend, checkBudgetThresholds y
-//   budgetNotification: funciones con nombre
+//   agentTurnContext, approvalNotification, handoffNotification, usageSpend,
+//   checkBudgetThresholds y budgetNotification: funciones con nombre
 //   a las que tenantDb les pasa la organización.
 import type { PostgrestQueryBuilder, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types.js";
@@ -174,6 +174,21 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
   }
 
   /**
+   * Lo que necesita el aviso de un paso a una persona (handoff_notification,
+   * CU3): la conversación, su cliente, su agente y su local, y a quién se le
+   * envía (quien puede llevarla, con la regla de can_see_scope). Con la
+   * organización de este acceso: una conversación de otra no existe (null).
+   */
+  async function handoffNotification(conversationId: string): Promise<HandoffNotification | null> {
+    if (!UUID.test(conversationId)) {
+      throw new TenantScopeError("tenantDb: conversation_id no es un UUID");
+    }
+    const { data, error } = await untyped.rpc("handoff_notification", { p_organization_id: organizationId, p_conversation_id: conversationId });
+    if (error) throw new Error(`handoff_notification: ${error.message}`);
+    return (data ?? null) as HandoffNotification | null;
+  }
+
+  /**
    * Lo gastado desde el comienzo del día y desde el del mes (usage_spend,
    * PL-ledger), sumado en la base de datos: lo que el enrutador compara con los
    * topes antes de llamar. Con la organización de este acceso.
@@ -234,6 +249,7 @@ export function tenantDb(client: SupabaseClient<Database>, organizationId: strin
     findBookingSlots,
     agentTurnContext,
     approvalNotification,
+    handoffNotification,
     usageSpend,
     checkBudgetThresholds,
     budgetNotification,
@@ -248,6 +264,17 @@ export interface ApprovalNotification {
   organization: { default_locale: string };
   location: { name: string; timezone: string } | null;
   /** Quien puede decidirla: de la base de datos, nunca del evento ni del modelo. */
+  recipients: { user_id: string; email: string; locale: string }[];
+}
+
+/** Tal como lo devuelve handoff_notification; quien lo usa lo valida antes de fiarse. */
+export interface HandoffNotification {
+  conversation: { id: string; mode: string; channel: string | null; location_id: string | null };
+  contact: { display_name: string | null };
+  agent: { display_name: string | null; type_key: string; type_name: string };
+  organization: { default_locale: string };
+  location: { name: string; timezone: string } | null;
+  /** Quien puede llevarla: de la base de datos, nunca del evento ni del modelo. */
   recipients: { user_id: string; email: string; locale: string }[];
 }
 

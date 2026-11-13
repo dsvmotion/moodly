@@ -15,6 +15,7 @@ export {
   type AgentTurnContext,
   type ApprovalNotification,
   type BudgetNotification,
+  type HandoffNotification,
   type BookingSlotRow,
   type BookingSlotsParams,
   type KnowledgeSearchParams,

@@ -74,7 +74,7 @@ select results_eq(
   format($$values (%L::uuid, %L::uuid, jsonb_build_object('conversation_id', %L, 'agent_id', %L))$$, :org_a, :loc_a1, :conv_a1, :'agent_a'),
   'con la organización y el local de la fila, y solo ids');
 select results_eq(
-  format($$select topic, private, payload from realtime.messages where event = 'handoff' and payload ->> 'conversation_id' = %L$$, :conv_a1),
+  format($$select topic, private, payload - 'id' from realtime.messages where event = 'handoff' and payload ->> 'conversation_id' = %L$$, :conv_a1),
   format($$values (%L::text, true, jsonb_build_object('conversation_id', %L))$$, 'inbox:' || :org_a || ':' || :loc_a1, :conv_a1),
   'y la bandeja de A1 recibe un handoff privado, solo con el id');
 
@@ -131,7 +131,7 @@ select results_eq(
                   n -> 'location' ->> 'name', n -> 'organization' ->> 'default_locale'
            from (select public.handoff_notification(%L, %L) as n) x$$, :org_a, :conv_a1),
   format($$values (%L, 'human', 'whatsapp', %L, 'Ana', (select t.key from public.agents a join public.agent_types t on t.id = a.agent_type_id where a.id = %L),
-                   'Local A1', (select default_locale from public.organizations where id = %L))$$, :conv_a1, :loc_a1, :agent_a, :org_a),
+                   'Local A1', (select default_locale from public.organizations where id = %L))$$, :conv_a1, :loc_a1, :'agent_a', :org_a),
   'la conversación, su cliente, su agente y su local');
 
 -- ===========================================================================

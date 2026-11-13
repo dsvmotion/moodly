@@ -1200,6 +1200,9 @@ isOneToOne: false
               "ends_at": string,"resource_id": string,"starts_at": string
             }[]
                            },
+"handoff_notification":
+{ Args: { "p_conversation_id": string,"p_organization_id": string }; Returns: Json
+                           },
 "login_record_failure":
 { Args: { "p_email": string,"p_ip": string,"p_key": string }; Returns: undefined
                            },
