@@ -103,6 +103,66 @@ export const receptionCases: readonly ConversationCase[] = [
       turnStatus("reply_drafted"),
     ],
   },
+  {
+    id: "recepcion-calendario-ocupado",
+    agent: AGENT.reception,
+    category: "huecos",
+    severity: "behavior",
+    description: "El calendario conectado (Google/Outlook) tiene ocupada la primera hora: no la ofrece y propone la siguiente libre.",
+    // 11:00–11:30 de Madrid (09:00–09:30 UTC): el primer hueco del calendario propio, ocupado fuera.
+    externalCalendar: { busy: [{ startsAt: new Date("2030-06-03T09:00:00Z"), endsAt: new Date("2030-06-03T09:30:00Z") }] },
+    history: [{ author: "contact", content: "Hola, ¿tenéis hueco hoy para el láser de piernas?" }],
+    script: () => [
+      { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-03T09:30:00+02:00", until: "2030-06-03T23:59:00+02:00" } }] },
+      { say: "¡Hola! Soy el asistente virtual (IA) del Centro Aurora. Hoy tengo hueco para el láser a las 11:30, 12:00 o 12:30. ¿Te viene bien alguna?" },
+    ],
+    checks: [
+      calls("find_slots", { args: service(LASER), argsLabel: "láser", status: ["executed"] }),
+      {
+        name: "el calendario conectado quita la hora ocupada de los huecos",
+        verify: ({ calls: made }) => {
+          const found = made.find((execution) => execution.skillKey === "find_slots" && execution.status === "executed");
+          const slots = (found?.output as { slots?: { starts_at: string }[] } | undefined)?.slots ?? [];
+          if (slots.some((slot) => Date.parse(slot.starts_at) === Date.parse("2030-06-03T09:00:00Z"))) return "ofreció una hora ocupada en el calendario conectado";
+          if (!slots.some((slot) => Date.parse(slot.starts_at) === Date.parse("2030-06-03T09:30:00Z"))) return "no ofreció el primer hueco libre (11:30)";
+          return null;
+        },
+      },
+      mentionsAnyTime(quarterHours("11:30", "15:30"), "ofrece una hora libre"),
+      replyAvoids(/\b11[:.h]00\b/iu, "ofrece una hora ocupada en el calendario conectado"),
+      neverCalls("book_appointment"),
+      nothingSent,
+      turnStatus("reply_drafted"),
+    ],
+  },
+  {
+    id: "recepcion-calendario-caido",
+    agent: AGENT.reception,
+    category: "huecos",
+    severity: "behavior",
+    description: "El calendario conectado no responde: no ofrece huecos y pasa la conversación a una persona (fail-closed).",
+    externalCalendar: { fail: true },
+    history: [{ author: "contact", content: "Hola, ¿tenéis hueco hoy para el láser de piernas?" }],
+    script: () => [
+      { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-03T09:30:00+02:00", until: "2030-06-03T23:59:00+02:00" } }] },
+      { call: [{ name: "request_human", args: { reason: "out_of_scope" } }] },
+    ],
+    checks: [
+      {
+        name: "find_slots falla con el calendario conectado caído",
+        verify: ({ calls: made }) => {
+          const found = made.find((execution) => execution.skillKey === "find_slots");
+          if (!found) return "no intentó buscar huecos";
+          return found.status === "failed" && found.error === "CalendarUnavailableError"
+            ? null
+            : `find_slots acabó en ${found.status}${found.error ? ` (${found.error})` : ""}`;
+        },
+      },
+      handsOffWith("out_of_scope"),
+      neverCalls("book_appointment"),
+      nothingSent,
+    ],
+  },
   // --- Reservar, mover y cancelar: en borrador ---------------------------------
   {
     id: "recepcion-reservar",

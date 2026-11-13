@@ -4,7 +4,7 @@ import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, Transp
 import { replyOf, snapshotAppointments } from "./checks.js";
 import type { Check, Outcome } from "./checks.js";
 import { createWorld } from "./world.js";
-import type { AgentKey, Business, KnowledgeDoc, World } from "./world.js";
+import type { AgentKey, Business, ExternalCalendar, KnowledgeDoc, World } from "./world.js";
 
 // El arnés de las conversaciones de prueba (MANUAL §12.4): cada caso corre un
 // turno de verdad (runAgentTurn con el prompt de composeSystemPrompt y las
@@ -54,6 +54,8 @@ export interface ConversationCase {
   business?: Business;
   /** Lo que ha escrito el negocio, si no es el suyo de serie. */
   knowledge?: readonly KnowledgeDoc[];
+  /** El calendario conectado del caso (O-02): horas ocupadas, o un fallo del proveedor. */
+  externalCalendar?: ExternalCalendar;
   /** Lo que ya existe antes del turno (citas, etc.). */
   setup?: (world: World) => Promise<void>;
   /** Lo que haría un modelo que se porta bien (solo para el modelo falso). */
@@ -97,7 +99,7 @@ export interface RunOptions {
 }
 
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
-  const world = createWorld(testCase.agent, testCase.knowledge, testCase.business);
+  const world = createWorld(testCase.agent, testCase.knowledge, testCase.business, testCase.externalCalendar);
   await testCase.setup?.(world);
   // Lo que el caso dejó pendiente con el equipo va en el prompt, como lo pone el worker (CU3).
   const prompt = composeSystemPromptParts({ ...world.promptContext, pendingRequests: world.pendingRequests });
