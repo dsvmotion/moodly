@@ -7,7 +7,7 @@
 -- Que una persona tome el control no avisa a nadie.
 begin;
 \ir _fixtures/tenants.psql
-select plan(26);
+select plan(30);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -24,11 +24,13 @@ insert into public.conversations (id, organization_id, location_id, contact_id, 
 values ('f4000000-0000-4000-8000-000000000001', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a'),
        ('f4000000-0000-4000-8000-000000000002', :org_a, null, :'c_ana', 'f3000000-0000-4000-8000-000000000002', :'agent_a'),
        ('f4000000-0000-4000-8000-000000000003', :org_b, :loc_b1, :'c_berta', 'f3000000-0000-4000-8000-000000000003', :'agent_b'),
-       ('f4000000-0000-4000-8000-000000000004', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a');
+       ('f4000000-0000-4000-8000-000000000004', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a'),
+       ('f4000000-0000-4000-8000-000000000005', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a');
 \set conv_a1  '''f4000000-0000-4000-8000-000000000001'''
 \set conv_org '''f4000000-0000-4000-8000-000000000002'''
 \set conv_b1  '''f4000000-0000-4000-8000-000000000003'''
 \set conv_a1b '''f4000000-0000-4000-8000-000000000004'''
+\set conv_w   '''f4000000-0000-4000-8000-000000000005'''
 
 create temp view handoff_events as
   select * from public.domain_events where organization_id in (:org_a, :org_b) and type = 'conversation.handed_off';
@@ -116,6 +118,34 @@ select results_eq(
 select is(
   (select topic from realtime.messages where event = 'handoff' and payload ->> 'conversation_id' = :conv_org),
   'inbox:' || :org_a || ':org', 'la de toda la organización avisa al tema de la organización');
+
+-- ===========================================================================
+-- 3b. Como moodly_worker (PL-T1, ADR 0049): el worker cambia mode con su
+--     privilegio de columna y guard_worker_conversation; no tiene INSERT en
+--     domain_events, y el evento lo escribe la función del trigger.
+-- ===========================================================================
+grant moodly_worker to postgres with set true;
+grant usage on schema extensions to moodly_worker;
+select ok(not has_table_privilege('moodly_worker', 'public.domain_events', 'insert'),
+  'moodly_worker no tiene INSERT en domain_events: no puede fabricar un aviso');
+
+-- Con la organización de B fijada, la conversación de A no existe para él: ni cambia ni avisa.
+set local role moodly_worker;
+select set_config('moodly.organization_id', :org_b, true) as _org \gset
+update public.conversations set mode = 'human' where id = :conv_w and mode = 'agent';
+reset role;
+select is((select count(*)::int from handoff_events where payload ->> 'conversation_id' = :conv_w), 0,
+  'el worker de otra organización no pasa la conversación ni deja un aviso');
+
+set local role moodly_worker;
+select set_config('moodly.organization_id', :org_a, true) as _org \gset
+select lives_ok(format($$update public.conversations set mode = 'human' where id = %L and mode = 'agent'$$, :conv_w),
+  'el worker de A pasa su conversación a una persona');
+reset role;
+select results_eq(
+  format($$select organization_id, location_id, payload from handoff_events where payload ->> 'conversation_id' = %L$$, :conv_w),
+  format($$values (%L::uuid, %L::uuid, jsonb_build_object('conversation_id', %L, 'agent_id', %L))$$, :org_a, :loc_a1, :conv_w, :'agent_a'),
+  'y queda su conversation.handed_off, con la organización y el local de la fila');
 
 -- ===========================================================================
 -- 4. handoff_notification: de una sola organización

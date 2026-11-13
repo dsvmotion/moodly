@@ -40,9 +40,9 @@
 --   trigger y nadie la puede llamar directamente.
 -- - handoff_notification solo lee; corre como su dueño para leer el email de
 --   auth.users, que la API no expone. Solo service_role la ejecuta.
--- Tests en negativo en 47_conversation_handed_off.
+-- Tests en negativo en 51_conversation_handed_off.
 --
--- Vuelta atrás:
+-- Vuelta atrás (rollbacks/20261112200000_conversation_handed_off.down.sql):
 --   drop function public.handoff_notification(uuid, uuid);
 --   drop trigger emit_conversation_handed_off on public.conversations;
 --   drop function private.emit_conversation_handed_off();
