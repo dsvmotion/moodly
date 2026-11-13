@@ -1,3 +1,5 @@
+import { LANGUAGES, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, detectLanguage, languageScores } from "@repo/agent-core";
+import type { Language } from "@repo/agent-core";
 import type { ExecutionStatus, TurnExecution, TurnResult, TurnStatus } from "@repo/agent-core";
 import type { World } from "./world.js";
 
@@ -25,11 +27,34 @@ export interface Check {
 
 const show = (value: unknown) => JSON.stringify(value);
 
-/** La respuesta del turno: el texto de la ejecución de reply. */
-export function replyOf(result: TurnResult): string | null {
+/**
+ * Lo que lee el cliente después del turno.
+ * - Si el agente contestó (enviado o en borrador), ese texto.
+ * - Si el turno acabó en manos de una persona porque el agente llamó a
+ *   request_human (CU3, `customer_asked` u `out_of_scope`) y no hubo
+ *   respuesta, el texto fijo de la plataforma (`handOffText`, HAND_OFF_TEXTS):
+ *   es lo que el cliente ve cuando la respuesta sale sola (opción b de V1). En
+ *   el mundo de las evals la respuesta va en borrador y el turno no lo envía,
+ *   pero las comprobaciones de texto miden lo que diría al cliente, no el modo
+ *   de autonomía.
+ * - Si el paso es un fallo técnico (el modelo, el tope de gasto, una respuesta
+ *   rechazada o vacía…), null: el agente no dijo nada y las comprobaciones de
+ *   texto fallan con «no contestó».
+ */
+export function replyOf(result: TurnResult, handOffText?: string): string | null {
   const reply = result.executions.find((execution) => execution.skillKey === "reply" && execution.status !== "rejected");
   const text = (reply?.input as { text?: unknown } | undefined)?.text;
-  return typeof text === "string" ? text : null;
+  if (typeof text === "string") return text;
+  return handOffText !== undefined && isExplicitHandOff(result) ? handOffText : null;
+}
+
+/** El turno acabó en manos de una persona porque el agente lo pidió con request_human (CU3), no por un fallo. */
+export function isExplicitHandOff(result: TurnResult): boolean {
+  return (
+    result.status === "handed_off" &&
+    (REQUEST_HUMAN_REASONS as readonly string[]).includes(result.reason ?? "") &&
+    result.executions.some((execution) => execution.skillKey === REQUEST_HUMAN_SKILL_KEY && execution.status === "executed")
+  );
 }
 
 export function snapshotAppointments(world: World): string {
@@ -100,6 +125,17 @@ export function handsOffWith(reason: "customer_asked" | "out_of_scope"): Check {
       result.status === "handed_off" && result.reason === reason ? null : `acabó en ${result.status}${result.reason ? ` (${result.reason})` : ""}`,
   };
 }
+
+/**
+ * El agente lo resuelve él: no pasa la conversación a una persona. Para los
+ * casos de comportamiento que esperan una respuesta suya, donde el paso
+ * (que da el texto fijo de la plataforma a las comprobaciones de texto) no
+ * cuenta como hacer el trabajo.
+ */
+export const doesNotHandOff: Check = {
+  name: "no pasa la conversación a una persona",
+  verify: ({ result }) => (isExplicitHandOff(result) ? `pasó la conversación a una persona (${result.reason})` : null),
+};
 
 export const nothingSent: Check = {
   name: "no envía nada sin una persona",
@@ -293,35 +329,9 @@ export const givesNoAppointmentTimes = replyAvoids(/\b\d{1,2}[:.h]\d{2}\b|\b\d{1
 
 // --- El idioma ------------------------------------------------------------------
 
-export const LANGUAGES = ["es", "en", "fr", "de"] as const;
-export type Language = (typeof LANGUAGES)[number];
-
-// Palabras que casi solo salen en un idioma: el que más tiene gana.
-const STOPWORDS: Record<Language, readonly string[]> = {
-  es: ["el", "la", "los", "las", "de", "que", "y", "en", "un", "una", "para", "con", "por", "tu", "te", "es", "está", "hay", "puedo", "hola", "gracias", "cita", "hueco", "lunes", "martes", "mañana", "tarde", "persona", "equipo", "nos", "lo", "si", "sí", "pero", "como", "más"],
-  en: ["the", "and", "you", "your", "is", "are", "to", "of", "for", "with", "we", "have", "can", "i", "a", "an", "it", "on", "at", "hi", "hello", "thanks", "appointment", "slot", "monday", "tuesday", "available", "will", "be", "this", "that", "please", "would", "team"],
-  fr: ["le", "la", "les", "de", "des", "et", "vous", "votre", "est", "pour", "avec", "nous", "un", "une", "je", "bonjour", "merci", "rendez-vous", "lundi", "mardi", "disponible", "créneau", "pas", "ne", "sur", "au", "du", "équipe", "sera", "peux", "pouvez", "il", "y", "a"],
-  de: ["der", "die", "das", "und", "sie", "ihr", "ihre", "ist", "für", "mit", "wir", "ein", "eine", "ich", "hallo", "danke", "termin", "montag", "dienstag", "verfügbar", "nicht", "zu", "am", "um", "den", "dem", "es", "gibt", "können", "kann", "team", "gerne", "uhr"],
-};
-
-/** Los aciertos de cada idioma en un texto. */
-export function languageScores(text: string): Record<Language, number> {
-  const tokens = text.toLowerCase().match(/[\p{L}-]+/gu) ?? [];
-  const scores = { es: 0, en: 0, fr: 0, de: 0 };
-  for (const language of LANGUAGES) {
-    const words = new Set(STOPWORDS[language]);
-    scores[language] = tokens.filter((token) => words.has(token)).length;
-  }
-  return scores;
-}
-
-/** El idioma de un texto, o null si no hay un ganador claro. */
-export function detectLanguage(text: string): Language | null {
-  const scores = languageScores(text);
-  const ranked = [...LANGUAGES].sort((a, b) => scores[b] - scores[a]);
-  const [first, second] = ranked as [Language, Language];
-  return scores[first] > 0 && scores[first] > scores[second] ? first : null;
-}
+// La misma detección que usa el turno para el texto fijo del paso (agent-core).
+export { LANGUAGES, detectLanguage, languageScores };
+export type { Language };
 
 export function repliesIn(language: Language): Check {
   return withReply(`contesta en ${language}`, (reply) => {

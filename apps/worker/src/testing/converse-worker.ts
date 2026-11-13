@@ -83,6 +83,8 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     lastRole: last?.role,
     customer,
     system: request.messages[0]?.role === "system" ? request.messages[0].content : null,
+    // La parte del prompt que cambia en cada turno (la hora y lo pendiente con el equipo, CU3).
+    context: request.messages[1]?.role === "system" ? request.messages[1].content : null,
     summary: request.messages.find((message) => message.content.startsWith(SUMMARY_MARK))?.content ?? null,
     messages: request.messages.length,
   });
