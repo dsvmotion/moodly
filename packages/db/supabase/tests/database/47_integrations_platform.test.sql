@@ -5,7 +5,7 @@
 -- no ve ni toca las conexiones de otra.
 begin;
 \ir _fixtures/tenants.psql
-select plan(40);
+select plan(45);
 
 create function pg_temp.status_of(p_id uuid) returns text language sql as $$
   select status from public.integrations where id = p_id;
@@ -118,6 +118,12 @@ select lives_ok(
   'y la pone activa con su id de conexión');
 select throws_ok(format($$update public.integrations set provider = 'gmail' where id = %L$$, :'int_a'),
   '42501', null, 'pero no cambia otras columnas');
+select throws_ok(format($$update public.integrations set status = 'pending' where id = %L$$, :'int_a'),
+  '42501', null, 'guard_worker_integration: el worker no la pasa a pendiente');
+select throws_ok(format($$update public.integrations set status = 'disconnected', external_connection_id = null where id = %L$$, :'int_a'),
+  '42501', null, 'ni a desconectada (eso lo decide una persona)');
+select throws_ok(format($$update public.integrations set status = 'error', external_connection_id = 'conn-z' where id = %L$$, :'int_a'),
+  '42501', null, 'ni cambia el id de la conexión sin activarla');
 select throws_ok(format($$insert into public.integrations (organization_id, provider, kind) values (%L, 'x', 'platform')$$, :org_a),
   '42501', null, 'ni crea integraciones');
 select throws_ok(format($$delete from public.integrations where id = %L$$, :'int_a'),
@@ -144,6 +150,15 @@ select throws_ok(format($$update public.integrations set status = 'disconnected'
   '42501', null, 'ni cambia quién la conectó');
 select lives_ok(format($$update public.integrations set status = 'disconnected', external_connection_id = null where id = %L$$, :'int_a'),
   'la desconecta');
+reset role;
+set local role moodly_worker;
+select set_config('moodly.organization_id', :org_a, true) as _org2 \gset
+select throws_ok(format($$update public.integrations set status = 'active', external_connection_id = 'conn-tarde' where id = %L$$, :'int_a'),
+  '42501', null, 'guard_worker_integration: el worker no reactiva una que una persona desconectó');
+select throws_ok(format($$update public.integrations set status = 'error' where id = %L$$, :'int_a'),
+  '42501', null, 'ni la pone en error');
+reset role;
+select pg_temp.act_as_mfa(:a_admin, :'s_admin');
 select lives_ok(format($$update public.integrations set status = 'pending' where id = %L$$, :'int_a'),
   'y la vuelve a conectar (pendiente)');
 reset role;

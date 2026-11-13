@@ -5,7 +5,8 @@ import { getSessionAal, requireUser } from "@/lib/auth/session";
 import { getConnectorPlatform } from "@/lib/integrations/platform";
 import { getScopeContext } from "@/lib/scope-data";
 import { createClient } from "@/lib/supabase/server";
-import { IntegrationCard, type IntegrationStatus } from "./integration-card";
+import { displayStatus, type IntegrationStatus } from "@/lib/integrations/status";
+import { IntegrationCard } from "./integration-card";
 
 // Ajustes → Integraciones (P6, MANUAL §9.4; O-02, ADR 0053): las cuentas del
 // negocio que usan los agentes. Empieza por Google Calendar, a través de la
@@ -25,12 +26,13 @@ export default async function IntegrationsPage() {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("integrations")
-      .select("provider, status")
+      .select("provider, status, updated_at")
       .eq("organization_id", context.organization.id)
       .eq("kind", "platform")
       .is("location_id", null);
     if (error) throw new Error("No se pudieron cargar las integraciones", { cause: error });
-    for (const row of data) statuses.set(row.provider, row.status as IntegrationStatus);
+    const now = new Date();
+    for (const row of data) statuses.set(row.provider, displayStatus(row, now));
   }
 
   return (

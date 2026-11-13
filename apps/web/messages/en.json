@@ -698,6 +698,7 @@
     "status": {
       "none": "Not connected",
       "pending": "Pending",
+      "expired": "Expired: reconnect",
       "active": "Connected",
       "error": "Error",
       "disconnected": "Disconnected"

@@ -1,14 +1,18 @@
 "use server";
 
-import { platformIntegration, ConnectorPlatformError } from "@repo/integrations/platform";
+import { platformIntegration, type PlatformIntegration } from "@repo/integrations/platform";
 import { revalidatePath } from "next/cache";
 import { getSessionAal, requireUser } from "@/lib/auth/session";
+import { connectFlow, disconnectFlow, type IntegrationStore } from "@/lib/integrations/flows";
 import { getConnectorPlatform } from "@/lib/integrations/platform";
 import { logger, securityEvent } from "@/lib/observability/logger";
 import { getScopeContext } from "@/lib/scope-data";
 import { createClient } from "@/lib/supabase/server";
 
-// Conectar y desconectar una integración de plataforma (O-02, ADR 0053).
+// Conectar y desconectar una integración de plataforma (O-02, ADR 0053). La
+// lógica está en lib/integrations/flows.ts (con sus tests, también la carrera
+// con el webhook); aquí, el permiso, la fila con el cliente de la persona y los
+// eventos.
 //
 // - Del cliente solo llega la clave del proveedor, y vale solo si está en el
 //   catálogo. La organización es la activa de la sesión; quien conecta, la
@@ -18,8 +22,6 @@ import { createClient } from "@/lib/supabase/server";
 //   aal2 y guard_integration_write solo deja «pendiente» o «desconectada». Aquí
 //   se comprueba antes para no pedirle nada a Nango sin permiso.
 // - Activa solo la pone el worker, al llegar el webhook firmado de Nango.
-// - Desconectar borra primero la conexión en Nango; si Nango falla, la fila no
-//   cambia, se registra y la pantalla lo dice.
 
 const PATH = "/app/settings/integrations";
 
@@ -36,6 +38,47 @@ async function adminContext() {
   return { user, organizationId: organization.id };
 }
 
+/** La fila de la organización y el proveedor, con el cliente de la persona (RLS). */
+async function store(organizationId: string, entry: PlatformIntegration): Promise<IntegrationStore> {
+  const supabase = await createClient();
+  return {
+    async find() {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("id, status, external_connection_id")
+        .eq("organization_id", organizationId)
+        .is("location_id", null)
+        .eq("provider", entry.provider)
+        .eq("kind", "platform")
+        .maybeSingle();
+      if (error || !data) return null;
+      return { id: data.id, status: data.status, externalConnectionId: data.external_connection_id };
+    },
+    async insertPending() {
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert({ organization_id: organizationId, provider: entry.provider, kind: "platform" })
+        .select("id")
+        .single();
+      return error ? null : data.id;
+    },
+    async setPending(id) {
+      // Queda a nombre de quien reconecta (lo pone la guarda).
+      const { data, error } = await supabase.from("integrations").update({ status: "pending" }).eq("id", id).select("id");
+      return !error && Boolean(data?.[0]);
+    },
+    async markDisconnected(id, expectedConnectionId) {
+      // Solo si sigue apuntando a la conexión que se borró en Nango.
+      const base = supabase.from("integrations").update({ status: "disconnected", external_connection_id: null }).eq("id", id);
+      const { data, error } = await (expectedConnectionId === null
+        ? base.is("external_connection_id", null)
+        : base.eq("external_connection_id", expectedConnectionId)
+      ).select("id");
+      return !error && Boolean(data?.[0]);
+    },
+  };
+}
+
 export async function startConnect(provider: string): Promise<ConnectResult> {
   const entry = platformIntegration(provider);
   if (!entry) return { ok: false, error: "invalid" };
@@ -44,54 +87,27 @@ export async function startConnect(provider: string): Promise<ConnectResult> {
   const platform = getConnectorPlatform();
   if (!platform) return { ok: false, error: "unavailable" };
 
-  const supabase = await createClient();
-  const { data: existing, error: readError } = await supabase
-    .from("integrations")
-    .select("id")
-    .eq("organization_id", ctx.organizationId)
-    .is("location_id", null)
-    .eq("provider", entry.provider)
-    .eq("kind", "platform")
-    .maybeSingle();
-  if (readError) return { ok: false, error: "not_allowed" };
-
-  let integrationId: string;
-  if (existing) {
-    // Reconectar: vuelve a pendiente, a nombre de quien reconecta (lo pone la guarda).
-    const { data, error } = await supabase.from("integrations").update({ status: "pending" }).eq("id", existing.id).select("id");
-    if (error || !data?.[0]) return { ok: false, error: "not_allowed" };
-    integrationId = existing.id;
-  } else {
-    const { data, error } = await supabase
-      .from("integrations")
-      .insert({ organization_id: ctx.organizationId, provider: entry.provider, kind: "platform" })
-      .select("id")
-      .single();
-    if (error) return { ok: false, error: "not_allowed" };
-    integrationId = data.id;
+  const outcome = await connectFlow(await store(ctx.organizationId, entry), platform, entry, {
+    organizationId: ctx.organizationId,
+    userId: ctx.user.id,
+  });
+  revalidatePath(PATH);
+  if (!outcome.ok || !outcome.connectLink) {
+    if (outcome.error === "platform_failed") {
+      logger.error(
+        { organization_id: ctx.organizationId, integration_id: outcome.integrationId ?? null, kind: outcome.platformErrorKind ?? null },
+        "Nango no creó la sesión de conexión",
+      );
+    }
+    return { ok: false, error: outcome.error ?? "not_allowed" };
   }
-
-  try {
-    const session = await platform.createConnectSession({
-      integrationKey: entry.integrationKey,
-      tags: { organization_id: ctx.organizationId, end_user_id: ctx.user.id, integration_id: integrationId },
-    });
-    securityEvent("integration.connect_started", {
-      userId: ctx.user.id,
-      organizationId: ctx.organizationId,
-      integrationId,
-      provider: entry.provider,
-    });
-    revalidatePath(PATH);
-    return { ok: true, connectLink: session.connectLink };
-  } catch (err) {
-    logger.error(
-      { err, organization_id: ctx.organizationId, integration_id: integrationId, kind: err instanceof ConnectorPlatformError ? err.kind : "unknown" },
-      "Nango no creó la sesión de conexión",
-    );
-    revalidatePath(PATH);
-    return { ok: false, error: "platform_failed" };
-  }
+  securityEvent("integration.connect_started", {
+    userId: ctx.user.id,
+    organizationId: ctx.organizationId,
+    integrationId: outcome.integrationId,
+    provider: entry.provider,
+  });
+  return { ok: true, connectLink: outcome.connectLink };
 }
 
 export async function disconnect(provider: string): Promise<DisconnectResult> {
@@ -99,54 +115,35 @@ export async function disconnect(provider: string): Promise<DisconnectResult> {
   if (!entry) return { ok: false, error: "invalid" };
   const ctx = await adminContext();
   if (!ctx) return { ok: false, error: "not_allowed" };
+  const platform = getConnectorPlatform();
+  if (!platform) return { ok: false, error: "unavailable" };
 
-  const supabase = await createClient();
-  const { data: row, error: readError } = await supabase
-    .from("integrations")
-    .select("id, external_connection_id")
-    .eq("organization_id", ctx.organizationId)
-    .is("location_id", null)
-    .eq("provider", entry.provider)
-    .eq("kind", "platform")
-    .maybeSingle();
-  if (readError || !row) return { ok: false, error: "not_allowed" };
-
-  if (row.external_connection_id) {
-    const platform = getConnectorPlatform();
-    if (!platform) return { ok: false, error: "unavailable" };
-    try {
-      await platform.deleteConnection(entry.integrationKey, row.external_connection_id);
-    } catch (err) {
+  const outcome = await disconnectFlow(await store(ctx.organizationId, entry), platform, entry);
+  revalidatePath(PATH);
+  if (!outcome.ok) {
+    if (outcome.error === "platform_failed") {
       // La fila sigue como estaba: la conexión sigue viva en Nango.
       securityEvent("integration.disconnect_failed", {
         userId: ctx.user.id,
         organizationId: ctx.organizationId,
-        integrationId: row.id,
+        integrationId: outcome.integrationId,
         provider: entry.provider,
-        reason: err instanceof ConnectorPlatformError ? err.kind : "unknown",
+        reason: outcome.platformErrorKind ?? "unknown",
       });
-      return { ok: false, error: "platform_failed" };
+    } else if (outcome.deleted.length > 0) {
+      logger.error(
+        { organization_id: ctx.organizationId, integration_id: outcome.integrationId ?? null, deleted: outcome.deleted.length },
+        "se borraron conexiones en Nango pero la fila no pasó a desconectada",
+      );
     }
-  }
-
-  const { data, error } = await supabase
-    .from("integrations")
-    .update({ status: "disconnected", external_connection_id: null })
-    .eq("id", row.id)
-    .select("id");
-  if (error || !data?.[0]) {
-    logger.error(
-      { organization_id: ctx.organizationId, integration_id: row.id, code: error?.code ?? null },
-      "la conexión se borró en Nango pero la fila no pasó a desconectada",
-    );
-    return { ok: false, error: "not_allowed" };
+    return { ok: false, error: outcome.error ?? "not_allowed" };
   }
   securityEvent("integration.disconnected", {
     userId: ctx.user.id,
     organizationId: ctx.organizationId,
-    integrationId: row.id,
+    integrationId: outcome.integrationId,
     provider: entry.provider,
+    deleted: outcome.deleted.length,
   });
-  revalidatePath(PATH);
   return { ok: true };
 }

@@ -5,9 +5,9 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
+import type { IntegrationStatus } from "@/lib/integrations/status";
 import { disconnect, startConnect } from "./actions";
 
-export type IntegrationStatus = "none" | "pending" | "active" | "error" | "disconnected";
 
 type ErrorKey = "invalid" | "not_allowed" | "unavailable" | "platform_failed";
 
@@ -77,7 +77,7 @@ export function IntegrationCard({
   }
 
   const connected = status === "active";
-  const canRemove = status === "active" || status === "pending" || status === "error";
+  const canRemove = status === "active" || status === "pending" || status === "expired" || status === "error";
 
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between" data-testid={`integration-${provider}`}>
@@ -85,7 +85,7 @@ export function IntegrationCard({
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-medium">{t(`providers.${provider}.name`)}</h2>
           {status ? (
-            <Badge variant={connected ? "default" : status === "error" ? "outline" : "muted"} data-testid="integration-status">
+            <Badge variant={connected ? "default" : status === "error" || status === "expired" ? "outline" : "muted"} data-testid="integration-status">
               {t(`status.${status}`)}
             </Badge>
           ) : null}

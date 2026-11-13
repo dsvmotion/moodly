@@ -18,19 +18,16 @@
 --    fijada en la transacción (la política integrations_worker ya existe,
 --    20261112040500).
 --
--- Sin funciones security definer nuevas: la guarda se ejecuta como quien escribe.
+-- 4. guard_worker_integration (solo para moodly_worker): el worker no es «la
+--    plataforma» (V1, 2026-11-12) y también tiene su lista blanca: solo pone
+--    activa (con un id de conexión) o en error, nunca pendiente ni
+--    desconectada; no reactiva una que una persona desconectó; y el id de la
+--    conexión solo lo cambia al activarla, nunca a null.
 --
--- Vuelta atrás (no hay datos de clientes; antes, borrar las filas 'platform'):
---   revoke select, update on public.integrations from moodly_worker;
---   drop trigger guard_integration_write on public.integrations; drop function private.guard_integration_write();
---   drop policy integrations_insert on public.integrations; drop policy integrations_update on public.integrations;
---   revoke insert, update on public.integrations from authenticated;
---   delete from public.integrations where kind = 'platform';
---   alter table public.integrations drop constraint integrations_platform_shape,
---     drop constraint integrations_platform_active_has_connection,
---     drop constraint integrations_external_connection_id_key, drop column external_connection_id,
---     drop constraint integrations_kind_check,
---     add constraint integrations_kind_check check (kind in ('mcp', 'native'));
+-- Sin funciones security definer nuevas: las guardas se ejecutan como quien escribe.
+--
+-- Vuelta atrás: rollbacks/20261112210000_integrations_platform.down.sql (antes,
+-- borrar las filas 'platform'; no hay datos de clientes).
 
 -- ---------------------------------------------------------------------------
 -- 1. kind 'platform' y el id de la conexión externa
@@ -125,3 +122,32 @@ create trigger guard_integration_write before insert or update on public.integra
 -- ---------------------------------------------------------------------------
 grant select on public.integrations to moodly_worker;
 grant update (status, external_connection_id, last_health_check) on public.integrations to moodly_worker;
+
+-- La lista blanca del worker (ver 4 en la cabecera). Invoker; solo actúa con moodly_worker.
+create function private.guard_worker_integration()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user <> 'moodly_worker' then
+    return new;
+  end if;
+  if new.status is distinct from old.status then
+    if old.status = 'disconnected' then
+      raise exception 'una integración desconectada solo la vuelve a conectar una persona' using errcode = '42501';
+    end if;
+    if new.status not in ('active', 'error') then
+      raise exception 'el worker solo pone una integración activa o en error' using errcode = '42501';
+    end if;
+  end if;
+  if new.external_connection_id is distinct from old.external_connection_id
+     and (new.external_connection_id is null or new.status <> 'active') then
+    raise exception 'el worker solo cambia el id de la conexión al activarla' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_worker_integration() from public;
+create trigger guard_worker_integration before update on public.integrations
+  for each row execute function private.guard_worker_integration();
