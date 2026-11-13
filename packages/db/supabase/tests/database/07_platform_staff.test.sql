@@ -54,7 +54,7 @@ create function pg_temp.staff_write_probe() returns text[] language sql as $$
     'insert users: '         || pg_temp.try_sql(format('insert into public.users (id) values (%L)', gen_random_uuid())),
     'update organizations: ' || pg_temp.try_sql($q$update public.organizations set name = 'hackeada'$q$),
     'update regions: '       || pg_temp.try_sql($q$update public.regions set name = 'hackeada'$q$),
-    'update locations: '     || pg_temp.try_sql($q$update public.locations set opening_hours = '{"x": 1}'$q$),
+    'update locations: '     || pg_temp.try_sql($q$update public.locations set opening_hours = '{"mon": ["09:00", "14:00"]}'$q$),
     'update memberships: '   || pg_temp.try_sql($q$update public.memberships set role = 'org_admin', scope_region_ids = '{}', scope_location_ids = '{}'$q$),
     'update users: '         || pg_temp.try_sql(format($q$update public.users set full_name = 'hackeado' where id <> %L$q$, (select auth.uid()))),
     'delete organizations: ' || pg_temp.try_sql('delete from public.organizations'),
