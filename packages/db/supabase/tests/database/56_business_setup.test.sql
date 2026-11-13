@@ -4,7 +4,7 @@
 -- integración no se toca desde la app y el horario tiene un formato.
 begin;
 \ir _fixtures/tenants.psql
-select plan(54);
+select plan(65);
 
 -- ===========================================================================
 -- Datos (la plataforma)
@@ -14,8 +14,9 @@ insert into public.services (organization_id, name, duration_minutes, external_r
 insert into public.services (organization_id, name, duration_minutes) values (:org_b, 'Corte', 30) returning id as svc_b \gset
 insert into public.booking_resources (organization_id, location_id, name, kind) values (:org_a, :loc_a1, 'Cabina 1', 'room') returning id as cab1 \gset
 insert into public.booking_resources (organization_id, location_id, name, kind, external_ref) values (:org_a, :loc_a1, 'Ana (Koibox)', 'staff', 'koibox:7') returning id as res_synced \gset
+insert into public.services (organization_id, location_id, name, duration_minutes) values (:org_a, :loc_a2, 'Masaje A2', 60) returning id as svc_a2 \gset
 insert into public.resource_services (organization_id, resource_id, service_id) values
-  (:org_a, :'cab1', :'svc_laser'), (:org_a, :'res_synced', :'svc_laser');
+  (:org_a, :'cab1', :'svc_laser'), (:org_a, :'res_synced', :'svc_laser'), (:org_a, :'cab1', :'svc_synced');
 
 -- ===========================================================================
 -- 1. Estructura
@@ -128,6 +129,28 @@ select throws_ok(
 select throws_ok(
   format($$insert into public.resource_services (organization_id, resource_id, service_id) values (%L, %L, %L)$$, :org_a, :'marta', :'svc_synced'),
   '42501', null, 'ni se añade a quién hace un servicio sincronizado');
+select throws_ok(
+  format($$delete from public.resource_services where resource_id = %L and service_id = %L$$, :'cab1', :'svc_synced'),
+  '42501', null, 'ni se quita de quién hace un servicio sincronizado (aunque el recurso no lo sea)');
+
+-- Qué hace un recurso, de una vez (set_resource_services).
+select is(public.set_resource_services(:'marta', array[:'svc_facial', :'svc_laser']::uuid[]), 2, 'set_resource_services: añade los que faltan');
+select is(public.set_resource_services(:'marta', array[:'svc_laser', :'svc_laser']::uuid[]), 1, 'quita los que sobran, sin repetir');
+select is(public.set_resource_services(:'marta', array[:'svc_laser']::uuid[]), 0, 'y sin cambios no toca nada');
+select throws_ok(
+  format($$select public.set_resource_services(%L, array[%L]::uuid[])$$, :'marta', :'svc_a2'),
+  '23514', null, 'un servicio que no se ofrece en su sede, no');
+select set_eq(
+  format($$select service_id from public.resource_services where resource_id = %L$$, :'marta'),
+  format($$values (%L::uuid)$$, :'svc_laser'),
+  'y no queda a medias: lo que iba a quitar sigue ahí');
+select throws_ok(
+  format($$select public.set_resource_services(%L, '{}')$$, :'res_synced'),
+  '42501', null, 'lo de un recurso sincronizado no se cambia');
+select throws_ok(
+  format($$select public.set_resource_services(%L, array[%L]::uuid[])$$, :'cab1', :'svc_laser'),
+  '42501', null, 'ni se quita a quién hace un servicio sincronizado');
+select is(public.set_resource_services(:'marta', '{}'), 1, 'con la lista vacía, los quita todos');
 
 -- Otra organización.
 select throws_ok(
@@ -149,6 +172,9 @@ select is(count(*)::int, 0, 'ni cambia precios') from u;
 with u as (update public.booking_resources set name = 'x' where id = :'cab1' returning 1)
 select is(count(*)::int, 0, 'ni recursos de su local') from u;
 select throws_ok(
+  format($$select public.set_resource_services(%L, '{}')$$, :'cab1'),
+  '42501', null, 'ni cambia lo que hace un recurso de su local');
+select throws_ok(
   format($$update public.locations set opening_hours = '{"mon": "todo el día"}' where id = %L$$, :loc_a1),
   '23514', null, 'el horario que sí puede cambiar tiene el mismo formato');
 reset role;
@@ -162,6 +188,9 @@ reset role;
 select pg_temp.login_mfa(:b_admin) as s \gset
 with u as (update public.services set price_cents = 1 where id = :'svc_laser' returning 1)
 select is(count(*)::int, 0, 'el org_admin de otra organización no cambia nada de esta') from u;
+select throws_ok(
+  format($$select public.set_resource_services(%L, '{}')$$, :'cab1'),
+  '42501', null, 'ni lo que hace un recurso suyo');
 reset role;
 
 -- ===========================================================================

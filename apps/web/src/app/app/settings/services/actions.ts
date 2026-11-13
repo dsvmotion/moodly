@@ -134,30 +134,18 @@ export async function setServiceActive(_prev: BusinessFormState, formData: FormD
   return done();
 }
 
-/** Lo que hace un recurso: añade y quita lo que cambia. */
-async function syncResourceServices(
+/**
+ * Lo que hace un recurso, de una vez: public.set_resource_services lo cambia
+ * en una sola transacción (o todo o nada), con RLS y las guardas de quien llama.
+ */
+async function setResourceServices(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
   resourceId: string,
-  wanted: string[],
+  serviceIds: string[],
 ): Promise<{ changed: boolean; error: Failure }> {
-  const { data: links, error: readError } = await supabase.from("resource_services").select("service_id").eq("resource_id", resourceId);
-  if (readError) return { changed: false, error: failure(readError.code) };
-  const current = new Set(links.map((link) => link.service_id));
-  const add = wanted.filter((serviceId) => !current.has(serviceId));
-  const remove = [...current].filter((serviceId) => !wanted.includes(serviceId));
-  if (add.length > 0) {
-    const { error } = await supabase
-      .from("resource_services")
-      .insert(add.map((serviceId) => ({ organization_id: organizationId, resource_id: resourceId, service_id: serviceId })));
-    if (error) return { changed: false, error: failure(error.code) };
-  }
-  if (remove.length > 0) {
-    const { data, error } = await supabase.from("resource_services").delete().eq("resource_id", resourceId).in("service_id", remove).select("service_id");
-    if (error) return { changed: add.length > 0, error: failure(error.code) };
-    if (data.length !== remove.length) return { changed: true, error: "not_allowed" };
-  }
-  return { changed: add.length > 0 || remove.length > 0, error: null };
+  const { data, error } = await supabase.rpc("set_resource_services", { p_resource_id: resourceId, p_service_ids: serviceIds });
+  if (error) return { changed: false, error: error.code === "42501" ? "not_allowed" : failure(error.code) };
+  return { changed: data > 0, error: null };
 }
 
 export async function createResource(_prev: BusinessFormState, formData: FormData): Promise<BusinessFormState> {
@@ -180,7 +168,7 @@ export async function createResource(_prev: BusinessFormState, formData: FormDat
     .select("id")
     .single();
   if (error) return fail(failure(error.code));
-  const links = await syncResourceServices(supabase, organization.id, data.id, serviceIds);
+  const links = await setResourceServices(supabase, data.id, serviceIds);
 
   securityEvent("business.resource_created", {
     userId: user.id,
@@ -216,7 +204,7 @@ export async function updateResource(_prev: BusinessFormState, formData: FormDat
     if (error) return fail(failure(error.code));
     if (!data[0]) return fail("not_allowed");
   }
-  const links = await syncResourceServices(supabase, current.organization_id, id, serviceIds);
+  const links = await setResourceServices(supabase, id, serviceIds);
   if (links.changed) fields.push("services");
 
   if (fields.length > 0) {

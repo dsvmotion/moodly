@@ -1223,6 +1223,9 @@ isOneToOne: false
 "send_test_message":
 { Args: { "p_agent_id": string,"p_content": string,"p_location_id": string }; Returns: string
                            },
+"set_resource_services":
+{ Args: { "p_resource_id": string,"p_service_ids": (string)[] }; Returns: number
+                           },
 "usage_spend":
 { Args: { "p_day_start": string,"p_month_start": string,"p_organization_id": string }; Returns: Json
                            }

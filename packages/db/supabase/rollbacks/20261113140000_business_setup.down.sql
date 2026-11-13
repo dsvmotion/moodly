@@ -3,6 +3,8 @@
 -- Antes, desplegar una web sin los ajustes del negocio (OA04). Los precios
 -- escritos se pierden al quitar sus columnas.
 
+drop function public.set_resource_services(uuid, uuid[]);
+
 revoke insert (organization_id, location_id, name, duration_minutes, active, price_cents, currency) on public.services from authenticated;
 revoke update (name, duration_minutes, active, price_cents, currency) on public.services from authenticated;
 revoke insert (organization_id, location_id, name, kind, active) on public.booking_resources from authenticated;

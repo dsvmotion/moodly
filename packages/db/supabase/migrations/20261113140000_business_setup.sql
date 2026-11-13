@@ -19,8 +19,11 @@
 --   (vale para toda escritura nueva) y se valida en la misma migración si todas
 --   las filas ya lo cumplen; si alguna no, la migración no falla y avisa (ver §3).
 --
--- Vuelta atrás: rollbacks/20261113140000_business_setup.down.sql (quita
--- políticas, grants, guardas, el CHECK y las columnas de precio). No hay datos
+-- - public.set_resource_services: cambia lo que hace un recurso en una sola
+--   transacción (invoker, con RLS y guardas).
+--
+-- Vuelta atrás: rollbacks/20261113140000_business_setup.down.sql (quita la
+-- función, políticas, grants, guardas, el CHECK y las columnas de precio). No hay datos
 -- de clientes todavía.
 
 -- ---------------------------------------------------------------------------
@@ -173,3 +176,51 @@ grant update (name, duration_minutes, active, price_cents, currency) on public.s
 grant insert (organization_id, location_id, name, kind, active) on public.booking_resources to authenticated;
 grant update (name, kind, active) on public.booking_resources to authenticated;
 grant insert (organization_id, resource_id, service_id), delete on public.resource_services to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 5. Qué hace un recurso, de una vez
+-- ---------------------------------------------------------------------------
+-- La app cambia los servicios de un recurso en una sola transacción: o todo o
+-- nada (V10). Invoker: corre como quien llama, con RLS, los grants y las
+-- guardas de siempre (solo el org_admin con aal2; nada sincronizado). Si RLS
+-- dejara sin quitar alguno de los que hay que quitar, falla entera en vez de
+-- quedarse a medias. Devuelve cuántos vínculos cambiaron.
+create function public.set_resource_services(p_resource_id uuid, p_service_ids uuid[])
+returns int
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_expected int;
+  v_removed int;
+  v_added int;
+begin
+  select organization_id into v_org from public.booking_resources where id = p_resource_id;
+  if v_org is null then
+    raise exception 'ese recurso no existe o no es tuyo' using errcode = '42501';
+  end if;
+
+  select count(*) into v_expected
+  from public.resource_services
+  where resource_id = p_resource_id and not (service_id = any (coalesce(p_service_ids, '{}')));
+  delete from public.resource_services
+  where resource_id = p_resource_id and not (service_id = any (coalesce(p_service_ids, '{}')));
+  get diagnostics v_removed = row_count;
+  if v_removed <> v_expected then
+    raise exception 'no se pueden quitar los servicios de este recurso' using errcode = '42501';
+  end if;
+
+  -- Solo los que faltan: volver a insertar uno que ya está pasaría por las guardas sin necesidad.
+  insert into public.resource_services (organization_id, resource_id, service_id)
+  select v_org, p_resource_id, s.id
+  from (select distinct unnest(coalesce(p_service_ids, '{}')) as id) s
+  where not exists (select 1 from public.resource_services rs where rs.resource_id = p_resource_id and rs.service_id = s.id);
+  get diagnostics v_added = row_count;
+
+  return v_removed + v_added;
+end;
+$$;
+revoke all on function public.set_resource_services(uuid, uuid[]) from public, anon;
+grant execute on function public.set_resource_services(uuid, uuid[]) to authenticated;
