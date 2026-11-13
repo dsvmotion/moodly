@@ -6,16 +6,18 @@ name: Staging · salud
 # Mismo patrón que el job `alerta-main` de ci.yml. Sentry sigue capturando errores
 # de ejecución; esto cubre lo que Sentry no ve: que nada responda.
 #
-# URLs en Settings → Secrets and variables → Actions → Variables (no son secretos:
-# el cuerpo de /health no lleva ninguno):
-#   STAGING_WEB_HEALTH_URL     p. ej. https://<dominio de staging en Vercel>/health
-#   STAGING_WORKER_HEALTH_URL  p. ej. https://<dominio público del servicio worker en Railway>/health
-# Si una no está definida, esa pieza no se comprueba (y se dice en el log). Los
-# workflows programados solo corren desde la rama por defecto (main).
+# Las URLs de staging van fijas aquí (no son secretos: el cuerpo de /health no
+# lleva ninguno). Las variables de Actions (Settings → Secrets and variables →
+# Actions → Variables) solo las sustituyen, si se definen:
+#   STAGING_WEB_HEALTH_URL     por defecto https://staging.moodlycrm.com/health
+#   STAGING_WORKER_HEALTH_URL  por defecto https://worker-staging-47c75e8c.up.railway.app/health
+# Si una comprobación falla, el job falla (en rojo en Actions) y el issue lleva
+# la etiqueta `alerta-staging`. Los workflows programados solo corren desde la
+# rama por defecto (main).
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -34,8 +36,8 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
-      WEB_URL: ${{ vars.STAGING_WEB_HEALTH_URL }}
-      WORKER_URL: ${{ vars.STAGING_WORKER_HEALTH_URL }}
+      WEB_URL: ${{ vars.STAGING_WEB_HEALTH_URL || 'https://staging.moodlycrm.com/health' }}
+      WORKER_URL: ${{ vars.STAGING_WORKER_HEALTH_URL || 'https://worker-staging-47c75e8c.up.railway.app/health' }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Comprobar los endpoints de salud
@@ -75,12 +77,22 @@ jobs:
           title="staging caído"
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
           if [ -n "$FAILURES" ]; then
-            body="El endpoint de salud de staging no responde con 200: $FAILURES. Comprobación: $RUN_URL"
+            body="El endpoint de salud de staging no responde con 200: $FAILURES ($(date -u '+%Y-%m-%d %H:%M UTC')). Comprobación: $RUN_URL"
             if [ -n "$number" ]; then
               gh issue comment "$number" --body "$body"
             else
-              gh issue create --title "$title" --body "$body"
+              gh label create alerta-staging --color B60205 --description "Staging no responde (PL-health)" --force
+              gh issue create --title "$title" --body "$body" --label alerta-staging
             fi
           elif [ -n "$number" ]; then
             gh issue close "$number" --comment "Staging vuelve a responder: $RUN_URL"
           fi
+
+      - name: Fallar si alguna comprobación falló
+        # Después del issue, para que el aviso salga aunque el job quede en rojo.
+        if: steps.probe.outputs.failures != ''
+        env:
+          FAILURES: ${{ steps.probe.outputs.failures }}
+        run: |
+          echo "::error::staging no responde con 200: $FAILURES"
+          exit 1
