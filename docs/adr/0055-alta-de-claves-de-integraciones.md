@@ -1,6 +1,6 @@
 # 0055 — Alta de las claves de una integración: cifrada hacia el worker y una tabla de solo inserción
 
-- **Estado:** propuesto (V15, 2026-11-13). Lo decide producto (V1 lo lleva).
+- **Estado:** propuesto (V15, 2026-11-13; revisión de V10 incorporada). Lo decide producto (V1 lo lleva).
 - **Fecha:** 2026-11-13
 - **Secciones del MANUAL afectadas:** §4.4 (secretos), §7 (integraciones), §10.4
 - **Relación:**
@@ -54,37 +54,72 @@ C y D quedan descartadas por romper el ADR 0034.
 ### 2. La tabla `integration_secret_submissions`
 
 - **Columnas:** `id`, `organization_id`, `integration_id` (de la misma organización), `provider`, `key_ref` (qué clave de ingreso), `encrypted_data_key`, `ciphertext` (base64), `submitted_by`, `created_at`.
-- **La app solo inserta:** política de INSERT para el `org_admin` con aal2 de esa organización (`session_is_active()` y `session_is_aal2()` como siempre), privilegios de columna solo de INSERT, **ningún SELECT, UPDATE ni DELETE para `authenticated`**. Una guarda fija `submitted_by` y comprueba que la integración es de la organización y está pendiente.
+- **La app solo inserta:** política de INSERT para el `org_admin` con aal2 de esa organización (`session_is_active()` y `session_is_aal2()` como siempre), privilegios de columna solo de INSERT, **ningún SELECT, UPDATE ni DELETE para `authenticated`**.
+- **Una guarda de inserción** (`guard_secret_submission`, solo para `authenticated`) fija `submitted_by = auth.uid()` y `created_at = now()`, y exige que la integración:
+  - sea de la misma organización, de tipo `native` y del mismo `provider`;
+  - esté **pendiente, activa o en error**. Activa o en error es la rotación (ver el punto 4); desconectada, no.
+- **Sin restricción de unicidad.** Una restricción única («un envío vivo por integración») chocaría con «solo inserción»: la app no puede borrar ni sustituir el envío anterior, así que el segundo intento fallaría hasta que el worker procesara o caducara el primero. En su lugar:
+  - el worker procesa **solo el envío más reciente** de cada integración y **borra todos los demás** de esa integración en el mismo paso;
+  - la guarda limita los envíos: como mucho 5 por integración en 15 minutos (se cuentan los de la tabla); el sexto falla con 42501 y la pantalla lo dice.
 - **El worker** (`moodly_worker`, ADR 0049): SELECT de las columnas que necesita y DELETE, con su política por organización. Sin INSERT ni UPDATE.
-- **Límites:** un envío vivo por integración (una restricción única: el siguiente sustituye al anterior) y una caducidad corta (por ejemplo, 15 minutos): un barrido del worker borra los que no se procesaron.
+- **Caducidad:** un barrido del worker borra los envíos de más de 15 minutos que no se procesaron.
 
-### 3. El recorrido
+### 3. Los privilegios nuevos de escritura del worker (y sus guardas)
 
-1. El `org_admin` pega la clave en Ajustes → Integraciones (Server Action con `requireUser()`, `org_admin` y aal2). La fila de `integrations` pasa a «pendiente» (como en O-02).
+Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` (siete columnas) e `integrations.secret_id`. El incremento 2 necesita escribir; esto es exactamente lo que se le daría, y nada más:
+
+| Tabla | Privilegio nuevo | Para qué |
+|---|---|---|
+| `integration_secret_submissions` | SELECT (`id, organization_id, integration_id, provider, key_ref, encrypted_data_key, ciphertext, created_at`), DELETE | Leer el envío y borrarlo |
+| `integration_secrets` | INSERT (`organization_id, kind, name, key_ref, encrypted_data_key, ciphertext`) | Guardar la clave cifrada con `SecretVault` |
+| `integration_secrets` | UPDATE (`key_ref, encrypted_data_key, ciphertext, rotated_at`) | Rotar |
+| `integration_secrets` | DELETE | Desconectar (la app no puede borrar el secreto) |
+| `integrations` | UPDATE (`secret_id`), además de `status` y `last_health_check`, que ya tiene (20261112210000) | Enlazar el secreto y activar o marcar el error |
+
+- **`guard_worker_integration` se amplía** (hoy solo deja tocar las de `kind = 'platform'`). Para las de `kind = 'native'`:
+  - **status:** de pendiente a activa o error; de activa a error o activa; de error a activa o error. Nunca reactiva una desconectada (la desconectó una persona) ni la pasa a pendiente;
+  - **`secret_id`:** solo a un secreto de la misma organización, de `kind = 'integration'` y con el nombre de esa integración (`koibox.<local>` o `koibox.api_key`); nunca a null salvo al desconectar (status pasa a desconectada en la misma sentencia);
+  - **`external_connection_id`:** sigue siendo solo de las de plataforma: en una nativa, nunca.
+- **Una guarda nueva en `integration_secrets` para `moodly_worker`** (`guard_worker_integration_secret`):
+  - solo `kind = 'integration'` (no toca las claves de modelo de BYOK, ADR 0034, `kind = 'model_provider'`);
+  - `organization_id`, `kind` y `name` no cambian en un UPDATE;
+  - un UPDATE pone `rotated_at = now()`.
+- **pgTAP en negativo que exige** (con la organización A fijada, como en `53_worker_koibox_read`):
+  - privilegios exactos por columna en las tres tablas, y ningún privilegio de tabla entera;
+  - no escribe un secreto en B (RLS, WITH CHECK), ni lee ni borra un envío de B;
+  - no toca un secreto `model_provider`, ni cambia el `organization_id`, el `kind` o el `name` de uno suyo;
+  - no inserta ni cambia un envío; no cambia un secreto ajeno a la integración;
+  - en una integración nativa: no reactiva una desconectada, no la pasa a pendiente, no pone `external_connection_id`, no enlaza un secreto de otra organización ni de otra integración;
+  - en una de plataforma, lo de #277 sigue igual;
+  - la app sigue sin leer los secretos y los envíos.
+
+### 4. El recorrido
+
+1. El `org_admin` pega la clave en Ajustes → Integraciones (Server Action con `requireUser()`, `org_admin` y aal2). En la primera conexión, la fila de `integrations` se crea pendiente (como en O-02); al rotar, sigue como estaba (activa o en error).
 2. El servidor de la web cifra la clave con la parte pública, inserta el envío y emite el evento `integration.key_submitted` (solo identificadores) con su log de auditoría, **sin el valor**. La clave en claro no sale de la memoria de esa petición.
 3. El worker, al recibir el evento por el outbox (ADR 0009), en un workflow de DBOS cuyo estado lleva **solo identificadores**:
-   1. lee el envío (`forOrganization(org)`; la organización sale de la fila, nunca del payload);
+   1. lee el envío más reciente de esa integración (`forOrganization(org)`; la organización sale de la fila, nunca del payload) y borra los anteriores;
    2. lo descifra con KMS dentro del mismo paso que lo usa;
    3. comprueba la clave contra el proveedor (Koibox: `GET /api/api-key/me/`);
    4. si vale, la cifra con `SecretVault` (ADR 0034) en `integration_secrets`, enlaza `integrations.secret_id` y pone la integración activa; si no, la pone en error;
    5. borra el envío en cualquier caso.
 4. La pantalla relee el estado (activa o error, con un mensaje sin detalles de la clave).
 
-### 4. Rotar y desconectar
+### 5. Rotar y desconectar
 
-- **Rotar** es otro envío: si la nueva clave vale, sustituye al secreto (`rotated_at`); si no, la integración sigue con la anterior y se avisa.
-- **Desconectar** borra el secreto y deja la integración desconectada (la clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí).
+- **Rotar** es otro envío sobre una integración activa o en error (la guarda lo admite): si la nueva clave vale, sustituye al secreto (`rotated_at`) y la integración queda activa; si no, la integración sigue con la anterior, sin cambiar de estado, y la pantalla avisa.
+- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, borra el secreto y pone `secret_id` a null. La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí.
 
 ## Consecuencias
 
 - **Se gana:** la clave en claro solo existe en la memoria de una petición de la web y de un paso del worker; nunca en la base de datos, las copias, el outbox, `dbos` ni los logs. La web no puede descifrar nada. Funciona aunque el worker esté reiniciando.
-- **Se pierde:** la respuesta no es inmediata (unos segundos hasta que el worker procesa el envío); una tabla, un evento y un workflow más.
+- **Se pierde:** la respuesta no es inmediata (unos segundos hasta que el worker procesa el envío); una tabla, un evento y un workflow más; y `moodly_worker` pasa a escribir secretos (sección 3), acotado por columnas y por dos guardas.
 - **Pendiente antes del primer secreto real** (lo prepara producto, en la nube del equipo, no en el repositorio):
   - la clave simétrica de `SecretVault` del ADR 0034 y la asimétrica de ingreso de este ADR, en `eu-central-1`, una por entorno;
   - el rol de IAM del worker con `kms:Encrypt`/`kms:Decrypt` sobre la de `SecretVault` y `kms:Decrypt` sobre la de ingreso;
   - la parte pública de la de ingreso como variable de la web.
 - **Pruebas que exige** (con el incremento 2):
-  - pgTAP: la app solo inserta (ni lee, ni cambia, ni borra), solo el `org_admin` con aal2 y solo en su organización; el worker no inserta; un envío de otra organización no se ve;
+  - pgTAP: la app solo inserta (ni lee, ni cambia, ni borra), solo el `org_admin` con aal2, solo en su organización y con el límite de envíos; los negativos del worker de la sección 3;
   - integración del worker con el par local: un envío movido a otra organización o integración no se descifra; una clave mala deja la integración en error y borra el envío; el estado del workflow no contiene la clave;
   - e2e de la pantalla contra el Koibox falso;
   - un test estructural de que ningún log ni evento lleva el campo de la clave.
