@@ -971,13 +971,13 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"created_at": string,"duration_minutes": number,"external_ref": string | null,"id": string,"location_id": string | null,"name": string,"organization_id": string,"updated_at": string
+                    "active": boolean,"created_at": string,"currency": string,"duration_minutes": number,"external_ref": string | null,"id": string,"location_id": string | null,"name": string,"organization_id": string,"price_cents": number | null,"updated_at": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"duration_minutes": number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name": string,"organization_id": string,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"duration_minutes": number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name": string,"organization_id": string,"price_cents"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"duration_minutes"?: number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name"?: string,"organization_id"?: string,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"duration_minutes"?: number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name"?: string,"organization_id"?: string,"price_cents"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
