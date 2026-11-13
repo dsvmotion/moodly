@@ -309,6 +309,8 @@ describe("createWhatsAppAdapter: envíos", () => {
       [{ accountExternalId: "../../me/accounts" }, "invalid_account"],
       [{ channel: "webchat" }, "wrong_channel"],
       [{ attachments: [{ kind: "image", providerRef: "media-1" }] }, "attachments_unsupported"],
+      // Botones con el cuerpo en blanco: Meta lo rechazaría (el esquema ya lo impide; esto es la red).
+      [{ text: "   ", buttons: [{ id: "si", title: "Sí" }] }, "empty_message"],
     ];
     for (const [overrides, code] of cases) {
       const error = await adapter.send(outbound(overrides)).catch((caught: unknown) => caught);
@@ -321,22 +323,43 @@ describe("createWhatsAppAdapter: envíos", () => {
   it("los errores de Meta: pasajeros (red, 5xx, 429, límites de ritmo) o definitivos, solo con el código", async () => {
     const metaError = (status: number, code: number) =>
       new Response(JSON.stringify({ error: { message: "texto de Meta con +34600111222", type: "OAuthException", code } }), { status });
-    const cases: [() => Promise<Response>, boolean, string][] = [
-      [() => Promise.reject(new TypeError("fetch failed")), true, "network"],
-      [() => Promise.resolve(new Response("bad gateway", { status: 502 })), true, "http_502"],
-      [() => Promise.resolve(metaError(429, 130429)), true, "whatsapp:130429"],
-      [() => Promise.resolve(metaError(400, 131056)), true, "whatsapp:131056"],
-      [() => Promise.resolve(metaError(400, 131047)), false, "whatsapp:131047"],
-      [() => Promise.resolve(metaError(401, 190)), false, "whatsapp:190"],
-      [() => Promise.resolve(new Response(JSON.stringify({ messages: [] }), { status: 200 })), false, "bad_response"],
+    // [respuesta, retryable, código, outcomeUnknown: Meta pudo recibirlo igualmente]
+    const cases: [() => Promise<Response>, boolean, string, boolean][] = [
+      [() => Promise.reject(new TypeError("fetch failed")), true, "network", true],
+      [() => Promise.resolve(new Response("bad gateway", { status: 502 })), true, "http_502", true],
+      [() => Promise.resolve(metaError(429, 130429)), true, "whatsapp:130429", false],
+      [() => Promise.resolve(metaError(400, 131056)), true, "whatsapp:131056", false],
+      [() => Promise.resolve(metaError(400, 131047)), false, "whatsapp:131047", false],
+      [() => Promise.resolve(metaError(401, 190)), false, "whatsapp:190", false],
+      [() => Promise.resolve(new Response(JSON.stringify({ messages: [] }), { status: 200 })), false, "bad_response", true],
     ];
-    for (const [respond, retryable, code] of cases) {
+    for (const [respond, retryable, code, outcomeUnknown] of cases) {
       const error = await adapterWith(vi.fn<typeof fetch>().mockImplementation(respond)).send(outbound()).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(ChannelSendError);
-      expect(error).toMatchObject({ retryable, providerCode: code });
+      expect(error).toMatchObject({ retryable, providerCode: code, outcomeUnknown });
       // Ni el texto de Meta ni el número del cliente en el mensaje del error.
       expect((error as Error).message).not.toContain("34600111222");
     }
+  });
+
+  it("una Graph API que no contesta: se corta al tiempo y queda como pasajero con resultado desconocido", async () => {
+    const hang = vi.fn<typeof fetch>().mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    );
+    const adapter = createWhatsAppAdapter({
+      appSecret: APP_SECRET,
+      verifyToken: VERIFY_TOKEN,
+      accessToken: ACCESS_TOKEN,
+      graphApiVersion: "v23.0",
+      fetch: hang,
+      timeoutMs: 50,
+    });
+    const error = await adapter.send(outbound()).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ChannelSendError);
+    expect(error).toMatchObject({ retryable: true, providerCode: "timeout", outcomeUnknown: true });
   });
 
   it("una versión de la Graph API con otra forma no arranca", () => {

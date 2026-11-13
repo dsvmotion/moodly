@@ -20,7 +20,8 @@ import { metaHandshake, verifyMetaSignature } from "./signature.js";
 //   mensaje que sale, y el estado solo avanza (nextDeliveryStatus).
 // - Salida: texto (con botones de respuesta rápida) o plantilla por la Graph
 //   API. Meta no acepta claves de idempotencia: quien envía guarda el wamid que
-//   devuelve y no repite un envío que ya lo tiene.
+//   devuelve y no repite un envío que ya lo tiene, ni uno con
+//   ChannelSendError.outcomeUnknown (corte, timeout, 5xx) sin conciliarlo antes.
 //
 // Los secretos (secreto de la app, token de verificación, token de acceso)
 // llegan del worker por variables de entorno y nunca se registran.
@@ -50,7 +51,11 @@ export interface WhatsAppAdapterOptions {
   fetch?: typeof fetch;
   /** Para los tests; por defecto, https://graph.facebook.com. */
   graphBaseUrl?: string;
+  /** Cuánto espera un envío a la Graph API antes de darlo por perdido; por defecto, 15 s. */
+  timeoutMs?: number;
 }
+
+const DEFAULT_SEND_TIMEOUT_MS = 15_000;
 
 // El payload de Meta, solo lo que se lee. Todo opcional y sin rechazar campos
 // nuevos: lo que no se entiende se ignora (ADR 0052 §1).
@@ -285,6 +290,8 @@ export function createWhatsAppAdapter(options: WhatsAppAdapterOptions): ChannelA
       const to = message.to.kind === "phone" ? message.to.value.replace(/^\+/, "") : "";
       if (!WA_ID.test(to)) throw new ChannelSendError("destino de WhatsApp no válido", false, "invalid_recipient");
       if (message.attachments.length > 0) throw new ChannelSendError("los adjuntos que salen aún no se envían", false, "attachments_unsupported");
+      // Ni texto ni plantilla (o un cuerpo en blanco): Meta lo rechazaría; mejor no llamar.
+      if (!message.template && !message.text?.trim()) throw new ChannelSendError("mensaje sin texto ni plantilla", false, "empty_message");
       const url = `${base}/${options.graphApiVersion}/${message.accountExternalId}/messages`;
       let response: Response;
       try {
@@ -292,20 +299,29 @@ export function createWhatsAppAdapter(options: WhatsAppAdapterOptions): ChannelA
           method: "POST",
           headers: { authorization: `Bearer ${options.accessToken}`, "content-type": "application/json" },
           body: JSON.stringify(whatsAppSendBody(message, to)),
+          // Una conexión colgada no bloquea el envío para siempre.
+          signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_SEND_TIMEOUT_MS),
         });
       } catch (error) {
-        // La red: se puede reintentar. Sin el mensaje del error (puede llevar la URL o datos).
-        throw new ChannelSendError("no se pudo hablar con la Graph API", true, "network", { cause: error });
+        // La red o el timeout: se puede reintentar, pero Meta pudo recibirlo (sin clave de
+        // idempotencia, un reintento a ciegas lo duplicaría). Sin el mensaje del error: puede llevar la URL.
+        const code = (error as Error | undefined)?.name === "TimeoutError" ? "timeout" : "network";
+        throw new ChannelSendError("no se pudo hablar con la Graph API", true, code, { cause: error, outcomeUnknown: true });
       }
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         const code = metaErrorSchema.safeParse(payload).data?.error?.code;
         const retryable = response.status === 429 || response.status >= 500 || (code !== undefined && RETRYABLE_META_CODES.has(code));
+        // Un 5xx no dice si Meta llegó a aceptarlo; un 4xx (429 incluido) es un rechazo: no salió.
+        const outcomeUnknown = response.status >= 500;
         // Solo el código: el texto del error de Meta puede llevar datos del cliente.
-        throw new ChannelSendError(`la Graph API rechazó el envío (HTTP ${response.status})`, retryable, code === undefined ? `http_${response.status}` : `whatsapp:${code}`);
+        throw new ChannelSendError(`la Graph API rechazó el envío (HTTP ${response.status})`, retryable, code === undefined ? `http_${response.status}` : `whatsapp:${code}`, {
+          outcomeUnknown,
+        });
       }
       const id = metaSendResponseSchema.safeParse(payload).data?.messages[0]?.id;
-      if (!id) throw new ChannelSendError("respuesta de la Graph API sin id de mensaje", false, "bad_response");
+      // Un 2xx sin id: Meta lo aceptó, pero no hay con qué seguirlo. No se repite.
+      if (!id) throw new ChannelSendError("respuesta de la Graph API sin id de mensaje", false, "bad_response", { outcomeUnknown: true });
       return { providerMessageId: id };
     },
   };

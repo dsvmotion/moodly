@@ -39,16 +39,24 @@ export interface SendResult {
   providerMessageId: string;
 }
 
-/** Un envío que no salió. retryable: si un reintento puede salir bien (red, 5xx, límite de ritmo). */
+/**
+ * Un envío que falló. retryable: si un reintento puede salir bien (red, 5xx,
+ * límite de ritmo). outcomeUnknown: el proveedor pudo recibirlo y entregarlo
+ * igualmente (corte de red, timeout, 5xx o respuesta sin id). Si además el
+ * proveedor no acepta claves de idempotencia, quien envía no lo repite a
+ * ciegas: un reintento podría duplicarlo al cliente.
+ */
 export class ChannelSendError extends Error {
   override name = "ChannelSendError";
+  readonly outcomeUnknown: boolean;
   constructor(
     message: string,
     readonly retryable: boolean,
     readonly providerCode?: string,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { outcomeUnknown?: boolean },
   ) {
     super(message, options);
+    this.outcomeUnknown = options?.outcomeUnknown ?? false;
   }
 }
 
