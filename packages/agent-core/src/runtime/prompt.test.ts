@@ -102,11 +102,13 @@ describe("composeSystemPrompt", () => {
     expect(prompt).toContain("## Handing over to a person\n");
     expect(prompt).toContain("call request_human with reason customer_asked");
     expect(prompt).toContain("reason out_of_scope");
-    expect(prompt).toContain("Do not use it for questions you can answer");
-    // Acotado (decisión de V1, (b)): solo esos dos casos; lo sensible o lo que no sabe se contesta con texto.
-    expect(prompt).toContain("Only call request_human in these two cases");
-    expect(prompt).toContain("For medical questions, other people's data or anything else sensitive, do not call it");
-    expect(prompt).toContain("give no data and no advice");
+    // Decisión de producto (2026-11-13): prometer que contestará una persona sin
+    // request_human es una promesa que nadie cumple; con texto, solo si no hace
+    // falta nadie (rechazar un consejo médico o datos de otro, sin nada pendiente).
+    expect(prompt).toContain("it is the only way the team finds out");
+    expect(prompt).toContain("Never tell the customer that a person will reply without calling request_human.");
+    expect(prompt).toContain('something a tool returned as "pending_review" is already with the team');
+    expect(prompt).toContain("Reply with text, without calling request_human, only when no person needs to step in");
     const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
     expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
