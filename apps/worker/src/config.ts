@@ -1,5 +1,5 @@
 import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
-import { parseNangoHost } from "@repo/integrations";
+import { parseKoiboxApiBase, parseNangoHost } from "@repo/integrations";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -52,6 +52,20 @@ export interface WorkerConfig {
    * integración de plataforma se activa. Nunca van a los logs.
    */
   nango: { secretKey: string; webhookSigningKey: string; host: string } | null;
+  /**
+   * La URL base de la API de Koibox (int-koibox, O-02): KOIBOX_API_BASE, por
+   * defecto la de Koibox. https, o http solo en loopback (el stub de los tests).
+   * Nunca de una organización. La clave de cada centro va cifrada en
+   * integration_secrets (ADR 0034).
+   */
+  koiboxApiBase: string;
+  /**
+   * WhatsApp por la Cloud API de Meta (O-01, ADR 0020): el secreto de la app
+   * (firma de los webhooks), el token de verificación del alta y el token de
+   * acceso (envíos). Las tres o ninguna: sin ellas no se abre /channels/whatsapp.
+   * Nunca van a los logs.
+   */
+  whatsapp: { appSecret: string; verifyToken: string; accessToken: string } | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -94,6 +108,16 @@ const supabaseUrl = z
     if (url.username || url.password || url.search || url.hash) return false;
     return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
   }, "SUPABASE_URL: https://… (o http:// solo en local), sin credenciales ni parámetros");
+
+/** Un secreto opcional de una sola palabra de caracteres visibles; vacío cuenta como ausente. El mensaje nunca lleva el valor. */
+function visibleSecret(name: string, min: number, max: number) {
+  const pattern = new RegExp(`^[\\x21-\\x7e]{${min},${max}}$`);
+  return z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || pattern.test(value), `${name} no parece un secreto: de ${min} a ${max} caracteres visibles, sin espacios`)
+    .optional();
+}
 
 const schema = z.object({
   WORKER_SYSTEM_DATABASE_URL: systemDatabaseUrl,
@@ -165,6 +189,22 @@ const schema = z.object({
       }
     }, "NANGO_HOST: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
     .optional(),
+  // Koibox (O-02): la URL base, https o http solo en loopback. Vacía cuenta como ausente.
+  KOIBOX_API_BASE: z
+    .string()
+    .refine((value) => {
+      try {
+        parseKoiboxApiBase(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "KOIBOX_API_BASE: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
+    .optional(),
+  // WhatsApp Cloud API (O-01). Vacías cuentan como ausentes; las tres o ninguna.
+  WHATSAPP_APP_SECRET: visibleSecret("WHATSAPP_APP_SECRET", 16, 512),
+  WHATSAPP_VERIFY_TOKEN: visibleSecret("WHATSAPP_VERIFY_TOKEN", 16, 512),
+  WHATSAPP_ACCESS_TOKEN: visibleSecret("WHATSAPP_ACCESS_TOKEN", 16, 2048),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -206,5 +246,16 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
             host: parseNangoHost(parsed.data.NANGO_HOST),
           }
         : null,
+    koiboxApiBase: parseKoiboxApiBase(parsed.data.KOIBOX_API_BASE),
+    whatsapp: whatsappConfig(parsed.data),
   };
+}
+
+function whatsappConfig(data: { WHATSAPP_APP_SECRET?: string | undefined; WHATSAPP_VERIFY_TOKEN?: string | undefined; WHATSAPP_ACCESS_TOKEN?: string | undefined }): WorkerConfig["whatsapp"] {
+  const values = { appSecret: data.WHATSAPP_APP_SECRET || "", verifyToken: data.WHATSAPP_VERIFY_TOKEN || "", accessToken: data.WHATSAPP_ACCESS_TOKEN || "" };
+  const present = Object.values(values).filter(Boolean).length;
+  if (present === 0) return null;
+  // A medias es un error de configuración, no «sin WhatsApp»: se dice al arrancar.
+  if (present < 3) throw new WorkerConfigError("Configuración del worker no válida: WhatsApp necesita WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN, las tres o ninguna");
+  return values;
 }

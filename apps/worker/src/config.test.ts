@@ -29,6 +29,8 @@ describe("loadConfig", () => {
       intentRouting: false,
       healthPort: 8080,
       nango: null,
+      koiboxApiBase: "https://api.koibox.cloud",
+      whatsapp: null,
     });
   });
 
@@ -63,6 +65,32 @@ describe("loadConfig", () => {
     }
   });
 
+  it("WhatsApp (O-01): las tres variables o ninguna; a medias no arranca, y el error nunca lleva un valor", () => {
+    const whatsapp = {
+      // Valores de prueba armados, como los de Nango: un literal con forma de clave lo marca gitleaks.
+      WHATSAPP_APP_SECRET: `app-secret-${"a".repeat(16)}`,
+      WHATSAPP_VERIFY_TOKEN: `verify-token-${"v".repeat(16)}`,
+      WHATSAPP_ACCESS_TOKEN: `EAAG${"x".repeat(40)}`,
+    };
+    expect(loadConfig({ ...valid, ...whatsapp }).whatsapp).toEqual({
+      appSecret: whatsapp.WHATSAPP_APP_SECRET,
+      verifyToken: whatsapp.WHATSAPP_VERIFY_TOKEN,
+      accessToken: whatsapp.WHATSAPP_ACCESS_TOKEN,
+    });
+    // Vacías cuentan como ausentes (así se quitan en Railway sin borrar la variable).
+    expect(loadConfig({ ...valid, WHATSAPP_APP_SECRET: "", WHATSAPP_VERIFY_TOKEN: " ", WHATSAPP_ACCESS_TOKEN: "" }).whatsapp).toBeNull();
+    for (const missing of Object.keys(whatsapp)) {
+      const partial = Object.fromEntries(Object.entries({ ...valid, ...whatsapp }).filter(([key]) => key !== missing));
+      expect(() => loadConfig(partial)).toThrow(/las tres o ninguna/);
+    }
+    expect(() => loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" })).toThrow(/WHATSAPP_VERIFY_TOKEN/);
+    try {
+      loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" });
+    } catch (error) {
+      expect((error as Error).message).not.toContain("muy-secreta");
+    }
+  });
+
   it("Nango (O-02): hacen falta las dos claves; la URL base por defecto es Nango Cloud; http solo en loopback", () => {
     const secret = `nango-${"s".repeat(24)}`;
     const signing = "00000000-0000-4000-8000-00000000000a";
@@ -81,6 +109,15 @@ describe("loadConfig", () => {
     }
     expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).toThrow(/NANGO_API_KEY/);
     expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).not.toThrow(/corta un poco/);
+  });
+
+  it("KOIBOX_API_BASE: por defecto la de Koibox; https, o http solo en loopback; una mala no arranca", () => {
+    expect(loadConfig(valid).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "" }).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "http://127.0.0.1:3998/" }).koiboxApiBase).toBe("http://127.0.0.1:3998");
+    for (const bad of ["http://api.koibox.cloud", "https://u:p@api.koibox.cloud", "koibox"]) {
+      expect(() => loadConfig({ ...valid, KOIBOX_API_BASE: bad })).toThrow(/KOIBOX_API_BASE/);
+    }
   });
 
   it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {

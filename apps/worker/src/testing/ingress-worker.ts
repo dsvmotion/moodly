@@ -7,7 +7,9 @@
 // intentos y «fail-always-…», todos (hasta el dead_letter), con esperas cortas.
 //
 //   PORT=… INGRESS_TEST_SECRET=… node ingress-worker.ts
+import { createWhatsAppAdapter } from "@repo/channels";
 import { createFakeAdapter } from "@repo/channels/testing";
+import { WHATSAPP_GRAPH_API_VERSION } from "@repo/config";
 import { createServiceDb } from "@repo/db/service";
 import { loadConfig } from "../config.ts";
 import { createHealthServer } from "../health.ts";
@@ -59,7 +61,13 @@ const worker = createWorker(config, logger, {
   },
   eventHandlers: [logHandler],
   // webchat firma por cuenta (como el token del chat web); email, por plataforma (como Meta).
-  channelAdapters: [createFakeAdapter({ channel: "webchat", secret, scope: "account" }), createFakeAdapter({ channel: "email", secret })],
+  // Y WhatsApp, el adaptador de verdad (O-01): Meta firma con el secreto de la app y
+  // el alta usa el token de verificación; los dos, INGRESS_TEST_SECRET. Aquí no envía nada.
+  channelAdapters: [
+    createFakeAdapter({ channel: "webchat", secret, scope: "account" }),
+    createFakeAdapter({ channel: "email", secret }),
+    createWhatsAppAdapter({ appSecret: secret, verifyToken: secret, accessToken: "token-sin-uso-en-tests", graphApiVersion: WHATSAPP_GRAPH_API_VERSION }),
+  ],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
     process.exit(1);
