@@ -15,6 +15,7 @@ import { LeaseAbortedError } from "./lease.ts";
 import { createLogger } from "./logger.ts";
 import { createApprovalEmailHandler } from "./notifications/approval-email.ts";
 import { createBudgetEmailHandler } from "./notifications/budget-email.ts";
+import { createHandoffEmailHandler } from "./notifications/handoff-email.ts";
 import { registerReminders } from "./reminders/reminders.ts";
 import { registerWaitlistOffers } from "./waitlist/offers.ts";
 import { createWorker } from "./worker.ts";
@@ -64,6 +65,7 @@ const worker = createWorker(config, logger, {
     registerWaitlistOffers({ db, logger }),
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     createBudgetEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
+    createHandoffEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     ...(embedder ? [createIngestHandler({ embedder, route: embedder.route })] : []),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHANNELS } from "./message.js";
 
 // Los estados de entrega de un mensaje que sale (ADR 0052 §4), los mismos que
 // messages.status. Los avisos del proveedor llegan tarde, repetidos o
@@ -25,12 +26,19 @@ export function nextDeliveryStatus(current: DeliveryStatus | "received", incomin
 }
 
 /**
- * Un aviso de estado del proveedor, ya traducido por el adaptador. Se valida
+ * Un aviso de estado del proveedor, ya traducido por el adaptador, con la
+ * cuenta que lo envió. Se valida
  * antes de tocar la base de datos: un estado desconocido o un código de error
  * demasiado largo se rechaza aquí (y se confirma al proveedor), en vez de
  * fallar contra los checks de messages y volver a intentarlo para siempre.
  */
 export const deliveryUpdateSchema = z.object({
+  channel: z.enum(CHANNELS),
+  /**
+   * La cuenta del canal que envió el mensaje (channel_accounts.external_id),
+   * como en lo que entra: de ella sale la organización, nunca de otro campo.
+   */
+  accountExternalId: z.string().min(1).max(200),
   /** El id del mensaje en el proveedor (messages.external_message_id). */
   providerMessageId: z.string().min(1).max(200),
   status: z.enum(["sent", "delivered", "read", "failed"]),

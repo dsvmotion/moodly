@@ -9,7 +9,7 @@
 // en el HTML se escapa todo, y el asunto queda en una sola línea corta.
 
 import { BRAND_NAME } from "@repo/config";
-import { appUrl, escapeHtml, oneLine, truncate } from "./format.js";
+import { appUrl, escapeHtml, formatLocalDateTime, oneLine, truncate } from "./format.js";
 
 export type EmailLocale = "es" | "en";
 
@@ -35,8 +35,6 @@ export interface RenderedEmail {
   text: string;
 }
 
-/** La de `locations.timezone` por defecto en la base de datos. */
-const DEFAULT_TIME_ZONE = "Europe/Madrid";
 const SUBJECT_MAX_LENGTH = 120;
 
 const COPY: Record<
@@ -77,7 +75,7 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
   const agent = oneLine(input.agentName);
   const summary = oneLine(input.summary);
   const location = input.locationName ? oneLine(input.locationName) : copy.wholeOrganization;
-  const created = formatCreatedAt(input.createdAt, input.locale, input.timeZone);
+  const created = formatLocalDateTime(input.createdAt, input.locale, input.timeZone);
   const brand = BRAND_NAME;
 
   const subject = truncate(copy.subject(agent, summary), SUBJECT_MAX_LENGTH);
@@ -107,26 +105,4 @@ export function renderApprovalEmail(input: ApprovalEmailInput): RenderedEmail {
 </html>`;
 
   return { subject, html, text };
-}
-
-function formatCreatedAt(iso: string, locale: EmailLocale, timeZone: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "numeric",
-    year: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: validTimeZone(timeZone),
-    // Quien lee el email puede estar en otra zona: la hora lleva siempre la suya.
-    timeZoneName: "short",
-  }).format(new Date(iso));
-}
-
-function validTimeZone(value: string): string {
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
-    return value;
-  } catch {
-    return DEFAULT_TIME_ZONE;
-  }
 }

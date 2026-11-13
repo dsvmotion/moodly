@@ -28,3 +28,31 @@ export function truncate(value: string, max: number): string {
 export function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+
+/** La de `locations.timezone` por defecto en la base de datos. */
+const DEFAULT_TIME_ZONE = "Europe/Madrid";
+
+/**
+ * Una fecha y hora en la zona del local, con la zona escrita: quien lee el
+ * email puede estar en otra. Una zona que no existe cae a la de por defecto.
+ */
+export function formatLocalDateTime(iso: string, locale: "es" | "en", timeZone: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "numeric",
+    year: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: validTimeZone(timeZone),
+    timeZoneName: "short",
+  }).format(new Date(iso));
+}
+
+function validTimeZone(value: string): string {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return value;
+  } catch {
+    return DEFAULT_TIME_ZONE;
+  }
+}

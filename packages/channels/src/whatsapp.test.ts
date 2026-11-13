@@ -228,12 +228,37 @@ describe("parseWhatsAppWebhook: estados", () => {
       ),
     );
     expect(messages).toEqual([]);
+    // Con la cuenta que lo envió (el phone_number_id): de ella sale la organización.
+    const from = { channel: "whatsapp", accountExternalId: PHONE_NUMBER_ID };
     expect(statuses).toEqual([
-      { providerMessageId: "wamid.out1", status: "sent", at: "2025-06-08T20:59:50.000Z" },
-      { providerMessageId: "wamid.out1", status: "delivered", at: "2025-06-08T20:59:50.000Z" },
-      { providerMessageId: "wamid.out1", status: "read", at: "2025-06-08T20:59:50.000Z" },
+      { ...from, providerMessageId: "wamid.out1", status: "sent", at: "2025-06-08T20:59:50.000Z" },
+      { ...from, providerMessageId: "wamid.out1", status: "delivered", at: "2025-06-08T20:59:50.000Z" },
+      { ...from, providerMessageId: "wamid.out1", status: "read", at: "2025-06-08T20:59:50.000Z" },
       // Solo el código, nunca el título (texto de Meta).
-      { providerMessageId: "wamid.out2", status: "failed", at: "2025-06-08T20:59:50.000Z", errorCode: "whatsapp:131047" },
+      { ...from, providerMessageId: "wamid.out2", status: "failed", at: "2025-06-08T20:59:50.000Z", errorCode: "whatsapp:131047" },
+    ]);
+  });
+
+  it("cada aviso va con la cuenta de su número, aunque lleguen dos en el mismo webhook", () => {
+    const status = (id: string) => ({ id, status: "delivered", timestamp: "1749416390", recipient_id: "34600111222" });
+    const body = {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          id: "WABA_ID",
+          changes: [
+            { field: "messages", value: { messaging_product: "whatsapp", metadata: { phone_number_id: "111111111111111" }, statuses: [status("wamid.a")] } },
+            { field: "messages", value: { messaging_product: "whatsapp", metadata: { phone_number_id: "222222222222222" }, statuses: [status("wamid.b")] } },
+            // Sin la cuenta que lo envió no hay a quién atribuirlo.
+            { field: "messages", value: { messaging_product: "whatsapp", statuses: [status("wamid.c")] } },
+          ],
+        },
+      ],
+    };
+    const { statuses } = parseWhatsAppWebhook(JSON.stringify(body));
+    expect(statuses.map(({ accountExternalId, providerMessageId }) => [accountExternalId, providerMessageId])).toEqual([
+      ["111111111111111", "wamid.a"],
+      ["222222222222222", "wamid.b"],
     ]);
   });
 });
@@ -360,6 +385,14 @@ describe("createWhatsAppAdapter: envíos", () => {
     const error = await adapter.send(outbound()).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ChannelSendError);
     expect(error).toMatchObject({ retryable: true, providerCode: "timeout", outcomeUnknown: true });
+  });
+
+  it("un timeout que no es un entero positivo no arranca", () => {
+    for (const timeoutMs of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        createWhatsAppAdapter({ appSecret: APP_SECRET, verifyToken: VERIFY_TOKEN, accessToken: ACCESS_TOKEN, graphApiVersion: "v23.0", timeoutMs }),
+      ).toThrow(/timeoutMs/);
+    }
   });
 
   it("una versión de la Graph API con otra forma no arranca", () => {
