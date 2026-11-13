@@ -78,7 +78,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 
 - **`guard_worker_integration` se amplía** (hoy solo deja tocar las de `kind = 'platform'`). Para las de `kind = 'native'`:
   - **status:** de pendiente a activa o error; de activa a error o activa; de error a activa o error. Nunca reactiva una desconectada (la desconectó una persona) ni la pasa a pendiente;
-  - **`secret_id`:** solo a un secreto de la misma organización, de `kind = 'integration'` y con el nombre de esa integración (`koibox.<local>` o `koibox.api_key`); nunca a null salvo al desconectar (status pasa a desconectada en la misma sentencia);
+  - **`secret_id`:** solo a un secreto de la misma organización, de `kind = 'integration'` y con el nombre de esa integración (`koibox.<local>` o `koibox.api_key`); a null solo en una integración que ya está desconectada (`OLD.status` y `NEW.status` desconectada: la desconecta la persona y el worker limpia después, sección 5), nunca en una pendiente, activa o en error;
   - **`external_connection_id`:** sigue siendo solo de las de plataforma: en una nativa, nunca.
 - **Una guarda nueva en `integration_secrets` para `moodly_worker`** (`guard_worker_integration_secret`):
   - solo `kind = 'integration'` (no toca las claves de modelo de BYOK, ADR 0034, `kind = 'model_provider'`);
@@ -89,7 +89,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
   - no escribe un secreto en B (RLS, WITH CHECK), ni lee ni borra un envío de B;
   - no toca un secreto `model_provider`, ni cambia el `organization_id`, el `kind` o el `name` de uno suyo;
   - no inserta ni cambia un envío; no cambia un secreto ajeno a la integración;
-  - en una integración nativa: no reactiva una desconectada, no la pasa a pendiente, no pone `external_connection_id`, no enlaza un secreto de otra organización ni de otra integración;
+  - en una integración nativa: no reactiva una desconectada, no la pasa a pendiente, no pone `external_connection_id`, no enlaza un secreto de otra organización ni de otra integración, no pone `secret_id` a null en una pendiente, activa o en error;
   - en una de plataforma, lo de #277 sigue igual;
   - la app sigue sin leer los secretos y los envíos.
 
@@ -98,7 +98,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 1. El `org_admin` pega la clave en Ajustes → Integraciones (Server Action con `requireUser()`, `org_admin` y aal2). En la primera conexión, la fila de `integrations` se crea pendiente (como en O-02); al rotar, sigue como estaba (activa o en error).
 2. El servidor de la web genera el `id` del envío, cifra la clave con la parte pública e inserta el envío. **El evento `integration.key_submitted` (solo identificadores) sale en la misma transacción que el envío**, de un disparador AFTER INSERT de la tabla, como los demás eventos del outbox (ADR 0009): no hay envío sin evento ni evento sin envío. El log de auditoría va **sin el valor**. La clave en claro no sale de la memoria de esa petición.
 3. El worker, al recibir el evento por el outbox (ADR 0009), en un workflow de DBOS cuyo estado lleva **solo identificadores**:
-   1. lee el envío más reciente de esa integración (`forOrganization(org)`; la organización sale de la fila, nunca del payload) y borra los anteriores;
+   1. lee el envío más reciente de esa integración con `forOrganization(org)`, y borra los anteriores. `org` es el `organization_id` de la fila del evento en el outbox, que pone el disparador a partir de la fila del envío (ADR 0009). Nunca sale del payload ni de nada que mande el cliente. Si el envío no existe en esa organización, el workflow termina sin hacer nada;
    2. lo descifra con KMS dentro del mismo paso que lo usa;
    3. comprueba la clave contra el proveedor (Koibox: `GET /api/api-key/me/`);
    4. si vale, la cifra con `SecretVault` (ADR 0034) en `integration_secrets`, enlaza `integrations.secret_id` y pone la integración activa. Si no vale:
@@ -110,7 +110,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 ### 5. Rotar y desconectar
 
 - **Rotar** es otro envío sobre una integración activa o en error (la guarda lo admite): si la nueva clave vale, sustituye al secreto (`rotated_at`) y la integración queda activa; si no, la integración sigue con la anterior, sin cambiar de estado, y la pantalla avisa.
-- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, borra el secreto y pone `secret_id` a null. La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí.
+- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, primero pone `secret_id` a null (la guarda solo lo admite en una integración ya desconectada) y después borra el secreto. La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí.
 
 ## Consecuencias
 
@@ -123,7 +123,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 - **Pruebas que exige** (con el incremento 2):
   - pgTAP: la app solo inserta (ni lee, ni cambia, ni borra), solo el `org_admin` con aal2 y solo en su organización; el evento sale con el envío; los negativos del worker de la sección 3;
   - el freno de envíos de la web (el sexto en 15 minutos no se inserta);
-  - integración del worker con el par local: un envío movido a otra organización o integración no se descifra; una clave mala deja la integración en error y borra el envío; el estado del workflow no contiene la clave;
+  - integración del worker con el par local: un envío movido a otra organización o integración no se descifra; en la primera conexión, una clave mala deja la integración en error y borra el envío; **al rotar, una clave mala no cambia ni el estado ni el secreto (sigue la clave anterior), emite `integration.key_rejected` y borra el envío**; al desconectar, el worker deja `secret_id` a null y borra el secreto, y la guarda rechaza poner `secret_id` a null en una integración que no está desconectada; el estado del workflow no contiene la clave;
   - e2e de la pantalla contra el Koibox falso;
   - un test estructural de que ningún log ni evento lleva el campo de la clave.
 - **Alcance:** solo las integraciones con clave del cliente. Lo que va por Nango (OAuth) no cambia (ADR 0053).
