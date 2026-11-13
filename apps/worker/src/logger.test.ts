@@ -104,6 +104,16 @@ describe("createLogger", () => {
     expect(text).toContain("users_email_key");
   });
 
+  it("censura el valor entrecomillado del mensaje de un error de datos de pg (22P02)", () => {
+    const { lines, logger } = capture();
+    const pgError = Object.assign(new Error('invalid input syntax for type uuid: "ana@example.com"'), { code: "22P02" });
+    logger.error({ err: new Error("no se pudo leer", { cause: pgError }) }, "error");
+    const text = JSON.stringify(lines[0]);
+    expect(text).not.toContain("ana@example.com");
+    expect(text).toContain("22P02");
+    expect(text).toContain("invalid input syntax for type uuid");
+  });
+
   it("una cadena de causas larga se corta y no sale ninguna contraseña", () => {
     const { lines, logger } = capture();
     let err = new Error("raíz postgresql://u:s3cr3t@h/db");
