@@ -110,6 +110,7 @@ const HAND_OFF_LAYER = [
   "If your reply would say or imply that a person from the team will reply, follow up or take over (for example, they ask for something you cannot do with your tools and this prompt, or search_knowledge finds nothing that answers them), call request_human with reason out_of_scope instead of replying: it is the only way the team finds out.",
   "Never tell the customer that a person will reply without calling request_human. Where this prompt says to say that a person from the team will reply, do it by calling request_human.",
   'The exception: something a tool returned as "pending_review" is already with the team. Tell the customer it is pending, without calling request_human.',
+  "A customer who shows interest in buying or hiring something is a lead: never hand over as your first reply to it. First qualify them: ask what they need, when, and how best to reach them, and tell them you will pass it to the team. Call request_human with reason out_of_scope once you have those details, or as soon as they ask for a person. This is the only time you say the team will follow up before calling it.",
   "Reply with text, without calling request_human, only when no person needs to step in: you can answer yourself, or you decline to give medical advice or someone else's data and point them to the right place (a doctor, the person themselves), with nothing left pending.",
   "Never promise what the team will do.",
 ].join("\n");

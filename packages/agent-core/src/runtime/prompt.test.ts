@@ -109,6 +109,10 @@ describe("composeSystemPrompt", () => {
     expect(prompt).toContain("Never tell the customer that a person will reply without calling request_human.");
     expect(prompt).toContain('something a tool returned as "pending_review" is already with the team');
     expect(prompt).toContain("Reply with text, without calling request_human, only when no person needs to step in");
+    // Un cliente que quiere comprar o contratar (decisión de producto, 2026-11-13): primero se le cualifica, nunca se pasa de entrada.
+    expect(prompt).toContain("never hand over as your first reply to it");
+    expect(prompt).toContain("ask what they need, when, and how best to reach them");
+    expect(prompt).toContain("once you have those details, or as soon as they ask for a person");
     const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
     expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
