@@ -78,7 +78,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 
 - **`guard_worker_integration` se amplía** (hoy solo deja tocar las de `kind = 'platform'`). Para las de `kind = 'native'`:
   - **status:** de pendiente a activa o error; de activa a error o activa; de error a activa o error. Nunca reactiva una desconectada (la desconectó una persona) ni la pasa a pendiente;
-  - **`secret_id`:** solo a un secreto de la misma organización, de `kind = 'integration'` y con el nombre de esa integración (`koibox.<local>` o `koibox.api_key`); a null solo en una integración que ya está desconectada (`OLD.status` y `NEW.status` desconectada: la desconecta la persona y el worker limpia después, sección 5), nunca en una pendiente, activa o en error;
+  - **`secret_id`:** solo a un secreto de la misma organización, de `kind = 'integration'` y con el nombre de esa integración (`koibox.<local>` o `koibox.api_key`); a null solo en dos casos: en una integración que ya está desconectada (`OLD.status` y `NEW.status` desconectada: la desconecta la persona y el worker limpia después, sección 5), o en una pendiente que pasa a error en la misma sentencia (reconexión con una clave mala, sección 4). Nunca en una activa o en error, ni en una pendiente que sigue pendiente o pasa a activa;
   - **`external_connection_id`:** sigue siendo solo de las de plataforma: en una nativa, nunca.
 - **Una guarda nueva en `integration_secrets` para `moodly_worker`** (`guard_worker_integration_secret`):
   - solo `kind = 'integration'` (no toca las claves de modelo de BYOK, ADR 0034, `kind = 'model_provider'`);
@@ -89,7 +89,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
   - no escribe un secreto en B (RLS, WITH CHECK), ni lee ni borra un envío de B;
   - no toca un secreto `model_provider`, ni cambia el `organization_id`, el `kind` o el `name` de uno suyo;
   - no inserta ni cambia un envío; no cambia un secreto ajeno a la integración;
-  - en una integración nativa: no reactiva una desconectada, no la pasa a pendiente, no pone `external_connection_id`, no enlaza un secreto de otra organización ni de otra integración, no pone `secret_id` a null en una pendiente, activa o en error;
+  - en una integración nativa: no reactiva una desconectada, no la pasa a pendiente, no pone `external_connection_id`, no enlaza un secreto de otra organización ni de otra integración, no pone `secret_id` a null en una activa o en error, ni en una pendiente salvo al pasarla a error;
   - en una de plataforma, lo de #277 sigue igual;
   - la app sigue sin leer los secretos y los envíos.
 
@@ -101,20 +101,26 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
    1. lee el envío más reciente de esa integración con `forOrganization(org)`, y borra los anteriores. `org` es el `organization_id` de la fila del evento en el outbox, que pone el disparador a partir de la fila del envío (ADR 0009). Nunca sale del payload ni de nada que mande el cliente. Si el envío no existe en esa organización, el workflow termina sin hacer nada;
    2. lo descifra con KMS dentro del mismo paso que lo usa;
    3. comprueba la clave contra el proveedor (Koibox: `GET /api/api-key/me/`);
-   4. si vale, la cifra con `SecretVault` (ADR 0034) en `integration_secrets`, enlaza `integrations.secret_id` y pone la integración activa. Si no vale:
-      - **primera conexión** (la integración estaba pendiente y sin secreto): la pone en error;
-      - **rotación** (la integración ya tenía secreto): no cambia su estado ni su secreto; el resultado se apunta en el evento `integration.key_rejected` (solo identificadores) para que la pantalla avise;
+   4. escribe el resultado en **una sola `forOrganization(org).transaction` que empieza con `select … from integrations where id = <integración> and organization_id = org for update`**. La comprobación contra el proveedor (paso 3) va antes y fuera de la transacción; la decisión se toma con el estado que hay **después** del bloqueo, no con el que había al empezar. La limpieza al desconectar (sección 5) toma el mismo bloqueo, así que las dos nunca se cruzan:
+      - **la integración está desconectada** (la persona desconectó mientras tanto): no se escribe nada;
+      - **primera conexión**, que es la integración **pendiente**, también si es una reconexión y aún conserva el `secret_id` de antes:
+        - si la clave vale, se inserta un secreto **nuevo** con `SecretVault` (ADR 0034), se enlaza, la integración queda activa y, si había un `secret_id` anterior, ese secreto se borra en la misma transacción (por su id y `organization_id`);
+        - si no vale, la integración pasa a error y se le quita el `secret_id` anterior, si lo había, que se borra igual;
+        - nunca se rota un secreto de una integración pendiente;
+      - **rotación**, que es la integración **activa o en error** con secreto:
+        - si la clave vale, se cambia la clave de ese mismo secreto (`where id = <secret_id actual> and organization_id = org`, `rotated_at`) y la integración queda activa;
+        - si no vale, no cambian ni el estado ni el secreto, y el resultado se apunta en el evento `integration.key_rejected` (solo identificadores) para que la pantalla avise;
    5. borra el envío en cualquier caso.
 4. La pantalla relee el estado (activa o error, con un mensaje sin detalles de la clave).
 
 ### 5. Rotar y desconectar
 
 - **Rotar** es otro envío sobre una integración activa o en error (la guarda lo admite): si la nueva clave vale, sustituye al secreto (`rotated_at`) y la integración queda activa; si no, la integración sigue con la anterior, sin cambiar de estado, y la pantalla avisa.
-- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, limpia el secreto exacto que tenía: el evento lleva el `secret_id` anterior (`OLD.secret_id`, lo pone el disparador; nunca el cliente). La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí. Las dos escrituras van en una sola `createServiceDb().forOrganization(org).transaction`, con `org` sacada de la fila del evento en el outbox (como en la sección 4):
+- **Desconectar:** la persona pasa la integración a desconectada (como en O-02) y el worker, al recibir el evento, limpia el secreto exacto que tenía: el evento lleva el `secret_id` anterior (`OLD.secret_id`, lo pone el disparador; nunca el cliente). La clave sigue viva en Koibox: la pantalla le dice al cliente que la revoque allí. Las dos escrituras van en una sola `createServiceDb().forOrganization(org).transaction`, con `org` sacada de la fila del evento en el outbox (como en la sección 4). Esa transacción empieza con el mismo `select … for update` de la fila de la integración que el paso 4 de la sección 4:
   1. `update integrations set secret_id = null where id = <integración> and organization_id = org and status = desconectada and secret_id = <secret_id del evento> returning id`. La guarda solo admite null en una que ya está desconectada;
   2. **solo si ese update tocó la fila**, `delete from integration_secrets where id = <secret_id del evento> and organization_id = org and kind = 'integration'`. Nunca se busca un secreto por nombre. Si el update no tocó nada, no se borra nada.
   - Si la persona reconectó antes de que llegara el evento, la fila ya no está desconectada (o apunta a otro secreto). El update no la toca, y el secreto que tenga, nuevo o rotado sobre el mismo id, sigue intacto.
-  - Al reconectar una integración desconectada que aún conserva su `secret_id`, el envío se trata como rotación: cambia la clave del mismo secreto, y la limpieza pendiente ya no lo borra, por la regla anterior.
+  - Al reconectar, la persona pasa la integración de desconectada a pendiente, como en la primera conexión. Si aún conserva el `secret_id` de antes, el envío **no** es una rotación: el worker inserta un secreto nuevo y borra el anterior en la misma transacción (sección 4, paso 4). La limpieza pendiente ya no toca la fila, porque no está desconectada. Así no queda ningún secreto huérfano y nunca hay una integración activa sin secreto.
 
 ## Consecuencias
 
@@ -127,7 +133,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
 - **Pruebas que exige** (con el incremento 2):
   - pgTAP: la app solo inserta (ni lee, ni cambia, ni borra), solo el `org_admin` con aal2 y solo en su organización; el evento sale con el envío; los negativos del worker de la sección 3;
   - el freno de envíos de la web (el sexto en 15 minutos no se inserta);
-  - integración del worker con el par local: un envío movido a otra organización o integración no se descifra; en la primera conexión, una clave mala deja la integración en error y borra el envío; **al rotar, una clave mala no cambia ni el estado ni el secreto (sigue la clave anterior), emite `integration.key_rejected` y borra el envío**; al desconectar, el worker deja `secret_id` a null y borra el secreto del evento (el `secret_id` anterior), y **si la persona reconectó antes de que llegara el evento (con secreto nuevo o rotando el mismo id), el secreto sigue intacto y no se borra nada**. Un evento con el `secret_id` de otra organización no cambia ni borra nada (RLS y el filtro por `organization_id`); la guarda rechaza poner `secret_id` a null en una integración que no está desconectada; el estado del workflow no contiene la clave;
+  - integración del worker con el par local: un envío movido a otra organización o integración no se descifra; en la primera conexión, una clave mala deja la integración en error y borra el envío; **al rotar, una clave mala no cambia ni el estado ni el secreto (sigue la clave anterior), emite `integration.key_rejected` y borra el envío**; al desconectar, el worker deja `secret_id` a null y borra el secreto del evento (el `secret_id` anterior), y **si la persona reconectó antes de que llegara el evento, la limpieza no toca nada**. La reconexión con el `secret_id` viejo aún enlazado inserta un secreto nuevo y borra el viejo en la misma transacción, con una clave buena (activa) o mala (error, sin secreto); nunca queda un secreto huérfano ni una integración activa sin secreto. **Cruce de la rotación o reconexión con la limpieza** (los dos workflows sobre la misma integración a la vez, con la comprobación de la clave ya hecha): por el `for update`, el resultado es el mismo en cualquier orden, sin secreto huérfano, sin activa sin secreto y sin escribir sobre un secreto borrado; y un envío que termina cuando la integración ya está desconectada no escribe nada. Un evento con el `secret_id` de otra organización no cambia ni borra nada (RLS y el filtro por `organization_id`); la guarda rechaza poner `secret_id` a null en una integración que no está desconectada; el estado del workflow no contiene la clave;
   - e2e de la pantalla contra el Koibox falso;
   - un test estructural de que ningún log ni evento lleva el campo de la clave.
 - **Alcance:** solo las integraciones con clave del cliente. Lo que va por Nango (OAuth) no cambia (ADR 0053).
