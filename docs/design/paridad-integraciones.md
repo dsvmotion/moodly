@@ -30,23 +30,41 @@
 | Sin unidad en el registro | 82 |
 
 ## Lo que sale de la lista
-1. **Los sistemas de reservas de belleza del lote C no tienen conector en Nango.** Booksy, Treatwell, Koibox, Timp y Wilapp cuentan para las 50 del piloto (M4, lote C), pero ninguno está en el catálogo de Nango: cada uno es API propia, acuerdo de socio o contrato. Ya lo avisa el ADR 0053 («conviene empezar esas conversaciones pronto»). Con la regla de sustitución del registro, si alguno no se puede, entra el siguiente por orden de oleada; para no quedarse cortos, hay que saber pronto cuáles tienen API abierta.
+1. **Los sistemas de reservas de belleza del lote C no tienen conector en Nango.** Booksy, Treatwell, Koibox, Timp y Wilapp cuentan para las 50 del piloto (M4, lote C), pero ninguno está en el catálogo de Nango: cada uno es API propia, acuerdo de socio o contrato. Ya lo avisa el ADR 0053 («conviene empezar esas conversaciones pronto»). Con la regla de sustitución del registro, si alguno no se puede, entra el siguiente por orden de oleada; para no quedarse cortos, hay que saber pronto cuáles tienen API abierta. Primera comprobación, en «Reservas de belleza: qué API tiene cada uno».
 2. **Todo lo sectorial de heydiga es «socio, contrato o API del cliente».** Ninguno de sus 21 sistemas sectoriales (17 sin contar los 4 de salud: belleza, restauración, talleres e inmobiliaria) está en Nango. Es la parte del catálogo de heydiga que no se iguala con una plataforma, sino con trabajo propio.
 3. **Lo de GuruSup es amplitud que da la plataforma.** 106 de sus sistemas tienen proveedor en Nango; la paridad ahí es escribir las acciones como skills, no la autenticación. Muchos son herramientas de desarrollo o de datos (Sentry, Supabase, GitHub, Snowflake, BigQuery, Firecrawl…) que no encajan en una pyme de servicios; no hace falta perseguirlos para el piloto.
 4. **Sin unidad en el registro (82).** Lo decide producto (V1 lleva el registro). Candidatos que encajan con los sectores de la web, por si se quieren dar de alta: DunaSoft (en el catálogo de heydiga; falta ver qué cubre), Icnea y Apaleo (alojamientos, hostelería), ServiceM8 (oficios, reformas), Dialpad (telefonía), PandaDoc (propuestas y firma), Eventbrite (eventos), SendPulse (email y mensajería), Zoho Invoice (facturación) y Attio y Apollo (CRM y prospección). El resto se puede quedar fuera sin perder paridad útil.
 5. **Salud.** Doctoralia, Clinic Cloud, Gesden y Dentalink tienen unidad (after) pero quedan fuera por la decisión 15 mientras no haya revisión legal y DPIA; la web ya no los enseña (PR #246).
+
+## Reservas de belleza: qué API tiene cada uno (2026-11-13)
+
+Comprobación solo con fuentes públicas: la web y la documentación de cada uno, directorios de API y foros. No se ha pedido acceso a nadie ni se ha probado ninguna API. Es la tarea del punto 1 de la lista de arriba; quien hable con cada empresa debe confirmar lo que aquí sale como «indicio».
+
+| Sistema | ¿API? | Cómo se accede | Lo que haría falta | Fuentes |
+|---|---|---|---|---|
+| Koibox | **Sí, documentada y pública.** REST con citas (crear, listar, horas libres por empleado y servicio), clientes, servicios, bloqueos de agenda, ventas y webhooks (citas, clientes, servicios, productos y ventas). | **API del cliente:** el administrador del centro crea la clave en Ajustes → API Keys; va en la cabecera `X-Koibox-Key`. Una clave es de un solo centro y queda a nombre de quien la creó. Hace falta el plan Platinum del centro (si no, 403). | Integración nativa contra su API con la clave del cliente guardada en la bóveda. Es el más directo de los cinco. Falta confirmar el coste del plan Platinum para los centros del piloto y la firma de sus webhooks. | [docs.koibox.cloud](https://docs.koibox.cloud/en/intro/first-steps), [uso responsable](https://docs.koibox.cloud/en/intro/responsible-use/) |
+| Booksy | **Sí, pero de socio.** API REST para socios (citas, reservas, clientes, reseñas, webhooks), según directorios de API; la documentación oficial no es pública (responde 401). | **Acuerdo de socio:** no hay alta autoservicio; las claves (par RSA y JWT, sandbox y producción) las da Booksy. En un foro se cuenta que pesa más que lo pida el propio negocio a su comercial de Booksy. | Conversación con Booksy (partnerships). Es el que más tarda: empezar ya. | [apis.io](https://apis.io/apis/booksy/booksy-public-api/), [foro de Retell](https://community.retellai.com/t/anyone-integrated-retell-with-booksy-for-live-availability-booking/3448) |
+| Treatwell | **Indicio de API de socio, sin documentación pública.** Sus condiciones para proveedores hablan de «Treatwell APIs»; directorios antiguos (GetApp, Softwarefinder) dicen que no tiene API. | **Acuerdo de socio:** Treatwell se conecta con software de salón integrado (lista de socios en su web; p. ej. Salonized documenta su integración). | Conversación con Treatwell como socio de software. Otra vía: llegar a través de un software de gestión ya integrado con Treatwell que sí tenga API. | [condiciones](https://www.treatwell.es/en/info/supplier-terms-and-conditions/), [socios](https://www.treatwell.co.uk/partners?p=9657), [Salonized](https://help.salonized.com/en/articles/6417703-how-does-the-treatwell-integration-work-in-salonized) |
+| Timp | **No se encontró API pública.** Las integraciones que se anuncian son de producto (ClassPass, Stripe, Google Calendar…); las «integraciones avanzadas» son un módulo de pago. | **Por confirmar con Timp** (soporte@timp.pro, Time Management Technologies, S.L.). | Preguntar si hay API o acuerdo de socio. Mientras tanto, la vía de menos esfuerzo es su integración con Google Calendar, que ya leemos por Nango (solo lectura, sin reservar). | [Capterra](https://www.capterra.es/software/196549/timp), [App Store](https://apps.apple.com/cd/app/timp/id932832568) |
+| Wilapp | **No se encontró API pública.** Solo un plugin de WordPress para reservar desde la web, que pide una cuenta de Wilapp (última actualización en 2023, sin probar con las tres últimas versiones de WordPress). | **Por confirmar con Wilapp.** | Preguntar si hay API o acuerdo de socio. No usar la API que use el plugin por dentro sin un acuerdo: no está documentada ni es un contrato. | [plugin](https://wordpress.org/plugins/wilapp/) |
+
+**Lo que sale:**
+1. Hoy, solo **Koibox** se puede integrar sin hablar con nadie (API abierta con la clave del cliente).
+2. **Booksy y Treatwell** son acuerdos de socio. Es la conversación más larga, y conviene empezarla ya.
+3. Con **Timp y Wilapp** hay que preguntar antes. Si no hay API ni acuerdo, la regla de sustitución del registro hace que entre el siguiente por orden de oleada.
+4. Nada de esto se resuelve por la vía de automatizar la web o la app con la sesión del negocio. Algunos proveedores lo ofrecen para Booksy, pero tiene riesgo con sus condiciones y se rompe con cualquier cambio.
 
 ## Las tablas
 ### heydiga (28)
 
 | Sistema | Lo anuncian | Unidad en `scope.yaml` | Cómo | Conector de Nango |
 |---|---|---|---|---|
-| Booksy | heydiga | `int-booksy` (M4, lote C, planned) | Socio, contrato o API del cliente | — |
-| Treatwell | heydiga | `int-treatwell` (M4, lote C, planned) | Socio, contrato o API del cliente | — |
-| Koibox | heydiga | `int-koibox` (M4, lote C, planned) | Socio, contrato o API del cliente | — |
-| Timp | heydiga | `int-timp` (M4, lote C, planned) | Socio, contrato o API del cliente | — |
+| Booksy | heydiga | `int-booksy` (M4, lote C, planned) | Socio, contrato o API del cliente: socio (ver «Reservas de belleza») | — |
+| Treatwell | heydiga | `int-treatwell` (M4, lote C, planned) | Socio, contrato o API del cliente: socio (ver «Reservas de belleza») | — |
+| Koibox | heydiga | `int-koibox` (M4, lote C, planned) | Socio, contrato o API del cliente: API abierta del cliente (ver «Reservas de belleza») | — |
+| Timp | heydiga | `int-timp` (M4, lote C, planned) | Socio, contrato o API del cliente: por confirmar (ver «Reservas de belleza») | — |
 | Square | heydiga | `int-square` (M3, lote B, planned) | Nativa | `squareup` |
-| Wilapp | heydiga | `int-wilapp` (M4, lote C, planned) | Socio, contrato o API del cliente | — |
+| Wilapp | heydiga | `int-wilapp` (M4, lote C, planned) | Socio, contrato o API del cliente: por confirmar (ver «Reservas de belleza») | — |
 | DunaSoft | heydiga | — | Socio, contrato o API del cliente | — |
 | CoverManager | heydiga | `int-covermanager` (after, planned) | Socio, contrato o API del cliente | — |
 | TheFork | heydiga | `int-thefork` (after, planned) | Socio, contrato o API del cliente | — |

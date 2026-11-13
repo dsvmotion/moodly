@@ -71,6 +71,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -114,12 +117,18 @@ importers:
       '@tailwindcss/postcss':
         specifier: 4.3.3
         version: 4.3.3
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
       '@types/react-dom':
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
       postcss:
         specifier: 8.5.30
         version: 8.5.30
@@ -133,11 +142,14 @@ importers:
   apps/worker:
     dependencies:
       '@dbos-inc/dbos-sdk':
-        specifier: 5.3.0
-        version: 5.3.0
+        specifier: 5.4.0
+        version: 5.4.0
       '@repo/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@repo/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@repo/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -395,12 +407,12 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@dbos-inc/dbos-sdk@5.3.0':
-    resolution: {integrity: sha512-SuoJ8Rk9jU+s7KZ42nAsVsX7dHRymsb0mlnvOJxgPV8uAbaQikRYlVjkVZjSG8jKJM06TMlfDD8OtzjX0C66eg==}
+  '@dbos-inc/dbos-sdk@5.4.0':
+    resolution: {integrity: sha512-Iyk/ifg0coIki3ExtwKAU/At89CZXEKyI3XqFjWDJrx6xn2KEClwaD7cgnniCMsOSOfSXH94B8coPcWgIxG19A==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
-      '@dbos-inc/dbos-enterprise': ~5.3.0
+      '@dbos-inc/dbos-enterprise': ~5.4.0
     peerDependenciesMeta:
       '@dbos-inc/dbos-enterprise':
         optional: true
@@ -3829,7 +3841,7 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@dbos-inc/dbos-sdk@5.3.0':
+  '@dbos-inc/dbos-sdk@5.4.0':
     dependencies:
       commander: 12.1.0
       pg: 8.23.1

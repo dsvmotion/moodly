@@ -17,7 +17,6 @@ const PENDING = [
   ["plan", "Plan y consumo"],
   ["billing", "Facturación"],
   ["models", "Modelos de IA"],
-  ["integrations", "Integraciones"],
   ["audit", "Registro de auditoría"],
 ] as const;
 

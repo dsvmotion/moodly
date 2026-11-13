@@ -1,17 +1,21 @@
 // Proceso del worker: `pnpm --filter @repo/worker start` (o `dev` en local).
 import { createGatewayEmbedder } from "@repo/agent-core";
-import { createResendSender } from "@repo/integrations";
+import { createWhatsAppAdapter } from "@repo/channels";
+import { WHATSAPP_GRAPH_API_VERSION } from "@repo/config";
+import { createNangoPlatform, createResendSender } from "@repo/integrations";
 import { createApprovalHandler } from "./agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
 import { createHealthServer } from "./health.ts";
+import { createNangoWebhookHandler } from "./integrations/nango-webhook.ts";
 import { logHandler } from "./events/log-handler.ts";
 import { createIngestHandler } from "./knowledge/ingest.ts";
 import { LeaseAbortedError } from "./lease.ts";
 import { createLogger } from "./logger.ts";
 import { createApprovalEmailHandler } from "./notifications/approval-email.ts";
 import { createBudgetEmailHandler } from "./notifications/budget-email.ts";
+import { createHandoffEmailHandler } from "./notifications/handoff-email.ts";
 import { registerReminders } from "./reminders/reminders.ts";
 import { registerWaitlistOffers } from "./waitlist/offers.ts";
 import { createWorker } from "./worker.ts";
@@ -33,9 +37,14 @@ if (!embedder) logger.warn("sin AI_GATEWAY_API_KEY: las fuentes de conocimiento 
 const emailSender = config.resendApiKey ? createResendSender({ apiKey: config.resendApiKey }) : null;
 if (!emailSender) logger.warn("sin RESEND_API_KEY: no se avisa por email de las aprobaciones nuevas");
 if (!config.webAppUrl) logger.warn("sin WEB_APP_URL: no se avisa por email de las aprobaciones nuevas");
+// WhatsApp por la Cloud API de Meta (O-01, ADR 0020). Sin sus tres variables no
+// se abre /channels/whatsapp (404) y los mensajes de WhatsApp no entran.
+const whatsapp = config.whatsapp ? createWhatsAppAdapter({ ...config.whatsapp, graphApiVersion: WHATSAPP_GRAPH_API_VERSION }) : null;
+if (!whatsapp) logger.warn("sin WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN: no entra nada por WhatsApp");
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
+  channelAdapters: whatsapp ? [whatsapp] : [],
   // agent.converse: el turno del agente con cada mensaje de un cliente (paso 4d-3),
   // que busca en el conocimiento del negocio con los mismos embeddings (B20-2).
   // agent.approval: lo que una persona aprueba se ejecuta; lo que rechaza, no (4d-3d).
@@ -56,6 +65,7 @@ const worker = createWorker(config, logger, {
     registerWaitlistOffers({ db, logger }),
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     createBudgetEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
+    createHandoffEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     ...(embedder ? [createIngestHandler({ embedder, route: embedder.route })] : []),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
@@ -69,9 +79,29 @@ const worker = createWorker(config, logger, {
 // Salud para el healthcheck de Railway y la alerta de staging (PL-health): se
 // levanta antes de esperar el lock, para que el contenedor nuevo de un despliegue
 // responda «standby» mientras el viejo sigue vivo.
+// Y el webhook de Nango (O-02): lo único que activa una integración de
+// plataforma. Sin las dos claves de Nango no se monta (404).
+let nangoWebhook: ReturnType<typeof createNangoWebhookHandler> | undefined;
+if (config.nango) {
+  const platform = createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host });
+  nangoWebhook = createNangoWebhookHandler({
+    db: worker.db,
+    platform,
+    signingKey: config.nango.webhookSigningKey,
+    logger,
+    // Como /channels/: 503 hasta que el worker está en marcha (Nango reintenta).
+    ready: () => worker.probe.phase() === "running",
+  });
+} else {
+  logger.warn("sin NANGO_API_KEY o NANGO_WEBHOOK_SIGNING_KEY: no se activan integraciones de plataforma (/webhooks/nango no existe)");
+}
 const health = createHealthServer({
   probe: worker.probe,
   logger,
+  // La entrada de canales comparte el puerto (Railway publica uno): 404 mientras no haya ningún canal.
+  channels: worker.channels,
+  // Los webhooks de las plataformas (O-02), igual: 404 sin las claves de Nango.
+  ...(nangoWebhook ? { webhooks: nangoWebhook } : {}),
 });
 health.on("error", (err) => logger.error({ err }, "el endpoint de salud no pudo escuchar"));
 health.listen(config.healthPort, () => logger.info({ port: config.healthPort }, "endpoint de salud escuchando"));

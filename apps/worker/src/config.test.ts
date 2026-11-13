@@ -28,7 +28,16 @@ describe("loadConfig", () => {
       webAppUrl: null,
       intentRouting: false,
       healthPort: 8080,
+      nango: null,
+      koiboxApiBase: "https://api.koibox.cloud",
+      whatsapp: null,
     });
+  });
+
+  it("la entrada de canales no tiene puerto propio: va en el de salud (PORT), y INGRESS_PORT ya no se lee", () => {
+    const config = loadConfig({ ...valid, INGRESS_PORT: "9999", PORT: "3001" });
+    expect(config).not.toHaveProperty("ingressPort");
+    expect(config.healthPort).toBe(3001);
   });
 
   it("WORKER_DATABASE_URL es obligatoria y tiene que ser moodly_worker (directo o por el pooler)", () => {
@@ -53,6 +62,61 @@ describe("loadConfig", () => {
       throw new Error("no lanzó");
     } catch (error) {
       expect((error as Error).message).not.toContain("muy-secreta");
+    }
+  });
+
+  it("WhatsApp (O-01): las tres variables o ninguna; a medias no arranca, y el error nunca lleva un valor", () => {
+    const whatsapp = {
+      // Valores de prueba armados, como los de Nango: un literal con forma de clave lo marca gitleaks.
+      WHATSAPP_APP_SECRET: `app-secret-${"a".repeat(16)}`,
+      WHATSAPP_VERIFY_TOKEN: `verify-token-${"v".repeat(16)}`,
+      WHATSAPP_ACCESS_TOKEN: `EAAG${"x".repeat(40)}`,
+    };
+    expect(loadConfig({ ...valid, ...whatsapp }).whatsapp).toEqual({
+      appSecret: whatsapp.WHATSAPP_APP_SECRET,
+      verifyToken: whatsapp.WHATSAPP_VERIFY_TOKEN,
+      accessToken: whatsapp.WHATSAPP_ACCESS_TOKEN,
+    });
+    // Vacías cuentan como ausentes (así se quitan en Railway sin borrar la variable).
+    expect(loadConfig({ ...valid, WHATSAPP_APP_SECRET: "", WHATSAPP_VERIFY_TOKEN: " ", WHATSAPP_ACCESS_TOKEN: "" }).whatsapp).toBeNull();
+    for (const missing of Object.keys(whatsapp)) {
+      const partial = Object.fromEntries(Object.entries({ ...valid, ...whatsapp }).filter(([key]) => key !== missing));
+      expect(() => loadConfig(partial)).toThrow(/las tres o ninguna/);
+    }
+    expect(() => loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" })).toThrow(/WHATSAPP_VERIFY_TOKEN/);
+    try {
+      loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" });
+    } catch (error) {
+      expect((error as Error).message).not.toContain("muy-secreta");
+    }
+  });
+
+  it("Nango (O-02): hacen falta las dos claves; la URL base por defecto es Nango Cloud; http solo en loopback", () => {
+    const secret = `nango-${"s".repeat(24)}`;
+    const signing = "00000000-0000-4000-8000-00000000000a";
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret }).nango).toBeNull();
+    expect(loadConfig({ ...valid, NANGO_WEBHOOK_SIGNING_KEY: signing }).nango).toBeNull();
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret, NANGO_WEBHOOK_SIGNING_KEY: signing }).nango).toEqual({
+      secretKey: secret,
+      webhookSigningKey: signing,
+      host: "https://api.nango.dev",
+    });
+    expect(loadConfig({ ...valid, NANGO_API_KEY: secret, NANGO_WEBHOOK_SIGNING_KEY: signing, NANGO_HOST: "https://nango.eu.example.com/" }).nango?.host).toBe(
+      "https://nango.eu.example.com",
+    );
+    for (const bad of ["http://nango.example.com", "https://u:p@nango.example.com", "nango"]) {
+      expect(() => loadConfig({ ...valid, NANGO_HOST: bad })).toThrow(/NANGO_HOST/);
+    }
+    expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).toThrow(/NANGO_API_KEY/);
+    expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).not.toThrow(/corta un poco/);
+  });
+
+  it("KOIBOX_API_BASE: por defecto la de Koibox; https, o http solo en loopback; una mala no arranca", () => {
+    expect(loadConfig(valid).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "" }).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "http://127.0.0.1:3998/" }).koiboxApiBase).toBe("http://127.0.0.1:3998");
+    for (const bad of ["http://api.koibox.cloud", "https://u:p@api.koibox.cloud", "koibox"]) {
+      expect(() => loadConfig({ ...valid, KOIBOX_API_BASE: bad })).toThrow(/KOIBOX_API_BASE/);
     }
   });
 

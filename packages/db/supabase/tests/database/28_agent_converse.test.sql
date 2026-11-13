@@ -4,7 +4,7 @@
 -- mensaje de un cliente con el tenant de las filas y solo ids.
 begin;
 \ir _fixtures/tenants.psql
-select plan(41);
+select plan(42);
 
 select a.id as reception_a from public.agents a join public.agent_types t on t.id = a.agent_type_id
 where a.organization_id = :org_a and t.key = 'reception' \gset
@@ -22,16 +22,17 @@ select id as find_slots from public.skills where organization_id is null and key
 select set_eq(
   $$select key from public.skills where organization_id is null and kind = 'code' and status = 'published'$$,
   $$values ('find_slots'), ('list_my_appointments'), ('book_appointment'), ('reschedule_appointment'), ('cancel_appointment'), ('reply'),
-           ('appointment_reminder'), ('join_waitlist'), ('waitlist_offer'), ('search_knowledge')$$,
-  'las skills de código de la plataforma: las de Recepción y reply, publicadas (y los recordatorios, 20261108090000, la lista de espera, 20261109090000 y 20261109120000, y el conocimiento, 20261109210000)');
+           ('appointment_reminder'), ('join_waitlist'), ('waitlist_offer'), ('search_knowledge'), ('request_human')$$,
+  'las skills de código de la plataforma: las de Recepción y reply, publicadas (y los recordatorios, 20261108090000, la lista de espera, 20261109090000 y 20261109120000, el conocimiento, 20261109210000, y el paso a una persona, 20261112220000)');
 select set_eq(
   $$select key, effect_class, default_autonomy from public.skills where organization_id is null and kind = 'code'$$,
   $$values ('find_slots', 'read', 'autonomous'), ('list_my_appointments', 'read', 'autonomous'),
            ('book_appointment', 'internal_write', 'draft'), ('reschedule_appointment', 'internal_write', 'draft'),
            ('cancel_appointment', 'internal_write', 'draft'), ('reply', 'external_message', 'draft'),
            ('appointment_reminder', 'external_outreach', 'execute'), ('join_waitlist', 'internal_write', 'execute'),
-           ('waitlist_offer', 'external_outreach', 'execute'), ('search_knowledge', 'read', 'autonomous')$$,
-  'leer es autónomo (también buscar en el conocimiento); reservar, mover, cancelar y responder nacen en borrador; los recordatorios, apuntarse a la lista de espera y sus ofertas, solos');
+           ('waitlist_offer', 'external_outreach', 'execute'), ('search_knowledge', 'read', 'autonomous'),
+           ('request_human', 'internal_write', 'autonomous')$$,
+  'leer es autónomo (y pasar a una persona) (también buscar en el conocimiento); reservar, mover, cancelar y responder nacen en borrador; los recordatorios, apuntarse a la lista de espera y sus ofertas, solos');
 select is(
   (select count(*)::int from public.skills where organization_id is null and kind = 'code' and key <> 'reply'
      and restricted_to_agent_types = '{reception}'),
@@ -40,6 +41,8 @@ select is((select restricted_to_agent_types from public.skills where organizatio
   'responder, de cualquier agente');
 select is((select restricted_to_agent_types from public.skills where organization_id is null and key = 'search_knowledge'), '{}'::text[],
   'buscar en el conocimiento, también de cualquier agente');
+select is((select restricted_to_agent_types from public.skills where organization_id is null and key = 'request_human'), '{}'::text[],
+  'pasar a una persona, también de cualquier agente (CU3)');
 
 -- ===========================================================================
 -- 2. Cada agente nace con las suyas
@@ -50,17 +53,18 @@ select set_eq(
   $$values ('find_slots', 'autonomous', true), ('list_my_appointments', 'autonomous', true),
            ('book_appointment', 'draft', true), ('reschedule_appointment', 'draft', true),
            ('cancel_appointment', 'draft', true), ('reply', 'draft', true), ('appointment_reminder', 'execute', true),
-           ('join_waitlist', 'execute', true), ('waitlist_offer', 'execute', true), ('search_knowledge', 'autonomous', true)$$,
-  'Recepción nace con sus diez skills, activas y con su autonomía por defecto');
+           ('join_waitlist', 'execute', true), ('waitlist_offer', 'execute', true), ('search_knowledge', 'autonomous', true),
+           ('request_human', 'autonomous', true)$$,
+  'Recepción nace con sus once skills, activas y con su autonomía por defecto');
 select set_eq(
   format($$select s.key from public.agent_skills g join public.skills s on s.id = g.skill_id where g.agent_id = %L$$, :'customer_a'),
-  $$values ('reply'), ('search_knowledge')$$,
-  'Atención al cliente, con responder y buscar en el conocimiento');
+  $$values ('reply'), ('search_knowledge'), ('request_human')$$,
+  'Atención al cliente, con responder, buscar en el conocimiento y pasar a una persona');
 select is((select count(*)::int from public.agent_skills where agent_id = :'sales_a'), 0,
   'Ventas y Administración, con ninguna todavía');
-select is((select count(*)::int from public.agent_skills where agent_id = :'reception_b'), 10,
+select is((select count(*)::int from public.agent_skills where agent_id = :'reception_b'), 11,
   'cada organización tiene las suyas');
-select is((select count(*)::int from public.agent_skills where agent_id = :'reception_b' and organization_id = :org_b), 10,
+select is((select count(*)::int from public.agent_skills where agent_id = :'reception_b' and organization_id = :org_b), 11,
   'con la organización de su agente');
 
 insert into public.organizations (id, name) values ('f0000000-0000-4000-8000-000000000000', 'Nueva');
@@ -68,7 +72,7 @@ select is(
   (select count(*)::int from public.agent_skills g join public.agents a on a.id = g.agent_id
    join public.agent_types t on t.id = a.agent_type_id
    where a.organization_id = 'f0000000-0000-4000-8000-000000000000' and t.key = 'reception'),
-  10, 'una organización nueva nace con su Recepción equipada');
+  11, 'una organización nueva nace con su Recepción equipada');
 
 -- Como en el seed y el worker: la plataforma crea la organización por la API.
 set local role service_role;
@@ -76,10 +80,10 @@ insert into public.organizations (id, name) values ('f1000000-0000-4000-8000-000
 reset role;
 select is(
   (select count(*)::int from public.agent_skills where organization_id = 'f1000000-0000-4000-8000-000000000000'),
-  12, 'también cuando la crea la plataforma (service_role): Recepción diez y Atención al cliente dos');
+  14, 'también cuando la crea la plataforma (service_role): Recepción once y Atención al cliente tres');
 
 delete from public.agent_skills where agent_id = :'reception_a';
-select is(private.attach_default_skills_to(:'reception_a'), 10, 'poner al día un agente que ya existía le da sus skills');
+select is(private.attach_default_skills_to(:'reception_a'), 11, 'poner al día un agente que ya existía le da sus skills');
 select is(private.attach_default_skills_to(:'reception_a'), 0, 'y repetirlo no duplica nada');
 
 -- Una versión nueva en borrador no se da; la publicada más alta, sí; y una skill
@@ -90,7 +94,7 @@ values (null, 'find_slots', 2, 'code', 'Find free slots', 'read', 'autonomous', 
 insert into public.skills (organization_id, key, version, kind, name, definition, effect_class, default_autonomy, max_autonomy, status)
 values (:org_a, 'reply', 9, 'composed', 'Our reply', '{}', 'external_message', 'draft', 'autonomous', 'published');
 delete from public.agent_skills where agent_id = :'reception_a';
-select is(private.attach_default_skills_to(:'reception_a'), 10, 'al equipar de nuevo, otra vez diez');
+select is(private.attach_default_skills_to(:'reception_a'), 11, 'al equipar de nuevo, otra vez once');
 select set_eq(
   format($$select s.key, s.version, s.organization_id is null from public.agent_skills g join public.skills s on s.id = g.skill_id
            where g.agent_id = %L and s.key in ('find_slots', 'list_my_appointments', 'reply')$$, :'reception_a'),
@@ -175,7 +179,7 @@ select is(
   (select public.agent_turn_context(:org_a, :'reception_a') -> 'agent' ->> 'type_key'), 'reception',
   'da el agente de su organización, con su tipo');
 select is(
-  (select jsonb_array_length(public.agent_turn_context(:org_a, :'reception_a') -> 'skills')), 10,
+  (select jsonb_array_length(public.agent_turn_context(:org_a, :'reception_a') -> 'skills')), 11,
   'y sus skills');
 update public.agent_skills g set autonomy_level = 'execute', enabled = false
 from public.skills s where s.id = g.skill_id and g.agent_id = :'reception_a' and s.key = 'book_appointment';

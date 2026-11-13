@@ -338,10 +338,6 @@
         "description": "Qué modelos de IA usa cada agente y en qué región se procesan los datos.",
         "what": "el runtime de agentes"
       },
-      "integrations": {
-        "description": "WhatsApp, email, calendario y el resto de conexiones de tus agentes.",
-        "what": "los canales y las integraciones"
-      },
       "audit": {
         "description": "Quién cambió qué y cuándo en tu organización: accesos, permisos y ajustes.",
         "what": "el registro de auditoría para clientes"
@@ -692,6 +688,41 @@
     "errors": {
       "invalid": "Revisa los campos: el título puede tener hasta 200 caracteres, el valor es un número (un porcentaje, hasta 100) y la fecha límite no puede ser anterior al inicio.",
       "not_allowed": "No puedes gestionar objetivos en ese alcance."
+    }
+  },
+  "integrationsPage": {
+    "title": "Integraciones",
+    "description": "Las cuentas de tu negocio que usan los agentes. Las conectas tú, con tu cuenta, y puedes desconectarlas cuando quieras.",
+    "adminOnly": "Solo quien administra la organización ve y conecta las integraciones.",
+    "mfaRequired": "Para conectar o desconectar integraciones necesitas la verificación en dos pasos.",
+    "mfaLink": "Activarla en Seguridad",
+    "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
+    "connect": "Conectar",
+    "reconnect": "Volver a conectar",
+    "disconnect": "Desconectar",
+    "status": {
+      "none": "Sin conectar",
+      "pending": "Pendiente",
+      "expired": "Caducada: vuelve a conectar",
+      "active": "Conectado",
+      "error": "Error",
+      "disconnected": "Desconectado"
+    },
+    "providers": {
+      "google-calendar": {
+        "name": "Google Calendar",
+        "description": "Los agentes consultan la agenda de tu cuenta de Google. Por ahora, solo lectura."
+      },
+      "outlook-calendar": {
+        "name": "Outlook / Microsoft 365",
+        "description": "Los agentes consultan el calendario de tu cuenta de Microsoft 365 u Outlook. Por ahora, solo lectura."
+      }
+    },
+    "errors": {
+      "invalid": "Esa integración no existe.",
+      "not_allowed": "No tienes permiso para cambiar esta integración.",
+      "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
+      "platform_failed": "No hemos podido hablar con el proveedor de la integración. No ha cambiado nada: inténtalo de nuevo en unos minutos."
     }
   }
 }
