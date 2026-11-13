@@ -82,6 +82,8 @@ export function assertAllowedStatement(text: string): void {
 export interface WorkerSql {
   /** Ejecuta fn en una transacción con la organización fijada; confirma si termina bien y deshace si falla. */
   inOrganization<T>(organizationId: string, fn: (sql: TenantSql) => Promise<T>): Promise<T>;
+  /** Abre una conexión (con la comprobación de verifyRole) y la devuelve al pool. Lanza si no entra como moodly_worker. */
+  verify(): Promise<void>;
   end(): Promise<void>;
 }
 
@@ -157,5 +159,10 @@ export function createWorkerSql(options: WorkerSqlOptions): WorkerSql {
     }
   }
 
-  return { inOrganization, end: () => pool.end() };
+  async function verify(): Promise<void> {
+    const client = await pool.connect();
+    client.release();
+  }
+
+  return { inOrganization, verify, end: () => pool.end() };
 }

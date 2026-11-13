@@ -93,6 +93,14 @@ describe("evaluateHealth", () => {
     expect(pingDatabase).not.toHaveBeenCalled();
   });
 
+  it("checking (comprobando moodly_worker): 503 starting, así Railway no da por sano un contenedor que puede no arrancar", async () => {
+    const pingDatabase = vi.fn(async () => {});
+    const result = await evaluateHealth({ ...base, probe: probe({ phase: "checking", pingDatabase }) });
+    expect(result.httpStatus).toBe(503);
+    expect(result.body).toEqual({ status: "starting" });
+    expect(pingDatabase).not.toHaveBeenCalled();
+  });
+
   it("stopping: 503", async () => {
     const result = await evaluateHealth({ ...base, probe: probe({ phase: "stopping" }) });
     expect(result.httpStatus).toBe(503);
