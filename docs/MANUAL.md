@@ -642,6 +642,8 @@ Reglas:
   - cada persona ve lo pendiente de los locales de su alcance (RLS), con la vista previa, el tipo, el local y la caducidad;
   - aprobar o rechazar es un `UPDATE` con su sesión: RLS (`approvals_decide`) y `guard_approval` deciden si puede, ponen quién decidió y cuándo, y emiten `approval.decided`;
   - cada decisión deja su evento de seguridad (`agent.approval_approved` o `agent.approval_rejected`).
+  - **el detalle (OA02, 2026-11-13),** en el panel lateral (P4, `?record=<id>`): lo que se aprueba según la skill (el texto entero de una respuesta; servicio, recurso y hora de una reserva o un cambio, en la zona del local), la conversación de la que salió (los últimos mensajes y el enlace a la bandeja) y por qué (agente, modelo, coste, tokens y lo demás que hizo en ese turno). Se lee con la sesión de quien mira (RLS) y solo para una aprobación de su lista;
+  - **una reserva o un cambio cuya hora ya pasó no se aprueba** (OA02): el panel lo dice y la acción lo rechaza (`agent.approval_refused`). Si llegara a aprobarse, al ejecutarla falla cerrada: la skill y la base de datos rechazan una hora pasada.
 
 ### 5.8 Coordinación entre agentes **[DISEÑO: ADR 0009, propuesto; outbox implementado en W3]**
 

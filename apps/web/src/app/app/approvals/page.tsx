@@ -1,22 +1,30 @@
 import { getFormatter, getTranslations } from "next-intl/server";
-import { Badge } from "@repo/ui/components/badge";
 import { EmptyState } from "@repo/ui/components/empty-state";
-import { ApprovalActions } from "@/components/approvals/approval-actions";
+import { ApprovalsView } from "@/components/approvals/approvals-view";
+import { loadApprovalDetail } from "@/lib/approval-detail-data";
 import { loadPendingApprovals } from "@/lib/approvals-data";
 import { requireUser } from "@/lib/auth/session";
+import { RECORD_PARAM } from "@/lib/records";
 import { resolveScope } from "@/lib/scope-data";
-import { isKnownSkill } from "@/lib/skill-labels";
 
 // Aprobaciones (paso 4d-3d, MANUAL §5.7 y §9): lo que el agente dejó esperando a
 // una persona, del alcance elegido. Aprobar envía la respuesta o hace la
-// reserva (lo ejecuta el worker); rechazar no ejecuta nada.
+// reserva (lo ejecuta el worker); rechazar no ejecuta nada. Cada una se abre en
+// el panel lateral con su detalle (OA02): solo se carga el de la abierta, y
+// solo si está en la lista (alcance y rol ya filtrados).
 
-export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ scope?: string | string[] }> }) {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireUser();
   const t = await getTranslations("approvalsPage");
   const format = await getFormatter();
-  const { scope, context } = await resolveScope((await searchParams).scope);
+  const params = await searchParams;
+  const { scope, context } = await resolveScope(params.scope);
   const { rows, truncated, total } = await loadPendingApprovals(scope, context);
+  const requested = typeof params[RECORD_PARAM] === "string" ? params[RECORD_PARAM] : null;
+  const detail = requested && rows.some((row) => row.id === requested) ? await loadApprovalDetail(requested, context) : null;
+  const viewRows = rows.map((row) => ({ ...row, expiresLabel: t("expires", { time: format.relativeTime(new Date(row.expiresAt)) }) }));
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -34,24 +42,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       {rows.length === 0 ? (
         <EmptyState data-testid="approvals-empty" title={t("emptyTitle")} description={t("empty")} />
       ) : (
-        <ul className="flex flex-col divide-y rounded-lg border" data-testid="approvals-list">
-          {rows.map((row) => (
-            <li key={row.id} data-testid="approval" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 flex-col gap-1">
-                <p className="text-sm font-medium break-words" data-testid="approval-summary">
-                  {row.summary}
-                </p>
-                <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-                  <Badge>{isKnownSkill(row.skillKey) ? t(`skills.${row.skillKey}`) : row.skillKey}</Badge>
-                  <span data-testid="approval-location">{row.location ?? t("wholeOrganization")}</span>
-                  <span>·</span>
-                  <span>{t("expires", { time: format.relativeTime(new Date(row.expiresAt)) })}</span>
-                </div>
-              </div>
-              <ApprovalActions id={row.id} />
-            </li>
-          ))}
-        </ul>
+        <ApprovalsView rows={viewRows} detail={detail} />
       )}
       {truncated ? (
         <p className="text-muted-foreground text-sm" data-testid="approvals-truncated">
