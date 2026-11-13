@@ -1,10 +1,11 @@
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { ServiceDb } from "@repo/db/service";
 import { createFakeConnectorPlatform, signNangoWebhook } from "@repo/integrations";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
-import { NANGO_WEBHOOK_PATH, createNangoWebhookRoute, handleNangoWebhook, type NangoWebhookDeps } from "./nango-webhook.ts";
+import { createHealthServer } from "../health.ts";
+import { NANGO_WEBHOOK_PATH, createNangoWebhookHandler, handleNangoWebhook, type NangoWebhookDeps } from "./nango-webhook.ts";
 
 // El webhook sin base de datos: todo lo que se rechaza o se ignora antes de
 // llegar a ella. Lo que escribe se prueba contra Supabase local en
@@ -82,21 +83,23 @@ describe("handleNangoWebhook, antes de la base de datos", () => {
   });
 });
 
-describe("createNangoWebhookRoute", () => {
+describe("createNangoWebhookHandler, montado en el servidor de salud bajo /webhooks/", () => {
   let server: Server | undefined;
   afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
 
-  async function listen(route: ReturnType<typeof createNangoWebhookRoute>): Promise<string> {
-    server = createServer((req, res) => {
-      const url = new URL(req.url ?? "/", "http://worker.internal");
-      if (!route(req, res, url)) res.writeHead(404).end();
+  async function listen(handler: ReturnType<typeof createNangoWebhookHandler>): Promise<string> {
+    // El servidor de verdad (health.ts), con su sonda parada: /health y /webhooks/ en el mismo puerto.
+    server = createHealthServer({
+      logger: silent,
+      probe: { phase: () => "stopping", pingDatabase: async () => undefined, oldestPendingEventAt: async () => null },
+      webhooks: handler,
     });
     await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve));
     return `http://127.0.0.1:${(server?.address() as AddressInfo).port}`;
   }
 
-  it("401 con una firma que no vale, 200 con una buena (ignorado), 405 con GET, 413 si es enorme; otras rutas no son suyas", async () => {
-    const base = await listen(createNangoWebhookRoute(deps()));
+  it("401 con una firma que no vale, 200 con una buena (ignorado), 405 con GET, 413 si es enorme; otras rutas, 404; /health no cambia", async () => {
+    const base = await listen(createNangoWebhookHandler(deps()));
     const body = JSON.stringify({ type: "sync" });
     const bad = await fetch(`${base}${NANGO_WEBHOOK_PATH}`, { method: "POST", body, headers: { "X-Nango-Hmac-Sha256": "0".repeat(64) } });
     expect(bad.status).toBe(401);
@@ -110,13 +113,16 @@ describe("createNangoWebhookRoute", () => {
     expect((await fetch(`${base}${NANGO_WEBHOOK_PATH}`)).status).toBe(405);
     const huge = await fetch(`${base}${NANGO_WEBHOOK_PATH}`, { method: "POST", body: "x".repeat(70 * 1024) });
     expect(huge.status).toBe(413);
+    expect((await fetch(`${base}/webhooks/otra`)).status).toBe(404);
     expect((await fetch(`${base}/otra`)).status).toBe(404);
+    // /health sigue igual: solo {status}.
+    expect(await (await fetch(`${base}/health`)).json()).toEqual({ status: "stopping" });
   });
 
   it("un fallo pasajero responde 500 (Nango reintenta)", async () => {
     const platform = createFakeConnectorPlatform();
     platform.failNext("getConnection");
-    const base = await listen(createNangoWebhookRoute(deps({ platform })));
+    const base = await listen(createNangoWebhookHandler(deps({ platform })));
     const body = authBody();
     const res = await fetch(`${base}${NANGO_WEBHOOK_PATH}`, {
       method: "POST",

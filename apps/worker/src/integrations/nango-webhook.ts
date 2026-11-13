@@ -182,15 +182,20 @@ function reply(res: ServerResponse, status: number, body: Record<string, string>
 }
 
 /**
- * La ruta HTTP para el servidor del worker: atiende POST /webhooks/nango y
- * devuelve true; cualquier otra petición, false (la atiende otro).
+ * El handler de /webhooks/ para el servidor del worker (se monta como el de
+ * /channels/, health.ts): atiende POST /webhooks/nango; cualquier otra ruta
+ * bajo /webhooks/, 404.
  */
-export function createNangoWebhookRoute(deps: NangoWebhookDeps) {
-  return (req: IncomingMessage, res: ServerResponse, url: URL): boolean => {
-    if (url.pathname !== NANGO_WEBHOOK_PATH) return false;
+export function createNangoWebhookHandler(deps: NangoWebhookDeps) {
+  return (req: IncomingMessage, res: ServerResponse): void => {
+    const url = new URL(req.url ?? "/", "http://worker.internal");
+    if (url.pathname !== NANGO_WEBHOOK_PATH) {
+      reply(res, 404, { error: "not_found" });
+      return;
+    }
     if (req.method !== "POST") {
       reply(res, 405, { error: "method_not_allowed" });
-      return true;
+      return;
     }
     readBody(req, NANGO_WEBHOOK_MAX_BYTES)
       .then(async (body) => {
@@ -206,6 +211,5 @@ export function createNangoWebhookRoute(deps: NangoWebhookDeps) {
         deps.logger.error({ err, event: "integrations.webhook_failed" }, "el webhook de Nango falló; Nango lo reintentará");
         if (!res.headersSent) reply(res, 500, { error: "retry" });
       });
-    return true;
   };
 }

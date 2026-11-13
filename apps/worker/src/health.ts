@@ -109,14 +109,22 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   };
 }
 
-/**
- * Otra ruta del mismo servidor (p. ej. el webhook de Nango, O-02): devuelve
- * true si atiende la petición; si no, false y sigue la siguiente.
- */
-export type HttpRoute = (req: IncomingMessage, res: ServerResponse, url: URL) => boolean;
+/** El prefijo de la entrada de canales (ADR 0052 §2), que comparte este puerto. */
+export const CHANNELS_PREFIX = "/channels/";
+/** El prefijo de los webhooks de las plataformas (O-02: /webhooks/nango), con el mismo esquema que los canales. */
+export const WEBHOOKS_PREFIX = "/webhooks/";
 
-/** Servidor HTTP mínimo: GET/HEAD /health y las rutas que se le pasen. Cualquier otra, 404. */
-export function createHealthServer(options: HealthOptions & { logger: Logger; routes?: readonly HttpRoute[] }): Server {
+type RequestHandler = (request: IncomingMessage, response: ServerResponse) => void;
+
+/**
+ * Servidor HTTP mínimo: GET/HEAD /health y, si se dan, la entrada de canales
+ * bajo /channels/ y los webhooks bajo /webhooks/ (Railway publica un solo
+ * puerto por servicio). Cualquier otra ruta, 404. /health no cambia por
+ * llevarlos: solo {status}.
+ */
+export function createHealthServer(
+  options: HealthOptions & { logger: Logger; channels?: RequestHandler; webhooks?: RequestHandler },
+): Server {
   const cacheMs = options.cacheMs ?? 10_000;
   const now = options.now ?? Date.now;
   let cached: { at: number; result: Promise<HealthResult> } | undefined;
@@ -132,7 +140,14 @@ export function createHealthServer(options: HealthOptions & { logger: Logger; ro
 
   return createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://worker.internal");
-    if (url.pathname !== "/health" && options.routes?.some((route) => route(req, res, url))) return;
+    if (options.channels && url.pathname.startsWith(CHANNELS_PREFIX)) {
+      options.channels(req, res);
+      return;
+    }
+    if (options.webhooks && url.pathname.startsWith(WEBHOOKS_PREFIX)) {
+      options.webhooks(req, res);
+      return;
+    }
     if ((req.method !== "GET" && req.method !== "HEAD") || url.pathname !== "/health") {
       res.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" }).end('{"error":"not_found"}');
       return;

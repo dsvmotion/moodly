@@ -32,6 +32,12 @@ describe("loadConfig", () => {
     });
   });
 
+  it("la entrada de canales no tiene puerto propio: va en el de salud (PORT), y INGRESS_PORT ya no se lee", () => {
+    const config = loadConfig({ ...valid, INGRESS_PORT: "9999", PORT: "3001" });
+    expect(config).not.toHaveProperty("ingressPort");
+    expect(config.healthPort).toBe(3001);
+  });
+
   it("WORKER_DATABASE_URL es obligatoria y tiene que ser moodly_worker (directo o por el pooler)", () => {
     const pooled = "postgresql://moodly_worker.sgeswmdqstonegceusej:secreto@aws-0-eu-west-1.pooler.supabase.com:5432/postgres";
     expect(loadConfig({ ...valid, WORKER_DATABASE_URL: pooled }).workerDatabaseUrl).toBe(pooled);
