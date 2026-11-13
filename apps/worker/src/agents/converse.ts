@@ -23,6 +23,7 @@ import {
   createJoinWaitlistSkill,
   createReceptionSkills,
   createReplySkill,
+  createRequestHumanSkill,
   createSearchKnowledgeSkill,
 } from "@repo/skills";
 import type { Logger } from "pino";
@@ -323,7 +324,9 @@ export function codeSkills(
   // En un turno, cada consulta va al libro de consumo con su run (PL-ledger).
   const embedder = options.embedder && options.searchUsage ? meteredSearchEmbedder(db, options.embedder, options.searchUsage) : options.embedder;
   const knowledge = embedder ? [createSearchKnowledgeSkill({ retriever: createKnowledgeRetriever(db, embedder) })] : [];
-  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge] as unknown as SkillDefinition<unknown>[];
+  // Pasar a una persona (CU3): solo el motivo; el turno se acaba y finishRun pasa la conversación.
+  const requestHuman = createRequestHumanSkill();
+  const all = [...Object.values(reception), reply, joinWaitlist, ...knowledge, requestHuman] as unknown as SkillDefinition<unknown>[];
   return new Map(all.map((skill) => [skill.key, skill]));
 }
 
