@@ -6,11 +6,15 @@
 // el id del evento del proveedor: «fail-twice-…» falla los dos primeros
 // intentos y «fail-always-…», todos (hasta el dead_letter), con esperas cortas.
 //
-//   PORT=… INGRESS_TEST_SECRET=… node ingress-worker.ts
+// Y channels.send (O-01) con el adaptador de WhatsApp de verdad contra la Graph
+// API falsa del test (WHATSAPP_TEST_GRAPH_URL), sin esperas entre reintentos.
+//
+//   PORT=… INGRESS_TEST_SECRET=… WHATSAPP_TEST_GRAPH_URL=… node ingress-worker.ts
 import { createWhatsAppAdapter } from "@repo/channels";
 import { createFakeAdapter } from "@repo/channels/testing";
 import { WHATSAPP_GRAPH_API_VERSION } from "@repo/config";
 import { createServiceDb } from "@repo/db/service";
+import { createChannelSendHandler } from "../channels/send.ts";
 import { loadConfig } from "../config.ts";
 import { createHealthServer } from "../health.ts";
 import { logHandler } from "../events/log-handler.ts";
@@ -19,7 +23,17 @@ import { createWorker } from "../worker.ts";
 
 const secret = process.env["INGRESS_TEST_SECRET"];
 if (!secret) throw new Error("falta INGRESS_TEST_SECRET");
+const graphBaseUrl = process.env["WHATSAPP_TEST_GRAPH_URL"];
+if (!graphBaseUrl) throw new Error("falta WHATSAPP_TEST_GRAPH_URL");
 const config = loadConfig(process.env);
+const whatsapp = createWhatsAppAdapter({
+  appSecret: secret,
+  verifyToken: secret,
+  accessToken: "token-de-prueba",
+  graphApiVersion: WHATSAPP_GRAPH_API_VERSION,
+  graphBaseUrl,
+  timeoutMs: 2_000,
+});
 const logger = createLogger(config.logLevel);
 const db = createServiceDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
 const recordFailures = new Map<string, number>();
@@ -59,14 +73,14 @@ const worker = createWorker(config, logger, {
       if (seen < 4 && (id.startsWith("fail-record-") || id.startsWith("fail-recdead-"))) throw new Error("apunte inyectado que falla");
     },
   },
-  eventHandlers: [logHandler],
+  eventHandlers: [logHandler, createChannelSendHandler({ adapters: new Map([["whatsapp", whatsapp]]), retryDelaysMs: [0, 0] })],
   // webchat firma por cuenta (como el token del chat web); email, por plataforma (como Meta).
   // Y WhatsApp, el adaptador de verdad (O-01): Meta firma con el secreto de la app y
-  // el alta usa el token de verificación; los dos, INGRESS_TEST_SECRET. Aquí no envía nada.
+  // el alta usa el token de verificación; los dos, INGRESS_TEST_SECRET. Envía a la Graph API falsa.
   channelAdapters: [
     createFakeAdapter({ channel: "webchat", secret, scope: "account" }),
     createFakeAdapter({ channel: "email", secret }),
-    createWhatsAppAdapter({ appSecret: secret, verifyToken: secret, accessToken: "token-sin-uso-en-tests", graphApiVersion: WHATSAPP_GRAPH_API_VERSION }),
+    whatsapp,
   ],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");
