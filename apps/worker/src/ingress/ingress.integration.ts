@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
 import { join } from "node:path";
+import { hmacSha256Hex } from "@repo/channels";
 import { fakeSignature } from "@repo/channels/testing";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -18,6 +19,10 @@ const fixture = join(import.meta.dirname, "..", "testing", "ingress-worker.ts");
 const admin = new pg.Client({ connectionString: localAdminDatabaseUrl() });
 const marker = `ingress-${randomUUID().slice(0, 8)}`;
 const secret = `secreto-${randomUUID()}`;
+// WhatsApp: el phone_number_id de la cuenta y el número del cliente, al azar para no chocar entre corridas.
+const digits = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
+const waPhoneNumberId = `9${digits(14)}`;
+const waFrom = `34${digits(9)}`;
 const ids: Record<string, string> = {};
 let child: ChildProcess | null = null;
 let output = "";
@@ -124,6 +129,12 @@ beforeAll(async () => {
     [ids.org, ids.location, `${marker}-disabled`, ids.agentType],
   );
 
+  ids.whatsapp = await one(
+    `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+     values ($1, $2, 'whatsapp', $3, $4, 'active') returning id`,
+    [ids.org, ids.location, waPhoneNumberId, ids.agentType],
+  );
+
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   const api = localSupabaseApi();
@@ -152,11 +163,12 @@ afterAll(async () => {
   // Las conversaciones (y sus mensajes) y los contactos que creó la entrada, y las cuentas.
   await admin.query(
     "delete from public.domain_events where payload->>'conversation_id' in (select id::text from public.conversations where channel_account_id = any($1))",
-    [[ids.active, ids.disabled]],
+    [[ids.active, ids.disabled, ids.whatsapp]],
   );
-  await admin.query("delete from public.conversations where channel_account_id = any($1)", [[ids.active, ids.disabled]]);
+  await admin.query("delete from public.conversations where channel_account_id = any($1)", [[ids.active, ids.disabled, ids.whatsapp]]);
   await admin.query("delete from public.contacts where id in (select contact_id from public.contact_identities where external_id like $1)", [`${marker}-%`]);
-  await admin.query("delete from public.channel_accounts where id = any($1)", [[ids.active, ids.disabled]]);
+  await admin.query("delete from public.contacts where id in (select contact_id from public.contact_identities where kind = 'phone' and external_id = $1)", [`+${waFrom}`]);
+  await admin.query("delete from public.channel_accounts where id = any($1)", [[ids.active, ids.disabled, ids.whatsapp]]);
   await admin.end();
 });
 
@@ -164,7 +176,8 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
   it("comparte el puerto con /health, que sigue respondiendo solo {status}", async () => {
     const response = await fetch(`${base}/health`);
     expect(Object.keys((await response.json()) as object)).toEqual(["status"]);
-    expect((await fetch(`${base}/channels/whatsapp/webhook`, { method: "POST", body: "{}" })).status).toBe(404);
+    // Un canal sin adaptador montado (WhatsApp ya lo tiene: ver más abajo).
+    expect((await fetch(`${base}/channels/telegram/webhook`, { method: "POST", body: "{}" })).status).toBe(404);
   });
 
   it("un webhook firmado se convierte en un mensaje del cliente en una conversación nueva, de la organización de la cuenta", async () => {
@@ -339,4 +352,80 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(rewinds).toHaveLength(1);
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
   }, 200_000);
+});
+
+// WhatsApp por la Cloud API (O-01, ADR 0020): el adaptador de verdad, con
+// webhooks como los de Meta firmados con el secreto de la app.
+describe("la entrada de WhatsApp de punta a punta (O-01)", () => {
+  function metaText(wamid: string, body: string, phoneNumberId = waPhoneNumberId) {
+    return {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          id: "102290129340398",
+          changes: [
+            {
+              field: "messages",
+              value: {
+                messaging_product: "whatsapp",
+                metadata: { display_phone_number: "34910000000", phone_number_id: phoneNumberId },
+                contacts: [{ profile: { name: "Ana" }, wa_id: waFrom }],
+                messages: [{ from: waFrom, id: wamid, timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body } }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async function postMeta(body: unknown, signWith = secret) {
+    const rawBody = JSON.stringify(body);
+    const response = await fetch(`${base}/channels/whatsapp/webhook`, {
+      method: "POST",
+      body: rawBody,
+      headers: { "content-type": "application/json", "x-hub-signature-256": `sha256=${hmacSha256Hex(signWith, rawBody)}` },
+    });
+    return { status: response.status, body: (await response.json().catch(() => null)) as Record<string, number> | null };
+  }
+
+  it("el alta: con el token exacto, el challenge en texto; con otro, 403 sin cuerpo", async () => {
+    const good = await fetch(`${base}/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(secret)}&hub.challenge=1158201444`);
+    expect(good.status).toBe(200);
+    expect(await good.text()).toBe("1158201444");
+    const bad = await fetch(`${base}/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(`${secret}x`)}&hub.challenge=1158201444`);
+    expect(bad.status).toBe(403);
+    expect(await bad.text()).toBe("");
+  });
+
+  it("un texto firmado por Meta: un mensaje del cliente en la cuenta de ese phone_number_id, con el wamid como clave; repetido, no duplica", async () => {
+    const wamid = `wamid.${randomUUID()}`;
+    await expect(postMeta(metaText(wamid, "Hola, ¿tenéis hueco el sábado?"))).resolves.toEqual({ status: 200, body: { accepted: 1, duplicates: 0, ignored: 0 } });
+    await waitFor(async () => (await eventsOf(wamid))[0]?.status === "processed", "el mensaje de WhatsApp queda procesado");
+    const messages = await messagesFrom(wamid);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ organization_id: ids.org, content: "Hola, ¿tenéis hueco el sábado?", direction: "in", author: "contact" });
+    const { rows } = await admin.query<{ channel_account_id: string; channel: string; display_name: string; kind: string; external_id: string }>(
+      `select c.channel_account_id, c.channel, k.display_name, i.kind, i.external_id
+       from public.conversations c join public.contacts k on k.id = c.contact_id
+       join public.contact_identities i on i.contact_id = k.id
+       where c.id = $1`,
+      [messages[0]?.conversation_id],
+    );
+    expect(rows).toEqual([{ channel_account_id: ids.whatsapp, channel: "whatsapp", display_name: "Ana", kind: "phone", external_id: `+${waFrom}` }]);
+    // Meta repite el webhook: el mismo wamid no crea nada nuevo.
+    await expect(postMeta(metaText(wamid, "Hola, ¿tenéis hueco el sábado?"))).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 1, ignored: 0 } });
+    expect(await eventsOf(wamid)).toHaveLength(1);
+    expect(await messagesFrom(wamid)).toHaveLength(1);
+  });
+
+  it("con la firma de otro secreto, 401 y no se guarda nada; para un número sin cuenta, 200 e ignorado", async () => {
+    const forged = `wamid.${randomUUID()}`;
+    await expect(postMeta(metaText(forged, "hola"), "otro-secreto")).resolves.toMatchObject({ status: 401 });
+    const unknown = `wamid.${randomUUID()}`;
+    await expect(postMeta(metaText(unknown, "hola", `8${digits(14)}`))).resolves.toEqual({ status: 200, body: { accepted: 0, duplicates: 0, ignored: 1 } });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(await eventsOf(forged)).toEqual([]);
+    expect(await eventsOf(unknown)).toEqual([]);
+  });
 });

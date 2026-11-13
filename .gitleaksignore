@@ -1,3 +1,5 @@
 # Falsos positivos de gitleaks revisados a mano (huella = commit:archivo:regla:línea).
 # Contraseña de prueba de un intento de registro que el test espera que se rechace.
 b4c26d38243ce2ee7a47fa2e64cbd9b2c1847226:apps/web/e2e/security.e2e.ts:generic-api-key:67
+# Secreto de la app de WhatsApp de mentira en el test de la config del worker (#288). En el commit siguiente ya se arma sin literal con forma de clave.
+8f365678891a388a9d2d0ca139810af6ca00defa:apps/worker/src/config.test.ts:generic-api-key:69
