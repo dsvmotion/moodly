@@ -200,7 +200,11 @@ describe("outbox: relleno de un consumidor que llega después que sus eventos (W
     await admin.query("update public.executions set status = 'failed' where id = $1", [settled.executionId]);
     await admin.query("update public.domain_events set created_at = now() - interval '30 hours' where id = $1", [old.eventId]);
     // Como el primer despliegue con agent.approval: su relleno no ha corrido.
-    await admin.query("delete from dbos.workflow_status where workflow_uuid = $1", [BACKFILL_ID]);
+    // Entero: los resultados de sus pasos (operation_outputs, sin cascada desde
+    // workflow_status) harían que el relleno repitiera la página de otra vuelta.
+    for (const table of ["operation_outputs", "workflow_input", "workflow_output", "workflow_status"]) {
+      await admin.query(`delete from dbos.${table} where workflow_uuid = $1`, [BACKFILL_ID]);
+    }
 
     // Después: llegan agent.approval (con relleno) y test.late (sin él).
     const after = startWorker(file, "after");
