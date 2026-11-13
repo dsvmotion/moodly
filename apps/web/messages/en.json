@@ -707,6 +707,10 @@
       "google-calendar": {
         "name": "Google Calendar",
         "description": "Agents check the calendar of your Google account. Read-only for now."
+      },
+      "outlook-calendar": {
+        "name": "Outlook / Microsoft 365",
+        "description": "Agents check the calendar of your Microsoft 365 or Outlook account. Read-only for now."
       }
     },
     "errors": {

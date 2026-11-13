@@ -108,11 +108,23 @@ export function createNangoPlatform({ secretKey, host, fetch = globalThis.fetch 
   }
 
   return {
-    async createConnectSession({ integrationKey, tags }) {
+    async createConnectSession({ integrationKey, tags, scopes }) {
+      const body: Record<string, unknown> = { tags, allowed_integrations: [integrationKey] };
+      if (scopes && scopes.length > 0) {
+        // Los permisos van en la sesión, no solo en la integración: así no
+        // dependen de cómo esté configurada en el panel de Nango. Separados por
+        // comas, como guarda Nango los de una integración.
+        if (scopes.some((scope) => !/^[A-Za-z0-9._:/-]+$/.test(scope))) {
+          throw new ConnectorPlatformError("Un permiso de la integración no es válido", null, "rejected");
+        }
+        body["integrations_config_defaults"] = {
+          [integrationKey]: { connection_config: { oauth_scopes_override: scopes.join(",") } },
+        };
+      }
       const response = await call("la sesión de conexión", "/connect/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags, allowed_integrations: [integrationKey] }),
+        body: JSON.stringify(body),
       });
       const parsed = connectSessionResponse.safeParse(await json("la sesión de conexión", response));
       if (!parsed.success) throw new ConnectorPlatformError("La sesión de conexión no tiene la forma esperada", response.status, "rejected");

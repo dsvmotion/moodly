@@ -51,9 +51,12 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   platform = createFakeConnectorPlatform({
-    proxyResponse: () => ({ items: [{ id: "e1", summary: "Corte · Ana", start: { dateTime: "2026-11-13T10:00:00Z" } }] }),
+    proxyResponse: (request) =>
+      request.integrationKey === "outlook"
+        ? { value: [{ id: "ms-1", subject: "Tinte · Eva", start: { dateTime: "2026-11-13T11:00:00.0000000", timeZone: "UTC" } }] }
+        : { items: [{ id: "e1", summary: "Corte · Ana", start: { dateTime: "2026-11-13T10:00:00Z" } }] },
   });
-  await admin.query("delete from public.integrations where provider = 'google-calendar' and organization_id = any($1)", [[orgA, orgB]]);
+  await admin.query("delete from public.integrations where provider in ('google-calendar', 'outlook-calendar') and organization_id = any($1)", [[orgA, orgB]]);
   const a = await admin.query<{ id: string }>(
     "insert into public.integrations (organization_id, provider, kind) values ($1, 'google-calendar', 'platform') returning id",
     [orgA],
@@ -67,7 +70,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await admin.query("delete from public.integrations where provider = 'google-calendar' and organization_id = any($1)", [[orgA, orgB]]);
+  await admin.query("delete from public.integrations where provider in ('google-calendar', 'outlook-calendar') and organization_id = any($1)", [[orgA, orgB]]);
   await admin.end();
   await db.end();
 });
@@ -146,5 +149,50 @@ describe("listUpcomingCalendarEvents (moodly_worker, RLS)", () => {
     expect(platform.proxied.map((p) => p.connectionId)).toEqual([conn]);
     await expect(listUpcomingCalendarEvents({ db, platform, organizationId: orgB, from, limit: 5 })).resolves.toBeNull();
     expect(platform.proxied).toHaveLength(1);
+  });
+});
+
+describe("Outlook / Microsoft 365 (el mismo webhook y la misma lectura)", () => {
+  async function outlookRow(org: string) {
+    const { rows } = await admin.query<{ id: string }>(
+      "insert into public.integrations (organization_id, provider, kind) values ($1, 'outlook-calendar', 'platform') returning id",
+      [org],
+    );
+    return rows[0]?.id ?? "";
+  }
+
+  it("el webhook firmado de la integración «outlook» activa la fila de outlook-calendar, y la lectura usa Graph con esa conexión", async () => {
+    const id = await outlookRow(orgA);
+    const conn = `conn-ms-${randomUUID()}`;
+    platform.addConnection({ connectionId: conn, integrationKey: "outlook", tags: { organization_id: orgA, end_user_id: "u", integration_id: id } });
+    await expect(
+      send({ providerConfigKey: "outlook", connectionId: conn, tags: { organization_id: orgA, end_user_id: "u", integration_id: id } }),
+    ).resolves.toBe("activated");
+    expect(await row(id)).toEqual({ status: "active", external_connection_id: conn });
+
+    const events = await listUpcomingCalendarEvents({ db, platform, organizationId: orgA, from: new Date("2026-11-13T09:00:00Z"), limit: 3 });
+    expect(events).toEqual([{ id: "ms-1", title: "Tinte · Eva", startsAt: new Date("2026-11-13T11:00:00Z"), endsAt: null, allDay: false }]);
+    expect(platform.proxied.map((p) => [p.integrationKey, p.connectionId, p.path])).toEqual([["outlook", conn, "/v1.0/me/calendarView"]]);
+  });
+
+  it("un webhook de «outlook» con la fila de Google no la activa (la clave tiene que ser la de su proveedor)", async () => {
+    const conn = `conn-ms-${randomUUID()}`;
+    platform.addConnection({ connectionId: conn, integrationKey: "outlook", tags: { organization_id: orgA, end_user_id: "u", integration_id: rowA } });
+    await expect(
+      send({ providerConfigKey: "outlook", connectionId: conn, tags: { organization_id: orgA, end_user_id: "u", integration_id: rowA } }),
+    ).resolves.toBe("ignored");
+    expect(await row(rowA)).toEqual({ status: "pending", external_connection_id: null });
+  });
+
+  it("el Outlook de otra organización no se lee: B conectado no da eventos a A", async () => {
+    const id = await outlookRow(orgB);
+    const conn = `conn-ms-${randomUUID()}`;
+    platform.addConnection({ connectionId: conn, integrationKey: "outlook", tags: { organization_id: orgB, end_user_id: "u", integration_id: id } });
+    await send({ providerConfigKey: "outlook", connectionId: conn, tags: { organization_id: orgB, end_user_id: "u", integration_id: id } });
+    expect((await row(id))?.status).toBe("active");
+    await expect(
+      listUpcomingCalendarEvents({ db, platform, organizationId: orgA, from: new Date("2026-11-13T09:00:00Z"), limit: 3 }),
+    ).resolves.toBeNull();
+    expect(platform.proxied).toHaveLength(0);
   });
 });
