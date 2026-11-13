@@ -514,6 +514,11 @@
       "not_allowed": "You can't do this here: the conversation is not in your scope, someone already changed who is handling it, or it is closed.",
       "channel_unavailable": "You can't reply on this channel from here yet.",
       "failed": "It didn't work. Please try again."
+    },
+    "handoffNotice": {
+      "title": "A conversation was handed to you",
+      "description": "The agent stopped replying and handed it to the team.",
+      "open": "View the conversation"
     }
   },
   "testChat": {

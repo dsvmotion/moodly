@@ -69,3 +69,51 @@ test("sin sesión, el relé no abre ninguna conexión", async ({ request }) => {
   expect(response.status()).not.toBe(200);
   expect(response.headers()["content-type"] ?? "").not.toContain("text/event-stream");
 });
+
+// El paso a una persona (CU3): la base de datos manda un Broadcast «handoff» al
+// tema de su bandeja (20261112200000, en 47_conversation_handed_off) y el relé lo
+// reenvía como los demás avisos (inbox-live.test.ts). Aquí, lo que hace el
+// navegador al recibirlo: el relé se sustituye por uno falso para no pasar a una
+// persona conversaciones del seed que comprueban otros tests.
+test("cuando el agente pasa una conversación al equipo, la bandeja lo avisa con un enlace a ella", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await signIn(page, "a_staff");
+  await page.goto("/app/inbox");
+  const href = await page.getByTestId("inbox-conversation").first().getAttribute("href");
+  const conversationId = href?.match(/\/app\/inbox\/([0-9a-f-]{36})/)?.[1];
+  expect(conversationId, "una conversación de A2 en la bandeja").toBeTruthy();
+
+  await page.route("**/app/inbox/events", (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream", "cache-control": "no-store" },
+      // retry largo: que EventSource no vuelva a conectar (y repita el aviso) durante el test.
+      body: `retry: 600000\n\nevent: ready\ndata: {}\n\nevent: handoff\ndata: ${JSON.stringify({ type: "handoff", conversationId })}\n\n`,
+    }),
+  );
+  await page.reload();
+
+  const notices = page.getByRole("region", { name: "Avisos (F8)" });
+  await expect(notices.getByText("Te han pasado una conversación")).toBeVisible({ timeout: LIVE_TIMEOUT });
+  await expect(notices.getByText("El agente ha dejado de contestar y la ha pasado al equipo.")).toBeVisible();
+  const link = notices.getByRole("link", { name: "Ver la conversación" });
+  await expect(link).toHaveAttribute("href", `/app/inbox/${conversationId}`);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/app/inbox/${conversationId}`));
+  await expect(page.getByTestId("inbox-thread-contact")).toBeVisible();
+});
+
+test("un aviso handoff con un id que no es un uuid no enseña nada", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await signIn(page, "a_staff");
+  await page.route("**/app/inbox/events", (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+      body: `retry: 600000\n\nevent: ready\ndata: {}\n\nevent: handoff\ndata: {"conversationId":"x' onload='"}\n\n`,
+    }),
+  );
+  await page.goto("/app/inbox");
+  await expect(received(page)).toHaveAttribute("data-received", "1", { timeout: LIVE_TIMEOUT });
+  await expect(page.getByRole("region", { name: "Avisos (F8)" }).getByText("Te han pasado una conversación")).toHaveCount(0);
+});

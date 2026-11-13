@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@repo/ui/components/toast";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { COALESCE_MS, createIdleTimer, FALLBACK_REFRESH_MS, IDLE_CLOSE_MS, LIVE_EVENTS } from "@/lib/inbox-live";
@@ -26,6 +28,13 @@ const ACTIVITY_EVENTS = ["pointermove", "pointerdown", "keydown", "wheel", "touc
  */
 export function InboxLive() {
   const router = useRouter();
+  const t = useTranslations("inboxPage.handoffNotice");
+  // Los textos del aviso, como cadenas: no cambian de un render a otro (solo con
+  // el idioma), así que no vuelven a abrir la conexión. `t` sí cambia en cada
+  // render: como dependencia del efecto, la cerraría y abriría cada vez.
+  const handoffTitle = t("title");
+  const handoffDescription = t("description");
+  const handoffOpen = t("open");
   const [status, setStatus] = useState<"open" | "closed">("closed");
   const [received, setReceived] = useState(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -54,15 +63,23 @@ export function InboxLive() {
         refreshSoon();
       });
       for (const event of LIVE_EVENTS) {
-        source.addEventListener(event, () => {
+        source.addEventListener(event, (message) => {
           setReceived((count) => count + 1);
           refreshSoon();
+          if (event === "handoff") notifyHandoff((message as MessageEvent<string>).data);
         });
       }
       // Cierre del servidor (tiempo máximo, un canal caído) o sin red: EventSource
       // vuelve a conectar solo; con un 401 o un 204 se queda cerrado y sigue la
       // relectura periódica.
       source.addEventListener("error", () => setStatus("closed"));
+    };
+    // El agente ha pasado una conversación al equipo (CU3): un aviso con el
+    // enlace a la conversación. Del relé solo llega el id, validado como uuid.
+    const notifyHandoff = (data: string) => {
+      const conversationId = parseConversationId(data);
+      if (!conversationId) return;
+      toast({ title: handoffTitle, description: handoffDescription, action: { label: handoffOpen, href: `/app/inbox/${conversationId}` } });
     };
     const close = () => {
       source?.close();
@@ -94,8 +111,19 @@ export function InboxLive() {
       clearTimeout(refreshTimer.current);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [router]);
+  }, [router, handoffTitle, handoffDescription, handoffOpen]);
 
   // Para los e2e: si la conexión está abierta y cuántos avisos han llegado. No se ve ni se anuncia.
   return <span hidden data-testid="inbox-live" data-status={status} data-received={received} />;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function parseConversationId(data: string): string | null {
+  try {
+    const value = (JSON.parse(data) as { conversationId?: unknown }).conversationId;
+    return typeof value === "string" && UUID.test(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
