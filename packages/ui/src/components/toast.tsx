@@ -47,6 +47,13 @@ export function Toaster({ label = "Avisos ({hotkey})", closeLabel = "Cerrar" }: 
                 {item.description}
               </ToastPrimitive.Description>
             ) : null}
+            {item.action ? (
+              <ToastPrimitive.Action altText={item.action.label} asChild>
+                <a href={item.action.href} className="mt-2 inline-block text-sm font-medium underline underline-offset-4 hover:text-foreground">
+                  {item.action.label}
+                </a>
+              </ToastPrimitive.Action>
+            ) : null}
           </div>
           <ToastPrimitive.Close
             aria-label={closeLabel}

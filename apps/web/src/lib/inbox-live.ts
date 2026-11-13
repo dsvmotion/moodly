@@ -21,7 +21,8 @@ export const COALESCE_MS = 300;
 /** Cuánto espera EventSource para volver a conectar tras un cierre. */
 export const RECONNECT_MS = 2_000;
 
-export const LIVE_EVENTS = ["message", "conversation"] as const;
+/** «handoff»: el agente ha pasado una conversación a una persona (CU3); la bandeja lo avisa además de releer. */
+export const LIVE_EVENTS = ["message", "conversation", "handoff"] as const;
 export type LiveEventType = (typeof LIVE_EVENTS)[number];
 
 export interface LiveEvent {
