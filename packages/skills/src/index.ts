@@ -27,4 +27,6 @@ export type { SearchKnowledgeSkill } from "./knowledge/search.js";
 export { MAX_REPLY_LENGTH, ReplyTargetError, createReplySkill } from "./conversation/reply.js";
 export type { ConversationSender, ReplySkill } from "./conversation/reply.js";
 export { createFakeConversationSender } from "./conversation/fake.js";
+export { createRequestHumanSkill } from "./conversation/request-human.js";
+export type { RequestHumanSkill } from "./conversation/request-human.js";
 export type { FakeConversationSender, SentMessage } from "./conversation/fake.js";

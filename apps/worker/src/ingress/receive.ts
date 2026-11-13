@@ -123,35 +123,46 @@ async function receiveOne(
     log.info({ reason: account ? `account_${account.status}` : "account_unknown" }, "mensaje para una cuenta que no atiende");
     return "ignored";
   }
+  // El evento, como moodly_worker por SQL bajo RLS (20261112230000), una sola vez
+  // por (cuenta, id del evento): un reintento del proveedor no crea nada nuevo.
   const tenant = deps.db.forOrganization(account.organizationId);
-  const inserted = await tenant
-    .from("inbound_events")
-    .insert({ channel_account_id: account.id, provider_event_id: message.providerEventId, payload: message })
-    .select("id")
-    .single();
+  let stored: { id: string; inserted: boolean; status: string; error_code: string | null } | undefined;
+  try {
+    stored = await tenant.transaction(async (sql) => {
+      const [inserted] = await sql.query<{ id: string }>(
+        `insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+         values ($1, $2, $3, $4::jsonb)
+         on conflict (channel_account_id, provider_event_id) do nothing
+         returning id`,
+        [account.organizationId, account.id, message.providerEventId, JSON.stringify(message)],
+      );
+      if (inserted) return { id: inserted.id, inserted: true, status: "received", error_code: null };
+      const [existing] = await sql.query<{ id: string; status: string; error_code: string | null }>(
+        "select id, status, error_code from public.inbound_events where channel_account_id = $1 and provider_event_id = $2",
+        [account.id, message.providerEventId],
+      );
+      return existing ? { ...existing, inserted: false } : undefined;
+    });
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (typeof code === "string" && PERMANENT_CODES.has(code)) {
+      log.warn({ reason: "rejected_by_database", code }, "mensaje que la base de datos no admite: se ignora");
+      return "ignored";
+    }
+    throw new TransientIngressError(`no se pudo guardar el evento de entrada (${typeof code === "string" ? code : "unknown"})`, { cause: error });
+  }
+  if (!stored) throw new TransientIngressError("el evento repetido no se encuentra");
   let inboundEventId: string;
   let outcome: Outcome;
-  if (inserted.error?.code === "23505") {
-    // Ya estaba: un reintento del proveedor. Si no llegó a procesarse, se vuelve a lanzar (mismo id de workflow).
-    const existing = await tenant
-      .from("inbound_events")
-      .select("id, status, error_code")
-      .eq("channel_account_id", account.id)
-      .eq("provider_event_id", message.providerEventId)
-      .single();
-    if (existing.error) throw new TransientIngressError(`no se pudo leer el evento repetido (${existing.error.code})`);
-    const settled = existing.data.status === "processed" || existing.data.status === "ignored" || existing.data.error_code === DEAD_LETTER;
-    if (settled) return "duplicates";
-    inboundEventId = existing.data.id;
-    outcome = "duplicates";
-  } else if (inserted.error && PERMANENT_CODES.has(inserted.error.code)) {
-    log.warn({ reason: "rejected_by_database", code: inserted.error.code }, "mensaje que la base de datos no admite: se ignora");
-    return "ignored";
-  } else if (inserted.error) {
-    throw new TransientIngressError(`no se pudo guardar el evento de entrada (${inserted.error.code})`);
-  } else {
-    inboundEventId = inserted.data.id;
+  if (stored.inserted) {
+    inboundEventId = stored.id;
     outcome = "accepted";
+  } else {
+    // Ya estaba: un reintento del proveedor. Si no llegó a procesarse, se vuelve a lanzar (mismo id de workflow).
+    const settled = stored.status === "processed" || stored.status === "ignored" || stored.error_code === DEAD_LETTER;
+    if (settled) return "duplicates";
+    inboundEventId = stored.id;
+    outcome = "duplicates";
   }
   await deps.startIngest({ organizationId: account.organizationId, inboundEventId });
   return outcome;

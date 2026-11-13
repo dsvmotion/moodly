@@ -92,6 +92,15 @@ export const appointmentsUnchanged: Check = {
 };
 
 /** Nada sale hacia el cliente sin una persona (reply nace en borrador). */
+/** El turno acaba en manos de una persona porque el modelo lo pidió, con ese motivo (CU3). */
+export function handsOffWith(reason: "customer_asked" | "out_of_scope"): Check {
+  return {
+    name: `pasa la conversación a una persona (${reason})`,
+    verify: ({ result }) =>
+      result.status === "handed_off" && result.reason === reason ? null : `acabó en ${result.status}${result.reason ? ` (${result.reason})` : ""}`,
+  };
+}
+
 export const nothingSent: Check = {
   name: "no envía nada sin una persona",
   verify: ({ world }) => (world.sender.sent.length === 0 ? null : `envió ${world.sender.sent.length} mensajes`),

@@ -97,6 +97,18 @@ describe("composeSystemPrompt", () => {
     expect(composeSystemPrompt(base)).not.toContain("Business knowledge");
   });
 
+  it("con request_human (CU3): cuándo pasar a una persona y cuándo no; sin la skill, no hay capa", () => {
+    const prompt = composeSystemPrompt({ ...base, handOff: true });
+    expect(prompt).toContain("## Handing over to a person\n");
+    expect(prompt).toContain("call request_human with reason customer_asked");
+    expect(prompt).toContain("reason out_of_scope");
+    expect(prompt).toContain("Do not use it for questions you can answer");
+    const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
+    expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
+    expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
+    expect(composeSystemPrompt(base)).not.toContain("request_human");
+  });
+
   it("sin instrucciones, no hay capa vacía", () => {
     expect(composeSystemPrompt({ ...base, instructions: "   " })).not.toContain("Business instructions");
   });
