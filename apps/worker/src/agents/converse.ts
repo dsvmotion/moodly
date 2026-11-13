@@ -473,11 +473,10 @@ async function recordExecution(
       ],
     );
     const isReply = execution.skillKey === REPLY_SKILL_KEY && target?.kind === "conversation" && triggerMessageId !== undefined;
-    if (!AWAITING_PERSON.has(execution.status)) {
-      // Una respuesta que salió: los borradores de antes ya no tocan.
-      if (isReply && execution.status === "executed") await supersedeOlderReplyDrafts(sql, runId, target.conversationId);
-      return { executionId: null, held: false, superseded: false };
-    }
+    // Una respuesta que ya salió (autónoma) no toca los borradores que esperan a
+    // una persona: esos los decide el equipo. Solo un borrador nuevo releva a
+    // los borradores de respuesta de turnos anteriores (gate M1, más abajo).
+    if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false, superseded: false };
     // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
     const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
     if (!row) throw new Error("no se encontró la ejecución guardada");
