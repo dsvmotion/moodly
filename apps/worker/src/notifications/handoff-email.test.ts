@@ -173,6 +173,13 @@ describe("createHandoffEmailHandler", () => {
     }
   });
 
+  it("un paso en el chat de pruebas de la app (canal test) no avisa a nadie por email (V10)", async () => {
+    const h = harness(notification({ conversation: { id: CONVERSATION, mode: "human", channel: "test", location_id: LOCATION } }));
+    await createHandoffEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);
+    expect(h.sent).toEqual([]);
+    expect(h.lines.join("")).toContain("chat de pruebas");
+  });
+
   it("una conversación que no está en su organización: no envía nada", async () => {
     const h = harness(null);
     await createHandoffEmailHandler({ sender: h.sender, webAppUrl: WEB }).handle(event(), h.ctx);

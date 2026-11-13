@@ -18,7 +18,8 @@ import { emailLocale, sendNoticeEmails, SEND_RETRY, type NoticeEmail } from "./s
 //   no manda dos veces el mismo email; un paso nuevo (devuelta al agente y
 //   pasada otra vez) es otro evento y otro aviso.
 // - Si cuando llega el aviso ya la han devuelto al agente o cerrado, no se
-//   envía: no hay nada que llevar.
+//   envía: no hay nada que llevar. Tampoco desde el chat de pruebas de la app
+//   (canal test): quien prueba ya está mirando (V10).
 // - Sin el contenido de los mensajes (V1): el agente, el cliente, el canal, el
 //   local y la hora. Ningún email ni nombre en los logs: solo ids y recuentos.
 // - Lo demás, como el aviso de las aprobaciones (send.ts): cola de avisos,
@@ -114,6 +115,12 @@ export function createHandoffEmailHandler({ sender, webAppUrl, retry = SEND_RETR
       const parsed = notificationSchema.safeParse(raw);
       if (!parsed.success) {
         ctx.logger.error({ conversationId }, "aviso de paso: handoff_notification devolvió algo inesperado");
+        return;
+      }
+      // El chat de pruebas de la app (canal test): quien prueba ya está mirando;
+      // no se avisa al equipo (V10).
+      if (parsed.data.conversation.channel === "test") {
+        ctx.logger.info({ conversationId }, "aviso de paso: chat de pruebas, sin email");
         return;
       }
       if (parsed.data.conversation.mode !== "human") {
