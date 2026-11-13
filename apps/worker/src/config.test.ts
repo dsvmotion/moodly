@@ -29,6 +29,7 @@ describe("loadConfig", () => {
       intentRouting: false,
       healthPort: 8080,
       nango: null,
+      whatsapp: null,
     });
   });
 
@@ -58,6 +59,32 @@ describe("loadConfig", () => {
     try {
       loadConfig({ ...valid, WORKER_DATABASE_URL: "postgresql://postgres:muy-secreta@db.example.test/postgres" });
       throw new Error("no lanzó");
+    } catch (error) {
+      expect((error as Error).message).not.toContain("muy-secreta");
+    }
+  });
+
+  it("WhatsApp (O-01): las tres variables o ninguna; a medias no arranca, y el error nunca lleva un valor", () => {
+    const whatsapp = {
+      // Valores de prueba armados, como los de Nango: un literal con forma de clave lo marca gitleaks.
+      WHATSAPP_APP_SECRET: `app-secret-${"a".repeat(16)}`,
+      WHATSAPP_VERIFY_TOKEN: `verify-token-${"v".repeat(16)}`,
+      WHATSAPP_ACCESS_TOKEN: `EAAG${"x".repeat(40)}`,
+    };
+    expect(loadConfig({ ...valid, ...whatsapp }).whatsapp).toEqual({
+      appSecret: whatsapp.WHATSAPP_APP_SECRET,
+      verifyToken: whatsapp.WHATSAPP_VERIFY_TOKEN,
+      accessToken: whatsapp.WHATSAPP_ACCESS_TOKEN,
+    });
+    // Vacías cuentan como ausentes (así se quitan en Railway sin borrar la variable).
+    expect(loadConfig({ ...valid, WHATSAPP_APP_SECRET: "", WHATSAPP_VERIFY_TOKEN: " ", WHATSAPP_ACCESS_TOKEN: "" }).whatsapp).toBeNull();
+    for (const missing of Object.keys(whatsapp)) {
+      const partial = Object.fromEntries(Object.entries({ ...valid, ...whatsapp }).filter(([key]) => key !== missing));
+      expect(() => loadConfig(partial)).toThrow(/las tres o ninguna/);
+    }
+    expect(() => loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" })).toThrow(/WHATSAPP_VERIFY_TOKEN/);
+    try {
+      loadConfig({ ...valid, ...whatsapp, WHATSAPP_VERIFY_TOKEN: "corta muy-secreta" });
     } catch (error) {
       expect((error as Error).message).not.toContain("muy-secreta");
     }

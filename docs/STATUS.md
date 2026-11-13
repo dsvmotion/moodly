@@ -286,6 +286,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 - Fase 1: el cliente piloto concreto sigue abierto (MANUAL §18 #3). El vertical, el AI Gateway y el KMS están decididos (2026-10-24); los embeddings se eligen por eval en el conocimiento v0.
 
 - WhatsApp real (B19): con la cuenta de Meta for Developers ya creada, falta la cuenta de Meta Business verificada, el número de WhatsApp y la plantilla de recordatorio aprobada por Meta. Hasta entonces, los recordatorios salen por el chat web y el chat de pruebas.
+- WhatsApp de extremo a extremo (O-01, F05): el adaptador de la Cloud API está hecho y probado con webhooks firmados como los de Meta y con una Graph API falsa (entrada, alta del webhook, estados y envíos), pero **no se ha probado contra Meta**. Falta F05 (Meta Business verificada, número y plantillas). Después, hay que poner las tres variables `WHATSAPP_*` del worker en Railway y la URL del webhook en la app de Meta. Tampoco están todavía el envío de lo que sale ni la aplicación de los avisos de estado a `messages` (siguiente paso de O-01).
 - Voz: falta la cuenta de ElevenLabs (su clave va en el gestor de secretos, nunca en el chat) y el proveedor de telefonía con número español.
 - Créditos y prueba de 7 días (B5/B6): cuenta de Stripe y conector listos (producto, 2026-11-12); faltan los importes.
 

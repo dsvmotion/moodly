@@ -77,7 +77,10 @@ describe("el servidor de la entrada de canales", () => {
     expect(good.status).toBe(200);
     expect(good.headers.get("content-type")).toContain("text/plain");
     expect(await good.text()).toBe("42");
-    expect((await fetch(`${base}/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=mal&hub.challenge=42`)).status).toBe(403);
+    const bad = await fetch(`${base}/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=mal&hub.challenge=42`);
+    expect(bad.status).toBe(403);
+    // Sin cuerpo: ni el challenge ni por qué.
+    expect(await bad.text()).toBe("");
     expect((await fetch(`${base}/channels/webchat/webhook?hub.mode=subscribe&hub.verify_token=t&hub.challenge=42`)).status).toBe(403);
     expect(receive).not.toHaveBeenCalled();
   });
