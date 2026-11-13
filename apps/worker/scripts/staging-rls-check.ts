@@ -7,6 +7,7 @@
 //
 // Nunca imprime la URL: lleva la contraseña.
 import { randomUUID } from "node:crypto";
+import { TLSSocket } from "node:tls";
 import pg from "pg";
 
 const url = process.env["WORKER_DATABASE_URL"];
@@ -17,18 +18,30 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * TLS de nuestra conexión, mirado desde el cliente (como staging-check.ts): el
+ * socket tiene que ser TLS y con el certificado verificado (sslmode=verify-full
+ * contra la CA de Supabase). pg_stat_ssl no sirve a través del pooler: describe la
+ * conexión del pooler a Postgres, dentro de Supabase, no la nuestra al pooler.
+ */
+function clientTls(c: pg.Client): { encrypted: boolean; authorized: boolean } {
+  const stream = (c as unknown as { connection: { stream: unknown } }).connection.stream;
+  if (!(stream instanceof TLSSocket)) return { encrypted: false, authorized: false };
+  return { encrypted: true, authorized: stream.authorized };
+}
+
 const client = new pg.Client({ connectionString: url, application_name: "moodly_worker_staging_check" });
 try {
   await client.connect();
-  const { rows: who } = await client.query<{ current: string; session: string; bypass: boolean; superuser: boolean; ssl: boolean }>(
-    `select current_user as current, session_user as session, r.rolbypassrls as bypass, r.rolsuper as superuser,
-            coalesce((select ssl from pg_stat_ssl where pid = pg_backend_pid()), false) as ssl
+  const { rows: who } = await client.query<{ current: string; session: string; bypass: boolean; superuser: boolean }>(
+    `select current_user as current, session_user as session, r.rolbypassrls as bypass, r.rolsuper as superuser
      from pg_roles r where r.rolname = session_user`,
   );
+  const tls = clientTls(client);
   const me = who[0];
   if (!me || me.current !== "moodly_worker" || me.session !== "moodly_worker") fail(`no es moodly_worker (${me?.session ?? "?"}/${me?.current ?? "?"})`);
   if (me.bypass || me.superuser) fail("moodly_worker se salta RLS (BYPASSRLS o superusuario)");
-  if (!me.ssl) fail("la conexión no va por TLS");
+  if (!tls.encrypted || !tls.authorized) fail("la conexión no va por TLS con el certificado verificado");
 
   // Sin organización fijada: RLS no deja ver nada.
   const count = async () =>
@@ -42,7 +55,7 @@ try {
   if (withoutOrg !== 0 || withUnknownOrg !== 0) fail(`moodly_worker ve filas que no son suyas (${withoutOrg}, ${withUnknownOrg})`);
 
   process.stdout.write(
-    `${JSON.stringify({ role: me.current, sessionUser: me.session, bypassRls: me.bypass, tls: me.ssl, visibleWithoutOrg: withoutOrg, visibleWithUnknownOrg: withUnknownOrg }, null, 2)}\n`,
+    `${JSON.stringify({ role: me.current, sessionUser: me.session, bypassRls: me.bypass, tls: tls.encrypted && tls.authorized, visibleWithoutOrg: withoutOrg, visibleWithUnknownOrg: withUnknownOrg }, null, 2)}\n`,
   );
 } finally {
   await client.end().catch(() => undefined);
