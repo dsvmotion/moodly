@@ -112,6 +112,15 @@ describe("createLogger", () => {
     expect(JSON.stringify(lines[0])).not.toContain("s3cr3t");
   });
 
+  it("una causa cíclica (err.cause = err) no revienta el log", () => {
+    const { lines, logger } = capture();
+    const err = new Error("cíclico postgresql://u:s3cr3t@h/db");
+    (err as { cause?: unknown }).cause = err;
+    logger.fatal({ err }, "error");
+    expect(lines).toHaveLength(1);
+    expect(JSON.stringify(lines[0])).not.toContain("s3cr3t");
+  });
+
   it("también un error en otro campo que no es err", () => {
     const { lines, logger } = capture();
     logger.warn({ reason: new Error("algo") }, "aviso");
