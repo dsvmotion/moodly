@@ -186,13 +186,15 @@ function parseMessage(raw: unknown, account: string, names: ReadonlyMap<string, 
   return normalized.success ? normalized.data : null;
 }
 
-function parseStatus(raw: unknown): DeliveryUpdate | null {
+function parseStatus(raw: unknown, account: string): DeliveryUpdate | null {
   const status = metaStatusSchema.safeParse(raw);
   if (!status.success) return null;
   const at = isoFromUnixSeconds(status.data.timestamp);
   if (!at) return null;
   const code = status.data.errors?.[0]?.code;
   const update = deliveryUpdateSchema.safeParse({
+    channel: "whatsapp",
+    accountExternalId: account,
     providerMessageId: status.data.id,
     status: status.data.status,
     at,
@@ -220,7 +222,7 @@ export function parseWhatsAppWebhook(rawBody: string): ParsedWebhook {
         if (message) result.messages.push(message);
       }
       for (const raw of value.statuses ?? []) {
-        const status = parseStatus(raw);
+        const status = parseStatus(raw, account);
         if (status) result.statuses.push(status);
       }
     }
@@ -271,6 +273,13 @@ export function createWhatsAppAdapter(options: WhatsAppAdapterOptions): ChannelA
   if (!/^v\d{1,3}\.\d{1,3}$/.test(options.graphApiVersion)) {
     throw new Error("graphApiVersion: vNN.N (p. ej. v23.0)");
   }
+  // Un timeout que no vale haría fallar AbortSignal.timeout dentro del envío, y
+  // ese fallo parecería un corte de red con resultado desconocido sin que
+  // hubiera salido nada: se rechaza al crear el adaptador.
+  const timeoutMs = options.timeoutMs ?? DEFAULT_SEND_TIMEOUT_MS;
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("timeoutMs: un entero positivo de milisegundos");
+  }
   return {
     channel: "whatsapp",
     capabilities: WHATSAPP_CAPABILITIES,
@@ -300,7 +309,7 @@ export function createWhatsAppAdapter(options: WhatsAppAdapterOptions): ChannelA
           headers: { authorization: `Bearer ${options.accessToken}`, "content-type": "application/json" },
           body: JSON.stringify(whatsAppSendBody(message, to)),
           // Una conexión colgada no bloquea el envío para siempre.
-          signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_SEND_TIMEOUT_MS),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (error) {
         // La red o el timeout: se puede reintentar, pero Meta pudo recibirlo (sin clave de

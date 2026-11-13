@@ -419,6 +419,81 @@ describe("la entrada de WhatsApp de punta a punta (O-01)", () => {
     expect(await messagesFrom(wamid)).toHaveLength(1);
   });
 
+  function metaStatuses(statuses: Record<string, unknown>[], phoneNumberId = waPhoneNumberId) {
+    return {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          id: "102290129340398",
+          changes: [
+            {
+              field: "messages",
+              value: { messaging_product: "whatsapp", metadata: { display_phone_number: "34910000000", phone_number_id: phoneNumberId }, statuses },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async function deliveryOf(wamid: string) {
+    const { rows } = await admin.query<{ status: string; delivery_error: string | null }>(
+      "select status, delivery_error from public.messages where external_message_id = $1",
+      [wamid],
+    );
+    return rows;
+  }
+
+  it("los avisos de estado de Meta se aplican a lo que salió: solo avanzan, un fallo lleva su código y no se aplican a lo que entra", async () => {
+    // Una conversación de WhatsApp de verdad (la abre un mensaje del cliente) y dos respuestas que ya salieron.
+    const inboundWamid = `wamid.${randomUUID()}`;
+    await postMeta(metaText(inboundWamid, "¿Abrís el lunes?"));
+    await waitFor(async () => (await eventsOf(inboundWamid))[0]?.status === "processed", "el mensaje del cliente queda procesado");
+    const [incoming] = await messagesFrom(inboundWamid);
+    const read = `wamid.${randomUUID()}`;
+    const failed = `wamid.${randomUUID()}`;
+    for (const wamid of [read, failed]) {
+      await admin.query(
+        `insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
+         values ($1, $2, 'out', 'agent', 'Sí, de 10 a 20 h.', 'sent', $3)`,
+        [ids.org, incoming?.conversation_id, wamid],
+      );
+    }
+    const at = String(Math.floor(Date.now() / 1000));
+    const status = (id: string, value: string, extra: Record<string, unknown> = {}) => ({ id, status: value, timestamp: at, recipient_id: waFrom, ...extra });
+
+    await expect(postMeta(metaStatuses([status(read, "delivered"), status(read, "read")]))).resolves.toMatchObject({ status: 200 });
+    expect(await deliveryOf(read)).toEqual([{ status: "read", delivery_error: null }]);
+    // Tarde y desordenado: un «entregado» o un «fallido» después de leído no cambian nada.
+    await postMeta(metaStatuses([status(read, "delivered"), status(read, "failed", { errors: [{ code: 131026, title: "Message undeliverable" }] })]));
+    expect(await deliveryOf(read)).toEqual([{ status: "read", delivery_error: null }]);
+
+    await postMeta(metaStatuses([status(failed, "failed", { errors: [{ code: 131047, title: "Re-engagement message" }] })]));
+    // Solo el código, nunca el título de Meta.
+    expect(await deliveryOf(failed)).toEqual([{ status: "failed", delivery_error: "whatsapp:131047" }]);
+
+    // Un aviso con el wamid de lo que entró no lo toca; uno de un wamid que no existe, o de otro número, se confirma sin más.
+    await expect(postMeta(metaStatuses([status(inboundWamid, "read"), status(`wamid.${randomUUID()}`, "read")]))).resolves.toMatchObject({ status: 200 });
+    await expect(postMeta(metaStatuses([status(read, "read")], `8${digits(14)}`))).resolves.toMatchObject({ status: 200 });
+    expect(await deliveryOf(inboundWamid)).toEqual([{ status: "received", delivery_error: null }]);
+  });
+
+  it("un aviso de estado con la firma de otro secreto: 401 y no cambia nada", async () => {
+    const inboundWamid = `wamid.${randomUUID()}`;
+    await postMeta(metaText(inboundWamid, "Hola"));
+    await waitFor(async () => (await eventsOf(inboundWamid))[0]?.status === "processed", "el mensaje del cliente queda procesado");
+    const [incoming] = await messagesFrom(inboundWamid);
+    const wamid = `wamid.${randomUUID()}`;
+    await admin.query(
+      `insert into public.messages (organization_id, conversation_id, direction, author, content, status, external_message_id)
+       values ($1, $2, 'out', 'agent', 'Hola', 'sent', $3)`,
+      [ids.org, incoming?.conversation_id, wamid],
+    );
+    const at = String(Math.floor(Date.now() / 1000));
+    await expect(postMeta(metaStatuses([{ id: wamid, status: "read", timestamp: at, recipient_id: waFrom }]), "otro-secreto")).resolves.toMatchObject({ status: 401 });
+    expect(await deliveryOf(wamid)).toEqual([{ status: "sent", delivery_error: null }]);
+  });
+
   it("con la firma de otro secreto, 401 y no se guarda nada; para un número sin cuenta, 200 e ignorado", async () => {
     const forged = `wamid.${randomUUID()}`;
     await expect(postMeta(metaText(forged, "hola"), "otro-secreto")).resolves.toMatchObject({ status: 401 });

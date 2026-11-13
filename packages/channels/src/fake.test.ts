@@ -42,7 +42,7 @@ describe("el adaptador de prueba cumple el contrato", () => {
       receivedAt: "2026-11-11T10:00:00Z",
       text: "Hola",
     };
-    const status = { providerMessageId: "fake-1", status: "delivered", at: "2026-11-11T10:00:05Z" };
+    const status = { channel: "webchat", accountExternalId: "w-1", providerMessageId: "fake-1", status: "delivered", at: "2026-11-11T10:00:05Z" };
     const parsed = adapter.parse({ headers: {}, rawBody: JSON.stringify({ messages: [message], statuses: [status] }) });
     expect(parsed.messages).toHaveLength(1);
     expect(parsed.statuses).toEqual([status]);
