@@ -64,4 +64,57 @@ describe("createGoogleCalendarReader", () => {
     await expect(createGoogleCalendarReader(platform, CONNECTION).listUpcomingEvents({ from: FROM, limit })).rejects.toBeInstanceOf(RangeError);
     expect(platform.proxied).toEqual([]);
   });
+
+  describe("listBusy", () => {
+    const TO = new Date("2026-11-20T09:00:00Z");
+
+    it("pide la ventana cerrada y devuelve solo los tramos ocupados", async () => {
+      const platform = platformWith({
+        items: [
+          { id: "e1", start: { dateTime: "2026-11-13T10:00:00Z" }, end: { dateTime: "2026-11-13T10:30:00Z" } },
+          { id: "e2", start: { date: "2026-11-15" }, end: { date: "2026-11-16" } },
+        ],
+      });
+      const busy = await createGoogleCalendarReader(platform, CONNECTION).listBusy({ from: FROM, to: TO, limit: 250 });
+      expect(platform.proxied[0]).toMatchObject({
+        path: GOOGLE_CALENDAR_EVENTS_PATH,
+        query: { timeMin: FROM.toISOString(), timeMax: TO.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250" },
+      });
+      expect(busy).toEqual([
+        { startsAt: new Date("2026-11-13T10:00:00Z"), endsAt: new Date("2026-11-13T10:30:00Z") },
+        { startsAt: new Date("2026-11-15T00:00:00Z"), endsAt: new Date("2026-11-16T00:00:00Z") },
+      ]);
+    });
+
+    it("se salta cancelados, los marcados «libre» (transparent) y los que no bloquean (sin fin o fin que no avanza)", async () => {
+      const platform = platformWith({
+        items: [
+          { id: "c", status: "cancelled", start: { dateTime: "2026-11-13T10:00:00Z" }, end: { dateTime: "2026-11-13T11:00:00Z" } },
+          { id: "libre", transparency: "transparent", start: { dateTime: "2026-11-13T12:00:00Z" }, end: { dateTime: "2026-11-13T13:00:00Z" } },
+          { id: "sinfin", start: { dateTime: "2026-11-13T14:00:00Z" } },
+          { id: "fin-antes", start: { dateTime: "2026-11-13T15:00:00Z" }, end: { dateTime: "2026-11-13T15:00:00Z" } },
+          { id: "ok", start: { dateTime: "2026-11-13T16:00:00Z" }, end: { dateTime: "2026-11-13T16:30:00Z" } },
+        ],
+      });
+      const busy = await createGoogleCalendarReader(platform, CONNECTION).listBusy({ from: FROM, to: TO, limit: 250 });
+      expect(busy).toEqual([{ startsAt: new Date("2026-11-13T16:00:00Z"), endsAt: new Date("2026-11-13T16:30:00Z") }]);
+    });
+
+    it("una respuesta con otra forma es un error", async () => {
+      const platform = platformWith({ items: 3 });
+      await expect(createGoogleCalendarReader(platform, CONNECTION).listBusy({ from: FROM, to: TO, limit: 250 })).rejects.toBeInstanceOf(
+        ConnectorPlatformError,
+      );
+    });
+
+    it.each([
+      ["limit 0", { from: FROM, to: TO, limit: 0 }],
+      ["limit 251", { from: FROM, to: TO, limit: 251 }],
+      ["to antes de from", { from: TO, to: FROM, limit: 10 }],
+    ])("%s no vale y no llama a nadie", async (_name, request) => {
+      const platform = platformWith({ items: [] });
+      await expect(createGoogleCalendarReader(platform, CONNECTION).listBusy(request)).rejects.toBeInstanceOf(RangeError);
+      expect(platform.proxied).toEqual([]);
+    });
+  });
 });

@@ -95,3 +95,12 @@ export class AppointmentNotChangeableError extends Error {
 export class InvalidBookingError extends Error {
   override name = "InvalidBookingError";
 }
+/**
+ * No se pudo leer el calendario conectado (Google/Outlook) para saber qué horas
+ * están ocupadas, así que no se ofrecen huecos (fail-closed, O-02): mejor pasar
+ * a una persona que arriesgar una doble reserva. El nombre es lo que ve el
+ * modelo. Nunca lleva el detalle del proveedor.
+ */
+export class CalendarUnavailableError extends Error {
+  override name = "CalendarUnavailableError";
+}

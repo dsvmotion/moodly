@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { ConnectorPlatformError, type ConnectorPlatform } from "../platform/types.js";
-import { assertListRequest, cleanCalendarTitle, type CalendarEvent, type CalendarReader } from "./common.js";
+import {
+  assertBusyRequest,
+  assertListRequest,
+  busyFromEvent,
+  cleanCalendarTitle,
+  type BusyInterval,
+  type CalendarEvent,
+  type CalendarReader,
+} from "./common.js";
 
 export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./common.js";
 
@@ -17,21 +25,17 @@ export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from ".
 export const GOOGLE_CALENDAR_EVENTS_PATH = "/calendar/v3/calendars/primary/events";
 
 const when = z.object({ dateTime: z.string().optional(), date: z.string().optional() }).passthrough();
-const eventsResponse = z.object({
-  items: z
-    .array(
-      z
-        .object({
-          id: z.string().min(1).max(1024),
-          status: z.string().optional(),
-          summary: z.string().optional(),
-          start: when.optional(),
-          end: when.optional(),
-        })
-        .passthrough(),
-    )
-    .optional(),
-});
+const eventItem = z
+  .object({
+    id: z.string().min(1).max(1024),
+    status: z.string().optional(),
+    transparency: z.string().optional(),
+    summary: z.string().optional(),
+    start: when.optional(),
+    end: when.optional(),
+  })
+  .passthrough();
+const eventsResponse = z.object({ items: z.array(eventItem).optional() });
 
 function toDate(value: z.infer<typeof when> | undefined): { date: Date; allDay: boolean } | null {
   if (!value) return null;
@@ -73,6 +77,35 @@ export function createGoogleCalendarReader(
         if (events.length >= limit) break;
       }
       return events;
+    },
+
+    async listBusy({ from, to, limit }) {
+      assertBusyRequest({ from, to, limit });
+      const body = await platform.proxy({
+        integrationKey: connection.integrationKey,
+        connectionId: connection.connectionId,
+        method: "GET",
+        path: GOOGLE_CALENDAR_EVENTS_PATH,
+        query: {
+          timeMin: from.toISOString(),
+          timeMax: to.toISOString(),
+          singleEvents: "true",
+          orderBy: "startTime",
+          maxResults: String(limit),
+        },
+      });
+      const parsed = eventsResponse.safeParse(body);
+      if (!parsed.success) throw new ConnectorPlatformError("Google Calendar devolvió algo inesperado", null, "rejected");
+      const busy: BusyInterval[] = [];
+      for (const item of parsed.data.items ?? []) {
+        if (item.status === "cancelled" || item.transparency === "transparent") continue;
+        const start = toDate(item.start);
+        if (!start) continue;
+        const interval = busyFromEvent(start, toDate(item.end));
+        if (interval) busy.push(interval);
+        if (busy.length >= limit) break;
+      }
+      return busy;
     },
   };
 }

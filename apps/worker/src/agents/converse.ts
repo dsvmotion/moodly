@@ -23,6 +23,8 @@ import type {
   TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
+import { withExternalBusy } from "@repo/integrations";
+import type { ConnectorPlatform } from "@repo/integrations";
 import type { TenantDb } from "@repo/db/service";
 import type { Embedder } from "@repo/knowledge";
 import {
@@ -39,6 +41,7 @@ import {
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
+import { createBusySource, resolveLocationCalendar, type BusySource } from "../booking/external-busy.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
@@ -95,6 +98,12 @@ export interface ConverseOptions {
    * dónde van. Sin ellos, el agente no busca en el conocimiento.
    */
   knowledge?: { embedder: Embedder; route: RouteOrigin };
+  /**
+   * La plataforma de conectores (Nango). Con ella, un calendario conectado
+   * (Google/Outlook) cuenta al ofrecer huecos (O-02). Sin ella, el agente solo
+   * mira el calendario propio de Moodly.
+   */
+  platform?: ConnectorPlatform;
   /** Enrutado por intención (PL-T3, WorkerConfig.intentRouting): apagado si no se dice. */
   intentRouting?: boolean;
 }
@@ -326,9 +335,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
  */
 export function codeSkills(
   db: TenantDb,
-  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext } = {},
+  options: { embedder?: Embedder | null; searchUsage?: SearchUsageContext; externalBusy?: BusySource | null } = {},
 ): Map<string, SkillDefinition<unknown>> {
-  const reception = createReceptionSkills({ booking: createMoodlyCalendar(db), catalog: createReceptionCatalog(db) });
+  // Con un calendario conectado, sus horas ocupadas restan huecos del calendario propio (O-02).
+  const booking = options.externalBusy ? withExternalBusy(createMoodlyCalendar(db), options.externalBusy) : createMoodlyCalendar(db);
+  const reception = createReceptionSkills({ booking, catalog: createReceptionCatalog(db) });
   const reply = createReplySkill({ sender: createConversationSender(db) });
   const joinWaitlist = createJoinWaitlistSkill({ store: createMoodlyWaitlist(db) });
   // En un turno, cada consulta va al libro de consumo con su run (PL-ledger).
@@ -691,7 +702,7 @@ export function withSummaryUsage(result: TurnResult, summarized: SummaryStep): T
   };
 }
 
-export function createConverseHandler({ router, knowledge, intentRouting = false }: ConverseOptions): EventHandler {
+export function createConverseHandler({ router, knowledge, platform, intentRouting = false }: ConverseOptions): EventHandler {
   return {
     key: CONVERSE_HANDLER_KEY,
     eventTypes: ["message.received"],
@@ -726,8 +737,21 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       const searchUsage = knowledgeAllowed
         ? { route: knowledge.route, runId, agentId: conversation.agent_id, locationId: conversation.location_id, logger: ctx.logger }
         : undefined;
+      // El calendario conectado del local (o de la organización), si hay uno y la
+      // plataforma está configurada. Resolver la fila es un paso de DBOS: un
+      // replay usa el id guardado, no vuelve a consultarlo. La lectura de las
+      // horas ocupadas ocurre después, dentro del paso de cada skill.
+      const externalBusy = platform
+        ? await ctx.step("calendar:resolve", () => resolveLocationCalendar(ctx.db, conversation.location_id)).then((row) =>
+            row ? createBusySource({ platform, ...row, logger: ctx.logger }) : null,
+          )
+        : null;
       const { skills, settings } = agentSkills(
-        codeSkills(ctx.db, { embedder: knowledgeAllowed ? knowledge.embedder : null, ...(searchUsage ? { searchUsage } : {}) }),
+        codeSkills(ctx.db, {
+          embedder: knowledgeAllowed ? knowledge.embedder : null,
+          ...(searchUsage ? { searchUsage } : {}),
+          ...(externalBusy ? { externalBusy } : {}),
+        }),
         context.skills,
         ctx.logger,
       );

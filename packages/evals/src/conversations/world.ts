@@ -1,8 +1,8 @@
 import { composeSystemPromptParts } from "@repo/agent-core";
 import type { SystemPromptParts } from "@repo/agent-core";
 import type { BookableService, RunScope, SkillDefinition, SkillSettings } from "@repo/agent-core";
-import { createFakeBookingProvider } from "@repo/integrations";
-import type { FakeBookingProvider } from "@repo/integrations";
+import { CalendarUnavailableError, createFakeBookingProvider, withExternalBusy } from "@repo/integrations";
+import type { BusyInterval, BusySource, FakeBookingProvider } from "@repo/integrations";
 import type { KnowledgeHit, KnowledgeQuery, KnowledgeRetriever, SourceType } from "@repo/knowledge";
 import {
   createFakeConversationSender,
@@ -246,7 +246,22 @@ export interface World {
   seeded: Record<string, string>;
 }
 
-export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeDoc[], business: Business = AURORA): World {
+/**
+ * El calendario conectado (Google/Outlook) de un caso (O-02): sus horas
+ * ocupadas restan huecos, o `fail` para simular que el proveedor no responde
+ * (fail-closed). Sin esto, el agente solo mira el calendario propio.
+ */
+export interface ExternalCalendar {
+  busy?: readonly BusyInterval[];
+  fail?: boolean;
+}
+
+export function createWorld(
+  agent: AgentKey,
+  knowledgeDocs?: readonly KnowledgeDoc[],
+  business: Business = AURORA,
+  externalCalendar?: ExternalCalendar,
+): World {
   const booking = createFakeBookingProvider({
     services: business.services.map((service) => ({ id: service.id, durationMinutes: service.durationMinutes, locationId: null })),
     resources: business.resources.map((resource) => ({ id: resource.id, locationId: LOCATION, serviceIds: resource.serviceIds })),
@@ -258,8 +273,14 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
   const sender = createFakeConversationSender();
   const waitlist = createFakeWaitlist();
   const knowledge = createFakeKnowledge(knowledgeDocs ?? business.knowledge ?? []);
+  // El agente reserva contra el calendario envuelto (con el conectado, si lo hay);
+  // seedAppointment y las comprobaciones usan el de base, sin envolver.
+  const busySource: BusySource | null = externalCalendar
+    ? { list: () => (externalCalendar.fail ? Promise.reject(new CalendarUnavailableError("sin calendario")) : Promise.resolve([...(externalCalendar.busy ?? [])])) }
+    : null;
+  const agentBooking = busySource ? withExternalBusy(booking, busySource) : booking;
   const all = [
-    ...Object.values(createReceptionSkills({ booking, catalog })),
+    ...Object.values(createReceptionSkills({ booking: agentBooking, catalog })),
     createJoinWaitlistSkill({ store: waitlist }),
     createSearchKnowledgeSkill({ retriever: knowledge }),
     createRequestHumanSkill(),
