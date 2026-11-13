@@ -1,11 +1,12 @@
 // Proceso del worker: `pnpm --filter @repo/worker start` (o `dev` en local).
 import { createGatewayEmbedder } from "@repo/agent-core";
-import { createResendSender } from "@repo/integrations";
+import { createNangoPlatform, createResendSender } from "@repo/integrations";
 import { createApprovalHandler } from "./agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
 import { createHealthServer } from "./health.ts";
+import { createNangoWebhookHandler } from "./integrations/nango-webhook.ts";
 import { logHandler } from "./events/log-handler.ts";
 import { createIngestHandler } from "./knowledge/ingest.ts";
 import { LeaseAbortedError } from "./lease.ts";
@@ -69,11 +70,29 @@ const worker = createWorker(config, logger, {
 // Salud para el healthcheck de Railway y la alerta de staging (PL-health): se
 // levanta antes de esperar el lock, para que el contenedor nuevo de un despliegue
 // responda «standby» mientras el viejo sigue vivo.
+// Y el webhook de Nango (O-02): lo único que activa una integración de
+// plataforma. Sin las dos claves de Nango no se monta (404).
+let nangoWebhook: ReturnType<typeof createNangoWebhookHandler> | undefined;
+if (config.nango) {
+  const platform = createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host });
+  nangoWebhook = createNangoWebhookHandler({
+    db: worker.db,
+    platform,
+    signingKey: config.nango.webhookSigningKey,
+    logger,
+    // Como /channels/: 503 hasta que el worker está en marcha (Nango reintenta).
+    ready: () => worker.probe.phase() === "running",
+  });
+} else {
+  logger.warn("sin NANGO_API_KEY o NANGO_WEBHOOK_SIGNING_KEY: no se activan integraciones de plataforma (/webhooks/nango no existe)");
+}
 const health = createHealthServer({
   probe: worker.probe,
   logger,
   // La entrada de canales comparte el puerto (Railway publica uno): 404 mientras no haya ningún canal.
   channels: worker.channels,
+  // Los webhooks de las plataformas (O-02), igual: 404 sin las claves de Nango.
+  ...(nangoWebhook ? { webhooks: nangoWebhook } : {}),
 });
 health.on("error", (err) => logger.error({ err }, "el endpoint de salud no pudo escuchar"));
 health.listen(config.healthPort, () => logger.info({ port: config.healthPort }, "endpoint de salud escuchando"));

@@ -1,4 +1,4 @@
-import { PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
 import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
@@ -27,6 +27,7 @@ export const CATEGORIES = {
   ia: "Se presenta como IA",
   idioma: "Contesta en el idioma del cliente",
   inyeccion: "Instrucciones inyectadas",
+  paso: "Pasar a una persona (CU3)",
 } as const;
 export type CaseCategory = keyof typeof CATEGORIES;
 
@@ -116,6 +117,8 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
       ? { ...PLATFORM_MODEL_POLICY, modelOverrides: { ...PLATFORM_MODEL_POLICY.modelOverrides, converse: options.converseModel } }
       : PLATFORM_MODEL_POLICY,
     spend: { runEur: 0, dayEur: 0, monthEur: 0 },
+    // Como en producción: el texto fijo del paso a una persona (CU3), en el idioma del centro.
+    handOffText: HAND_OFF_TEXTS.es,
     ...(options.intentRouting ? { intentRouting: true } : {}),
   });
   const outcome: Outcome = {

@@ -94,7 +94,7 @@ const SETTINGS_GROUP_DEFS = [
     key: "ai",
     sections: [
       { key: "models", slug: "models", icon: BotIcon, ready: false },
-      { key: "integrations", slug: "integrations", icon: PlugIcon, ready: false },
+      { key: "integrations", slug: "integrations", icon: PlugIcon, ready: true },
     ],
   },
   {

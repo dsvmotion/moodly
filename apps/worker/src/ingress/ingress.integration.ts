@@ -255,7 +255,11 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     const [event] = await eventsOf(message.providerEventId);
     expect(event).toMatchObject({ attempts: 2, error_code: null });
     expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
-    expect(await workflowStatus(ingestWorkflowId(event?.id ?? ""))).toBe("SUCCESS");
+    // El evento queda en processed dentro del workflow, antes de que DBOS lo
+    // dé por terminado: hay que esperar a que pase de PENDING a SUCCESS.
+    const workflowId = ingestWorkflowId(event?.id ?? "");
+    await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow termina");
+    expect(await workflowStatus(workflowId)).toBe("SUCCESS");
   });
 
   it("si falla siempre, se para en el tope: failed con dead_letter, sin mensaje, y un reintento del proveedor no lo relanza", async () => {
@@ -299,6 +303,7 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
   it("el barrido vuelve a intentar un workflow que quedó en ERROR (lo rebobina desde donde falló): no duplica nada", async () => {
     const [event] = await eventsOf(ids.firstEvent ?? "");
     const workflowId = ingestWorkflowId(event?.id ?? "");
+    await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow del primer evento termina");
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
     await admin.query("update dbos.workflow_status set status = 'ERROR' where workflow_uuid = $1", [workflowId]);
     // El barrido corre cada minuto (a los 23 s).
@@ -315,7 +320,9 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     const [event] = await eventsOf(message.providerEventId);
     expect(event).toMatchObject({ attempts: 3, error_code: null });
     expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
-    expect(await workflowStatus(ingestWorkflowId(event?.id ?? ""))).toBe("SUCCESS");
+    const workflowId = ingestWorkflowId(event?.id ?? "");
+    await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow termina tras rebobinar");
+    expect(await workflowStatus(workflowId)).toBe("SUCCESS");
   }, 120_000);
 
   it("y si sigue fallando después de rebobinar, la cuenta sigue hasta el tope: dead_letter con 5 intentos y un solo rebobinado", async () => {
