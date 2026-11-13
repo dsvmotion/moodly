@@ -971,13 +971,13 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"created_at": string,"duration_minutes": number,"external_ref": string | null,"id": string,"location_id": string | null,"name": string,"organization_id": string,"updated_at": string
+                    "active": boolean,"created_at": string,"currency": string,"duration_minutes": number,"external_ref": string | null,"id": string,"location_id": string | null,"name": string,"organization_id": string,"price_cents": number | null,"updated_at": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"duration_minutes": number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name": string,"organization_id": string,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"duration_minutes": number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name": string,"organization_id": string,"price_cents"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"duration_minutes"?: number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name"?: string,"organization_id"?: string,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"duration_minutes"?: number,"external_ref"?: string | null,"id"?: string,"location_id"?: string | null,"name"?: string,"organization_id"?: string,"price_cents"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1222,6 +1222,9 @@ isOneToOne: false
                            },
 "send_test_message":
 { Args: { "p_agent_id": string,"p_content": string,"p_location_id": string }; Returns: string
+                           },
+"set_resource_services":
+{ Args: { "p_resource_id": string,"p_service_ids": (string)[] }; Returns: number
                            },
 "usage_spend":
 { Args: { "p_day_start": string,"p_month_start": string,"p_organization_id": string }; Returns: Json

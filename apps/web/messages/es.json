@@ -313,7 +313,8 @@
       "models": "Modelos de IA",
       "integrations": "Integraciones",
       "security": "Seguridad y acceso",
-      "audit": "Registro de auditoría"
+      "audit": "Registro de auditoría",
+      "services": "Servicios y equipo"
     },
     "pending": {
       "notYet": "Aún no disponible",
@@ -725,5 +726,70 @@
       "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
       "platform_failed": "No hemos podido hablar con el proveedor de la integración. No ha cambiado nada: inténtalo de nuevo en unos minutos."
     }
+  },
+  "servicesPage": {
+    "title": "Servicios y equipo",
+    "description": "Lo que se puede reservar, cuánto dura y cuesta, y quién o qué lo hace en cada sede. Es lo que usan los agentes para dar huecos y reservar.",
+    "mfaRequired": "Para cambiar servicios, precios y equipo necesitas el segundo factor.",
+    "mfaLink": "Activarlo en Seguridad",
+    "tabsLabel": "Servicios y equipo",
+    "tabs": {
+      "services": "Servicios",
+      "team": "Equipo y recursos"
+    },
+    "errors": {
+      "invalid": "Revisa los datos: hay algo que no se puede guardar así.",
+      "not_allowed": "No tienes permiso para cambiar esto.",
+      "synced": "Esto viene de una integración: se cambia allí."
+    },
+    "saved": "Guardado",
+    "fields": {
+      "name": "Nombre",
+      "duration": "Duración (min)",
+      "price": "Precio",
+      "currency": "Moneda",
+      "offeredAt": "Se ofrece en",
+      "status": "Estado",
+      "kind": "Tipo",
+      "location": "Sede",
+      "services": "Servicios que hace"
+    },
+    "pricePlaceholder": "Sin precio",
+    "priceHelp": "Déjalo vacío si no quieres publicar un precio. Los agentes todavía no dicen precios: llegará pronto.",
+    "allLocations": "Todas las sedes",
+    "create": "Crear",
+    "save": "Guardar",
+    "activate": "Activar",
+    "deactivate": "Desactivar",
+    "active": "Activo",
+    "inactive": "Desactivado",
+    "kinds": {
+      "staff": "Profesional",
+      "room": "Cabina o sala",
+      "equipment": "Equipo"
+    },
+    "noServicesYet": "Todavía no hay servicios que se ofrezcan en esta sede.",
+    "servicesHelp": "Solo se pueden elegir servicios activos que se ofrecen en la sede elegida.",
+    "noServices": "Ninguno",
+    "synced": "Esto viene de una integración y se sincroniza desde allí: aquí solo se puede ver.",
+    "noPrice": "Sin precio",
+    "minutes": "{count, plural, one {# minuto} other {# minutos}}",
+    "addService": "Nuevo servicio",
+    "servicesEmptyTitle": "Todavía no hay servicios",
+    "servicesEmpty": "Crea los servicios que se pueden reservar, con su duración y su precio.",
+    "emptyReadOnly": "Cuando alguien con permiso los cree, aparecerán aquí.",
+    "close": "Cerrar",
+    "newService": "Nuevo servicio",
+    "newServiceDescription": "Lo que se puede reservar, cuánto dura y, si quieres, cuánto cuesta.",
+    "addResource": "Nuevo profesional o recurso",
+    "resourcesEmptyTitle": "Todavía no hay equipo ni recursos",
+    "resourcesEmpty": "Añade quién o qué atiende en cada sede y qué servicios hace: sin eso no hay huecos que reservar.",
+    "newResource": "Nuevo profesional o recurso",
+    "newResourceDescription": "Una persona, una cabina o un equipo de una sede, y los servicios que hace.",
+    "hoursTitle": "Cambiar el horario",
+    "opensAt": "{day}: abre a las",
+    "closesAt": "{day}: cierra a las",
+    "closed": "Cerrado",
+    "hoursHelp": "Los agentes solo ofrecen huecos dentro de este horario, en la zona horaria de la sede."
   }
 }

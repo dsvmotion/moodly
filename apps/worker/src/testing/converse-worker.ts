@@ -31,9 +31,16 @@
 // El conocimiento, con embeddings falsos y deterministas: el mismo worker
 // indexa las fuentes (knowledge.ingest) y el agente busca en ellas, por una vía
 // como la del gateway (sin región UE garantizada).
-import { appendFileSync, existsSync, rmSync } from "node:fs";
+//
+// El calendario conectado (O-02), con la plataforma de conectores falsa y una
+// conexión fija (CALENDAR_CONNECTION_ID): sus eventos salen de <archivo>.busy
+// (la respuesta de Google tal cual) y cada lectura se apunta como «calendar».
+// Sin fila de integración en la base de datos, no se lee nunca. <archivo>.plan,
+// si existe, sustituye a CONVERSE_PLAN (la hora que propone reservar).
+import { appendFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { SUMMARY_INSTRUCTIONS, SUMMARY_MARK, createFakeTransport, createModelRouter } from "@repo/agent-core";
 import type { RouteOrigin, TransportRequest, TransportResponse } from "@repo/agent-core";
+import { createFakeConnectorPlatform } from "@repo/integrations";
 import { createFakeEmbedder } from "@repo/knowledge";
 import { createApprovalHandler } from "../agents/approvals.ts";
 import { codeSkills, createConverseHandler } from "../agents/converse.ts";
@@ -45,7 +52,21 @@ import { createWorker } from "../worker.ts";
 
 const [effectsFile] = process.argv.slice(2);
 if (!effectsFile) throw new Error("uso: converse-worker.ts <archivo>");
-const plan = JSON.parse(process.env["CONVERSE_PLAN"] ?? "{}") as { serviceId: string; resourceId: string; startsAt: string };
+type Plan = { serviceId: string; resourceId: string; startsAt: string };
+const envPlan = JSON.parse(process.env["CONVERSE_PLAN"] ?? "{}") as Plan;
+const planFile = `${effectsFile}.plan`;
+const currentPlan = (): Plan => (existsSync(planFile) ? (JSON.parse(readFileSync(planFile, "utf8")) as Plan) : envPlan);
+
+/** La conexión del calendario conectado de las pruebas (la fila la crea el test, con este mismo id). */
+const CALENDAR_CONNECTION_ID = "conn-calendario-pruebas";
+const busyFile = `${effectsFile}.busy`;
+const platform = createFakeConnectorPlatform({
+  proxyResponse: (request) => {
+    effect({ step: "calendar", path: request.path });
+    return existsSync(busyFile) ? (JSON.parse(readFileSync(busyFile, "utf8")) as unknown) : { items: [] };
+  },
+});
+platform.addConnection({ connectionId: CALENDAR_CONNECTION_ID, integrationKey: "google-calendar", tags: {} });
 
 function effect(record: Record<string, unknown>): void {
   appendFileSync(effectsFile as string, `${JSON.stringify({ ...record, pid: process.pid })}\n`);
@@ -118,6 +139,7 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
   }
   if (/cuesta|precio|tatuaje/i.test(customer)) return call("search_knowledge", { query: customer.split("\n").slice(1).join("\n") });
   if (/res[eé]rv/i.test(customer)) {
+    const plan = currentPlan();
     return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
   }
   if (/lista de espera/i.test(customer)) {
@@ -144,8 +166,8 @@ const route: RouteOrigin = { provider: "vercel-ai-gateway", region: "other", con
 const worker = createWorker(config, logger, {
   eventHandlers: [
     logHandler,
-    createConverseHandler({ router, knowledge: { embedder, route } }),
-    createApprovalHandler({ skills: codeSkills }),
+    createConverseHandler({ router, knowledge: { embedder, route }, platform }),
+    createApprovalHandler({ skills: codeSkills, platform }),
     createIngestHandler({ embedder, route }),
   ],
   onLeaseLost: (err) => {

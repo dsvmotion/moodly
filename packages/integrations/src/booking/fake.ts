@@ -147,5 +147,12 @@ export function createFakeBookingProvider(options: FakeBookingOptions): FakeBook
           .slice(0, limit),
       );
     },
+    getForContact({ appointmentId, contactId }) {
+      try {
+        return Promise.resolve(ownedBy(appointmentId, contactId));
+      } catch (error) {
+        return Promise.reject(error as Error);
+      }
+    },
   };
 }

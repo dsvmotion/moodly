@@ -118,6 +118,8 @@ describe("composeSystemPrompt", () => {
     expect(prompt).toContain("do that first and answer with what you find. Then qualify them with a question");
     expect(prompt).toContain("what they need, when, and how best to reach them");
     expect(prompt).toContain("once you have those details, or as soon as they ask for a person");
+    // Excepción (decisión de producto, 2026-11-13): si una herramienta dice que se pase a una persona (el calendario caído), se pasa en ese turno.
+    expect(prompt).toContain("Exception: if a tool result tells you to call request_human, call it in that same turn, without qualifying first.");
     const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
     expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));

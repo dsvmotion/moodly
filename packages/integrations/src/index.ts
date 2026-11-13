@@ -21,6 +21,7 @@ export type { JsonSchema, McpCallResult, McpClient, McpContent, McpTool, Untrust
 export {
   AppointmentNotChangeableError,
   AppointmentNotFoundError,
+  CalendarUnavailableError,
   InvalidBookingError,
   SlotTakenError,
   SlotUnavailableError,
@@ -37,6 +38,8 @@ export type {
 } from "./booking/types.js";
 export { createFakeBookingProvider } from "./booking/fake.js";
 export type { FakeBookingOptions, FakeBookingProvider } from "./booking/fake.js";
+export { BUSY_TIMEOUT_MS, busySourceFromReader, withExternalBusy } from "./booking/external-busy.js";
+export type { BusySource, BusySourceOptions } from "./booking/external-busy.js";
 // Emails de aviso: plantillas puras; el envío lo hace el worker (M-02).
 export { renderApprovalEmail } from "./email/approval.js";
 export type { ApprovalEmailInput, EmailLocale, RenderedEmail } from "./email/approval.js";
@@ -74,7 +77,8 @@ export { createFakeConnectorPlatform } from "./platform/fake.js";
 export type { FakeConnectorPlatform, FakeConnectorPlatformOptions } from "./platform/fake.js";
 export { GOOGLE_CALENDAR_EVENTS_PATH, createGoogleCalendarReader } from "./calendar/google.js";
 export { OUTLOOK_CALENDAR_HORIZON_DAYS, OUTLOOK_CALENDAR_VIEW_PATH, createOutlookCalendarReader } from "./calendar/outlook.js";
-export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./calendar/common.js";
+export { BUSY_MAX, busyFromEvent } from "./calendar/common.js";
+export type { BusyInterval, CalendarEvent, CalendarReader, ListBusyRequest, ListUpcomingEventsRequest } from "./calendar/common.js";
 // Koibox (int-koibox, O-02): API abierta con la clave del centro. Solo lectura.
 export {
   KOIBOX_DEFAULT_API_BASE,

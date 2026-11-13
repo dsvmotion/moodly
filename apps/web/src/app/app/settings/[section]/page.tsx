@@ -8,7 +8,7 @@ import { settingsSectionBySlug, type SettingsSectionKey } from "@/lib/navigation
 // habrá y con qué llega (auditoría del frontend, F-10), sin datos inventados.
 // Las secciones con contenido tienen su propia carpeta, que Next.js prefiere a
 // esta ruta dinámica; aquí solo responden las pendientes.
-type PendingKey = Exclude<SettingsSectionKey, "profile" | "preferences" | "team" | "organization" | "locations" | "security" | "integrations">;
+type PendingKey = Exclude<SettingsSectionKey, "profile" | "preferences" | "team" | "organization" | "locations" | "services" | "security" | "integrations">;
 
 export default async function PendingSettingsPage({ params }: { params: Promise<{ section: string }> }) {
   await requireUser();
