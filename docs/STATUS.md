@@ -66,10 +66,12 @@
 
 ### Bloqueado
 - **P-05 (evals con modelo real fuera de los PRs):** la clave `AI_GATEWAY_EVALS_API_KEY` sigue en un secreto del repositorio; falta que producto la mueva al entorno `evals` de GitHub y borre el secreto del repositorio.
+- **GitHub Actions (2026-11-12):** desde las 20:50 UTC ninguna corrida arrancaba (`startup_failure`, sin jobs) por el límite de gasto de la cuenta; producto lo subió a 50 $/mes y lo dio por resuelto el 2026-11-13. Las corridas fallidas no se pueden relanzar: el CI vuelve con el siguiente push de cada rama.
+- **Nango (ADR 0053):** cuenta de Nango Cloud creada por producto (entornos `dev` y `prod`, conector autorizado), 2026-11-12. Vale para desarrollo con datos de prueba; antes del primer dato real, autoalojado en la UE como dice el ADR.
 - **Crédito del AI Gateway y Revisora sin crédito:** el gateway respondía 402; sin crédito, los agentes de staging pasan cada conversación a una persona y no corren las evals con el modelo real ni la Revisora con modelo. Crédito recargado por producto el 2026-11-12; falta verificar con «Staging · agente».
 - **WhatsApp real (B19):** falta la cuenta de Meta Business verificada, el número y la plantilla de recordatorio aprobada.
 - **Voz:** falta la cuenta de ElevenLabs y el proveedor de telefonía con número español.
-- **Créditos y prueba de 7 días (B5/B6):** falta la cuenta de Stripe (la crea producto) y autorizar su conector.
+- **Créditos y prueba de 7 días (B5/B6):** la cuenta de Stripe existe y su conector está autorizado; la clave de prueba está en las variables de Vercel (producto, 2026-11-12). Falta decidir los importes (§15.1) para construirlo.
 - **App móvil:** falta la prueba en un iPhone real (la hace producto).
 - **Cliente piloto:** sin elegir (MANUAL §18 #3).
 - **Despliegue ordenado a staging (PL-deploy):** faltan los secretos `VERCEL_TOKEN` y `RAILWAY_TOKEN` en el entorno de staging, y la variable `STAGING_WEB_HEALTH_URL` para la alerta de salud.
@@ -280,7 +282,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
 
 - WhatsApp real (B19): con la cuenta de Meta for Developers ya creada, falta la cuenta de Meta Business verificada, el número de WhatsApp y la plantilla de recordatorio aprobada por Meta. Hasta entonces, los recordatorios salen por el chat web y el chat de pruebas.
 - Voz: falta la cuenta de ElevenLabs (su clave va en el gestor de secretos, nunca en el chat) y el proveedor de telefonía con número español.
-- Créditos y prueba de 7 días (B5/B6): falta la cuenta de Stripe (la crea producto; en modo de prueba para empezar) y autorizar su conector.
+- Créditos y prueba de 7 días (B5/B6): cuenta de Stripe y conector listos (producto, 2026-11-12); faltan los importes.
 
 ## Próximo: orden anterior (histórico; sustituido el 2026-11-10 por el hito M0, arriba)
 
