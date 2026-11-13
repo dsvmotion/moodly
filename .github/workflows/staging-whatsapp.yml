@@ -1,0 +1,117 @@
+name: Staging · WhatsApp
+
+# La prueba de verdad de WhatsApp en staging (O-01), con el número de prueba de
+# Meta y el teléfono de quien prueba: docs/runbooks/whatsapp-staging.md. Nada de
+# WhatsApp cuenta como probado sin esto (producto, 2026-11-13).
+#
+#   setup  deja la cuenta de WhatsApp de la organización de demo con el
+#          phone_number_id del número de prueba (bootstrap/staging-whatsapp.sql,
+#          después de staging-agent.sql). Idempotente.
+#   check  comprueba la ruta del webhook en el worker de Railway y lee lo que
+#          pasó de verdad (bootstrap/staging-whatsapp-check.sql): llegó el
+#          webhook, se procesó, la respuesta salió con wamid y Meta avisó de
+#          que se entregó; y el gate M1 (dos mensajes seguidos → una respuesta).
+#
+# Se lanza a mano desde main (Actions → «Staging · WhatsApp» → Run workflow).
+# No ve ningún secreto de Meta: las tres WHATSAPP_* solo están en Railway. No
+# imprime teléfonos ni textos de los mensajes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Qué hacer
+        required: true
+        type: choice
+        default: check
+        options: [check, setup]
+      phone_number_id:
+        description: Solo para setup, el «Phone number ID» del número de prueba (Meta → WhatsApp → API Setup). Solo dígitos.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-whatsapp
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
+  # El dominio público del servicio worker de Railway (staging). No es un secreto.
+  WORKER_URL: https://worker-staging-47c75e8c.up.railway.app
+
+jobs:
+  whatsapp:
+    name: staging · whatsapp
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    defaults:
+      run:
+        working-directory: packages/db
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      # Por variables de entorno, nunca interpolados en el script.
+      ACTION: ${{ inputs.action }}
+      PHONE_NUMBER_ID: ${{ inputs.phone_number_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.118.0
+
+      # Un alta con un token que no es el bueno: 403 si el worker tiene las tres
+      # WHATSAPP_* (la ruta existe y rechaza el token), 404 si no las tiene. Nunca
+      # se manda el token de verdad.
+      - name: Ruta del webhook en el worker
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+            "$WORKER_URL/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=no-es-el-token&hub.challenge=1" || echo 000)
+          case "$code" in
+            403) echo "La ruta del webhook existe y el worker tiene WhatsApp configurado (rechaza un token que no es el suyo)." ;;
+            404) echo "::error::El worker no abre /channels/whatsapp/webhook: faltan las tres WHATSAPP_* en Railway (o no se ha redesplegado)." ; exit 1 ;;
+            *) echo "::error::El worker contestó $code: mira el servicio worker en Railway." ; exit 1 ;;
+          esac
+
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # Solo dígitos: no puede romper el SQL ni el `sed` del paso siguiente.
+      - name: Cuenta de WhatsApp de la organización de demo
+        if: inputs.action == 'setup'
+        run: |
+          if [[ ! "$PHONE_NUMBER_ID" =~ ^[0-9]{5,30}$ ]]; then
+            echo "::error::phone_number_id: solo dígitos (el «Phone number ID» de API Setup, no el número de teléfono)."
+            exit 1
+          fi
+          supabase db query --linked --file bootstrap/staging-agent.sql > /dev/null
+          sed "s/__PHONE_NUMBER_ID__/$PHONE_NUMBER_ID/" bootstrap/staging-whatsapp.sql > "$RUNNER_TEMP/staging-whatsapp.sql"
+          supabase db query --linked --file "$RUNNER_TEMP/staging-whatsapp.sql" > /dev/null
+          echo "Cuenta de WhatsApp activa en la organización de demo, con Recepción. Siguiente paso del runbook: escribir desde el teléfono."
+
+      # Con --linked, la CLI devuelve las filas como un array; en local, dentro
+      # de {"rows": [...]}. El filtro acepta las dos formas.
+      - name: Qué pasó de verdad
+        if: inputs.action == 'check'
+        run: |
+          supabase db query --linked --output-format json --file bootstrap/staging-whatsapp-check.sql > "$RUNNER_TEMP/check.json"
+          first='(if type == "array" then . else .rows end)[0]'
+          jq "$first" "$RUNNER_TEMP/check.json"
+          if [ "$(jq -r "$first.cuenta // \"none\"" "$RUNNER_TEMP/check.json")" != "active" ]; then
+            echo "::error::No hay cuenta de WhatsApp activa: lanza antes este workflow con la acción setup."
+            exit 1
+          fi
+          failed=0
+          for key in webhook procesado respuesta entregada un_mensaje; do
+            value=$(jq -r "$first.comprobaciones | fromjson? // . | .$key | tostring" "$RUNNER_TEMP/check.json")
+            case "$value" in
+              true) echo "✔ $key" ;;
+              null) echo "· $key: aún no aplica (mira el runbook)" ;;
+              *) echo "::error::✘ $key"; failed=1 ;;
+            esac
+          done
+          exit $failed
