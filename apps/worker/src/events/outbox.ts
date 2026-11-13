@@ -193,11 +193,14 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 }
 
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */
-export async function startOutbox(workflows: { publish: () => Promise<void>; prune: () => Promise<void> }): Promise<void> {
+export async function startOutbox(
+  workflows: { publish: () => Promise<void>; prune: () => Promise<void> },
+  publishSchedule: string = PUBLISH_SCHEDULE,
+): Promise<void> {
   await DBOS.registerQueue(EVENTS_QUEUE, { workerConcurrency: 4 });
   await DBOS.registerQueue(NOTIFICATIONS_QUEUE, { workerConcurrency: 2 });
   await DBOS.applySchedules([
-    { scheduleName: PUBLISH_SCHEDULE_NAME, workflowFn: workflows.publish, schedule: PUBLISH_SCHEDULE },
+    { scheduleName: PUBLISH_SCHEDULE_NAME, workflowFn: workflows.publish, schedule: publishSchedule },
     { scheduleName: PRUNE_SCHEDULE_NAME, workflowFn: workflows.prune, schedule: PRUNE_SCHEDULE },
   ]);
 }

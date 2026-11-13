@@ -319,39 +319,39 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow del primer evento termina");
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
     await admin.query("update dbos.workflow_status set status = 'ERROR' where workflow_uuid = $1", [workflowId]);
-    // El barrido corre cada minuto (a los 23 s).
-    await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el barrido lo reanuda", 75_000);
+    // El barrido de este worker de prueba corre cada 2 s (en producción, cada minuto).
+    await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el barrido lo reanuda", 30_000);
     expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
     expect(output).toContain("eventos de entrada parados, vueltos a intentar");
-  }, 90_000);
+  }, 60_000);
 
   it("si el apunte de un intento falla con intentos ya apuntados, se rebobina desde ese apunte (no desde el intento 1): sigue la cuenta y acaba procesado", async () => {
     const message = inbound({ providerEventId: `fail-record-${randomUUID()}` });
     await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
     // Intentos 1 y 2 apuntados; el apunte del 3 falla y el workflow queda en ERROR; el barrido lo rebobina.
-    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "acaba procesado tras rebobinar", 100_000);
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.status === "processed", "acaba procesado tras rebobinar", 45_000);
     const [event] = await eventsOf(message.providerEventId);
     expect(event).toMatchObject({ attempts: 3, error_code: null });
     expect(await messagesFrom(message.providerMessageId)).toHaveLength(1);
     const workflowId = ingestWorkflowId(event?.id ?? "");
     await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow termina tras rebobinar");
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
-  }, 120_000);
+  }, 60_000);
 
   it("y si sigue fallando después de rebobinar, la cuenta sigue hasta el tope: dead_letter con 5 intentos y un solo rebobinado", async () => {
     const message = inbound({ providerEventId: `fail-recdead-${randomUUID()}` });
     await expect(post({ messages: [message] })).resolves.toMatchObject({ status: 200 });
-    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.error_code === "dead_letter", "acaba en dead_letter tras rebobinar", 100_000);
+    await waitFor(async () => (await eventsOf(message.providerEventId))[0]?.error_code === "dead_letter", "acaba en dead_letter tras rebobinar", 45_000);
     const [event] = await eventsOf(message.providerEventId);
     expect(event).toMatchObject({ status: "failed", attempts: 5, message_id: null });
     const workflowId = ingestWorkflowId(event?.id ?? "");
     await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el workflow termina (con dead_letter)");
-    // Un barrido más, para ver que no lo vuelve a rebobinar.
-    await new Promise((resolve) => setTimeout(resolve, 65_000));
+    // Unos barridos más (cada 2 s), para ver que no lo vuelve a rebobinar.
+    await new Promise((resolve) => setTimeout(resolve, 7_000));
     const rewinds = output.split("\n").filter((line) => line.includes("rebobinado") && line.includes(workflowId));
     expect(rewinds).toHaveLength(1);
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
-  }, 200_000);
+  }, 60_000);
 });
 
 // WhatsApp por la Cloud API (O-01, ADR 0020): el adaptador de verdad, con

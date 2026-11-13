@@ -23,6 +23,8 @@ const logger = createLogger(config.logLevel);
 const sender = config.resendApiKey ? createResendSender({ apiKey: config.resendApiKey, baseUrl }) : null;
 const retry = { maxAttempts: 10, intervalSeconds: 0.1, backoffRate: 1 };
 const worker = createWorker(config, logger, {
+  // El publicador del outbox cada segundo en lugar de cada 5 s: estos tests esperan a la entrega, no prueban el publicador (eso, outbox.integration.ts).
+  outboxTesting: { publishSchedule: "* * * * * *" },
   eventHandlers: [
     logHandler,
     createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),

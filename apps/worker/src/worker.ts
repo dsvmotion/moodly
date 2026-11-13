@@ -60,6 +60,8 @@ export interface WorkerOptions {
    * sirven en el puerto de salud bajo /channels/ (channels); sin ninguno, 404.
    */
   channelAdapters?: readonly ChannelAdapter[];
+  /** Solo para tests: cuándo corre el publicador del outbox (cron de 6 campos; por defecto PUBLISH_SCHEDULE, cada 5 s). */
+  outboxTesting?: { publishSchedule?: string };
   /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
   ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "beforeRecordFailure" | "backoffMs" | "sweepMinAgeMs"> & {
     /** Solo para tests: cuándo corre el barrido de la entrada (cron de 6 campos; por defecto SWEEP_SCHEDULE, cada minuto). */
@@ -184,7 +186,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       // configuración solo la actualiza la última versión.
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
-      await startOutbox(outbox);
+      await startOutbox(outbox, options.outboxTesting?.publishSchedule);
       await startIngestQueue(ingest.sweep, sweepSchedule);
       if (adapters.size > 0) {
         ingress = createIngressHandler(
