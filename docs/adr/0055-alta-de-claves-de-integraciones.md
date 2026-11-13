@@ -105,7 +105,7 @@ Hoy (#289, `20261113100000`) `moodly_worker` solo **lee** `integration_secrets` 
       - **la integración está desconectada** (la persona desconectó mientras tanto): no se escribe nada;
       - **en cualquier otro estado** (pendiente, activa o en error), si la clave **vale**:
         - si la integración **ya tiene `secret_id`** (una rotación, o una reconexión que aún conserva el de antes): se cambia la clave de **ese mismo secreto**, `where id = <secret_id actual> and organization_id = org and kind = 'integration'`, con `rotated_at`. No se inserta otro: el nombre del secreto es único en cada organización (`koibox.<local>` o `koibox.api_key`), así que un segundo secreto con el mismo nombre fallaría;
-        - si **no tiene `secret_id`** (primera conexión, o una en error que nunca tuvo clave buena): se inserta un secreto nuevo con `SecretVault` (ADR 0034) y se enlaza;
+        - si **no tiene `secret_id`** (primera conexión, una en error que nunca tuvo clave buena, o una en error tras una reconexión con clave mala, que ya borró el secreto viejo): se inserta un secreto nuevo con `SecretVault` (ADR 0034) y se enlaza;
         - en los dos casos la integración queda activa;
       - si la clave **no vale**:
         - una **pendiente** pasa a error. Si conservaba un `secret_id` de antes (una reconexión antes de que llegara la limpieza), en la misma transacción se le quita y se borra ese secreto (`where id = <secret_id> and organization_id = org and kind = 'integration'`). Es la clave que la persona quiso quitar al desconectar, así que no se guarda ni un momento más de lo necesario;
