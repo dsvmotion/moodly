@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eventPayloads, isEventType, parsePayload } from "./catalog.ts";
-import { createEventRegistry, type EventHandler } from "./handlers.ts";
-import { deliveryWorkflowId } from "./outbox.ts";
+import { MAX_BACKFILL_HOURS, createEventRegistry, type EventHandler } from "./handlers.ts";
+import { backfillWorkflowId, deliveryWorkflowId } from "./outbox.ts";
 
 const INVITATION = "5eed0000-0000-4000-8000-0000000000a1";
 const USER = "5eed0000-0000-4000-8000-0000000000b1";
@@ -70,6 +70,27 @@ describe("registro de consumidores", () => {
     expect(() => createEventRegistry([handler("x", ["payment.received" as "invitation.created"])])).toThrow(/catálogo/);
     expect(() => createEventRegistry([{ ...handler("x", "*"), queue: "otra" as "notifications" }])).toThrow(/cola/);
     expect(createEventRegistry([{ ...handler("x", "*"), queue: "notifications" }]).get("x")?.queue).toBe("notifications");
+  });
+
+  it("all() da todos en orden de registro", () => {
+    const registry = createEventRegistry([handler("log", "*"), handler("invitations", ["invitation.created"])]);
+    expect(registry.all().map((h) => h.key)).toEqual(["log", "invitations"]);
+  });
+
+  it("el relleno es opcional, solo de tipos concretos y de 1 a 168 horas enteras", () => {
+    const withBackfill = (eventTypes: Parameters<typeof handler>[1], maxAgeHours: number) => ({ ...handler("x", eventTypes), backfill: { maxAgeHours } });
+    expect(createEventRegistry([handler("x", ["invitation.created"])]).get("x")?.backfill).toBeUndefined();
+    expect(createEventRegistry([withBackfill(["invitation.created"], 24)]).get("x")?.backfill).toEqual({ maxAgeHours: 24 });
+    expect(createEventRegistry([withBackfill(["invitation.created"], MAX_BACKFILL_HOURS)]).get("x")?.backfill?.maxAgeHours).toBe(168);
+    expect(() => createEventRegistry([withBackfill("*", 24)])).toThrow(/todos los tipos/);
+    for (const hours of [0, -1, 1.5, 169, Number.NaN]) {
+      expect(() => createEventRegistry([withBackfill(["invitation.created"], hours)])).toThrow(/relleno/);
+    }
+  });
+
+  it("el ID de un relleno es uno por consumidor y tipo: no se repite al volver a arrancar", () => {
+    expect(backfillWorkflowId("x", "invitation.created")).toBe("backfill:x:invitation.created");
+    expect(backfillWorkflowId("x", "invitation.created")).not.toBe(backfillWorkflowId("x", "approval.decided"));
   });
 
   it("el ID de una entrega es el mismo cada vez: volver a encolar no crea otra", () => {
