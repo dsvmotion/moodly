@@ -79,27 +79,27 @@ select a.id, :skill_b, :org_b, 'draft' from public.agents a where a.agent_type_i
 --    de A: 12 + 1; de los de B: 12 + 2.
 -- ===========================================================================
 select pg_temp.login(:a_staff1);
-select is(pg_temp.catalog_counts(), array[4, 0, 4, 0, 12, 0, 13, 0], 'staff de A: ve la plataforma y lo de A, nada de B');
+select is(pg_temp.catalog_counts(), array[4, 0, 4, 0, 13, 0, 15, 0], 'staff de A: ve la plataforma y lo de A, nada de B');
 
 reset role;
 select pg_temp.login_mfa(:b_admin);
-select is(pg_temp.catalog_counts(), array[4, 1, 0, 5, 12, 1, 0, 14], 'org_admin de B: ve la plataforma y lo de B (con su agente propio), nada de A');
+select is(pg_temp.catalog_counts(), array[4, 1, 0, 5, 13, 1, 0, 16], 'org_admin de B: ve la plataforma y lo de B (con su agente propio), nada de A');
 
 reset role;
 select pg_temp.login(:outsider);
-select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 12, 0, 0, 0], 'sin organización: solo el catálogo de la plataforma');
+select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 13, 0, 0, 0], 'sin organización: solo el catálogo de la plataforma');
 
 -- Equipo interno con permiso de soporte vigente (staff_login lo concede para
 -- todas las organizaciones): lo ve todo, para dar soporte.
 reset role;
 select pg_temp.staff_login(:p_operator);
-select is(pg_temp.catalog_counts(), array[4, 1, 4, 5, 12, 1, 13, 14], 'equipo interno con permiso de soporte: ve el catálogo de A y de B');
+select is(pg_temp.catalog_counts(), array[4, 1, 4, 5, 13, 1, 15, 16], 'equipo interno con permiso de soporte: ve el catálogo de A y de B');
 
 -- Una organización suspendida no ve sus agentes (has_org_role exige que esté activa).
 reset role;
 update public.organizations set status = 'suspended' where id = :org_a;
 select pg_temp.login(:a_staff1);
-select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 12, 0, 0, 0], 'organización suspendida: sus miembros no ven sus agentes');
+select is(pg_temp.catalog_counts(), array[4, 0, 0, 0, 13, 0, 0, 0], 'organización suspendida: sus miembros no ven sus agentes');
 reset role;
 update public.organizations set status = 'active' where id = :org_a;
 

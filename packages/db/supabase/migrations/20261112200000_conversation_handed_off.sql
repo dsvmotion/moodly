@@ -17,6 +17,8 @@
 --      'agent' a 'human'. Si el worker repite el paso, la fila ya está en
 --      'human' y no dispara. Si se la devuelven al agente y la vuelve a pasar,
 --      es otro paso y otro aviso.
+--    - Ni en el chat de pruebas de la app (canal test): quien prueba ya está
+--      mirando; sin evento no hay email ni aviso en la bandeja (V10).
 --    - Y un Broadcast privado «handoff» al tema de la bandeja de su local
 --      (#216, ADR 0054), solo con el id: la bandeja abierta lo enseña al momento.
 --
@@ -75,7 +77,8 @@ revoke all on function private.emit_conversation_handed_off() from public, anon,
 
 create trigger emit_conversation_handed_off after update of mode on public.conversations
   for each row
-  when (old.mode = 'agent' and new.mode = 'human' and current_user <> 'authenticated')
+  when (old.mode = 'agent' and new.mode = 'human' and current_user <> 'authenticated'
+        and new.channel is distinct from 'test')
   execute function private.emit_conversation_handed_off();
 
 -- ---------------------------------------------------------------------------

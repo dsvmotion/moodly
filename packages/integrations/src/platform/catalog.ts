@@ -1,0 +1,52 @@
+// Las integraciones de plataforma que se pueden conectar (O-02, ADR 0053). Una
+// entrada por sistema: el proveedor (integrations.provider) y su clave en la
+// plataforma de conectores (en Nango, el «integration id» de cada entorno). La
+// web solo acepta proveedores de esta lista; el webhook solo activa filas cuya
+// clave coincide con la de su proveedor.
+
+export type PlatformCategory = "calendar";
+
+export interface PlatformIntegration {
+  /** integrations.provider. */
+  provider: string;
+  /** La clave de la integración en la plataforma. */
+  integrationKey: string;
+  category: PlatformCategory;
+  /**
+   * Los permisos que se piden al autorizar, los mínimos para lo que hacemos
+   * (solo lectura). Si se dan, la sesión de conexión los fija (en Nango,
+   * oauth_scopes_override): no dependen de cómo esté configurada la integración
+   * en la plataforma. Sin ellos, los de la integración (Google: la app de Nango).
+   */
+  scopes?: readonly string[];
+}
+
+export const PLATFORM_INTEGRATIONS: readonly PlatformIntegration[] = Object.freeze([
+  Object.freeze({ provider: "google-calendar", integrationKey: "google-calendar", category: "calendar" }),
+  // Microsoft 365 / Outlook: el proveedor «outlook» de Nango (Graph). Nunca
+  // «.default» (todo lo que la app tenga concedido): solo leer el calendario y
+  // offline_access para que la plataforma pueda refrescar el token.
+  Object.freeze({
+    provider: "outlook-calendar",
+    integrationKey: "outlook",
+    category: "calendar",
+    scopes: Object.freeze(["offline_access", "Calendars.Read"]),
+  }),
+]);
+
+/** Las de una categoría, en el orden del catálogo. */
+export function platformIntegrationsIn(category: PlatformCategory): PlatformIntegration[] {
+  return PLATFORM_INTEGRATIONS.filter((entry) => entry.category === category);
+}
+
+/** La entrada de un proveedor, o undefined si no está en el catálogo (p. ej. lo que manda un cliente). */
+export function platformIntegration(provider: unknown): PlatformIntegration | undefined {
+  return typeof provider === "string" ? PLATFORM_INTEGRATIONS.find((entry) => entry.provider === provider) : undefined;
+}
+
+/** La entrada de una clave de la plataforma (lo que trae el webhook), o undefined. */
+export function platformIntegrationByKey(integrationKey: unknown): PlatformIntegration | undefined {
+  return typeof integrationKey === "string"
+    ? PLATFORM_INTEGRATIONS.find((entry) => entry.integrationKey === integrationKey)
+    : undefined;
+}

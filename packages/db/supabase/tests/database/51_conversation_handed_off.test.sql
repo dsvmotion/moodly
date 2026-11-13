@@ -7,7 +7,7 @@
 -- Que una persona tome el control no avisa a nadie.
 begin;
 \ir _fixtures/tenants.psql
-select plan(30);
+select plan(32);
 
 select id as agent_a from public.agents where organization_id = :org_a order by id limit 1 \gset
 select id as agent_b from public.agents where organization_id = :org_b order by id limit 1 \gset
@@ -17,7 +17,8 @@ insert into public.contacts (organization_id, display_name) values (:org_b, 'Ber
 insert into public.channel_accounts (id, organization_id, location_id, channel, external_id, default_agent_type, status)
 values ('f3000000-0000-4000-8000-000000000001', :org_a, :loc_a1, 'whatsapp', 'ho-a1', 'customer', 'active'),
        ('f3000000-0000-4000-8000-000000000002', :org_a, null, 'webchat', 'ho-a-org', 'customer', 'active'),
-       ('f3000000-0000-4000-8000-000000000003', :org_b, :loc_b1, 'whatsapp', 'ho-b1', 'customer', 'active');
+       ('f3000000-0000-4000-8000-000000000003', :org_b, :loc_b1, 'whatsapp', 'ho-b1', 'customer', 'active'),
+       ('f3000000-0000-4000-8000-000000000004', :org_a, :loc_a1, 'test', 'ho-a1-test', 'customer', 'active');
 
 -- Una conversación de A1, una de toda la organización A y una de B1, todas con el agente.
 insert into public.conversations (id, organization_id, location_id, contact_id, channel_account_id, agent_id)
@@ -25,12 +26,14 @@ values ('f4000000-0000-4000-8000-000000000001', :org_a, :loc_a1, :'c_ana', 'f300
        ('f4000000-0000-4000-8000-000000000002', :org_a, null, :'c_ana', 'f3000000-0000-4000-8000-000000000002', :'agent_a'),
        ('f4000000-0000-4000-8000-000000000003', :org_b, :loc_b1, :'c_berta', 'f3000000-0000-4000-8000-000000000003', :'agent_b'),
        ('f4000000-0000-4000-8000-000000000004', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a'),
-       ('f4000000-0000-4000-8000-000000000005', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a');
+       ('f4000000-0000-4000-8000-000000000005', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000001', :'agent_a'),
+       ('f4000000-0000-4000-8000-000000000006', :org_a, :loc_a1, :'c_ana', 'f3000000-0000-4000-8000-000000000004', :'agent_a');
 \set conv_a1  '''f4000000-0000-4000-8000-000000000001'''
 \set conv_org '''f4000000-0000-4000-8000-000000000002'''
 \set conv_b1  '''f4000000-0000-4000-8000-000000000003'''
 \set conv_a1b '''f4000000-0000-4000-8000-000000000004'''
 \set conv_w   '''f4000000-0000-4000-8000-000000000005'''
+\set conv_test '''f4000000-0000-4000-8000-000000000006'''
 
 create temp view handoff_events as
   select * from public.domain_events where organization_id in (:org_a, :org_b) and type = 'conversation.handed_off';
@@ -146,6 +149,17 @@ select results_eq(
   format($$select organization_id, location_id, payload from handoff_events where payload ->> 'conversation_id' = %L$$, :conv_w),
   format($$values (%L::uuid, %L::uuid, jsonb_build_object('conversation_id', %L, 'agent_id', %L))$$, :org_a, :loc_a1, :conv_w, :'agent_a'),
   'y queda su conversation.handed_off, con la organización y el local de la fila');
+
+-- El chat de pruebas de la app (canal test): quien prueba ya está mirando; ni
+-- evento (sin email) ni aviso en la bandeja (V10).
+set local role service_role;
+update public.conversations set mode = 'human' where id = :conv_test and mode = 'agent';
+reset role;
+select is((select mode from public.conversations where id = :conv_test), 'human', 'la del chat de pruebas también pasa a una persona');
+select is(
+  (select count(*)::int from handoff_events where payload ->> 'conversation_id' = :conv_test)
+  + (select count(*)::int from realtime.messages where event = 'handoff' and payload ->> 'conversation_id' = :conv_test),
+  0, 'pero sin conversation.handed_off ni aviso handoff: es el chat de pruebas');
 
 -- ===========================================================================
 -- 4. handoff_notification: de una sola organización
