@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BusyInterval, CalendarReader } from "../calendar/common.js";
 import { busySourceFromReader, withExternalBusy, type BusySource } from "./external-busy.js";
 import { createFakeBookingProvider } from "./fake.js";
-import { CalendarUnavailableError, SlotUnavailableError, type BookingProvider } from "./types.js";
+import { AppointmentNotFoundError, CalendarUnavailableError, SlotUnavailableError, type BookingProvider } from "./types.js";
 
 // El calendario conectado cuenta al ofrecer huecos (O-02): el decorador y la
 // fuente de tramos ocupados, lógica de dominio sin base de datos ni Nango.
@@ -86,6 +86,19 @@ describe("withExternalBusy.reschedule", () => {
     await expect(booking.reschedule({ appointmentId: appointment.id, contactId: CONTACT, startsAt: new Date("2026-11-14T11:00:00Z") })).rejects.toBeInstanceOf(
       SlotUnavailableError,
     );
+    const [still] = await base.upcomingForContact({ contactId: CONTACT, from: new Date(0), limit: 10 });
+    expect(still?.startsAt).toEqual(new Date("2026-11-14T09:00:00Z"));
+  });
+
+  it("una cita que no es del contacto no se mueve y no se salta la comprobación (fail-closed)", async () => {
+    const base = moodly();
+    const appointment = await bookedAt(base, "2026-11-14T09:00:00Z");
+    let reads = 0;
+    const booking = withExternalBusy(base, { list: () => ((reads += 1), Promise.resolve([])) });
+    await expect(
+      booking.reschedule({ appointmentId: appointment.id, contactId: "55555555-5555-4555-8555-555555555555", startsAt: new Date("2026-11-14T12:00:00Z") }),
+    ).rejects.toBeInstanceOf(AppointmentNotFoundError);
+    expect(reads).toBe(0);
     const [still] = await base.upcomingForContact({ contactId: CONTACT, from: new Date(0), limit: 10 });
     expect(still?.startsAt).toEqual(new Date("2026-11-14T09:00:00Z"));
   });

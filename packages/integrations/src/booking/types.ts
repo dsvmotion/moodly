@@ -73,6 +73,8 @@ export interface BookingProvider {
   cancel(request: CancelRequest): Promise<Appointment>;
   /** Las próximas citas vivas de un contacto. */
   upcomingForContact(request: { contactId: string; from: Date; limit: number }): Promise<Appointment[]>;
+  /** Una cita del contacto por su id. AppointmentNotFoundError si no existe o es de otro contacto. */
+  getForContact(request: { appointmentId: string; contactId: string }): Promise<Appointment>;
 }
 
 /** El hueco ya no está libre (otra cita lo ocupó entre la búsqueda y la reserva). */

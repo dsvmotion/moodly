@@ -2,7 +2,7 @@ import { verifyApproval } from "@repo/agent-core";
 import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
 import type { BusySource, ConnectorPlatform } from "@repo/integrations";
-import { externalBusyFor } from "../booking/external-busy.ts";
+import { busySourceFor, calendarFor } from "../booking/external-busy.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { isNotAgentMode } from "./conversation-sender.ts";
 
@@ -174,7 +174,13 @@ export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptio
       const approvalId = String(event.payload["approval_id"]);
       const executionId = String(event.payload["execution_id"]);
       const decision = String(event.payload["decision"]);
-      const loaded = await ctx.step("load", () => load(ctx.db, approvalId, executionId));
+      // El calendario conectado del local de la ejecución (O-02), dentro del mismo
+      // paso «load»: una aprobación a medias de antes de este cambio no trae
+      // `calendar` y sigue sin él (calendarFor explica por qué no es un paso nuevo).
+      const loaded = await ctx.step("load", async () => {
+        const found = await load(ctx.db, approvalId, executionId);
+        return found.kind === "skip" ? found : { ...found, calendar: await calendarFor(ctx.db, platform, found.execution.location_id) };
+      });
       if (loaded.kind === "skip") {
         ctx.logger.info({ approvalId, reason: loaded.reason }, "aprobación sin nada que hacer");
         return;
@@ -190,8 +196,8 @@ export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptio
 
       // Lo que se ejecuta es lo que se aprobó: mismo hash, aprobada y a tiempo.
       const verdict = verifyApproval(execution, approval);
-      // El calendario conectado del local de la ejecución (fila guardada, nunca lo que dijo el modelo).
-      const externalBusy = await externalBusyFor(ctx, platform, execution.location_id);
+      // El calendario del local de la ejecución (su fila guardada, nunca lo que dijo el modelo).
+      const externalBusy = busySourceFor(platform, "calendar" in loaded ? loaded.calendar : null, ctx.logger);
       const skill = skills(ctx.db, externalBusy ? { externalBusy } : {}).get(execution.skill_key);
       if (!verdict.ok || !skill || skill.version !== execution.skill_version) {
         await ctx.step("settle:refused", () => settleExecution(ctx.db, execution.id, "failed"));

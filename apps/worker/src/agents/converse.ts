@@ -41,7 +41,7 @@ import {
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createMoodlyCalendar } from "../booking/moodly-calendar.ts";
-import { externalBusyFor, type BusySource } from "../booking/external-busy.ts";
+import { busySourceFor, calendarFor, type BusySource } from "../booking/external-busy.ts";
 import { createMoodlyWaitlist } from "../booking/moodly-waitlist.ts";
 import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
@@ -600,10 +600,14 @@ async function acceptOffer(
   messageId: string,
   platform: ConnectorPlatform | undefined,
 ): Promise<boolean> {
-  const found = await ctx.step("waitlist-accept:find", () => findAcceptance(ctx.db, conversationId, messageId, new Date()));
+  // También aquí cuenta el calendario conectado: el hueco pudo ocuparse fuera desde
+  // que se ofreció (O-02). Se resuelve dentro del mismo paso, no en uno nuevo.
+  const found = await ctx.step("waitlist-accept:find", async () => {
+    const acceptance = await findAcceptance(ctx.db, conversationId, messageId, new Date());
+    return acceptance.kind === "none" ? acceptance : { ...acceptance, calendar: await calendarFor(ctx.db, platform, acceptance.conversation.locationId) };
+  });
   if (found.kind === "none") return false;
-  // También aquí cuenta el calendario conectado: el hueco pudo ocuparse fuera desde que se ofreció (O-02).
-  const externalBusy = await externalBusyFor(ctx, platform, found.conversation.locationId, "waitlist-accept:calendar");
+  const externalBusy = busySourceFor(platform, "calendar" in found ? found.calendar : null, ctx.logger);
   const book = codeSkills(ctx.db, externalBusy ? { externalBusy } : {}).get(BOOK_SKILL_KEY);
   const row = found.book;
   if (!book || !row || row.kind !== "code" || row.version !== book.version || row.effectClass !== book.effectClass) return false;
@@ -729,7 +733,17 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
       // Con reintentos: si moodly_worker no entra un momento (el pooler, un
       // reinicio), el mensaje no se pierde; si no entra nunca, el worker no
       // habría arrancado (worker.ts, verifyWorkerConnection).
-      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId), DB_STEP);
+      // El calendario conectado del local (O-02) se resuelve dentro del mismo paso
+      // «load», no en uno nuevo: un turno a medias de antes de este cambio no
+      // trae `calendar` y sigue sin él (calendarFor explica por qué).
+      const prepared = await ctx.step(
+        "load",
+        async () => {
+          const loaded = await prepare(ctx.db, conversationId, messageId);
+          return loaded.kind === "turn" ? { ...loaded, calendar: await calendarFor(ctx.db, platform, loaded.conversation.location_id) } : loaded;
+        },
+        DB_STEP,
+      );
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");
         return;
@@ -749,7 +763,7 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
       // plataforma está configurada. Resolver la fila es un paso de DBOS: un
       // replay usa el id guardado, no vuelve a consultarlo. La lectura de las
       // horas ocupadas ocurre después, dentro del paso de cada skill.
-      const externalBusy = await externalBusyFor(ctx, platform, conversation.location_id);
+      const externalBusy = busySourceFor(platform, prepared.calendar, ctx.logger);
       const { skills, settings } = agentSkills(
         codeSkills(ctx.db, {
           embedder: knowledgeAllowed ? knowledge.embedder : null,

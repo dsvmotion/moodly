@@ -67,21 +67,25 @@ export interface BusySourceOptions {
   logger?: Logger;
 }
 
+/** La fila resuelta del calendario conectado (lo que se guarda dentro de un paso de DBOS). */
+export type ResolvedCalendar = NonNullable<Awaited<ReturnType<typeof resolveLocationCalendar>>>;
+
 /**
- * La fuente del calendario conectado para un local, o null si no hay plataforma
- * o ningún calendario conectado. La fila se resuelve en un paso de DBOS (un
- * replay usa el id guardado). La usan todos los caminos que reservan: el turno,
- * la aprobación de una reserva en borrador y el «sí» a la lista de espera.
+ * La fila del calendario conectado, o null si no hay plataforma o ninguno
+ * conectado. Se llama DENTRO del primer paso que ya tiene cada workflow (load,
+ * waitlist-accept:find), nunca como paso nuevo: WORKER_APP_VERSION no cambia en
+ * cada despliegue (MANUAL §4.4), así que un despliegue recoge los runs a medias
+ * del anterior, y un paso nuevo en medio movería la secuencia de esos runs. Un
+ * run guardado antes de este cambio no trae la fila y sigue como antes (sin
+ * calendario conectado).
  */
-export async function externalBusyFor(
-  ctx: { db: TenantDb; logger: Logger; step: <T>(name: string, fn: () => Promise<T>) => Promise<T> },
-  platform: ConnectorPlatform | undefined,
-  locationId: string | null,
-  stepName = "calendar:resolve",
-): Promise<BusySource | null> {
-  if (!platform) return null;
-  const row = await ctx.step(stepName, () => resolveLocationCalendar(ctx.db, locationId));
-  return row ? createBusySource({ platform, ...row, logger: ctx.logger }) : null;
+export async function calendarFor(db: TenantDb, platform: ConnectorPlatform | undefined, locationId: string | null): Promise<ResolvedCalendar | null> {
+  return platform ? resolveLocationCalendar(db, locationId) : null;
+}
+
+/** La fuente de tramos ocupados de una fila ya resuelta (sin pasos ni consultas). */
+export function busySourceFor(platform: ConnectorPlatform | undefined, calendar: ResolvedCalendar | null | undefined, logger: Logger): BusySource | null {
+  return platform && calendar ? createBusySource({ platform, ...calendar, logger }) : null;
 }
 
 /** La fuente de tramos ocupados del calendario conectado (lector del catálogo + memo + tope de tiempo). */

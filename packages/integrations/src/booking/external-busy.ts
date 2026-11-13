@@ -107,22 +107,20 @@ export function withExternalBusy(provider: BookingProvider, busy: BusySource): B
       return provider.book(request);
     },
     async reschedule(request) {
-      // El servicio y el local salen de la cita del contacto (la del runtime); si
-      // no es suya, el calendario propio la rechaza igual (AppointmentNotFoundError).
-      const current = (await provider.upcomingForContact({ contactId: request.contactId, from: new Date(0), limit: 50 })).find(
-        (appointment) => appointment.id === request.appointmentId,
-      );
-      if (current) {
-        const duration = current.endsAt.getTime() - current.startsAt.getTime();
-        const resourceId = request.resourceId ?? current.resourceId;
-        const end = await slotEnd(provider, current.locationId, current.serviceId, resourceId, request.startsAt, duration);
-        const occupied = await busy.list(request.startsAt, end);
-        if (overlapsBusy(request.startsAt, end, occupied)) throw unavailable();
-      }
+      // El servicio y el local salen de la cita del contacto (la del runtime), por
+      // su id. Si no existe o es de otro contacto, AppointmentNotFoundError: no se
+      // mueve nada. Nunca se salta la comprobación (fail-closed).
+      const current = await provider.getForContact({ appointmentId: request.appointmentId, contactId: request.contactId });
+      const duration = current.endsAt.getTime() - current.startsAt.getTime();
+      const resourceId = request.resourceId ?? current.resourceId;
+      const end = await slotEnd(provider, current.locationId, current.serviceId, resourceId, request.startsAt, duration);
+      const occupied = await busy.list(request.startsAt, end);
+      if (overlapsBusy(request.startsAt, end, occupied)) throw unavailable();
       return provider.reschedule(request);
     },
     cancel: (request) => provider.cancel(request),
     upcomingForContact: (request) => provider.upcomingForContact(request),
+    getForContact: (request) => provider.getForContact(request),
   };
 }
 
