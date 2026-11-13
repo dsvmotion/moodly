@@ -32,18 +32,23 @@ export function supabasePublicEnv(): { url: string; publishableKey: string } {
 
 export async function signIn(page: Page, key: string, next?: string): Promise<void> {
   const { email, password, totpSecret } = credentialsFor(key);
-  const login = async () => {
-    await page.goto(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
-    // Por nombre de campo y no por etiqueta: el login está traducido y algunos
-    // tests entran con la interfaz en inglés (las etiquetas las prueba auth.e2e.ts).
-    const form = page.locator('form:has(input[name="password"])');
-    await form.locator('input[name="email"]').fill(email);
-    await form.locator('input[name="password"]').fill(password);
+  // Cargar la página y rellenar el formulario va antes del bloqueo de MFA: no
+  // crea ninguna sesión, así que no hace falta esperar turno para eso.
+  await page.goto(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
+  // Por nombre de campo y no por etiqueta: el login está traducido y algunos
+  // tests entran con la interfaz en inglés (las etiquetas las prueba auth.e2e.ts).
+  const form = page.locator('form:has(input[name="password"])');
+  await form.locator('input[name="email"]').fill(email);
+  await form.locator('input[name="password"]').fill(password);
+  // Lo que sí va dentro del bloqueo es desde enviar la contraseña (que crea la
+  // sesión aal1) hasta tener la sesión aal2: es la ventana en la que verificar
+  // el factor de otro test del mismo usuario cerraría esta sesión (withMfaLock).
+  const submit = async () => {
     await form.locator('button[type="submit"]').click();
     if (totpSecret) await completeMfa(page, totpSecret);
     await expect(page.getByTestId("current-user")).toHaveText(email);
   };
-  await (totpSecret ? withMfaLock(key, login) : login());
+  await (totpSecret ? withMfaLock(key, submit) : submit());
 }
 
 /** Abre el menú de usuario del pie de la barra lateral (auditoría del frontend, F-4). */
