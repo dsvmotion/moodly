@@ -53,6 +53,9 @@ COPY packages/knowledge/package.json ./packages/knowledge/
 COPY --from=prod-deps /repo/packages/skills/node_modules ./packages/skills/node_modules
 COPY --from=build /repo/packages/skills/dist ./packages/skills/dist
 COPY packages/skills/package.json ./packages/skills/
+COPY --from=prod-deps /repo/packages/channels/node_modules ./packages/channels/node_modules
+COPY --from=build /repo/packages/channels/dist ./packages/channels/dist
+COPY packages/channels/package.json ./packages/channels/
 # CA de Supabase: el worker verifica el certificado del pooler (sslmode=verify-full).
 COPY apps/worker/certs ./apps/worker/certs
 WORKDIR /repo/apps/worker

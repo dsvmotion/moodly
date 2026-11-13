@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Logger } from "pino";
 
 // Salud del worker para el healthcheck de Railway y para la alerta de staging
@@ -109,8 +109,17 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   };
 }
 
-/** Servidor HTTP mínimo: GET/HEAD /health. Cualquier otra ruta, 404. */
-export function createHealthServer(options: HealthOptions & { logger: Logger }): Server {
+/** El prefijo de la entrada de canales (ADR 0052 §2), que comparte este puerto. */
+export const CHANNELS_PREFIX = "/channels/";
+
+/**
+ * Servidor HTTP mínimo: GET/HEAD /health y, si se da, la entrada de canales
+ * bajo /channels/ (Railway publica un solo puerto por servicio). Cualquier otra
+ * ruta, 404. /health no cambia por llevar los canales: solo {status}.
+ */
+export function createHealthServer(
+  options: HealthOptions & { logger: Logger; channels?: (request: IncomingMessage, response: ServerResponse) => void },
+): Server {
   const cacheMs = options.cacheMs ?? 10_000;
   const now = options.now ?? Date.now;
   let cached: { at: number; result: Promise<HealthResult> } | undefined;
@@ -126,6 +135,10 @@ export function createHealthServer(options: HealthOptions & { logger: Logger }):
 
   return createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://worker.internal");
+    if (options.channels && url.pathname.startsWith(CHANNELS_PREFIX)) {
+      options.channels(req, res);
+      return;
+    }
     if ((req.method !== "GET" && req.method !== "HEAD") || url.pathname !== "/health") {
       res.writeHead(404, { "content-type": "application/json", "cache-control": "no-store" }).end('{"error":"not_found"}');
       return;
