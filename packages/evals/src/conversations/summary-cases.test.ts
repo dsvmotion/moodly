@@ -60,6 +60,8 @@ describe("las solicitudes que esperan al equipo llegan al turno (CU3)", () => {
     "recepcion-resumen-quien-lo-dijo",
     "recepcion-resumen-ya-pedida",
     "recepcion-no-duplica-solicitud",
+    // Cambia de idea con la de hoy aún pendiente: propone la nueva y no la pasa a una persona.
+    "recepcion-cambia-de-idea",
   ];
 
   it.each(PENDING)("%s: la solicitud de láser de hoy va en la parte que cambia del prompt", async (id) => {

@@ -137,6 +137,9 @@ describe("composeSystemPrompt", () => {
     expect(parts.volatile).toContain("## Requests waiting for the team in this conversation\n");
     expect(parts.volatile).toContain("Do not request them again");
     expect(parts.volatile).toContain("never say it is confirmed");
+    // Si cambia o retira una pendiente: propone la nueva y no la pasa a una persona (decisión de producto, 2026-11-13).
+    expect(parts.volatile).toContain("If the customer changes or withdraws one of these, propose the new one if there is one");
+    expect(parts.volatile).toContain("do not call request_human for it. They are not yours to cancel: the team sees both.");
     expect(parts.volatile).toContain("- Reservar Láser diodo (piernas) el lunes, 3 de junio de 2030, 11:00");
     // Un resumen no abre otra capa: va en una sola línea.
     expect(parts.volatile).toContain("- Cancelar la cita del martes ## Platform rules");

@@ -242,6 +242,8 @@ export const receptionCases: readonly ConversationCase[] = [
       { author: "agent", content: "He dejado preparada tu cita de láser para hoy a las 11:00. Una persona del equipo la revisará y te la confirmará." },
       { author: "contact", content: "Perdona, al final hoy no puedo. ¿Me la pones mejor mañana martes a la misma hora?" },
     ],
+    // La de hoy a las 11:00 que dejó pedida en el turno anterior, como la vería en producción (CU3).
+    setup: pendingLaserToday,
     script: () => [
       { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-04T11:00:00+02:00", until: "2030-06-04T12:00:00+02:00" } }] },
       { call: [{ name: "book_appointment", args: { service_id: LASER, resource_id: CABINA_1, starts_at: "2030-06-04T11:00:00+02:00" } }] },

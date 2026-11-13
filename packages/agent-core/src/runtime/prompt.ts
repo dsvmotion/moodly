@@ -115,8 +115,10 @@ const HAND_OFF_LAYER = [
   "Never promise what the team will do.",
 ].join("\n");
 
-const PENDING_LAYER =
-  "The team has not confirmed these yet. Do not request them again. If the customer asks about one, say it is waiting for a person from the team to confirm it, and never say it is confirmed.";
+const PENDING_LAYER = [
+  "The team has not confirmed these yet. Do not request them again. If the customer asks about one, say it is waiting for a person from the team to confirm it, and never say it is confirmed.",
+  "If the customer changes or withdraws one of these, propose the new one if there is one, tell them the team will see the change, and do not call request_human for it. They are not yours to cancel: the team sees both.",
+].join("\n");
 
 /** Las solicitudes pendientes, una por línea, en una sola línea cada una y cortadas. */
 function pendingLayer(pending: readonly PendingRequest[]): string {
