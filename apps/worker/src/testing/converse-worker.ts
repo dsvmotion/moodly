@@ -11,7 +11,8 @@
 // resultado de una herramienta, contesta según se hizo o queda para una
 // persona (y con lo que encontró en el conocimiento, el primer fragmento, o que
 // le contestará una persona); ante una duda médica, no dice nada (el turno pasa
-// a una persona); si no, saluda.
+// a una persona); si pide hablar con una persona, request_human (CU3); si no,
+// saluda.
 //
 // Si la llamada es la del resumen continuo (PL-T3), lo apunta como «summary» y
 // contesta con un resumen que dice cuántos mensajes del cliente resumió.
@@ -101,6 +102,8 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
   }
   if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
   if (/un momento/i.test(customer)) return gated(say("Ya está, te lo confirmo ahora mismo."));
+  // Pide una persona (CU3): request_human con su motivo.
+  if (/hablar con una persona/i.test(customer)) return call("request_human", { reason: "customer_asked" });
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");
   return say("Hola, soy el asistente de IA del centro.");

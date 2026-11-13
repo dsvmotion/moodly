@@ -30,7 +30,10 @@ export type SecurityEvent =
   | "agent.approval_rejected"
   | "inbox.conversation_taken_over"
   | "inbox.conversation_handed_back"
-  | "inbox.staff_message_sent";
+  | "inbox.staff_message_sent"
+  | "integration.connect_started"
+  | "integration.disconnected"
+  | "integration.disconnect_failed";
 
 export interface SecurityEventFields {
   userId?: string | undefined;

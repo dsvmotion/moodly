@@ -1,8 +1,10 @@
+import { HAND_OFF_TEXTS } from "@repo/agent-core";
 import type { SkillDefinition, TurnResult } from "@repo/agent-core";
 import type { Logger } from "pino";
 import { describe, expect, it, vi } from "vitest";
 import { createEventRegistry } from "../events/handlers.ts";
 import {
+  handOffTextFor,
   CONVERSE_HANDLER_KEY,
   MAX_PROMPT_SERVICES,
   agentAnswers,
@@ -217,5 +219,14 @@ describe("el libro de consumo durante el turno (PL-ledger)", () => {
     const logger = { error: vi.fn() };
     await expect(recordUsageSafely(dbWith(query), logger, "run-1", conversation, call)).resolves.toBe(false);
     expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ runId: "run-1", callIndex: 0 }), expect.stringContaining("libro de consumo"));
+  });
+});
+
+describe("handOffTextFor (CU3)", () => {
+  it("el texto del paso en el idioma de la organización: inglés con «en», si no, español", () => {
+    expect(handOffTextFor("en-GB")).toBe(HAND_OFF_TEXTS.en);
+    expect(handOffTextFor("es-ES")).toBe(HAND_OFF_TEXTS.es);
+    expect(handOffTextFor("fr-FR")).toBe(HAND_OFF_TEXTS.es);
+    expect(handOffTextFor(null)).toBe(HAND_OFF_TEXTS.es);
   });
 });
