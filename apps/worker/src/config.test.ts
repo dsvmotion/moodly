@@ -29,6 +29,7 @@ describe("loadConfig", () => {
       intentRouting: false,
       healthPort: 8080,
       nango: null,
+      koiboxApiBase: "https://api.koibox.cloud",
     });
   });
 
@@ -81,6 +82,15 @@ describe("loadConfig", () => {
     }
     expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).toThrow(/NANGO_API_KEY/);
     expect(() => loadConfig({ ...valid, NANGO_API_KEY: "corta un poco" })).not.toThrow(/corta un poco/);
+  });
+
+  it("KOIBOX_API_BASE: por defecto la de Koibox; https, o http solo en loopback; una mala no arranca", () => {
+    expect(loadConfig(valid).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "" }).koiboxApiBase).toBe("https://api.koibox.cloud");
+    expect(loadConfig({ ...valid, KOIBOX_API_BASE: "http://127.0.0.1:3998/" }).koiboxApiBase).toBe("http://127.0.0.1:3998");
+    for (const bad of ["http://api.koibox.cloud", "https://u:p@api.koibox.cloud", "koibox"]) {
+      expect(() => loadConfig({ ...valid, KOIBOX_API_BASE: bad })).toThrow(/KOIBOX_API_BASE/);
+    }
   });
 
   it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {

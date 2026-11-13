@@ -1,7 +1,8 @@
 -- moodly_worker y integrations (20261112250000, O-02, ADR 0049): lee solo las
 -- columnas que usan el webhook de Nango y la lectura del calendario, y cambia
--- solo las de 20261112210000. Ni la tabla entera ni scopes, secret_id,
--- server_version, connected_by, created_at o updated_at.
+-- solo las de 20261112210000. Ni la tabla entera ni scopes, server_version,
+-- connected_by, created_at o updated_at. secret_id sí, desde 20261113100000
+-- (la clave cifrada de Koibox).
 begin;
 \ir _fixtures/tenants.psql
 select plan(14);
@@ -13,8 +14,8 @@ values (:org_a, 'google-calendar', 'platform', 'active', 'conn-52-a') returning 
 select is(
   (select string_agg(column_name::text, ', ' order by column_name) from information_schema.column_privileges
    where grantee = 'moodly_worker' and table_name = 'integrations' and privilege_type = 'SELECT'),
-  'external_connection_id, id, kind, last_health_check, location_id, organization_id, provider, status',
-  'lee de integrations solo las columnas que usa el worker');
+  'external_connection_id, id, kind, last_health_check, location_id, organization_id, provider, secret_id, status',
+  'lee de integrations solo las columnas que usa el worker (secret_id, desde 20261113100000: la clave de Koibox)');
 select is(
   (select string_agg(column_name::text, ', ' order by column_name) from information_schema.column_privileges
    where grantee = 'moodly_worker' and table_name = 'integrations' and privilege_type = 'UPDATE'),
@@ -54,7 +55,7 @@ select lives_ok(
 -- Lo demás, no (42501: sin privilegio de columna).
 select throws_ok($$select * from public.integrations$$, '42501', null, 'select * falla: no lee la tabla entera');
 select throws_ok($$select scopes from public.integrations$$, '42501', null, 'no lee scopes');
-select throws_ok($$select secret_id from public.integrations$$, '42501', null, 'ni secret_id');
+select throws_ok($$select updated_at from public.integrations$$, '42501', null, 'ni updated_at');
 select throws_ok($$select server_version from public.integrations$$, '42501', null, 'ni server_version');
 select throws_ok($$select connected_by from public.integrations$$, '42501', null, 'ni quién la conectó');
 select throws_ok($$select id from public.integrations where created_at < now() or updated_at < now()$$, '42501', null,
