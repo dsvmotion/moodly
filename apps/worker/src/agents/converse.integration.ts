@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_HANDLER_KEY } from "./approvals.ts";
-import { CONVERSE_HANDLER_KEY } from "./converse.ts";
+import { CONVERSE_HANDLER_KEY, loadPendingRequests } from "./converse.ts";
 
 // El turno del agente de punta a punta (paso 4d-2): un mensaje de un cliente
 // entra en la conversación, el outbox lo entrega a agent.converse en un worker
@@ -387,6 +387,50 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
         [mine, other],
       ]);
       await admin.query("delete from public.conversations where id = any($1)", [[mine, other]]);
+    }
+  });
+
+  it("lo pendiente se lee con la organización explícita, también sin RLS: un run de otra organización que apunta a este mensaje no cuenta (CU3)", async () => {
+    // trigger_ref no tiene clave ajena: un run de otra organización puede apuntar
+    // al mensaje de esta. Con el cliente de administración no hay RLS: lo que
+    // separa las organizaciones es el filtro explícito de la consulta.
+    const asAdmin = { query: async <T,>(text: string, params?: readonly unknown[]) => (await admin.query(text, params as unknown[])).rows as T[] };
+    const orgB = await one("select id from public.organizations where name = 'Demo B'", []);
+    const agentB = await one("select id from public.agents where organization_id = $1 order by id limit 1", [orgB]);
+    const conversation = await one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+    // En el local de su run (validate_execution): el de esta organización, o ninguno.
+    const pendingExecution = (organizationId: string, locationId: string | null, runId: string, summary: string) =>
+      admin.query(
+        `insert into public.executions (organization_id, location_id, run_id, skill_key, skill_version, effect_class, autonomy_applied,
+                                        input, target, input_hash, preview, status, idempotency_key)
+         values ($1, $2, $3, 'book_appointment', 1, 'internal_write', 'draft', '{}', '{"kind": "appointment"}', $4, $5, 'drafted', $6)`,
+        [organizationId, locationId, runId, "0".repeat(64), JSON.stringify({ summary }), randomUUID()],
+      );
+    try {
+      const messageId = await customerSays("Quiero una cita", conversation);
+      await waitFor(async () => !["running", undefined].includes((await runFor(messageId))[0]?.status), "el run del mensaje se cierra");
+      const runA = (await runFor(messageId))[0]?.id;
+      if (!runA) throw new Error("no hay run de esta organización");
+      await pendingExecution(ids.org as string, ids.location as string, runA, "Lo de esta organización");
+      const runB = await one(
+        `insert into public.agent_runs (organization_id, agent_id, trigger, trigger_ref, status)
+         values ($1, $2, 'inbound_message', $3, 'awaiting_approval') returning id`,
+        [orgB, agentB, messageId],
+      );
+      await pendingExecution(orgB, null, runB, "Lo de otra organización");
+
+      expect(await loadPendingRequests(asAdmin, ids.org as string, conversation)).toEqual([
+        { skill_key: "book_appointment", summary: "Lo de esta organización" },
+      ]);
+      // Con la organización de la otra, tampoco: el mensaje y la conversación no son suyos.
+      expect(await loadPendingRequests(asAdmin, orgB, conversation)).toEqual([]);
+    } finally {
+      await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = $1)", [conversation]);
+      await admin.query("delete from public.conversations where id = $1", [conversation]);
     }
   });
 
