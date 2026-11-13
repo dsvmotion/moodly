@@ -53,9 +53,13 @@ const QUOTED = /"[^"]*"/g;
 
 // pino suma a cada mensaje y pila los de sus causas, y quien envuelve un error
 // suele copiar el mensaje de la causa: basta con un error así en la cadena.
+// Se recorre la cadena entera (pino también la recorre entera), con un Set
+// contra ciclos.
 function carriesPgValue(err: Error): boolean {
+  const seen = new Set<Error>();
   let current: unknown = err;
-  for (let i = 0; i <= MAX_ERROR_CHAIN && current instanceof Error; i++) {
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
     const code = (current as unknown as Record<string, unknown>)["code"];
     if (typeof code === "string" && PG_VALUE_CLASSES.test(code)) return true;
     current = current.cause;

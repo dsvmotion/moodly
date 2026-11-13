@@ -114,6 +114,14 @@ describe("createLogger", () => {
     expect(text).toContain("invalid input syntax for type uuid");
   });
 
+  it("censura el valor de un 22P02 aunque esté debajo de muchos envoltorios", () => {
+    const { lines, logger } = capture();
+    let err: Error = Object.assign(new Error('invalid input syntax for type uuid: "ana@example.com"'), { code: "22P02" });
+    for (let i = 0; i < 8; i++) err = new Error(`envoltorio ${i}`, { cause: err });
+    logger.error({ err }, "error");
+    expect(JSON.stringify(lines[0])).not.toContain("ana@example.com");
+  });
+
   it("una cadena de causas larga se corta y no sale ninguna contraseña", () => {
     const { lines, logger } = capture();
     let err = new Error("raíz postgresql://u:s3cr3t@h/db");
