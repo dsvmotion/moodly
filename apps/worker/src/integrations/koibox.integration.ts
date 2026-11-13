@@ -7,7 +7,7 @@ import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createLocalKeyProvider, createSecretVault, SecretDecryptionError } from "../secrets/vault.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
-import { KOIBOX_SECRET_NAME, KoiboxSetupError, loadKoiboxReader } from "./koibox.ts";
+import { KoiboxSetupError, koiboxSecretName, loadKoiboxReader } from "./koibox.ts";
 
 // Koibox, solo lectura, contra Supabase local con el seed aplicado: moodly_worker
 // de verdad (RLS, privilegios de columna), un secreto cifrado con la clave
@@ -24,6 +24,14 @@ const ORG_A = "5eed0000-0000-4000-8000-00000000000a";
 const ORG_B = "5eed0000-0000-4000-8000-00000000000b";
 const ORG_F = "5eed0000-0000-4000-8000-00000000000f";
 const KEY_B = "kbx_demo_b_key_not_secret_0001";
+// Dos claves de Demo A, una por local: el falso responde con un centro distinto a cada una.
+const KEY_A1 = "kbx_demo_a1_key_not_secret_001";
+const KEY_A2 = "kbx_demo_a2_key_not_secret_001";
+const CENTERS: Record<string, { centro: number; centro_slug: string }> = {
+  [KEY_B]: { centro: 21, centro_slug: "demo-b" },
+  [KEY_A1]: { centro: 31, centro_slug: "demo-a-1" },
+  [KEY_A2]: { centro: 32, centro_slug: "demo-a-2" },
+};
 
 let server: Server;
 let apiBase = "";
@@ -34,7 +42,7 @@ async function connect(org: string, apiKey: string, locationId: string | null = 
   const { rows } = await admin.query<{ id: string }>(
     `insert into public.integration_secrets (organization_id, kind, name, key_ref, encrypted_data_key, ciphertext)
      values ($1, 'integration', $2, $3, $4, $5) returning id`,
-    [org, KOIBOX_SECRET_NAME, sealed.keyRef, sealed.encryptedDataKey, sealed.ciphertext],
+    [org, koiboxSecretName(locationId), sealed.keyRef, sealed.encryptedDataKey, sealed.ciphertext],
   );
   const secretId = rows[0]?.id ?? "";
   await admin.query(
@@ -46,7 +54,7 @@ async function connect(org: string, apiKey: string, locationId: string | null = 
 
 async function cleanup() {
   await admin.query("delete from public.integrations where provider = 'koibox' and organization_id = any($1)", [[ORG_A, ORG_B, ORG_F]]);
-  await admin.query("delete from public.integration_secrets where name = $1 and organization_id = any($2)", [KOIBOX_SECRET_NAME, [ORG_A, ORG_B, ORG_F]]);
+  await admin.query("delete from public.integration_secrets where name like 'koibox.%' and organization_id = any($1)", [[ORG_A, ORG_B, ORG_F]]);
 }
 
 beforeAll(async () => {
@@ -56,8 +64,9 @@ beforeAll(async () => {
     const key = req.headers["x-koibox-key"] as string | undefined;
     calls.push({ path: url.pathname, key });
     const send = (status: number, body: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
-    if (key !== KEY_B) return send(403, { detail: "Invalid key" });
-    if (url.pathname === "/api/api-key/me/") return send(200, { name: "Moodly", centro: 21, centro_slug: "demo-b" });
+    const center = key ? CENTERS[key] : undefined;
+    if (!center) return send(403, { detail: "Invalid key" });
+    if (url.pathname === "/api/api-key/me/") return send(200, { name: "Moodly", ...center });
     if (url.pathname === "/api/servicios/") {
       return send(200, { count: 1, next: null, previous: null, results: [{ id: 7, referencia: "C", nombre: "Corte", duracion: "00:30:00", users: [3] }] });
     }
@@ -89,7 +98,7 @@ afterAll(async () => {
 describe("loadKoiboxReader (moodly_worker, RLS, secreto cifrado)", () => {
   it("con la clave de su organización y la zona de su único local: lee servicios y citas (sin datos del cliente)", async () => {
     await connect(ORG_B, KEY_B);
-    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_B, apiBase });
+    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_B, locationId: null, apiBase });
     expect(koibox).not.toBeNull();
     await expect(koibox?.verifyKey()).resolves.toEqual({ centerId: "21", centerSlug: "demo-b" });
     await expect(koibox?.listServices()).resolves.toEqual([
@@ -106,7 +115,7 @@ describe("loadKoiboxReader (moodly_worker, RLS, secreto cifrado)", () => {
 
   it("una organización sin Koibox conectado: null y ni una llamada", async () => {
     await connect(ORG_B, KEY_B);
-    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, apiBase })).resolves.toBeNull();
+    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: null, apiBase })).resolves.toBeNull();
     expect(calls).toHaveLength(0);
   });
 
@@ -122,14 +131,29 @@ describe("loadKoiboxReader (moodly_worker, RLS, secreto cifrado)", () => {
       `insert into public.integrations (organization_id, location_id, provider, kind, status, secret_id) values ($1, $2, 'koibox', 'native', 'active', $3)`,
       [ORG_A, loc[0]?.id, rows[0]?.id],
     );
-    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, apiBase })).rejects.toBeInstanceOf(SecretDecryptionError);
+    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: loc[0]?.id ?? null, apiBase })).rejects.toBeInstanceOf(SecretDecryptionError);
     expect(calls).toHaveLength(0);
   });
 
-  it("de toda la organización con varios locales activos: no adivina la zona horaria", async () => {
+  it("de toda la organización con varios locales activos y sin local pedido: no adivina la zona horaria", async () => {
     await connect(ORG_A, "kbx_demo_a_key_not_secret_0001");
-    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, apiBase })).rejects.toBeInstanceOf(KoiboxSetupError);
+    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: null, apiBase })).rejects.toBeInstanceOf(KoiboxSetupError);
     expect(calls).toHaveLength(0);
+  });
+
+  it("una clave por local: usa la del local de la conversación, nunca la de otro local; sin la suya, la de toda la organización", async () => {
+    const { rows } = await admin.query<{ id: string }>("select id from public.locations where organization_id = $1 and status = 'active' order by id limit 3", [ORG_A]);
+    const [l1, l2, l3] = rows.map((r) => r.id) as [string, string, string];
+    await connect(ORG_A, KEY_A1, l1);
+    await connect(ORG_A, KEY_A2, l2);
+    await expect((await loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: l2, apiBase }))?.verifyKey()).resolves.toMatchObject({ centerSlug: "demo-a-2" });
+    await expect((await loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: l1, apiBase }))?.verifyKey()).resolves.toMatchObject({ centerSlug: "demo-a-1" });
+    // El tercer local no tiene clave ni hay una de toda la organización: no se usa la de otro local.
+    await expect(loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: l3, apiBase })).resolves.toBeNull();
+    expect(calls.map((c) => c.key)).toEqual([KEY_A2, KEY_A1]);
+    // Con una de toda la organización, el tercer local usa esa (y la zona de su local).
+    await connect(ORG_A, KEY_B);
+    await expect((await loadKoiboxReader({ db, vault, organizationId: ORG_A, locationId: l3, apiBase }))?.verifyKey()).resolves.toMatchObject({ centerSlug: "demo-b" });
   });
 
   it("de un local: usa la zona de ese local (Canarias, una hora menos que Madrid)", async () => {
@@ -138,7 +162,7 @@ describe("loadKoiboxReader (moodly_worker, RLS, secreto cifrado)", () => {
       [ORG_F],
     );
     await connect(ORG_F, KEY_B, rows[0]?.id ?? null);
-    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_F, apiBase });
+    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_F, locationId: rows[0]?.id ?? null, apiBase });
     const [appointment] = (await koibox?.listAppointments({ from: new Date("2026-11-13T00:00:00Z"), to: new Date("2026-11-14T00:00:00Z"), limit: 5 })) ?? [];
     // 10:00 en Canarias = 10:00 UTC en noviembre.
     expect(appointment?.startsAt).toEqual(new Date("2026-11-13T10:00:00Z"));
@@ -150,7 +174,7 @@ describe("loadKoiboxReader (moodly_worker, RLS, secreto cifrado)", () => {
       [ORG_F],
     );
     await connect(ORG_F, "kbx_revoked_key_not_secret_01", rows[0]?.id ?? null);
-    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_F, apiBase });
+    const koibox = await loadKoiboxReader({ db, vault, organizationId: ORG_F, locationId: rows[0]?.id ?? null, apiBase });
     const err = await koibox?.listServices().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(KoiboxError);
     expect((err as KoiboxError).kind).toBe("unauthorized");

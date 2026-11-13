@@ -15,12 +15,22 @@ import type { SecretVault } from "../secrets/vault.ts";
 //   no se descifra.
 // - La clave en claro solo existe en memoria, dentro del lector. Nunca va a un
 //   log ni a un error.
+// - El local también lo pone el runtime (el de la conversación): con una clave
+//   por local, se usa la de ese local; si no la hay, la de toda la organización.
+//   Nunca la de otro local.
 // - Zona horaria: la del local de la integración; si la integración es de toda
-//   la organización, la de su único local activo. Con varios locales y sin
-//   local en la fila, no se adivina: se rechaza.
+//   la organización, la del local pedido o, sin él, la de su único local
+//   activo. Con varios locales y sin local, no se adivina: se rechaza.
 
 export const KOIBOX_PROVIDER = "koibox";
-export const KOIBOX_SECRET_NAME = "koibox.api_key";
+/**
+ * El nombre del secreto (integration_secrets.name, único por organización): uno
+ * para la clave de toda la organización y uno por local. La fila lo encuentra
+ * por secret_id; el nombre solo lo hace legible y evita choques.
+ */
+export function koiboxSecretName(locationId: string | null): string {
+  return locationId ? `koibox.${locationId}` : "koibox.api_key";
+}
 
 export class KoiboxSetupError extends Error {
   override name = "KoiboxSetupError";
@@ -30,6 +40,8 @@ export interface LoadKoiboxRequest {
   db: ServiceDb;
   vault: SecretVault;
   organizationId: string;
+  /** El local de la conversación o del run (lo pone el runtime), o null si no hay. */
+  locationId: string | null;
   /** KOIBOX_API_BASE (configuración del worker). */
   apiBase?: string | null;
   fetch?: typeof globalThis.fetch;
@@ -44,31 +56,33 @@ interface Row {
 
 /** El lector de Koibox de la organización, o null si no tiene Koibox conectado (activo y con su clave). */
 export async function loadKoiboxReader(request: LoadKoiboxRequest): Promise<KoiboxReader | null> {
-  const { organizationId } = request;
+  const { organizationId, locationId } = request;
   const found = await request.db.forOrganization(organizationId).transaction(async (sql) => {
-    // La de toda la organización primero; si no, la de un local.
+    // La del local pedido primero; si no tiene, la de toda la organización. Nunca la de otro local.
     const [row] = await sql.query<Row>(
       `select i.location_id, s.key_ref, s.encrypted_data_key, s.ciphertext
          from public.integrations i
          join public.integration_secrets s on s.id = i.secret_id and s.organization_id = i.organization_id
         where i.organization_id = $1 and i.provider = $2 and i.kind = 'native' and i.status = 'active'
-          and s.kind = 'integration' and s.name = $3
-        order by i.location_id nulls first
+          and s.kind = 'integration'
+          and (i.location_id is null or i.location_id = $3)
+        order by i.location_id nulls last
         limit 1`,
-      [organizationId, KOIBOX_PROVIDER, KOIBOX_SECRET_NAME],
+      [organizationId, KOIBOX_PROVIDER, locationId],
     );
     if (!row) return null;
+    const zoneLocation = row.location_id ?? locationId;
     const zones = await sql.query<{ timezone: string }>(
-      row.location_id
+      zoneLocation
         ? `select timezone from public.locations where organization_id = $1 and id = $2`
         : `select timezone from public.locations where organization_id = $1 and status = 'active' limit 2`,
-      row.location_id ? [organizationId, row.location_id] : [organizationId],
+      zoneLocation ? [organizationId, zoneLocation] : [organizationId],
     );
     return { row, zones: zones.map((z) => z.timezone) };
   });
   if (!found) return null;
   if (found.zones.length !== 1 || !found.zones[0]) {
-    throw new KoiboxSetupError("No se sabe la zona horaria del centro de Koibox: la integración no tiene local y la organización no tiene un único local activo");
+    throw new KoiboxSetupError("No se sabe la zona horaria del centro de Koibox: ni la integración ni la petición tienen local, y la organización no tiene un único local activo");
   }
   const apiKey = await request.vault.open(organizationId, {
     keyRef: found.row.key_ref,
