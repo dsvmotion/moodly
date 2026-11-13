@@ -29,6 +29,8 @@ const router = createModelRouter([
   createFakeTransport({ provider: "fake", respond: () => ({ text: "Hola, soy el asistente de IA del centro.", model: "fake/fast", tokensIn: 50, tokensOut: 10, costEur: 0.0001 }) }),
 ]);
 const worker = createWorker(config, logger, {
+  // El publicador del outbox cada segundo en lugar de cada 5 s: estos tests esperan a la entrega, no prueban el publicador (eso, outbox.integration.ts).
+  outboxTesting: { publishSchedule: "* * * * * *" },
   eventHandlers: ({ db }) => [
     logHandler,
     createConverseHandler({ router }),

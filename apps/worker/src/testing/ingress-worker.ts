@@ -51,6 +51,8 @@ const worker = createWorker(config, logger, {
   ingestTesting: {
     backoffMs: [100, 100, 100, 100],
     sweepMinAgeMs: 0,
+    // El barrido cada 2 s en lugar de cada minuto (a los 23 s): los tests de rebobinado no esperan al reloj.
+    sweepSchedule: "*/2 * * * * *",
     async beforeAttempt(input, attempt) {
       const data = { provider_event_id: await providerEventId(input) };
       const id = data.provider_event_id;
