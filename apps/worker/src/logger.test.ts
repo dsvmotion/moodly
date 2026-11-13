@@ -84,6 +84,34 @@ describe("createLogger", () => {
     expect(JSON.stringify(lines[0])).not.toContain("s3cr3t");
   });
 
+  it("no registra el detail ni el where de un error de pg (llevan datos de personas)", () => {
+    const { lines, logger } = capture();
+    const pgError = Object.assign(new Error("duplicate key value violates unique constraint \"users_email_key\""), {
+      code: "23505",
+      severity: "ERROR",
+      constraint: "users_email_key",
+      table: "users",
+      detail: "Key (email)=(ana@example.com) already exists.",
+      where: "SQL statement \"insert into users values ('ana@example.com')\"",
+      internalQuery: "select 'ana@example.com'",
+      position: "42",
+      hint: "ana@example.com",
+    });
+    logger.error({ err: pgError }, "error");
+    const text = JSON.stringify(lines[0]);
+    expect(text).not.toContain("ana@example.com");
+    expect(text).toContain("23505");
+    expect(text).toContain("users_email_key");
+  });
+
+  it("una cadena de causas larga se corta y no sale ninguna contraseña", () => {
+    const { lines, logger } = capture();
+    let err = new Error("raíz postgresql://u:s3cr3t@h/db");
+    for (let i = 0; i < 12; i++) err = new Error(`nivel ${i} postgresql://u:s3cr3t@h/db`, { cause: err });
+    logger.fatal({ err }, "error");
+    expect(JSON.stringify(lines[0])).not.toContain("s3cr3t");
+  });
+
   it("también un error en otro campo que no es err", () => {
     const { lines, logger } = capture();
     logger.warn({ reason: new Error("algo") }, "aviso");

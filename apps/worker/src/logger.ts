@@ -34,13 +34,29 @@ export function redactConnectionStrings(text: string): string {
   return text.replace(PG_URL_CREDENTIALS, `$1:${REDACTED}@`).replace(SUPABASE_SECRET_KEY, `sb_secret_${REDACTED}`);
 }
 
-// pino.stdSerializers.err da tipo, mensaje (con los de la cadena de causas),
-// pila, los campos propios (code…) y, en un AggregateError, sus errors
-// serializados. Pierde los campos de la causa (el code de pg o de la red:
-// 28P01, ECONNREFUSED…), así que la causa va además entera, serializada igual.
-function serializeError(err: Error): Record<string, unknown> {
-  const serialized: Record<string, unknown> = { ...pino.stdSerializers.err(err) };
-  if (err.cause instanceof Error) serialized["cause"] = serializeError(err.cause);
+// Lista blanca de lo que sale de un error: tipo, mensaje (pino le suma los de
+// la cadena de causas), pila y los campos que dicen qué falló sin datos de
+// nadie (el code de pg o de la red: 28P01, ECONNREFUSED…). Fuera quedan detail,
+// where, hint, internalQuery, position y cualquier otro campo propio: un 23505
+// lleva en detail el valor duplicado (un email, por ejemplo). Las causas y los
+// errors de un AggregateError, igual y con tope: nunca se registra una cadena
+// entera sin límite.
+const ERROR_FIELDS = ["code", "errno", "syscall", "severity", "routine", "constraint", "table", "column", "schema", "dataType"] as const;
+const MAX_ERROR_CHAIN = 4;
+
+function serializeError(err: Error, level = 0): Record<string, unknown> {
+  const standard = pino.stdSerializers.err(err);
+  const serialized: Record<string, unknown> = { type: standard.type, message: standard.message, stack: standard.stack };
+  const fields = err as unknown as Record<string, unknown>;
+  for (const key of ERROR_FIELDS) {
+    const value = fields[key];
+    if (typeof value === "string" || typeof value === "number") serialized[key] = value;
+  }
+  if (level >= MAX_ERROR_CHAIN) return serialized;
+  if (err.cause instanceof Error) serialized["cause"] = serializeError(err.cause, level + 1);
+  if (err instanceof AggregateError) {
+    serialized["errors"] = err.errors.slice(0, 5).map((inner: unknown) => (inner instanceof Error ? serializeError(inner, level + 1) : { type: typeof inner }));
+  }
   return serialized;
 }
 
