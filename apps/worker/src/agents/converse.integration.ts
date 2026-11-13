@@ -302,6 +302,7 @@ describe("el turno del agente en el worker (paso 4d-2)", () => {
       "find_slots",
       "join_waitlist",
       "list_my_appointments",
+      "request_human",
       "reschedule_appointment",
       "search_knowledge",
     ]);
