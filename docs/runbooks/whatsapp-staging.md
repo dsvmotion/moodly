@@ -13,6 +13,7 @@ Lo hace una persona de producto (las claves solo las ve ella). Los agentes no ve
 
 ## Antes de empezar
 
+- **Paso 0: el worker de staging tiene que estar arriba.** Meta comprueba el webhook con un GET al guardarlo (paso 4) y manda cada mensaje por POST: con el worker caído, ni se da de alta ni llega nada. Comprueba en Railway (servicio `worker`) que el último despliegue está activo y que `GET /health` contesta `ok`. Si no arranca, mira sus logs: por ejemplo, sin `WORKER_DATABASE_URL` válida (el rol `moodly_worker` por el pooler en modo sesión, con TLS) el worker no arranca; se comprueba con Actions → «Staging · worker» → `rls-connect`.
 - La organización de demo de staging existe (Actions → «Staging · organización de demo»), y quien prueba es su `org_admin` con MFA (para aprobar la respuesta en la bandeja).
 - El worker de staging contesta con el modelo de verdad: «Staging · agente» con `saludo` termina en `completed` o `awaiting_approval` (si no, falta `AI_GATEWAY_API_KEY` en Railway).
 - Un teléfono con WhatsApp para recibir y escribir.
