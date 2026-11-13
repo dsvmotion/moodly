@@ -409,6 +409,7 @@ describe("aviso por email del paso a una persona (CU3)", () => {
     const worker = startWorker({
       ...process.env,
       WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       WORKER_EXECUTOR_ID: `test-handoff-email-${process.pid}`,
       WORKER_APP_VERSION: "test-handoff-email",
       LOG_LEVEL: "info",
