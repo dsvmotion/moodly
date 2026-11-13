@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { ConnectorPlatformError, type ConnectorPlatform } from "../platform/types.js";
+import { assertListRequest, cleanCalendarTitle, type CalendarEvent, type CalendarReader } from "./common.js";
+
+export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./common.js";
 
 // Lectura de Google Calendar a través de la plataforma de conectores (O-02,
 // prueba del hub): los próximos eventos del calendario principal de la cuenta
@@ -11,27 +14,7 @@ import { ConnectorPlatformError, type ConnectorPlatform } from "../platform/type
 // que devuelve Google es un dato no confiable: se valida, se recorta y se
 // quitan los caracteres de control antes de devolverlo.
 
-export interface CalendarEvent {
-  id: string;
-  /** El título tal y como lo escribió alguien fuera: dato, nunca instrucción. */
-  title: string;
-  startsAt: Date;
-  endsAt: Date | null;
-  allDay: boolean;
-}
-
-export interface ListUpcomingEventsRequest {
-  from: Date;
-  /** 1–50. */
-  limit: number;
-}
-
-export interface CalendarReader {
-  listUpcomingEvents(request: ListUpcomingEventsRequest): Promise<CalendarEvent[]>;
-}
-
 export const GOOGLE_CALENDAR_EVENTS_PATH = "/calendar/v3/calendars/primary/events";
-const TITLE_MAX = 200;
 
 const when = z.object({ dateTime: z.string().optional(), date: z.string().optional() }).passthrough();
 const eventsResponse = z.object({
@@ -50,15 +33,6 @@ const eventsResponse = z.object({
     .optional(),
 });
 
-function cleanTitle(value: string | undefined): string {
-  return (value ?? "")
-    // eslint-disable-next-line no-control-regex -- quitar caracteres de control es justo el objetivo
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, TITLE_MAX);
-}
-
 function toDate(value: z.infer<typeof when> | undefined): { date: Date; allDay: boolean } | null {
   if (!value) return null;
   const raw = value.dateTime ?? value.date;
@@ -74,8 +48,7 @@ export function createGoogleCalendarReader(
 ): CalendarReader {
   return {
     async listUpcomingEvents({ from, limit }) {
-      if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new RangeError("limit: entre 1 y 50");
-      if (Number.isNaN(from.getTime())) throw new RangeError("from no es una fecha");
+      assertListRequest({ from, limit });
       const body = await platform.proxy({
         integrationKey: connection.integrationKey,
         connectionId: connection.connectionId,
@@ -96,7 +69,7 @@ export function createGoogleCalendarReader(
         const start = toDate(item.start);
         if (!start) continue;
         const end = toDate(item.end);
-        events.push({ id: item.id, title: cleanTitle(item.summary), startsAt: start.date, endsAt: end?.date ?? null, allDay: start.allDay });
+        events.push({ id: item.id, title: cleanCalendarTitle(item.summary), startsAt: start.date, endsAt: end?.date ?? null, allDay: start.allDay });
         if (events.length >= limit) break;
       }
       return events;

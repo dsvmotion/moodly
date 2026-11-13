@@ -30,10 +30,10 @@ function localAdminUrl(): string {
 
 const admin = new pg.Client({ connectionString: localAdminUrl() });
 
-async function row() {
+async function row(provider = "google-calendar") {
   const { rows } = await admin.query<{ id: string; status: string; external_connection_id: string | null; connected_by: string | null }>(
-    "select id, status, external_connection_id, connected_by from public.integrations where organization_id = $1 and provider = 'google-calendar' and kind = 'platform'",
-    [ORG_A],
+    "select id, status, external_connection_id, connected_by from public.integrations where organization_id = $1 and provider = $2 and kind = 'platform'",
+    [ORG_A, provider],
   );
   return rows[0];
 }
@@ -41,23 +41,28 @@ async function row() {
 async function stubCalls(page: Page) {
   const res = await page.request.get(`${STUB}/__stub/calls`);
   return (await res.json()) as {
-    sessions: { tags: Record<string, string>; allowed_integrations: string[] }[];
+    sessions: {
+      tags: Record<string, string>;
+      allowed_integrations: string[];
+      integrations_config_defaults?: Record<string, { connection_config?: Record<string, string> }>;
+    }[];
     deleted: { connectionId: string; integrationKey: string | null }[];
   };
 }
 
 const card = (page: Page) => page.getByTestId("integration-google-calendar");
+const outlookCard = (page: Page) => page.getByTestId("integration-outlook-calendar");
 
 test.describe("Integraciones", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(async () => {
     await admin.connect();
-    await admin.query("delete from public.integrations where organization_id = $1 and provider = 'google-calendar'", [ORG_A]);
+    await admin.query("delete from public.integrations where organization_id = $1 and provider in ('google-calendar', 'outlook-calendar')", [ORG_A]);
   });
 
   test.afterAll(async () => {
-    await admin.query("delete from public.integrations where organization_id = $1 and provider = 'google-calendar'", [ORG_A]);
+    await admin.query("delete from public.integrations where organization_id = $1 and provider in ('google-calendar', 'outlook-calendar')", [ORG_A]);
     await admin.end();
   });
 
@@ -122,6 +127,41 @@ test.describe("Integraciones", () => {
     await expect(card(page).getByTestId("integration-error")).toHaveText(/No hemos podido hablar con el proveedor/);
     await expect(card(page).getByTestId("integration-status")).toHaveText("Conectado");
     expect(await row()).toMatchObject({ status: "active", external_connection_id: connectionId });
+  });
+
+  test("Outlook / Microsoft 365: la sesión pide solo leer el calendario y refrescar; conectado, desconectar la borra en Nango", async ({ page }) => {
+    await signIn(page, "a_org_admin");
+    await page.goto("/app/settings/integrations");
+    await expect(outlookCard(page)).toContainText("Outlook / Microsoft 365");
+    await expect(outlookCard(page).getByTestId("integration-status")).toHaveText("Sin conectar");
+
+    const popupPromise = page.waitForEvent("popup");
+    await outlookCard(page).getByTestId("integration-connect").click();
+    const popup = await popupPromise;
+    await expect(popup).toHaveURL(/^http:\/\/127\.0\.0\.1:3999\/connect\?session_token=stub-session-\d+$/);
+    await popup.close();
+    await expect(outlookCard(page).getByTestId("integration-status")).toHaveText("Pendiente");
+    const pending = await row("outlook-calendar");
+    expect(pending).toMatchObject({ status: "pending", external_connection_id: null });
+    expect((await stubCalls(page)).sessions.at(-1)).toEqual({
+      allowed_integrations: ["outlook"],
+      tags: { organization_id: ORG_A, end_user_id: pending?.connected_by, integration_id: pending?.id },
+      integrations_config_defaults: { outlook: { connection_config: { oauth_scopes_override: "offline_access,Calendars.Read" } } },
+    });
+    // Conectar Outlook no toca Google.
+    await expect(card(page).getByTestId("integration-status")).not.toHaveText("Pendiente");
+
+    const connectionId = `conn-ms-e2e-${randomUUID()}`;
+    await admin.query(
+      "update public.integrations set status = 'active', external_connection_id = $2 where organization_id = $1 and provider = 'outlook-calendar'",
+      [ORG_A, connectionId],
+    );
+    await page.reload();
+    await expect(outlookCard(page).getByTestId("integration-status")).toHaveText("Conectado");
+    await outlookCard(page).getByTestId("integration-disconnect").click();
+    await expect(outlookCard(page).getByTestId("integration-status")).toHaveText("Desconectado");
+    expect((await stubCalls(page)).deleted).toContainEqual({ connectionId, integrationKey: "outlook" });
+    expect(await row("outlook-calendar")).toMatchObject({ status: "disconnected", external_connection_id: null });
   });
 
   test("quien no administra la organización no ve el estado ni puede conectar", async ({ page }) => {

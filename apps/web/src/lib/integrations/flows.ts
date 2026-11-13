@@ -62,6 +62,7 @@ export async function connectFlow(
     const session = await platform.createConnectSession({
       integrationKey: entry.integrationKey,
       tags: { organization_id: tags.organizationId, end_user_id: tags.userId, integration_id: integrationId },
+      ...(entry.scopes ? { scopes: entry.scopes } : {}),
     });
     connectLink = session.connectLink;
   } catch (err) {

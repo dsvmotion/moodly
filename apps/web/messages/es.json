@@ -707,6 +707,10 @@
       "google-calendar": {
         "name": "Google Calendar",
         "description": "Los agentes consultan la agenda de tu cuenta de Google. Por ahora, solo lectura."
+      },
+      "outlook-calendar": {
+        "name": "Outlook / Microsoft 365",
+        "description": "Los agentes consultan el calendario de tu cuenta de Microsoft 365 u Outlook. Por ahora, solo lectura."
       }
     },
     "errors": {

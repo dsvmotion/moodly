@@ -56,7 +56,7 @@ export type {
   PlatformConnection,
   ProxyRequest,
 } from "./platform/types.js";
-export { PLATFORM_INTEGRATIONS, platformIntegration, platformIntegrationByKey } from "./platform/catalog.js";
+export { PLATFORM_INTEGRATIONS, platformIntegration, platformIntegrationByKey, platformIntegrationsIn } from "./platform/catalog.js";
 export type { PlatformCategory, PlatformIntegration } from "./platform/catalog.js";
 export { NANGO_DEFAULT_HOST, createNangoPlatform, parseNangoHost } from "./platform/transports/nango.js";
 export type { NangoPlatformOptions } from "./platform/transports/nango.js";
@@ -71,4 +71,5 @@ export type { NangoAuthWebhook } from "./platform/transports/nango-webhook.js";
 export { createFakeConnectorPlatform } from "./platform/fake.js";
 export type { FakeConnectorPlatform, FakeConnectorPlatformOptions } from "./platform/fake.js";
 export { GOOGLE_CALENDAR_EVENTS_PATH, createGoogleCalendarReader } from "./calendar/google.js";
-export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./calendar/google.js";
+export { OUTLOOK_CALENDAR_HORIZON_DAYS, OUTLOOK_CALENDAR_VIEW_PATH, createOutlookCalendarReader } from "./calendar/outlook.js";
+export type { CalendarEvent, CalendarReader, ListUpcomingEventsRequest } from "./calendar/common.js";

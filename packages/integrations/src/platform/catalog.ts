@@ -12,11 +12,32 @@ export interface PlatformIntegration {
   /** La clave de la integración en la plataforma. */
   integrationKey: string;
   category: PlatformCategory;
+  /**
+   * Los permisos que se piden al autorizar, los mínimos para lo que hacemos
+   * (solo lectura). Si se dan, la sesión de conexión los fija (en Nango,
+   * oauth_scopes_override): no dependen de cómo esté configurada la integración
+   * en la plataforma. Sin ellos, los de la integración (Google: la app de Nango).
+   */
+  scopes?: readonly string[];
 }
 
 export const PLATFORM_INTEGRATIONS: readonly PlatformIntegration[] = Object.freeze([
   Object.freeze({ provider: "google-calendar", integrationKey: "google-calendar", category: "calendar" }),
+  // Microsoft 365 / Outlook: el proveedor «outlook» de Nango (Graph). Nunca
+  // «.default» (todo lo que la app tenga concedido): solo leer el calendario y
+  // offline_access para que la plataforma pueda refrescar el token.
+  Object.freeze({
+    provider: "outlook-calendar",
+    integrationKey: "outlook",
+    category: "calendar",
+    scopes: Object.freeze(["offline_access", "Calendars.Read"]),
+  }),
 ]);
+
+/** Las de una categoría, en el orden del catálogo. */
+export function platformIntegrationsIn(category: PlatformCategory): PlatformIntegration[] {
+  return PLATFORM_INTEGRATIONS.filter((entry) => entry.category === category);
+}
 
 /** La entrada de un proveedor, o undefined si no está en el catálogo (p. ej. lo que manda un cliente). */
 export function platformIntegration(provider: unknown): PlatformIntegration | undefined {

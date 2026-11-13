@@ -9,8 +9,8 @@ import { displayStatus, type IntegrationStatus } from "@/lib/integrations/status
 import { IntegrationCard } from "./integration-card";
 
 // Ajustes → Integraciones (P6, MANUAL §9.4; O-02, ADR 0053): las cuentas del
-// negocio que usan los agentes. Empieza por Google Calendar, a través de la
-// plataforma de conectores. Las ve y las conecta el org_admin con MFA (RLS lo
+// negocio que usan los agentes: los calendarios de Google y de Microsoft 365, a
+// través de la plataforma de conectores. Las ve y las conecta el org_admin con MFA (RLS lo
 // exige igual); el resto del equipo ve que existen, sin su estado.
 
 export default async function IntegrationsPage() {
