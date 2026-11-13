@@ -116,6 +116,9 @@ const router = createModelRouter([createFakeTransport({ provider: "fake", respon
 const embedder = createFakeEmbedder(256);
 const route: RouteOrigin = { provider: "vercel-ai-gateway", region: "other", connection: "managed" };
 const worker = createWorker(config, logger, {
+  // El publicador del outbox, cada segundo en vez de cada 5 s: cada turno o aviso del test
+  // empieza por un evento de dominio, y así no espera a la vuelta de producción.
+  schedulesTesting: { outboxPublish: "* * * * * *" },
   eventHandlers: [
     logHandler,
     createConverseHandler({ router, knowledge: { embedder, route } }),

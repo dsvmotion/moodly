@@ -62,6 +62,13 @@ export interface WorkerOptions {
   channelAdapters?: readonly ChannelAdapter[];
   /** Solo para tests: fallos inyectados y esperas cortas en los intentos de la entrada. */
   ingestTesting?: Pick<IngestOptions, "beforeAttempt" | "beforeRecordFailure" | "backoffMs" | "sweepMinAgeMs">;
+  /**
+   * Solo para tests: programaciones más frecuentes (cron de DBOS, con segundos)
+   * para no esperar a las de producción (el publicador cada 5 s, el barrido de
+   * la entrada cada minuto). Se guardan en la base de datos de sistema y cada
+   * worker aplica las suyas al arrancar.
+   */
+  schedulesTesting?: { outboxPublish?: string; ingestSweep?: string };
 }
 
 /** Lo que el worker comparte con los consumidores que registran workflows propios. */
@@ -180,8 +187,8 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       // configuración solo la actualiza la última versión.
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
-      await startOutbox(outbox);
-      await startIngestQueue(ingest.sweep);
+      await startOutbox(outbox, options.schedulesTesting?.outboxPublish);
+      await startIngestQueue(ingest.sweep, options.schedulesTesting?.ingestSweep);
       if (adapters.size > 0) {
         ingress = createIngressHandler(
           (channel, webhook) => receiveWebhook(channel, webhook, { db, adapters, startIngest: ingest.start, logger }),
