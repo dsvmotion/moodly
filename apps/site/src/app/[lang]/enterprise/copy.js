@@ -15,7 +15,7 @@ export const COPY = {
     ],
     deployA: "Opciones de despliegue.", deployB: "Según tus requisitos de seguridad.",
     deploy: [
-      ["Nube compartida", "Alojada en la UE [por confirmar proveedor y región].", "Estándar"],
+      ["Nube compartida", "Base de datos en la UE (Supabase); los modelos de IA, de forma global.", "Estándar"],
       ["Nube dedicada", "Instancia solo para tu empresa, gestionada por Moodly.", "Enterprise · [desde N sedes]"],
       ["Tu propia nube", "Despliegue en tu cuenta de Azure, AWS o Google Cloud.", "Enterprise · [desde N sedes]"],
       ["En tus servidores", "Instalación on-premise con contenedores.", "Enterprise · [a valorar]"],
@@ -35,7 +35,7 @@ export const COPY = {
     buy: [
       ["Implantación a medida", "Presupuesto cerrado por proyecto, como pago único.", ["Integraciones a medida con tus sistemas", "Carga del conocimiento y configuración de agentes, sedes y permisos", "Formación de tu equipo"]],
       ["Contrato con factura", "En lugar del alta con tarjeta.", ["Créditos de IA comprometidos o plan mensual", "Factura en vez de cargo en tarjeta", "La IA siempre con su tope de gasto y sus avisos"]],
-      ["Lo que suma Enterprise", "Sobre todo lo del autoservicio.", ["SSO y SCIM, en hoja de ruta", "DPA y residencia en la UE", "Auditoría consultable", "Soporte con canal dedicado", "Nube dedicada, en hoja de ruta"]],
+      ["Lo que suma Enterprise", "Sobre todo lo del autoservicio.", ["SSO y SCIM, en hoja de ruta", "DPA y, si lo pides, modelos solo en la UE", "Auditoría consultable", "Soporte con canal dedicado", "Nube dedicada, en hoja de ruta"]],
     ],
     buyNote: "Los importes se acuerdan en cada propuesta. Para empezar por tu cuenta, mira los precios de autoservicio.",
     pricingLink: "Ver precios",
@@ -55,7 +55,7 @@ export const COPY = {
     ],
     deployA: "Deployment options.", deployB: "To match your security requirements.",
     deploy: [
-      ["Shared cloud", "Hosted in the EU [provider and region to be confirmed].", "Standard"],
+      ["Shared cloud", "Database in the EU (Supabase); AI models, globally.", "Standard"],
       ["Dedicated cloud", "An instance just for your company, managed by Moodly.", "Enterprise · [from N locations]"],
       ["Your own cloud", "Deployment in your Azure, AWS or Google Cloud account.", "Enterprise · [from N locations]"],
       ["On your servers", "On-premise installation with containers.", "Enterprise · [to be assessed]"],
@@ -75,7 +75,7 @@ export const COPY = {
     buy: [
       ["Tailored implementation", "A fixed quote per project, paid once.", ["Custom integrations with your systems", "Knowledge loading and setup of agents, locations and permissions", "Training for your team"]],
       ["Invoiced contract", "Instead of signing up with a card.", ["Committed AI credits or a monthly plan", "An invoice instead of a card charge", "AI always with its spending cap and alerts"]],
-      ["What Enterprise adds", "On top of everything in self-service.", ["SSO and SCIM, on the roadmap", "DPA and EU data residency", "Searchable audit log", "Support through a dedicated channel", "Dedicated cloud, on the roadmap"]],
+      ["What Enterprise adds", "On top of everything in self-service.", ["SSO and SCIM, on the roadmap", "DPA and, if you ask, EU-only models", "Searchable audit log", "Support through a dedicated channel", "Dedicated cloud, on the roadmap"]],
     ],
     buyNote: "Amounts are agreed in each proposal. To start on your own, see the self-service pricing.",
     pricingLink: "See pricing",
@@ -95,7 +95,7 @@ export const COPY = {
     ],
     deployA: "Options de déploiement.", deployB: "Selon vos exigences de sécurité.",
     deploy: [
-      ["Cloud partagé", "Hébergé dans l'UE [fournisseur et région à confirmer].", "Standard"],
+      ["Cloud partagé", "Base de données dans l'UE (Supabase) ; les modèles d'IA, à l'échelle mondiale.", "Standard"],
       ["Cloud dédié", "Une instance rien que pour votre entreprise, gérée par Moodly.", "Enterprise · [à partir de N sites]"],
       ["Votre propre cloud", "Déploiement sur votre compte Azure, AWS ou Google Cloud.", "Enterprise · [à partir de N sites]"],
       ["Sur vos serveurs", "Installation on-premise avec conteneurs.", "Enterprise · [à évaluer]"],
@@ -115,7 +115,7 @@ export const COPY = {
     buy: [
       ["Mise en place sur mesure", "Devis fermé par projet, en paiement unique.", ["Intégrations sur mesure avec vos systèmes", "Chargement des connaissances et configuration des agents, sites et permissions", "Formation de votre équipe"]],
       ["Contrat sur facture", "À la place de l'inscription par carte.", ["Crédits d'IA engagés ou plan mensuel", "Une facture au lieu d'un prélèvement sur carte", "L'IA toujours avec son plafond de dépense et ses alertes"]],
-      ["Ce qu'ajoute Enterprise", "En plus de tout le libre-service.", ["SSO et SCIM, sur la feuille de route", "DPA et hébergement des données dans l'UE", "Journal d'audit consultable", "Support via un canal dédié", "Cloud dédié, sur la feuille de route"]],
+      ["Ce qu'ajoute Enterprise", "En plus de tout le libre-service.", ["SSO et SCIM, sur la feuille de route", "DPA et, sur demande, modèles uniquement dans l'UE", "Journal d'audit consultable", "Support via un canal dédié", "Cloud dédié, sur la feuille de route"]],
     ],
     buyNote: "Les montants sont fixés dans chaque proposition. Pour démarrer seul, consultez les tarifs en libre-service.",
     pricingLink: "Voir les tarifs",
@@ -135,7 +135,7 @@ export const COPY = {
     ],
     deployA: "Bereitstellungsoptionen.", deployB: "Passend zu deinen Sicherheitsanforderungen.",
     deploy: [
-      ["Geteilte Cloud", "Gehostet in der EU [Anbieter und Region zu bestätigen].", "Standard"],
+      ["Geteilte Cloud", "Datenbank in der EU (Supabase); die KI-Modelle, weltweit.", "Standard"],
       ["Dedizierte Cloud", "Eine Instanz nur für dein Unternehmen, von Moodly verwaltet.", "Enterprise · [ab N Standorten]"],
       ["Deine eigene Cloud", "Bereitstellung in deinem Azure-, AWS- oder Google-Cloud-Konto.", "Enterprise · [ab N Standorten]"],
       ["Auf deinen Servern", "On-Premise-Installation mit Containern.", "Enterprise · [zu bewerten]"],
@@ -155,7 +155,7 @@ export const COPY = {
     buy: [
       ["Einrichtung nach Maß", "Festpreisangebot pro Projekt, als Einmalzahlung.", ["Individuelle Integrationen mit deinen Systemen", "Wissen einspielen und Agenten, Standorte und Berechtigungen einrichten", "Schulung deines Teams"]],
       ["Vertrag auf Rechnung", "Statt Anmeldung mit Karte.", ["Zugesagtes KI-Guthaben oder Monatsplan", "Rechnung statt Kartenabbuchung", "KI immer mit Ausgabenlimit und Warnungen"]],
-      ["Was Enterprise dazu bringt", "Zusätzlich zu allem aus dem Self-Service.", ["SSO und SCIM, auf der Roadmap", "AVV und Datenhaltung in der EU", "Durchsuchbares Audit-Log", "Support über einen eigenen Kanal", "Dedizierte Cloud, auf der Roadmap"]],
+      ["Was Enterprise dazu bringt", "Zusätzlich zu allem aus dem Self-Service.", ["SSO und SCIM, auf der Roadmap", "AVV und, auf Wunsch, Modelle nur in der EU", "Durchsuchbares Audit-Log", "Support über einen eigenen Kanal", "Dedizierte Cloud, auf der Roadmap"]],
     ],
     buyNote: "Die Beträge werden in jedem Angebot vereinbart. Um selbst zu starten, sieh dir die Self-Service-Preise an.",
     pricingLink: "Preise ansehen",
