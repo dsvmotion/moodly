@@ -1,4 +1,4 @@
-import type { ChannelAdapter, NormalizedInbound, RawWebhook, VerifiedSender } from "@repo/channels";
+import type { ChannelAdapter, DeliveryUpdate, NormalizedInbound, RawWebhook, VerifiedSender } from "@repo/channels";
 import type { ServiceDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { DEAD_LETTER } from "./attempts.ts";
@@ -19,7 +19,12 @@ import type { IngestInput } from "./ingest.ts";
 //      una sola vez (clave única por cuenta e id del evento): un reintento del
 //      proveedor no crea nada nuevo;
 //   5. el workflow que lo convierte en mensaje (channels.ingest), con id
-//      determinista: arrancarlo dos veces devuelve el mismo.
+//      determinista: arrancarlo dos veces devuelve el mismo;
+//   6. cada aviso de estado (enviado, entregado, leído, fallido), por la cuenta
+//      que envió el mensaje, igual que en 3: se aplica al mensaje que salió con
+//      ese id del proveedor, de esa organización y de esa cuenta. El estado solo
+//      avanza (guard_delivery_status); un aviso de un mensaje que no se conoce
+//      se ignora.
 //
 // Responde 200 en cuanto todo lo que llegó está guardado: el proveedor no
 // tiene que reintentar lo que ya está a salvo, aunque se vaya a ignorar.
@@ -90,8 +95,20 @@ export async function receiveWebhook(channel: string, webhook: RawWebhook, deps:
       log.error({ error: (error as Error).name }, "un mensaje del webhook no se pudo guardar; el proveedor lo repetirá");
     }
   }
+  const applied = { applied: 0, unmatched: 0, ignored: 0 };
+  for (const update of parsed.statuses) {
+    try {
+      applied[await applyStatus(channel, sender, update, deps, log)] += 1;
+    } catch (error) {
+      retryLater = true;
+      log.error({ error: (error as Error).name }, "un aviso de estado no se pudo aplicar; el proveedor lo repetirá");
+    }
+  }
   if (retryLater) result.status = 500;
-  log.info({ accepted: result.accepted, duplicates: result.duplicates, ignored: result.ignored }, "webhook recibido");
+  log.info(
+    { accepted: result.accepted, duplicates: result.duplicates, ignored: result.ignored, statuses: applied },
+    "webhook recibido",
+  );
   return result;
 }
 
@@ -166,4 +183,59 @@ async function receiveOne(
   }
   await deps.startIngest({ organizationId: account.organizationId, inboundEventId });
   return outcome;
+}
+
+type StatusOutcome = "applied" | "unmatched" | "ignored";
+
+/**
+ * Aplica un aviso de estado al mensaje que salió (como moodly_worker por SQL
+ * bajo RLS, 20261113110000): el de la organización de la cuenta que lo envió,
+ * en una conversación de esa cuenta y con ese id del proveedor. Las reglas del
+ * estado son de la base de datos (guard_delivery_status): un aviso tardío o
+ * repetido no lo hace retroceder. El error del proveedor solo con un fallo.
+ */
+async function applyStatus(
+  channel: string,
+  sender: VerifiedSender,
+  update: DeliveryUpdate,
+  deps: ReceiveDeps,
+  log: Logger,
+): Promise<StatusOutcome> {
+  if (update.channel !== channel) {
+    log.warn({ reason: "channel_mismatch" }, "aviso de estado de otro canal en el webhook");
+    return "ignored";
+  }
+  if (sender.scope === "account" && update.accountExternalId !== sender.accountExternalId) {
+    log.warn({ securityEvent: "ingress.account_mismatch" }, "aviso de estado para una cuenta distinta de la firmada");
+    return "ignored";
+  }
+  const account = await deps.db.channelAccounts.resolve(channel, update.accountExternalId);
+  // Una cuenta desactivada sigue recibiendo los avisos de lo que ya envió.
+  if (!account) {
+    log.info({ reason: "account_unknown" }, "aviso de estado para una cuenta que no existe");
+    return "ignored";
+  }
+  const tenant = deps.db.forOrganization(account.organizationId);
+  let updated: number;
+  try {
+    updated = await tenant.transaction(async (sql) => {
+      const rows = await sql.query<{ id: string }>(
+        `update public.messages m
+         set status = $4, delivery_error = case when $4 = 'failed' then $5 else m.delivery_error end
+         where m.organization_id = $1 and m.external_message_id = $3 and m.direction = 'out'
+           and m.conversation_id in (select c.id from public.conversations c where c.organization_id = $1 and c.channel_account_id = $2)
+         returning m.id`,
+        [account.organizationId, account.id, update.providerMessageId, update.status, update.errorCode ?? null],
+      );
+      return rows.length;
+    });
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (typeof code === "string" && PERMANENT_CODES.has(code)) {
+      log.warn({ reason: "rejected_by_database", code }, "aviso de estado que la base de datos no admite: se ignora");
+      return "ignored";
+    }
+    throw new TransientIngressError(`no se pudo aplicar el aviso de estado (${typeof code === "string" ? code : "unknown"})`, { cause: error });
+  }
+  return updated > 0 ? "applied" : "unmatched";
 }
