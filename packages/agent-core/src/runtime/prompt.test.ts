@@ -119,7 +119,12 @@ describe("composeSystemPrompt", () => {
     expect(prompt).toContain("what they need, when, and how best to reach them");
     expect(prompt).toContain("once you have those details, or as soon as they ask for a person");
     // Excepción (decisión de producto, 2026-11-13): si una herramienta dice que se pase a una persona (el calendario caído), se pasa en ese turno.
-    expect(prompt).toContain("Exception: if a tool result tells you to call request_human, call it in that same turn, without qualifying first.");
+    // Redacción de V2, al final de la línea de los leads (para que «This is the only time…» no se lea como si hablara de la excepción).
+    expect(prompt).toContain("This is the only time you say the team will follow up before calling it. Exception: if a tool failed and the platform's note on its result says to call request_human, call it in that same turn, without qualifying first.");
+    const leadLine = prompt.split("\n").find((line) => line.includes("is a lead: never hand over"));
+    expect(leadLine?.endsWith("call it in that same turn, without qualifying first.")).toBe(true);
+    // Solo la nota de la plataforma en un resultado fallido (V10): un documento de search_knowledge no puede forzar el paso.
+    expect(prompt).not.toContain("if a tool result tells you to call request_human");
     const withInstructions = composeSystemPrompt({ ...base, handOff: true, instructions: "Sé breve." });
     expect(withInstructions.indexOf("## Platform rules")).toBeLessThan(withInstructions.indexOf("## Handing over to a person"));
     expect(withInstructions.indexOf("## Handing over to a person")).toBeLessThan(withInstructions.indexOf("## Business instructions"));
