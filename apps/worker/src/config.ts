@@ -1,5 +1,5 @@
 import { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/agent-core";
-import { parseNangoHost } from "@repo/integrations";
+import { parseKoiboxApiBase, parseNangoHost } from "@repo/integrations";
 import { z } from "zod";
 
 // Configuración del worker, desde variables de entorno (ADR 0027, «Lo que el
@@ -52,6 +52,13 @@ export interface WorkerConfig {
    * integración de plataforma se activa. Nunca van a los logs.
    */
   nango: { secretKey: string; webhookSigningKey: string; host: string } | null;
+  /**
+   * La URL base de la API de Koibox (int-koibox, O-02): KOIBOX_API_BASE, por
+   * defecto la de Koibox. https, o http solo en loopback (el stub de los tests).
+   * Nunca de una organización. La clave de cada centro va cifrada en
+   * integration_secrets (ADR 0034).
+   */
+  koiboxApiBase: string;
   /**
    * WhatsApp por la Cloud API de Meta (O-01, ADR 0020): el secreto de la app
    * (firma de los webhooks), el token de verificación del alta y el token de
@@ -182,6 +189,18 @@ const schema = z.object({
       }
     }, "NANGO_HOST: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
     .optional(),
+  // Koibox (O-02): la URL base, https o http solo en loopback. Vacía cuenta como ausente.
+  KOIBOX_API_BASE: z
+    .string()
+    .refine((value) => {
+      try {
+        parseKoiboxApiBase(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "KOIBOX_API_BASE: https://… (o http:// solo en loopback), sin credenciales ni parámetros")
+    .optional(),
   // WhatsApp Cloud API (O-01). Vacías cuentan como ausentes; las tres o ninguna.
   WHATSAPP_APP_SECRET: visibleSecret("WHATSAPP_APP_SECRET", 16, 512),
   WHATSAPP_VERIFY_TOKEN: visibleSecret("WHATSAPP_VERIFY_TOKEN", 16, 512),
@@ -227,6 +246,7 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
             host: parseNangoHost(parsed.data.NANGO_HOST),
           }
         : null,
+    koiboxApiBase: parseKoiboxApiBase(parsed.data.KOIBOX_API_BASE),
     whatsapp: whatsappConfig(parsed.data),
   };
 }
