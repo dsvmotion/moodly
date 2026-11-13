@@ -1,4 +1,4 @@
-import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, composeSystemPromptParts, createFakeTransport, createModelRouter, handOffTextForConversation, runAgentTurn } from "@repo/agent-core";
 import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
@@ -99,12 +99,17 @@ export interface RunOptions {
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
   const world = createWorld(testCase.agent, testCase.knowledge, testCase.business);
   await testCase.setup?.(world);
+  // Lo que el caso dejó pendiente con el equipo va en el prompt, como lo pone el worker (CU3).
+  const prompt = composeSystemPromptParts({ ...world.promptContext, pendingRequests: world.pendingRequests });
+  // El mundo guarda el prompt que de verdad recibe el modelo.
+  world.systemPromptParts = prompt;
+  world.systemPrompt = `${prompt.stable}\n\n${prompt.volatile}`;
   const appointmentsBefore = snapshotAppointments(world);
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPromptParts.stable,
-    systemContext: world.systemPromptParts.volatile,
+    systemPrompt: prompt.stable,
+    systemContext: prompt.volatile,
     history: testCase.history,
     ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
@@ -125,7 +130,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     result,
     world,
     // Con un paso explícito sin respuesta, el texto fijo que vería el cliente (CU3).
-    reply: replyOf(result, HAND_OFF_TEXTS.es),
+    reply: replyOf(result, handOffTextForConversation(testCase.history, HAND_OFF_TEXTS.es)),
     calls: result.executions.filter((execution) => execution.skillKey !== "reply"),
     appointmentsBefore,
   };

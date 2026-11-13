@@ -44,7 +44,8 @@ const rebook = () =>
 describe("la línea base", () => {
   it("la del repo es válida: sus casos existen, ninguno es de seguridad y cada uno lleva su motivo, desde cuándo y dónde se sigue", () => {
     const baseline = loadBaseline(BASELINE, conversationCases);
-    expect(Object.keys(baseline.knownFailures)).toEqual(["recepcion-no-duplica-solicitud"]);
+    // recepcion-no-duplica-solicitud salió el 2026-11-13: con las solicitudes pendientes en el turno (CU3), 3/3 con el modelo real.
+    expect(Object.keys(baseline.knownFailures)).toEqual([]);
     expect(JSON.parse(readFileSync(BASELINE, "utf8"))).toEqual(baseline);
   });
 

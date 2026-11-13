@@ -1,4 +1,4 @@
-import { HAND_OFF_TEXTS } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, handOffTextForConversation } from "@repo/agent-core";
 import type { TurnResult } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases } from "./cases.js";
@@ -124,7 +124,7 @@ describe("en negativo", () => {
 describe("qué casos se cumplen pasando la conversación a una persona", () => {
   // Revisado caso por caso (decisión de V1): estos se cumplen con un paso
   // explícito. Los de seguridad, porque el paso no da datos, no se inventa
-  // nada, no confirma nada y dice que es una IA. Los dos de comportamiento,
+  // nada, no confirma nada y dice que es una IA. Los tres de comportamiento,
   // porque lo que esperan es justo el paso. Un caso nuevo que se cumpla con un
   // paso tiene que entrar aquí a propósito; si espera que lo resuelva el
   // agente, lleva `doesNotHandOff`.
@@ -149,6 +149,7 @@ describe("qué casos se cumplen pasando la conversación a una persona", () => {
     "cliente-inyeccion-revelar-prompt",
     "cliente-inyeccion-descuento",
     "cliente-fuera-de-ambito",
+    "cliente-idioma-en",
     "restaurante-grupo-grande",
     "restaurante-telefono-de-otro",
     "taller-estado-del-coche",
@@ -164,11 +165,14 @@ describe("qué casos se cumplen pasando la conversación a una persona", () => {
       const run = await runCase(testCase, scriptedTransport([handOff()]));
       // El paso acaba el turno: lo que miden las comprobaciones es el texto fijo, no otra respuesta del modelo.
       expect(isExplicitHandOff(run.outcome.result), testCase.id).toBe(true);
-      expect(run.outcome.reply, testCase.id).toBe(HAND_OFF_TEXTS.es);
+      // El texto fijo en el idioma del cliente (es si no se sabe), como lo da el turno.
+      expect(run.outcome.reply, testCase.id).toBe(handOffTextForConversation(testCase.history, HAND_OFF_TEXTS.es));
       if (run.failures.length === 0) satisfied.push(testCase.id);
     }
     expect(satisfied.sort()).toEqual([...EXPECTED].sort());
     const behavior = satisfied.filter((id) => caseById(id).severity === "behavior");
-    expect(behavior.sort()).toEqual(["cliente-fuera-de-ambito", "restaurante-grupo-grande"]);
+    // cliente-idioma-en: no sabe lo que pregunta y dice que contestará una persona; con la regla de producto
+    // (prometer una persona es llamar a request_human), el paso es lo esperado, con el texto fijo en inglés.
+    expect(behavior.sort()).toEqual(["cliente-fuera-de-ambito", "cliente-idioma-en", "restaurante-grupo-grande"]);
   });
 });

@@ -3,6 +3,7 @@ import {
   AUTONOMY_LEVELS,
   EFFECT_CLASSES,
   HAND_OFF_TEXTS,
+  MAX_PROMPT_PENDING,
   REQUEST_HUMAN_SKILL_KEY,
   composeSystemPromptParts,
   decide,
@@ -15,6 +16,7 @@ import type {
   BookableService,
   HistoryMessage,
   ModelRouter,
+  PendingRequest,
   RouteOrigin,
   SkillDefinition,
   SkillSettings,
@@ -23,7 +25,7 @@ import type {
   TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
-import type { TenantDb } from "@repo/db/service";
+import type { TenantDb, TenantSql } from "@repo/db/service";
 import type { Embedder } from "@repo/knowledge";
 import {
   APPOINTMENT_REMINDER_SKILL_KEY,
@@ -188,6 +190,8 @@ type Prepared =
       /** Solo si el agente busca huecos: lo que se puede reservar en el local. */
       services: BookableService[] | null;
       servicesTruncated: boolean;
+      /** Lo que el agente ya pidió en esta conversación y espera al equipo (CU3), lo más reciente primero. */
+      pendingRequests: PendingRequest[];
       /** La hora del turno, fijada dentro del paso: al reanudar es la misma. */
       now: string;
     };
@@ -215,7 +219,45 @@ type Loaded =
       modelSettings: unknown;
       serviceRows: ServiceRow[];
       spent: { dayEur: number; monthEur: number };
+      pending: { skill_key: string; summary: string }[];
     };
+
+/**
+ * Lo que el agente ya pidió en esta conversación y espera al equipo (CU3): las
+ * ejecuciones de turnos anteriores en borrador o pendientes de aprobación, con
+ * el resumen de su vista previa. La conversación es la de la fila; el run, el
+ * del mensaje que lo lanzó (trigger_ref, sin clave ajena: por eso cada tabla
+ * lleva la organización explícita, además de RLS); la organización, la del
+ * worker, nunca un argumento del modelo. Sin las respuestas al cliente ni las
+ * lecturas, y sin las que el equipo ya rechazó o dejó caducar. Exportada para
+ * el test que la prueba sin RLS.
+ */
+export async function loadPendingRequests(
+  sql: Pick<TenantSql, "query">,
+  organizationId: string,
+  conversationId: string,
+): Promise<{ skill_key: string; summary: string }[]> {
+  return sql.query<{ skill_key: string; summary: string }>(
+    `select e.skill_key, e.preview->>'summary' as summary
+     from public.executions e
+     join public.agent_runs r on r.id = e.run_id and r.organization_id = $3
+     join public.messages m on m.id::text = r.trigger_ref and m.organization_id = $3
+     where e.organization_id = $3
+       and r.trigger = 'inbound_message'
+       and m.conversation_id = $1
+       and e.status in ('drafted', 'needs_approval')
+       and e.effect_class not in ('read', 'external_message')
+       and jsonb_typeof(e.preview->'summary') = 'string'
+       and not exists (
+         select 1 from public.approvals a
+         where a.execution_id = e.id and a.organization_id = $3
+           and (a.status in ('rejected', 'expired') or a.expires_at <= now())
+       )
+     order by e.created_at desc
+     limit $2`,
+    [conversationId, MAX_PROMPT_PENDING + 1, organizationId],
+  );
+}
 
 // Exportada para el test de integración que comprueba que no lee conversaciones de otra organización.
 export async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
@@ -276,6 +318,7 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
             [conversation.location_id, MAX_PROMPT_SERVICES + 1],
           )
         : [];
+    const pending = await loadPendingRequests(sql, db.organizationId, conversationId);
     // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
     // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
     // organización, usage_records_worker, 20261112120000).
@@ -296,10 +339,11 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
       modelSettings: modelSettings ?? null,
       serviceRows,
       spent: { dayEur: spent?.day_eur ?? 0, monthEur: spent?.month_eur ?? 0 },
+      pending,
     };
   });
   if (loaded.kind === "skip") return loaded;
-  const { conversation, context, books, messages, location, modelSettings, serviceRows, spent } = loaded;
+  const { conversation, context, books, messages, location, modelSettings, serviceRows, spent, pending } = loaded;
   const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
@@ -315,6 +359,7 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     monthEur: spent.monthEur,
     services: bookable?.services ?? null,
     servicesTruncated: bookable?.truncated ?? false,
+    pendingRequests: pending.map((row) => ({ skillKey: row.skill_key, summary: row.summary })),
     now: now.toISOString(),
   };
 }
@@ -743,6 +788,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
         knowledge: searchesKnowledge,
         handOff: handsOff,
+        pendingRequests: prepared.pendingRequests,
       });
       // Las llamadas que el libro de consumo no pudo anotar durante el turno: se reintentan al cerrar el run.
       const unrecorded: TurnModelCall[] = [];
