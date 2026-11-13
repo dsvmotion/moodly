@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { handOffTextForConversation } from "./language.js";
 import { AllTransportsFailedError, BudgetExceededError } from "../models/router.js";
 import type { ModelMessage, ModelPolicy, ModelRouter, RoutedResult, Spend, ToolCall, ToolSpec } from "../models/router.js";
 import { decide } from "../policy.js";
@@ -162,7 +163,9 @@ export interface TurnParams {
   settings: ReadonlyMap<string, SkillSettings>;
   /**
    * El texto para el cliente si el modelo pasa la conversación a una persona
-   * (HAND_OFF_TEXTS, en el idioma de la organización). Sin él, no se le dice nada.
+   * (HAND_OFF_TEXTS, en el idioma de la organización). Sin él, no se le dice
+   * nada. Con él, el turno lo da en el idioma del último mensaje del cliente si
+   * hay texto en ese idioma (handOffTextForConversation); si no, este.
    */
   handOffText?: string;
   router: ModelRouter;
@@ -232,14 +235,19 @@ function toolResult(execution: TurnExecution): string {
     case "executed":
       return JSON.stringify({ status: "executed", output: execution.output });
     case "failed": {
-      const note = execution.error ? FAILED_TOOL_NOTES[execution.error] : undefined;
+      // Solo claves propias de la tabla: un nombre como «constructor» o «__proto__» no da nota (V10).
+      const note = execution.error && Object.hasOwn(FAILED_TOOL_NOTES, execution.error) ? FAILED_TOOL_NOTES[execution.error] : undefined;
       return JSON.stringify({ status: "failed", error: execution.error, ...(note ? { note } : {}) });
     }
     case "rejected":
       return JSON.stringify({ status: "rejected", reason: execution.rejectReason });
     default:
       // Pendiente de una persona: el modelo lo dice al cliente sin darlo por hecho.
-      return JSON.stringify({ status: "pending_review", note: "A person from the team will review it before it is done: tell the customer, in their language, and never say it is done." });
+      // Ya lo tiene el equipo: no hace falta request_human (CU3, corrida real sobre 165e840).
+      return JSON.stringify({
+        status: "pending_review",
+        note: "A person from the team will review it before it is done: tell the customer, in their language, and never say it is done. It is already with the team: do not call request_human for it.",
+      });
   }
 }
 
@@ -446,7 +454,8 @@ export async function runAgentTurn(params: TurnParams): Promise<TurnResult> {
         // podría salir, porque la conversación ya la lleva una persona (R-02).
         const reply = params.settings.get(REPLY_SKILL_KEY);
         if (params.handOffText && reply?.enabled && (reply.autonomy === "execute" || reply.autonomy === "autonomous")) {
-          await settle({ id: `handoff:${stepIndex}`, name: REPLY_SKILL_KEY, args: { text: params.handOffText } }, stepIndex, calls.length, true);
+          const text = handOffTextForConversation(params.history, params.handOffText);
+          await settle({ id: `handoff:${stepIndex}`, name: REPLY_SKILL_KEY, args: { text } }, stepIndex, calls.length, true);
         }
         return withIntent({ status: "handed_off", reason: handOff, executions, usage });
       }

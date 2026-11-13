@@ -561,7 +561,8 @@ describe("la entrada de WhatsApp de punta a punta (O-01)", () => {
     // Ni reintentos del paso ni del publicador: después de esperar, sigue habiendo un solo envío.
     await new Promise((resolve) => setTimeout(resolve, 8_000));
     expect(requestsFor(messageId)).toHaveLength(1);
-    expect(await sentState(messageId)).toEqual({ status: "unknown", external_message_id: null, delivery_error: null });
+    // El código de por qué no se sabe queda apuntado, sin wamid todavía (20261113130000).
+    expect(await sentState(messageId)).toEqual({ status: "unknown", external_message_id: null, delivery_error: "whatsapp:1" });
     // Meta sí lo había recibido: su aviso trae nuestro id en biz_opaque_callback_data.
     const wamid = `wamid.${randomUUID()}`;
     const at = String(Math.floor(Date.now() / 1000));

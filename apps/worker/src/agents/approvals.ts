@@ -81,6 +81,19 @@ export async function requestApproval(db: TenantDb, request: ApprovalRequest): P
 interface ExecutionRow extends ExecutionRecord {
   status: string;
   idempotency_key: string;
+  output: unknown;
+}
+
+/**
+ * Por qué una aprobación ya no tiene nada que hacer. «superseded»: una respuesta
+ * más nueva del agente relevó a este borrador (gate M1) en el mismo instante en
+ * que una persona lo aprobaba. La aprobación queda «approved» (ya la decidió una
+ * persona), pero no se envía nada: el resultado de la ejecución lo dice
+ * (failed, output.superseded) y el worker lo avisa en el log.
+ */
+export function settledReason(status: string, output: unknown): "superseded" | "already_settled" {
+  const superseded = status === "failed" && typeof output === "object" && output !== null && "superseded" in output;
+  return superseded ? "superseded" : "already_settled";
 }
 
 type Loaded =
@@ -104,13 +117,13 @@ async function load(db: TenantDb, approvalId: string, executionId: string): Prom
     );
     if (!approval || approval.execution_id !== executionId) return { kind: "skip", reason: "approval_missing" };
     const [execution] = await sql.query<ExecutionRow>(
-      `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key
+      `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key, output
        from public.executions where id = $1`,
       [executionId],
     );
     if (!execution) return { kind: "skip", reason: "execution_missing" };
     // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
-    if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: "already_settled" };
+    if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: settledReason(execution.status, execution.output) };
 
     // El contacto y la conversación del run: los del mensaje que lo despertó.
     const [run] = await sql.query<{ trigger: string; trigger_ref: string | null }>("select trigger, trigger_ref from public.agent_runs where id = $1", [
@@ -182,7 +195,12 @@ export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptio
         return found.kind === "skip" ? found : { ...found, calendar: await calendarFor(ctx.db, platform, found.execution.location_id) };
       });
       if (loaded.kind === "skip") {
-        ctx.logger.info({ approvalId, reason: loaded.reason }, "aprobación sin nada que hacer");
+        if (loaded.reason === "superseded") {
+          ctx.logger.warn(
+            { approvalId, executionId, decision, reason: loaded.reason },
+            "aprobación de un borrador que ya relevó una respuesta más nueva: no se envía nada",
+          );
+        } else ctx.logger.info({ approvalId, reason: loaded.reason }, "aprobación sin nada que hacer");
         return;
       }
       const { execution, approval } = loaded;
