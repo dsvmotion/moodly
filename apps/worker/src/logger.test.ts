@@ -76,6 +76,14 @@ describe("createLogger", () => {
     expect(lines[0]?.["err"]).toEqual({ type: "string", message: `falló postgresql://u:${REDACTED}@h/db` });
   });
 
+  it("censura un error muy anidado y no deja pasar objetos más allá del tope", () => {
+    const { lines, logger } = capture();
+    let deep: Record<string, unknown> = { err: new Error("falló postgresql://u:s3cr3t@h/db") };
+    for (let i = 0; i < 12; i++) deep = { nivel: deep };
+    logger.info({ deep, otro: { a: { b: { c: { d: { e: { f: { g: { h: { i: { url: "postgresql://u:s3cr3t@h/db" } } } } } } } } } } }, "anidado");
+    expect(JSON.stringify(lines[0])).not.toContain("s3cr3t");
+  });
+
   it("también un error en otro campo que no es err", () => {
     const { lines, logger } = capture();
     logger.warn({ reason: new Error("algo") }, "aviso");
