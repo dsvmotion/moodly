@@ -248,8 +248,8 @@ describe("los avisos de estado (ADR 0052 §4)", () => {
     });
     expect(resolve).toHaveBeenCalledWith("webchat", "widget-1");
     expect(forOrganization.mock.calls.map(([org]) => org)).toEqual([ORG]);
-    // organización, cuenta, id del proveedor, estado y código.
-    expect(statusUpdates).toEqual([{ org: ORG, values: [ORG, "acc-1", "out-1", "delivered", null] }]);
+    // organización, cuenta, id del proveedor, estado, código y nuestra referencia.
+    expect(statusUpdates).toEqual([{ org: ORG, values: [ORG, "acc-1", "out-1", "delivered", null, null] }]);
     expect(startIngest).not.toHaveBeenCalled();
   });
 
@@ -257,7 +257,14 @@ describe("los avisos de estado (ADR 0052 §4)", () => {
     const { db, statusUpdates } = fakeDb();
     const { deps: d } = deps(db);
     await receiveWebhook("webchat", webhook({ statuses: [status({ status: "failed", errorCode: "fake:131047" })] }), d);
-    expect(statusUpdates[0]?.values).toEqual([ORG, "acc-1", "out-1", "failed", "fake:131047"]);
+    expect(statusUpdates[0]?.values).toEqual([ORG, "acc-1", "out-1", "failed", "fake:131047", null]);
+  });
+
+  it("con nuestra referencia (biz_opaque_callback_data), la pasa para conciliar un mensaje sin wamid", async () => {
+    const { db, statusUpdates } = fakeDb();
+    const reference = "0a000000-0000-4000-8000-0000000000aa";
+    await receiveWebhook("webchat", webhook({ statuses: [status({ reference })] }), deps(db).deps);
+    expect(statusUpdates[0]?.values).toEqual([ORG, "acc-1", "out-1", "delivered", null, reference]);
   });
 
   it("un aviso de un mensaje que no se conoce, o de una cuenta que no existe, se confirma sin tocar nada", async () => {

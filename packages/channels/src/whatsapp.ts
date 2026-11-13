@@ -83,11 +83,14 @@ const metaMessageSchema = z.object({
     .optional(),
   context: z.object({ id: z.string().optional() }).optional(),
 });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const metaStatusSchema = z.object({
   id: z.string(),
   status: z.string(),
   timestamp: z.string(),
   errors: z.array(z.object({ code: z.union([z.number(), z.string()]) })).optional(),
+  biz_opaque_callback_data: z.string().optional(),
 });
 const metaChangeSchema = z.object({
   field: z.string(),
@@ -199,6 +202,10 @@ function parseStatus(raw: unknown, account: string): DeliveryUpdate | null {
     status: status.data.status,
     at,
     ...(status.data.status === "failed" && code !== undefined ? { errorCode: `whatsapp:${String(code)}` } : {}),
+    // Lo que mandamos en biz_opaque_callback_data: solo si es un id nuestro.
+    ...(status.data.biz_opaque_callback_data !== undefined && UUID.test(status.data.biz_opaque_callback_data)
+      ? { reference: status.data.biz_opaque_callback_data.toLowerCase() }
+      : {}),
   });
   return update.success ? update.data : null;
 }
@@ -232,7 +239,14 @@ export function parseWhatsAppWebhook(rawBody: string): ParsedWebhook {
 
 /** El cuerpo del envío a la Graph API (sin el destino validado ni la cuenta, que van aparte). */
 export function whatsAppSendBody(message: NormalizedOutbound, to: string): Record<string, unknown> {
-  const base = { messaging_product: "whatsapp", recipient_type: "individual", to };
+  const base = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    // Meta lo devuelve en los avisos de estado: concilia un aviso que llega
+    // antes de guardar el wamid, o el de un envío con resultado desconocido.
+    ...(message.reference ? { biz_opaque_callback_data: message.reference } : {}),
+  };
   if (message.template) {
     const { name, language, variables } = message.template;
     return {

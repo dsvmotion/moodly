@@ -4,6 +4,7 @@ import { createWhatsAppAdapter } from "@repo/channels";
 import { WHATSAPP_GRAPH_API_VERSION } from "@repo/config";
 import { createNangoPlatform, createResendSender } from "@repo/integrations";
 import { createApprovalHandler } from "./agents/approvals.ts";
+import { createChannelSendHandler } from "./channels/send.ts";
 import { codeSkills, createConverseHandler } from "./agents/converse.ts";
 import { createWorkerModels } from "./agents/model-router.ts";
 import { loadConfig } from "./config.ts";
@@ -37,7 +38,8 @@ const emailSender = config.resendApiKey ? createResendSender({ apiKey: config.re
 if (!emailSender) logger.warn("sin RESEND_API_KEY: no se avisa por email de las aprobaciones nuevas");
 if (!config.webAppUrl) logger.warn("sin WEB_APP_URL: no se avisa por email de las aprobaciones nuevas");
 // WhatsApp por la Cloud API de Meta (O-01, ADR 0020). Sin sus tres variables no
-// se abre /channels/whatsapp (404) y los mensajes de WhatsApp no entran.
+// se abre /channels/whatsapp (404), los mensajes de WhatsApp no entran y las
+// respuestas por WhatsApp se quedan pending.
 const whatsapp = config.whatsapp ? createWhatsAppAdapter({ ...config.whatsapp, graphApiVersion: WHATSAPP_GRAPH_API_VERSION }) : null;
 if (!whatsapp) logger.warn("sin WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN: no entra nada por WhatsApp");
 const waiting = new AbortController();
@@ -52,6 +54,7 @@ const worker = createWorker(config, logger, {
   // notify.approval_email: el aviso por email a quien puede decidir una aprobación nueva (M-02).
   // notify.budget_email: el aviso por email a los org_admin al 80 % y al 100 % del tope del mes (PL-ledger).
   // knowledge.ingest: cada fuente de conocimiento nueva o cambiada, troceada e indexada (B20-1).
+  // channels.send: lo que sale por WhatsApp, una sola vez (O-01); sin el adaptador, se queda pending.
   eventHandlers: ({ db }) => [
     logHandler,
     createConverseHandler({
@@ -65,6 +68,7 @@ const worker = createWorker(config, logger, {
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     createBudgetEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
     ...(embedder ? [createIngestHandler({ embedder, route: embedder.route })] : []),
+    createChannelSendHandler({ adapters: new Map(whatsapp ? [["whatsapp", whatsapp]] : []) }),
   ],
   // Sin el lock, otro proceso con este executorID puede recuperar los mismos
   // workflows: se sale sin esperar a un apagado limpio (regla 1).

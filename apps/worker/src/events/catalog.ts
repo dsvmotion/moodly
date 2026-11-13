@@ -40,6 +40,13 @@ export const eventPayloads = {
     conversation_id: z.uuid(),
     message_id: z.uuid(),
   }),
+  // private.emit_message_outbound, en la misma transacción que un mensaje que
+  // sale pending por un canal que envía el worker (O-01, 20261113120000). Lo
+  // consume channels.send.
+  "message.outbound": z.object({
+    conversation_id: z.uuid(),
+    message_id: z.uuid(),
+  }),
   // private.emit_appointment_event, en la misma transacción que el cambio de la
   // cita (paso 4e-0). Los consumirán el recordatorio de 24 h y la lista de
   // espera. Solo el id y las horas: el contacto se lee de la cita.

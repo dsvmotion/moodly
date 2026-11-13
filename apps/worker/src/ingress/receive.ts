@@ -190,7 +190,10 @@ type StatusOutcome = "applied" | "unmatched" | "ignored";
 /**
  * Aplica un aviso de estado al mensaje que salió (como moodly_worker por SQL
  * bajo RLS, 20261113110000): el de la organización de la cuenta que lo envió,
- * en una conversación de esa cuenta y con ese id del proveedor. Las reglas del
+ * en una conversación de esa cuenta y con ese id del proveedor. Si aún no
+ * tiene id del proveedor (el aviso llegó antes de guardarlo, o el envío quedó
+ * «unknown»), por nuestro id, si el proveedor lo devuelve (reference), y se
+ * guarda el wamid (20261113120000). Las reglas del
  * estado son de la base de datos (guard_delivery_status): un aviso tardío o
  * repetido no lo hace retroceder. El error del proveedor solo con un fallo.
  */
@@ -221,11 +224,13 @@ async function applyStatus(
     updated = await tenant.transaction(async (sql) => {
       const rows = await sql.query<{ id: string }>(
         `update public.messages m
-         set status = $4, delivery_error = case when $4 = 'failed' then $5 else m.delivery_error end
-         where m.organization_id = $1 and m.external_message_id = $3 and m.direction = 'out'
+         set status = $4, delivery_error = case when $4 = 'failed' then $5 else m.delivery_error end,
+             external_message_id = coalesce(m.external_message_id, $3)
+         where m.organization_id = $1 and m.direction = 'out'
+           and (m.external_message_id = $3 or ($6::uuid is not null and m.id = $6::uuid and m.external_message_id is null))
            and m.conversation_id in (select c.id from public.conversations c where c.organization_id = $1 and c.channel_account_id = $2)
          returning m.id`,
-        [account.organizationId, account.id, update.providerMessageId, update.status, update.errorCode ?? null],
+        [account.organizationId, account.id, update.providerMessageId, update.status, update.errorCode ?? null, update.reference ?? null],
       );
       return rows.length;
     });
