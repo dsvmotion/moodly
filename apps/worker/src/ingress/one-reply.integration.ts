@@ -207,6 +207,15 @@ beforeAll(async () => {
 afterAll(async () => {
   child?.kill("SIGKILL");
   await new Promise<void>((resolve) => (graph ? graph.close(() => resolve()) : resolve()));
+  // Los turnos de estas conversaciones (con sus ejecuciones y aprobaciones, en
+  // cascada): una aprobación pendiente del caso en borrador se vería en la
+  // bandeja de aprobaciones del e2e, que comparte la base de datos.
+  const runs = `select r.id from public.agent_runs r
+                where r.trigger_ref in (select m.id::text from public.messages m
+                                        join public.conversations c on c.id = m.conversation_id
+                                        where c.channel_account_id = $1)`;
+  await admin.query(`delete from public.domain_events where payload->>'run_id' in (select id::text from (${runs}) x)`, [ids.whatsapp]);
+  await admin.query(`delete from public.agent_runs where id in (${runs})`, [ids.whatsapp]);
   await admin.query(
     "delete from public.domain_events where payload->>'conversation_id' in (select id::text from public.conversations where channel_account_id = $1)",
     [ids.whatsapp],
