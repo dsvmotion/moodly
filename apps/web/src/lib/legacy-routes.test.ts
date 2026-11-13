@@ -18,9 +18,9 @@ describe("redirecciones de las rutas en español (ADR 0041)", () => {
   it("cada sección de Ajustes renombrada va a una de la navegación", () => {
     const slugs = SETTINGS_SECTIONS.map((section) => section.slug);
     for (const en of Object.values(LEGACY_SETTINGS_SLUGS)) expect(slugs).toContain(en);
-    // Las que no cambian de nombre las cubre la regla general.
+    // Las que no cambian de nombre las cubre la regla general; services (OA04) es nueva y no tuvo ruta en español.
     const renamed = new Set(Object.values(LEGACY_SETTINGS_SLUGS));
-    expect(slugs.filter((slug) => !renamed.has(slug)).sort()).toEqual(["general", "plan", "roles"]);
+    expect(slugs.filter((slug) => !renamed.has(slug)).sort()).toEqual(["general", "plan", "roles", "services"]);
   });
 
   it("las concretas van antes que la general de Ajustes, y todas son temporales", () => {
