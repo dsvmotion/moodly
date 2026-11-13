@@ -366,15 +366,20 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
 
 /** Una conversación del agente en un local (o de toda la organización, con location null). */
 async function createConversation(org: string, location: string | null): Promise<string> {
-  const { rows: agents } = await admin.query<{ id: string }>("select id from public.agents where organization_id = $1 order by id limit 1", [org]);
+  // El tipo del agente, de la base de datos: ninguna clave de agente escrita en el código (ADR 0030 §1).
+  const { rows: agents } = await admin.query<{ id: string; type_key: string }>(
+    `select a.id, t.key as type_key from public.agents a join public.agent_types t on t.id = a.agent_type_id
+     where a.organization_id = $1 order by a.id limit 1`,
+    [org],
+  );
   const { rows: contacts } = await admin.query<{ id: string }>(
     "insert into public.contacts (organization_id, display_name) values ($1, 'Ana') returning id",
     [org],
   );
   const { rows: accounts } = await admin.query<{ id: string }>(
     `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
-     values ($1, $2, 'whatsapp', $3, 'customer', 'active') returning id`,
-    [org, location, `${marker}-${randomUUID()}`],
+     values ($1, $2, 'whatsapp', $3, $4, 'active') returning id`,
+    [org, location, `${marker}-${randomUUID()}`, agents[0]?.type_key],
   );
   const { rows } = await admin.query<{ id: string }>(
     `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
