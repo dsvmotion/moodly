@@ -22,11 +22,12 @@ import { DB_STEP, type EventHandler } from "../events/handlers.ts";
 //      de estado de Meta (por el wamid o por nuestro id, que va en
 //      biz_opaque_callback_data). Solo un rechazo seguro y pasajero (un 429, el
 //      límite de ritmo de Meta) se reintenta, dentro del mismo paso.
-//   3. «record», con reintentos: sent con el wamid, o failed con el código del
-//      proveedor (nunca su texto).
+//   3. «record», con reintentos: sent con el wamid, failed con el código del
+//      proveedor (nunca su texto), o el código de un «unknown» (sin tocar el estado).
 //
-// La organización es la de la fila del evento (ctx.db); el destino sale de la
-// identidad del contacto de la conversación, nunca del modelo ni del payload.
+// La organización es la de la fila del evento (ctx.db); el destino es el número
+// desde el que escribió el cliente en esa conversación (su último mensaje que
+// entró, si sigue siendo una identidad suya), nunca el modelo ni el payload.
 
 export const CHANNEL_SEND_HANDLER_KEY = "channels.send";
 /** Intentos de un rechazo seguro y pasajero (429): el primero y dos más. */
@@ -56,8 +57,20 @@ async function loadOutgoing(db: TenantDb, messageId: string, conversationId: str
     sql.query<Record<string, unknown>>(
       `select m.id, m.conversation_id, m.status, m.content, m.idempotency_key, c.channel,
               a.external_id as account_external_id,
-              (select i.external_id from public.contact_identities i
-               where i.contact_id = c.contact_id and i.kind = 'phone' order by i.external_id limit 1) as phone
+              coalesce(
+                -- El número desde el que escribió el cliente en esta conversación (su último
+                -- mensaje que entró), si sigue siendo una identidad suya.
+                (select ev.payload->'from'->>'value' from public.inbound_events ev
+                 where ev.conversation_id = c.id and ev.status = 'processed'
+                   and ev.payload->'from'->>'kind' = 'phone'
+                   and exists (select 1 from public.contact_identities i
+                               where i.contact_id = c.contact_id and i.kind = 'phone'
+                                 and i.external_id = ev.payload->'from'->>'value')
+                 order by ev.received_at desc limit 1),
+                -- Si no (una conversación que no empezó por el canal), su teléfono, el de siempre.
+                (select i.external_id from public.contact_identities i
+                 where i.contact_id = c.contact_id and i.kind = 'phone' order by i.external_id limit 1)
+              ) as phone
        from public.messages m
        join public.conversations c on c.id = m.conversation_id and c.organization_id = m.organization_id
        join public.channel_accounts a on a.id = c.channel_account_id and a.organization_id = c.organization_id
@@ -119,6 +132,16 @@ async function record(db: TenantDb, messageId: string, outcome: SendOutcome): Pr
          where organization_id = $1 and id = $2`,
         [db.organizationId, messageId, outcome.providerMessageId],
       ),
+    );
+  } else if (outcome.outcome === "unknown") {
+    // El código de por qué no se sabe (timeout, http_502…), sin cambiar el estado:
+    // guard_delivery_status lo deja mientras siga «unknown» (20261113130000).
+    await db.transaction((sql) =>
+      sql.query("update public.messages set delivery_error = $3 where organization_id = $1 and id = $2 and status = 'unknown'", [
+        db.organizationId,
+        messageId,
+        outcome.code.slice(0, 100),
+      ]),
     );
   } else if (outcome.outcome === "failed") {
     await db.transaction((sql) =>

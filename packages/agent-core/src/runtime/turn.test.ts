@@ -8,7 +8,7 @@ import { defineSkill } from "../skill.js";
 import type { SkillContext, SkillDefinition } from "../skill.js";
 import { INTENT_CALL_INDEX } from "./intent.js";
 import { SUMMARY_MARK } from "./summary.js";
-import { HAND_OFF_TEXTS, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
+import { FAILED_TOOL_NOTES, HAND_OFF_TEXTS, REPLY_SKILL_KEY, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, UsageRecordError, runAgentTurn } from "./turn.js";
 import type { Step, TurnExecution, TurnParams } from "./turn.js";
 
 const RUN = "run-1";
@@ -416,6 +416,68 @@ describe("herramientas", () => {
     expect(JSON.stringify(result.executions)).not.toContain("ana@example.com");
   });
 
+  it("si el calendario conectado no responde, el resultado le dice al modelo qué hacer: no dar horas y pasar a una persona (O-02)", async () => {
+    const { skills } = setup();
+    const calendarDown = defineSkill({
+      key: "calendar_down",
+      version: 1,
+      description: "Busca huecos con el calendario conectado caído.",
+      effectClass: "read",
+      defaultAutonomy: "autonomous",
+      input: z.object({}),
+      output: z.object({}),
+      preview: () => Promise.resolve({ summary: "Buscar" }),
+      execute: () => {
+        const error = new Error("detalle del proveedor: 503 de graph.microsoft.com");
+        error.name = "CalendarUnavailableError";
+        return Promise.reject(error);
+      },
+    }) as unknown as SkillDefinition<unknown>;
+    const settings = new Map([...settingsWith(), ["calendar_down", { enabled: true, autonomy: "autonomous" as const }]]);
+    const transport = scripted([() => tools({ id: "c1", name: "calendar_down", args: {} }), () => text("Ahora no puedo mirarlo.")]);
+    await runAgentTurn(params(transport, { skills: new Map([...skills, ["calendar_down", calendarDown]]), settings }));
+    const [result] = toolMessages(transport.calls[1]);
+    expect(result).toMatchObject({ id: "c1", status: "failed", error: "CalendarUnavailableError", note: FAILED_TOOL_NOTES["CalendarUnavailableError"] });
+    expect(String(result?.["note"])).toContain("request_human");
+    // Pasa a una persona en ese mismo turno, también con un lead: la regla de cualificar no manda aquí (corrida real de V1 sobre 63672e0).
+    expect(String(result?.["note"])).toContain("now, in this same turn, even if the customer wants to buy or book: do not ask for more details first");
+    // El detalle del proveedor nunca llega al modelo.
+    expect(JSON.stringify(transport.calls[1]?.messages)).not.toContain("graph.microsoft.com");
+  });
+
+  it("un error con el nombre de una clave del prototipo («constructor», «__proto__») no lleva nota", async () => {
+    const { skills } = setup();
+    for (const name of ["constructor", "__proto__", "toString"]) {
+      const odd = defineSkill({
+        key: "odd_error",
+        version: 1,
+        description: "Falla con un nombre raro.",
+        effectClass: "read",
+        defaultAutonomy: "autonomous",
+        input: z.object({}),
+        output: z.object({}),
+        preview: () => Promise.resolve({ summary: "Fallar" }),
+        execute: () => {
+          const error = new Error("x");
+          Object.defineProperty(error, "name", { value: name });
+          return Promise.reject(error);
+        },
+      }) as unknown as SkillDefinition<unknown>;
+      const settings = new Map([...settingsWith(), ["odd_error", { enabled: true, autonomy: "autonomous" as const }]]);
+      const transport = scripted([() => tools({ id: "c1", name: "odd_error", args: {} }), () => text("Vale.")]);
+      await runAgentTurn(params(transport, { skills: new Map([...skills, ["odd_error", odd]]), settings }));
+      const [result] = toolMessages(transport.calls[1]);
+      expect(result?.["status"], name).toBe("failed");
+      expect(Object.hasOwn(result ?? {}, "note"), name).toBe(false);
+    }
+  });
+
+  it("otro fallo no lleva nota: solo el nombre del error", async () => {
+    const transport = scripted([() => tools({ id: "c1", name: "broken", args: {} }), () => text("Ahora no puedo mirarlo.")]);
+    await runAgentTurn(params(transport));
+    expect(toolMessages(transport.calls[1])[0]).toEqual({ id: "c1", status: "failed", error: "LookupError" });
+  });
+
   it("un envío a una audiencia solo llega a quien ha consentido; sin comprobador, a nadie", async () => {
     const { skills } = setup();
     const promo = defineSkill({
@@ -687,6 +749,26 @@ describe("pasar a una persona (request_human)", () => {
       [REQUEST_HUMAN_SKILL_KEY, { reason: "customer_asked" }],
       [REPLY_SKILL_KEY, { text: HAND_OFF_TEXTS.es }],
     ]);
+  });
+
+  // Corrida real sobre 165e840 (cliente-idioma-en): el texto fijo salía en el
+  // idioma de la organización aunque el cliente escribiera en otro.
+  it.each([
+    { customer: "Hi, can I talk to a person please?", fallback: HAND_OFF_TEXTS.es, expected: HAND_OFF_TEXTS.en },
+    { customer: "Hola, ¿puedo hablar con una persona?", fallback: HAND_OFF_TEXTS.en, expected: HAND_OFF_TEXTS.es },
+    // Sin texto en ese idioma (francés), o sin idioma claro: el de la organización.
+    { customer: "Bonjour, je voudrais parler à une personne de votre équipe.", fallback: HAND_OFF_TEXTS.es, expected: HAND_OFF_TEXTS.es },
+    { customer: "ok", fallback: HAND_OFF_TEXTS.en, expected: HAND_OFF_TEXTS.en },
+  ])("el texto del paso va en el idioma del último mensaje del cliente si lo hay: $customer", async ({ customer, fallback, expected }) => {
+    const { executed, skills } = setup();
+    const transport = scripted([() => tools({ id: "h1", name: REQUEST_HUMAN_SKILL_KEY, args: { reason: "customer_asked" } })]);
+    const history = [
+      { author: "contact" as const, content: "Mensaje anterior en otro idioma, para que cuente solo el último." },
+      { author: "agent" as const, content: "Claro." },
+      { author: "contact" as const, content: customer },
+    ];
+    await runAgentTurn(params(transport, { skills, settings: withRequestHuman, handOffText: fallback, history }));
+    expect(executed.find((call) => call.key === REPLY_SKILL_KEY)?.input).toEqual({ text: expected });
   });
 
   it("con la respuesta en borrador, no deja un borrador que nunca podría salir: la conversación ya la lleva una persona (R-02)", async () => {

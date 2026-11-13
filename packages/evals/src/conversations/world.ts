@@ -1,8 +1,8 @@
 import { composeSystemPromptParts } from "@repo/agent-core";
-import type { SystemPromptParts } from "@repo/agent-core";
+import type { PendingRequest, PromptContext, SystemPromptParts } from "@repo/agent-core";
 import type { BookableService, RunScope, SkillDefinition, SkillSettings } from "@repo/agent-core";
-import { createFakeBookingProvider } from "@repo/integrations";
-import type { FakeBookingProvider } from "@repo/integrations";
+import { CalendarUnavailableError, createFakeBookingProvider, withExternalBusy } from "@repo/integrations";
+import type { BusyInterval, BusySource, FakeBookingProvider } from "@repo/integrations";
 import type { KnowledgeHit, KnowledgeQuery, KnowledgeRetriever, SourceType } from "@repo/knowledge";
 import {
   createFakeConversationSender,
@@ -242,11 +242,34 @@ export interface World {
   systemPrompt: string;
   /** El mismo prompt partido como lo manda el worker: lo estable a la caché, la hora aparte (PL-T3). */
   systemPromptParts: SystemPromptParts;
+  /** Con qué se compuso el prompt, para recomponerlo con lo que prepare el caso. */
+  promptContext: PromptContext;
+  /**
+   * Lo que el agente ya pidió en esta conversación y espera al equipo (CU3):
+   * en producción, las ejecuciones en borrador de turnos anteriores. Lo llena
+   * el `setup` del caso; el runner recompone el prompt con ellas.
+   */
+  pendingRequests: PendingRequest[];
   /** Lo que preparó el caso (p. ej. el id de la cita de Ana). */
   seeded: Record<string, string>;
 }
 
-export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeDoc[], business: Business = AURORA): World {
+/**
+ * El calendario conectado (Google/Outlook) de un caso (O-02): sus horas
+ * ocupadas restan huecos, o `fail` para simular que el proveedor no responde
+ * (fail-closed). Sin esto, el agente solo mira el calendario propio.
+ */
+export interface ExternalCalendar {
+  busy?: readonly BusyInterval[];
+  fail?: boolean;
+}
+
+export function createWorld(
+  agent: AgentKey,
+  knowledgeDocs?: readonly KnowledgeDoc[],
+  business: Business = AURORA,
+  externalCalendar?: ExternalCalendar,
+): World {
   const booking = createFakeBookingProvider({
     services: business.services.map((service) => ({ id: service.id, durationMinutes: service.durationMinutes, locationId: null })),
     resources: business.resources.map((resource) => ({ id: resource.id, locationId: LOCATION, serviceIds: resource.serviceIds })),
@@ -258,8 +281,14 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
   const sender = createFakeConversationSender();
   const waitlist = createFakeWaitlist();
   const knowledge = createFakeKnowledge(knowledgeDocs ?? business.knowledge ?? []);
+  // El agente reserva contra el calendario envuelto (con el conectado, si lo hay);
+  // seedAppointment y las comprobaciones usan el de base, sin envolver.
+  const busySource: BusySource | null = externalCalendar
+    ? { list: () => (externalCalendar.fail ? Promise.reject(new CalendarUnavailableError("sin calendario")) : Promise.resolve([...(externalCalendar.busy ?? [])])) }
+    : null;
+  const agentBooking = busySource ? withExternalBusy(booking, busySource) : booking;
   const all = [
-    ...Object.values(createReceptionSkills({ booking, catalog })),
+    ...Object.values(createReceptionSkills({ booking: agentBooking, catalog })),
     createJoinWaitlistSkill({ store: waitlist }),
     createSearchKnowledgeSkill({ retriever: knowledge }),
     createRequestHumanSkill(),
@@ -268,7 +297,7 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
   const keys: readonly string[] = AGENTS[agent].skills;
   const mine = all.filter((skill) => keys.includes(skill.key));
   const books = keys.includes("find_slots");
-  const parts = composeSystemPromptParts({
+  const promptContext: PromptContext = {
     agentName: AGENTS[agent].name,
     businessName: business.name,
     locationName: business.locationName,
@@ -277,7 +306,8 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
     ...(books ? { services: business.services } : {}),
     knowledge: keys.includes("search_knowledge"),
     handOff: keys.includes("request_human"),
-  });
+  };
+  const parts = composeSystemPromptParts(promptContext);
   return {
     agent,
     business,
@@ -291,6 +321,8 @@ export function createWorld(agent: AgentKey, knowledgeDocs?: readonly KnowledgeD
     settings: new Map(mine.map((skill) => [skill.key, { enabled: true, autonomy: skill.defaultAutonomy }])),
     systemPromptParts: parts,
     systemPrompt: `${parts.stable}\n\n${parts.volatile}`,
+    promptContext,
+    pendingRequests: [],
     seeded: {},
   };
 }
@@ -309,4 +341,30 @@ export async function seedAppointment(world: World, contactId: string, serviceId
     idempotencyKey: `seed:${contactId}:${startsAt}`,
   });
   return appointment.id;
+}
+
+/**
+ * Una cita que el agente ya pidió en un turno anterior y espera al equipo
+ * (CU3): en producción, una ejecución de book_appointment en borrador. El
+ * resumen sale de la vista previa de la skill de verdad, como el que guarda el
+ * worker (executions.preview), y no toca el calendario.
+ */
+export async function seedPendingBooking(world: World, serviceId: string, startsAt: string): Promise<void> {
+  const skill = world.skills.get("book_appointment");
+  if (!skill) throw new Error("el agente del caso no reserva");
+  const resourceId = world.business.resources.find((resource) => resource.serviceIds.includes(serviceId))?.id;
+  if (!resourceId) throw new Error(`ningún recurso hace ${serviceId}`);
+  const preview = await skill.preview(
+    {
+      organizationId: world.scope.organizationId,
+      locationId: world.scope.locationId,
+      runId: "run-anterior",
+      contactId: world.scope.conversation?.contactId ?? null,
+      conversationId: world.scope.conversation?.id ?? null,
+      target: { kind: "none" },
+      idempotencyKey: `pending:${serviceId}:${startsAt}`,
+    },
+    { service_id: serviceId, resource_id: resourceId, starts_at: startsAt },
+  );
+  world.pendingRequests.push({ skillKey: "book_appointment", summary: preview.summary });
 }

@@ -1,6 +1,8 @@
 import { verifyApproval } from "@repo/agent-core";
 import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
+import type { BusySource, ConnectorPlatform } from "@repo/integrations";
+import { busySourceFor, calendarFor } from "../booking/external-busy.ts";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { isNotAgentMode } from "./conversation-sender.ts";
 
@@ -79,6 +81,19 @@ export async function requestApproval(db: TenantDb, request: ApprovalRequest): P
 interface ExecutionRow extends ExecutionRecord {
   status: string;
   idempotency_key: string;
+  output: unknown;
+}
+
+/**
+ * Por qué una aprobación ya no tiene nada que hacer. «superseded»: una respuesta
+ * más nueva del agente relevó a este borrador (gate M1) en el mismo instante en
+ * que una persona lo aprobaba. La aprobación queda «approved» (ya la decidió una
+ * persona), pero no se envía nada: el resultado de la ejecución lo dice
+ * (failed, output.superseded) y el worker lo avisa en el log.
+ */
+export function settledReason(status: string, output: unknown): "superseded" | "already_settled" {
+  const superseded = status === "failed" && typeof output === "object" && output !== null && "superseded" in output;
+  return superseded ? "superseded" : "already_settled";
 }
 
 type Loaded =
@@ -102,13 +117,13 @@ async function load(db: TenantDb, approvalId: string, executionId: string): Prom
     );
     if (!approval || approval.execution_id !== executionId) return { kind: "skip", reason: "approval_missing" };
     const [execution] = await sql.query<ExecutionRow>(
-      `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key
+      `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key, output
        from public.executions where id = $1`,
       [executionId],
     );
     if (!execution) return { kind: "skip", reason: "execution_missing" };
     // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
-    if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: "already_settled" };
+    if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: settledReason(execution.status, execution.output) };
 
     // El contacto y la conversación del run: los del mensaje que lo despertó.
     const [run] = await sql.query<{ trigger: string; trigger_ref: string | null }>("select trigger, trigger_ref from public.agent_runs where id = $1", [
@@ -155,10 +170,16 @@ async function settleRun(db: TenantDb, runId: string): Promise<void> {
 
 export interface ApprovalHandlerOptions {
   /** Las skills de código que el worker sabe ejecutar, sobre los datos de la organización. */
-  skills: (db: TenantDb) => ReadonlyMap<string, SkillDefinition<unknown>>;
+  skills: (db: TenantDb, options?: { externalBusy?: BusySource | null }) => ReadonlyMap<string, SkillDefinition<unknown>>;
+  /**
+   * La plataforma de conectores (Nango). Con ella, una reserva aprobada se
+   * comprueba contra el calendario conectado del local antes de escribirse
+   * (O-02): entre el borrador y la aprobación, la hora pudo ocuparse fuera.
+   */
+  platform?: ConnectorPlatform;
 }
 
-export function createApprovalHandler({ skills }: ApprovalHandlerOptions): EventHandler {
+export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptions): EventHandler {
   return {
     key: APPROVAL_HANDLER_KEY,
     eventTypes: ["approval.decided"],
@@ -166,9 +187,20 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
       const approvalId = String(event.payload["approval_id"]);
       const executionId = String(event.payload["execution_id"]);
       const decision = String(event.payload["decision"]);
-      const loaded = await ctx.step("load", () => load(ctx.db, approvalId, executionId));
+      // El calendario conectado del local de la ejecución (O-02), dentro del mismo
+      // paso «load»: una aprobación a medias de antes de este cambio no trae
+      // `calendar` y sigue sin él (calendarFor explica por qué no es un paso nuevo).
+      const loaded = await ctx.step("load", async () => {
+        const found = await load(ctx.db, approvalId, executionId);
+        return found.kind === "skip" ? found : { ...found, calendar: await calendarFor(ctx.db, platform, found.execution.location_id) };
+      });
       if (loaded.kind === "skip") {
-        ctx.logger.info({ approvalId, reason: loaded.reason }, "aprobación sin nada que hacer");
+        if (loaded.reason === "superseded") {
+          ctx.logger.warn(
+            { approvalId, executionId, decision, reason: loaded.reason },
+            "aprobación de un borrador que ya relevó una respuesta más nueva: no se envía nada",
+          );
+        } else ctx.logger.info({ approvalId, reason: loaded.reason }, "aprobación sin nada que hacer");
         return;
       }
       const { execution, approval } = loaded;
@@ -182,7 +214,9 @@ export function createApprovalHandler({ skills }: ApprovalHandlerOptions): Event
 
       // Lo que se ejecuta es lo que se aprobó: mismo hash, aprobada y a tiempo.
       const verdict = verifyApproval(execution, approval);
-      const skill = skills(ctx.db).get(execution.skill_key);
+      // El calendario del local de la ejecución (su fila guardada, nunca lo que dijo el modelo).
+      const externalBusy = busySourceFor(platform, "calendar" in loaded ? loaded.calendar : null, ctx.logger);
+      const skill = skills(ctx.db, externalBusy ? { externalBusy } : {}).get(execution.skill_key);
       if (!verdict.ok || !skill || skill.version !== execution.skill_version) {
         await ctx.step("settle:refused", () => settleExecution(ctx.db, execution.id, "failed"));
         ctx.logger.warn(

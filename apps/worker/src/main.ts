@@ -43,6 +43,10 @@ if (!config.webAppUrl) logger.warn("sin WEB_APP_URL: no se avisa por email de la
 // respuestas por WhatsApp se quedan pending.
 const whatsapp = config.whatsapp ? createWhatsAppAdapter({ ...config.whatsapp, graphApiVersion: WHATSAPP_GRAPH_API_VERSION }) : null;
 if (!whatsapp) logger.warn("sin WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHATSAPP_ACCESS_TOKEN: no entra nada por WhatsApp");
+// La plataforma de conectores (Nango, O-02): la usan el webhook que activa una
+// integración y el turno del agente, para que un calendario conectado cuente al
+// ofrecer huecos. Sin las dos claves de Nango no hay plataforma.
+const platform = config.nango ? createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host }) : null;
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,
@@ -62,8 +66,9 @@ const worker = createWorker(config, logger, {
       router: models.router,
       intentRouting: config.intentRouting,
       ...(embedder ? { knowledge: { embedder, route: embedder.route } } : {}),
+      ...(platform ? { platform } : {}),
     }),
-    createApprovalHandler({ skills: codeSkills }),
+    createApprovalHandler({ skills: codeSkills, ...(platform ? { platform } : {}) }),
     registerReminders({ db, logger }),
     registerWaitlistOffers({ db, logger }),
     createApprovalEmailHandler({ sender: emailSender, webAppUrl: config.webAppUrl }),
@@ -86,8 +91,7 @@ const worker = createWorker(config, logger, {
 // Y el webhook de Nango (O-02): lo único que activa una integración de
 // plataforma. Sin las dos claves de Nango no se monta (404).
 let nangoWebhook: ReturnType<typeof createNangoWebhookHandler> | undefined;
-if (config.nango) {
-  const platform = createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host });
+if (config.nango && platform) {
   nangoWebhook = createNangoWebhookHandler({
     db: worker.db,
     platform,

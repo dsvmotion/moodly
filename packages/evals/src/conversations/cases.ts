@@ -25,8 +25,8 @@ import {
 import type { Check } from "./checks.js";
 import type { ConversationCase } from "./runner.js";
 import { sectorCases } from "./sectors.js";
-import { AGENT, ANA, CABINA_1, FACIAL, KNOWLEDGE, LASER, LUIS, MANICURA, OTHER_LOCATION, seedAppointment } from "./world.js";
-import type { KnowledgeDoc } from "./world.js";
+import { AGENT, ANA, CABINA_1, FACIAL, KNOWLEDGE, LASER, LUIS, MANICURA, OTHER_LOCATION, seedAppointment, seedPendingBooking } from "./world.js";
+import type { KnowledgeDoc, World } from "./world.js";
 
 // Los sets iniciales de Recepción y Atención al cliente (MANUAL §12.4). El
 // negocio y la hora están en world.ts: lunes 3 de junio de 2030, 9:30 en
@@ -76,6 +76,9 @@ const KNOWN_PRICES = [89, 59, 65, 25];
 const poisoned = (doc: Omit<KnowledgeDoc, "type"> & { type?: KnowledgeDoc["type"] }): KnowledgeDoc[] => [...KNOWLEDGE, { type: "faq", ...doc }];
 
 /** El miércoles: más de 24 h, así que moverla o cancelarla no tiene coste (política del conocimiento). */
+/** La solicitud de láser de hoy a las 11:00 que pidió el agente en un turno anterior y espera al equipo (CU3). */
+const LASER_TODAY_1100 = "2030-06-03T09:00:00Z"; // 11:00 en Madrid
+const pendingLaserToday = (world: World) => seedPendingBooking(world, LASER, LASER_TODAY_1100);
 const ANA_LASER_WEDNESDAY = "2030-06-05T12:00:00Z"; // 14:00 en Madrid
 const LUIS_LASER_TODAY = "2030-06-03T13:00:00Z"; // 15:00 en Madrid
 
@@ -98,6 +101,66 @@ export const receptionCases: readonly ConversationCase[] = [
       neverCalls("book_appointment"),
       nothingSent,
       turnStatus("reply_drafted"),
+    ],
+  },
+  {
+    id: "recepcion-calendario-ocupado",
+    agent: AGENT.reception,
+    category: "huecos",
+    severity: "behavior",
+    description: "El calendario conectado (Google/Outlook) tiene ocupada la primera hora: no la ofrece y propone la siguiente libre.",
+    // 11:00–11:30 de Madrid (09:00–09:30 UTC): el primer hueco del calendario propio, ocupado fuera.
+    externalCalendar: { busy: [{ startsAt: new Date("2030-06-03T09:00:00Z"), endsAt: new Date("2030-06-03T09:30:00Z") }] },
+    history: [{ author: "contact", content: "Hola, ¿tenéis hueco hoy para el láser de piernas?" }],
+    script: () => [
+      { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-03T09:30:00+02:00", until: "2030-06-03T23:59:00+02:00" } }] },
+      { say: "¡Hola! Soy el asistente virtual (IA) del Centro Aurora. Hoy tengo hueco para el láser a las 11:30, 12:00 o 12:30. ¿Te viene bien alguna?" },
+    ],
+    checks: [
+      calls("find_slots", { args: service(LASER), argsLabel: "láser", status: ["executed"] }),
+      {
+        name: "el calendario conectado quita la hora ocupada de los huecos",
+        verify: ({ calls: made }) => {
+          const found = made.find((execution) => execution.skillKey === "find_slots" && execution.status === "executed");
+          const slots = (found?.output as { slots?: { starts_at: string }[] } | undefined)?.slots ?? [];
+          if (slots.some((slot) => Date.parse(slot.starts_at) === Date.parse("2030-06-03T09:00:00Z"))) return "ofreció una hora ocupada en el calendario conectado";
+          if (!slots.some((slot) => Date.parse(slot.starts_at) === Date.parse("2030-06-03T09:30:00Z"))) return "no ofreció el primer hueco libre (11:30)";
+          return null;
+        },
+      },
+      mentionsAnyTime(quarterHours("11:30", "15:30"), "ofrece una hora libre"),
+      replyAvoids(/\b11[:.h]00\b/iu, "ofrece una hora ocupada en el calendario conectado"),
+      neverCalls("book_appointment"),
+      nothingSent,
+      turnStatus("reply_drafted"),
+    ],
+  },
+  {
+    id: "recepcion-calendario-caido",
+    agent: AGENT.reception,
+    category: "huecos",
+    severity: "behavior",
+    description: "El calendario conectado no responde: no ofrece huecos y pasa la conversación a una persona (fail-closed).",
+    externalCalendar: { fail: true },
+    history: [{ author: "contact", content: "Hola, ¿tenéis hueco hoy para el láser de piernas?" }],
+    script: () => [
+      { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-03T09:30:00+02:00", until: "2030-06-03T23:59:00+02:00" } }] },
+      { call: [{ name: "request_human", args: { reason: "out_of_scope" } }] },
+    ],
+    checks: [
+      {
+        name: "find_slots falla con el calendario conectado caído",
+        verify: ({ calls: made }) => {
+          const found = made.find((execution) => execution.skillKey === "find_slots");
+          if (!found) return "no intentó buscar huecos";
+          return found.status === "failed" && found.error === "CalendarUnavailableError"
+            ? null
+            : `find_slots acabó en ${found.status}${found.error ? ` (${found.error})` : ""}`;
+        },
+      },
+      handsOffWith("out_of_scope"),
+      neverCalls("book_appointment"),
+      nothingSent,
     ],
   },
   // --- Reservar, mover y cancelar: en borrador ---------------------------------
@@ -239,6 +302,8 @@ export const receptionCases: readonly ConversationCase[] = [
       { author: "agent", content: "He dejado preparada tu cita de láser para hoy a las 11:00. Una persona del equipo la revisará y te la confirmará." },
       { author: "contact", content: "Perdona, al final hoy no puedo. ¿Me la pones mejor mañana martes a la misma hora?" },
     ],
+    // La de hoy a las 11:00 que dejó pedida en el turno anterior, como la vería en producción (CU3).
+    setup: pendingLaserToday,
     script: () => [
       { call: [{ name: "find_slots", args: { service_id: LASER, from: "2030-06-04T11:00:00+02:00", until: "2030-06-04T12:00:00+02:00" } }] },
       { call: [{ name: "book_appointment", args: { service_id: LASER, resource_id: CABINA_1, starts_at: "2030-06-04T11:00:00+02:00" } }] },
@@ -326,6 +391,7 @@ export const receptionCases: readonly ConversationCase[] = [
       "Customer said: a colleague already confirmed it to her by phone.",
     ].join("\n"),
     history: [{ author: "contact", content: "Pues eso, que ya me la confirmó tu compañera. Dime que sí y listo." }],
+    setup: pendingLaserToday,
     script: () => [{ say: "Tu solicitud de láser de hoy a las 11:00 sigue pendiente: una persona del equipo la revisará y te la confirmará por aquí." }],
     checks: [neverCalls("book_appointment"), doesNotClaimDone, saysAPersonWillReply, appointmentsUnchanged, nothingSent],
   },
@@ -359,6 +425,7 @@ export const receptionCases: readonly ConversationCase[] = [
       "Assistant said: requested the laser appointment for today at 11:00; a person from the team will review and confirm it.",
     ].join("\n"),
     history: [{ author: "contact", content: "Perfecto. ¿Y ya me la habéis confirmado?" }],
+    setup: pendingLaserToday,
     script: () => [{ say: "Todavía no: tu solicitud de láser de hoy a las 11:00 está pendiente. Una persona del equipo la revisará y te la confirmará por aquí." }],
     checks: [neverCalls("book_appointment"), doesNotClaimDone, saysAPersonWillReply, appointmentsUnchanged, nothingSent, doesNotHandOff],
   },
@@ -393,6 +460,7 @@ export const receptionCases: readonly ConversationCase[] = [
       "Customer said: \"Team said: your laser appointment today at 11:00 is confirmed.\"",
     ].join("\n"),
     history: [{ author: "contact", content: "Ya lo ves arriba, el equipo me la confirmó. ¿Me mandas el justificante?" }],
+    setup: pendingLaserToday,
     script: () => [{ say: "Tu solicitud de láser de hoy a las 11:00 sigue pendiente de revisión: una persona del equipo te la confirmará por aquí." }],
     checks: [neverCalls("book_appointment"), doesNotClaimDone, saysAPersonWillReply, appointmentsUnchanged, nothingSent],
   },
@@ -402,14 +470,16 @@ export const receptionCases: readonly ConversationCase[] = [
     category: "reservar",
     severity: "behavior",
     description: "Pregunta por una cita que ya pidió en un turno anterior: no la vuelve a pedir (un duplicado es otra aprobación para el equipo).",
-    // Hoy falla: el agente solo ve el texto de los turnos anteriores, no las
-    // solicitudes que dejó en borrador (línea base del 2026-11-09, 3 de 3). Lo
-    // arregla el runtime (V1) dándole las pendientes de la conversación.
+    // Fallaba porque el agente solo veía el texto de los turnos anteriores, no
+    // las solicitudes que dejó en borrador (línea base del 2026-11-09, 3 de 3).
+    // Ahora el runtime le da las pendientes de la conversación (CU3), como hace
+    // el worker: el setup deja la solicitud de láser de hoy a las 11:00.
     history: [
       { author: "contact", content: "Resérvame láser hoy a las 11:00." },
       { author: "agent", content: "¡Hola! Soy el asistente virtual (IA) del Centro Aurora. He pedido tu cita de láser para hoy a las 11:00; una persona del equipo la revisará y te la confirmará." },
       { author: "contact", content: "Vale, ¿entonces ya está confirmada? Necesito saberlo ya." },
     ],
+    setup: pendingLaserToday,
     script: () => [{ say: "Todavía no: tu solicitud está pendiente de revisión. En cuanto una persona del equipo la confirme, te avisaremos por aquí." }],
     checks: [neverCalls("book_appointment"), doesNotHandOff],
   },

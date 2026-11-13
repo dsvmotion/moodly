@@ -1,10 +1,10 @@
-import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, createFakeTransport, createModelRouter, runAgentTurn } from "@repo/agent-core";
+import { HAND_OFF_TEXTS, PLATFORM_MODEL_POLICY, composeSystemPromptParts, createFakeTransport, createModelRouter, handOffTextForConversation, runAgentTurn } from "@repo/agent-core";
 import type { ModelKey } from "@repo/config";
 import type { HistoryMessage, ModelTransport, ToolCall, TransportRequest, TransportResponse } from "@repo/agent-core";
 import { replyOf, snapshotAppointments } from "./checks.js";
 import type { Check, Outcome } from "./checks.js";
 import { createWorld } from "./world.js";
-import type { AgentKey, Business, KnowledgeDoc, World } from "./world.js";
+import type { AgentKey, Business, ExternalCalendar, KnowledgeDoc, World } from "./world.js";
 
 // El arnés de las conversaciones de prueba (MANUAL §12.4): cada caso corre un
 // turno de verdad (runAgentTurn con el prompt de composeSystemPrompt y las
@@ -54,6 +54,8 @@ export interface ConversationCase {
   business?: Business;
   /** Lo que ha escrito el negocio, si no es el suyo de serie. */
   knowledge?: readonly KnowledgeDoc[];
+  /** El calendario conectado del caso (O-02): horas ocupadas, o un fallo del proveedor. */
+  externalCalendar?: ExternalCalendar;
   /** Lo que ya existe antes del turno (citas, etc.). */
   setup?: (world: World) => Promise<void>;
   /** Lo que haría un modelo que se porta bien (solo para el modelo falso). */
@@ -97,14 +99,19 @@ export interface RunOptions {
 }
 
 export async function runCase(testCase: ConversationCase, transport?: ModelTransport, options: RunOptions = {}): Promise<CaseRun> {
-  const world = createWorld(testCase.agent, testCase.knowledge, testCase.business);
+  const world = createWorld(testCase.agent, testCase.knowledge, testCase.business, testCase.externalCalendar);
   await testCase.setup?.(world);
+  // Lo que el caso dejó pendiente con el equipo va en el prompt, como lo pone el worker (CU3).
+  const prompt = composeSystemPromptParts({ ...world.promptContext, pendingRequests: world.pendingRequests });
+  // El mundo guarda el prompt que de verdad recibe el modelo.
+  world.systemPromptParts = prompt;
+  world.systemPrompt = `${prompt.stable}\n\n${prompt.volatile}`;
   const appointmentsBefore = snapshotAppointments(world);
   const model = transport ?? scriptedTransport(testCase.script(world));
   const result = await runAgentTurn({
     scope: world.scope,
-    systemPrompt: world.systemPromptParts.stable,
-    systemContext: world.systemPromptParts.volatile,
+    systemPrompt: prompt.stable,
+    systemContext: prompt.volatile,
     history: testCase.history,
     ...(testCase.summary ? { summary: testCase.summary } : {}),
     skills: world.skills,
@@ -125,7 +132,7 @@ export async function runCase(testCase: ConversationCase, transport?: ModelTrans
     result,
     world,
     // Con un paso explícito sin respuesta, el texto fijo que vería el cliente (CU3).
-    reply: replyOf(result, HAND_OFF_TEXTS.es),
+    reply: replyOf(result, handOffTextForConversation(testCase.history, HAND_OFF_TEXTS.es)),
     calls: result.executions.filter((execution) => execution.skillKey !== "reply"),
     appointmentsBefore,
   };
