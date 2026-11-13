@@ -40,6 +40,13 @@ describe("asksToQualify", () => {
     ["un texto informativo con las palabras", "El piso tiene 3 habitaciones, el presupuesto de la reforma fue alto y la fecha de entrada es libre."],
     ["el mínimo no es una petición", "El presupuesto mínimo es de 1.250 € al mes."],
     ["el verbo lejos de las palabras", `Dime si te interesa. ${"x".repeat(200)} El presupuesto es de 1.250 €.`],
+    // V10 sobre 1326cbf: la oferta en lista detrás de una pregunta no pide nada.
+    ["la oferta en lista detrás de una pregunta", "Tenemos dos pisos. ¿Te encaja alguna?\n- Alonso Cano: 3 habitaciones, 1.250 €\n- Ríos Rosas: 2 habitaciones, 1.600 €"],
+    ["la oferta detrás de «?:»", "¿Te encaja alguna?: Alonso Cano, 3 habitaciones, 1.250 €."],
+    // V10 sobre 1326cbf: «dime si…» no pide los datos, y la palabra en otra frase tampoco.
+    ["«dime si…» y la palabra en otra frase", "Dime si quieres visitarlo. Tiene 3 habitaciones y el presupuesto es de 1.250 €."],
+    ["«dime, si…»", "Dime, si te encaja, y te paso la ficha: tiene 3 habitaciones."],
+    ["el verbo y la palabra en frases distintas", "Cuéntame. El presupuesto es de 1.250 € al mes."],
   ])("%s: no cualifica", (_label, reply) => {
     expect(verify(reply)).toMatch(/^no cualifica con una pregunta/u);
   });
@@ -47,6 +54,7 @@ describe("asksToQualify", () => {
   it("en inglés, con palabras clave en inglés", () => {
     const english = asksToQualify(["budget", "bedrooms"]);
     expect(english.verify({ reply: "If one fits, let me know your budget and how many bedrooms you need." } as Outcome)).toBeNull();
+    expect(english.verify({ reply: "Let me know if you want to visit it. It has 3 bedrooms and the budget is fine." } as Outcome)).toMatch(/^no cualifica/u);
   });
 
   it("sin respuesta, no contestó", () => {
