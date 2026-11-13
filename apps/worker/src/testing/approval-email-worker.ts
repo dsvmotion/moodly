@@ -1,6 +1,7 @@
 // Proceso de prueba para notifications/approval-email.integration.ts: el worker
-// real con los consumidores notify.approval_email y notify.budget_email (el
-// aviso del tope mensual) y el cliente de Resend de
+// real con los consumidores notify.approval_email, notify.budget_email (el
+// aviso del tope mensual) y notify.handoff_email (el paso a una persona, CU3) y
+// el cliente de Resend de
 // verdad, que envía a un servidor falso (FAKE_RESEND_URL) en vez de a Resend.
 //
 //   FAKE_RESEND_URL=http://127.0.0.1:<puerto> RESEND_API_KEY=re_… WEB_APP_URL=… node approval-email-worker.ts
@@ -13,6 +14,7 @@ import { logHandler } from "../events/log-handler.ts";
 import { createLogger } from "../logger.ts";
 import { createApprovalEmailHandler } from "../notifications/approval-email.ts";
 import { createBudgetEmailHandler } from "../notifications/budget-email.ts";
+import { createHandoffEmailHandler } from "../notifications/handoff-email.ts";
 import { createWorker } from "../worker.ts";
 
 const baseUrl = process.env["FAKE_RESEND_URL"];
@@ -27,6 +29,7 @@ const worker = createWorker(config, logger, {
     logHandler,
     createApprovalEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),
     createBudgetEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),
+    createHandoffEmailHandler({ sender, webAppUrl: config.webAppUrl, retry }),
   ],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");

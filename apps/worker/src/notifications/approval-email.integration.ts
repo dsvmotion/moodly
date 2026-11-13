@@ -10,6 +10,7 @@ import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "../testing/local-system-db.ts";
 import { APPROVAL_EMAIL_HANDLER_KEY, EMAIL_UNAUTHORIZED_EVENT } from "./approval-email.ts";
 import { BUDGET_EMAIL_HANDLER_KEY } from "./budget-email.ts";
+import { HANDOFF_EMAIL_HANDLER_KEY } from "./handoff-email.ts";
 
 // M-02: de una aprobación nueva al email, pasando por approval.created en el
 // outbox, el publicador y el consumidor notify.approval_email, con el cliente de
@@ -356,6 +357,126 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
       [deliveryWorkflowId(events[0]?.id as string, BUDGET_EMAIL_HANDLER_KEY)],
     );
     expect(rows).toEqual([{ status: "SUCCESS", queue_name: "notifications" }]);
+    expect(worker.output()).not.toContain("@demo.test");
+
+    worker.child.kill("SIGTERM");
+    expect(await worker.exited, worker.output()).toBe(0);
+  });
+});
+
+/** Una conversación del agente en un local (o de toda la organización, con location null). */
+async function createConversation(org: string, location: string | null): Promise<string> {
+  const { rows: agents } = await admin.query<{ id: string }>("select id from public.agents where organization_id = $1 order by id limit 1", [org]);
+  const { rows: contacts } = await admin.query<{ id: string }>(
+    "insert into public.contacts (organization_id, display_name) values ($1, 'Ana') returning id",
+    [org],
+  );
+  const { rows: accounts } = await admin.query<{ id: string }>(
+    `insert into public.channel_accounts (organization_id, location_id, channel, external_id, default_agent_type, status)
+     values ($1, $2, 'whatsapp', $3, 'customer', 'active') returning id`,
+    [org, location, `${marker}-${randomUUID()}`],
+  );
+  const { rows } = await admin.query<{ id: string }>(
+    `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+     values ($1, $2, $3, $4, $5) returning id`,
+    [org, location, contacts[0]?.id, accounts[0]?.id, agents[0]?.id],
+  );
+  // Un mensaje del cliente con algo que no debe salir en el email.
+  await admin.query(
+    "insert into public.messages (organization_id, conversation_id, direction, author, content) values ($1, $2, 'in', 'contact', 'Mi DNI es 12345678Z')",
+    [org, rows[0]?.id],
+  );
+  return rows[0]?.id as string;
+}
+
+/** Como el worker al pasar la conversación a una persona: solo de agent a human. */
+async function handOff(conversationId: string): Promise<void> {
+  await admin.query("update public.conversations set mode = 'human' where id = $1 and mode = 'agent'", [conversationId]);
+}
+
+const handoffKeys = (eventIds: readonly string[]) =>
+  received.map((r) => String(r.headers["idempotency-key"])).filter((key) => eventIds.some((id) => key.startsWith(`handoff:${id}:`)));
+
+describe("aviso por email del paso a una persona (CU3)", () => {
+  it("quien puede llevar la conversación recibe un email por paso, una sola vez; nadie fuera de su alcance ni de otra organización", async () => {
+    const worker = startWorker({
+      ...process.env,
+      WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
+      WORKER_EXECUTOR_ID: `test-handoff-email-${process.pid}`,
+      WORKER_APP_VERSION: "test-handoff-email",
+      LOG_LEVEL: "info",
+      SUPABASE_URL: api.url,
+      SUPABASE_SECRET_KEY: api.secretKey,
+      RESEND_API_KEY: RESEND_KEY,
+      WEB_APP_URL: WEB,
+      FAKE_RESEND_URL: resendUrl,
+    });
+
+    const inX1 = await createConversation(ids.orgX, ids.locX1);
+    const inX = await createConversation(ids.orgX, null);
+    const inY1 = await createConversation(ids.orgY, ids.locY1);
+    // Resend cae 3 veces para quien dirige X1 y luego vuelve.
+    const { rows: before } = await admin.query<{ n: number }>("select count(*)::int as n from public.domain_events where type = 'conversation.handed_off'");
+    failTimes.set(`:${userIds.xManager1}`, 3);
+    const served503Before = served503;
+    await handOff(inX1);
+    // Repetido: la fila ya está en manos de una persona y no hay otro aviso.
+    await handOff(inX1);
+    await handOff(inX);
+    await handOff(inY1);
+
+    const eventsOf = async (conversationId: string) =>
+      (
+        await admin.query<{ id: string }>(
+          "select id from public.domain_events where type = 'conversation.handed_off' and payload->>'conversation_id' = $1 order by created_at",
+          [conversationId],
+        )
+      ).rows.map((row) => row.id);
+    const [x1Events, xEvents, y1Events] = [await eventsOf(inX1), await eventsOf(inX), await eventsOf(inY1)];
+    expect([x1Events.length, xEvents.length, y1Events.length]).toEqual([1, 1, 1]);
+    const { rows: after } = await admin.query<{ n: number }>("select count(*)::int as n from public.domain_events where type = 'conversation.handed_off'");
+    expect((after[0]?.n ?? 0) - (before[0]?.n ?? 0)).toBe(3);
+
+    const expectedX1: Person[] = ["xAdmin", "xRegionN", "xManager1", "xStaff1"];
+    await waitFor(
+      () => new Set(handoffKeys(x1Events)).size === expectedX1.length && served503 - served503Before === 3,
+      "los avisos de X1, con los 3 reintentos",
+      worker.output,
+    );
+    await waitFor(() => new Set(handoffKeys(xEvents)).size === 1 && new Set(handoffKeys(y1Events)).size === 2, "los avisos de X y de Y1", worker.output);
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+
+    const forEvents = (eventIds: readonly string[]) => received.filter((r) => eventIds.some((id) => String(r.headers["idempotency-key"]).startsWith(`handoff:${id}:`)));
+    // Exactamente quien puede llevarla: ni el region_manager del sur, ni el staff de X2 o X3, ni nadie de otra organización.
+    expect(new Set(forEvents(x1Events).map((r) => r.body.to[0]))).toEqual(new Set(expectedX1.map(emailOf)));
+    expect(forEvents(x1Events)).toHaveLength(expectedX1.length + 3);
+    // La de toda la organización, solo el org_admin; la de Y1, las personas de Y1.
+    expect(forEvents(xEvents).map((r) => r.body.to[0])).toEqual([emailOf("xAdmin")]);
+    expect(forEvents(y1Events).map((r) => r.body.to[0]).sort()).toEqual([emailOf("yAdmin"), emailOf("yStaff1")].sort());
+
+    const staff = forEvents(x1Events).find((r) => r.body.to[0] === emailOf("xStaff1"));
+    expect(staff?.body.subject).toMatch(/handed a conversation to the team \(X1\)/);
+    expect(staff?.body.text).toContain(`${WEB}/app/inbox/${inX1}?scope=location%3A${ids.locX1}`);
+    for (const request of forEvents([...x1Events, ...xEvents, ...y1Events])) {
+      expect(request.body.from).toBe(`${BRAND_NAME} <${NOTIFICATION_EMAIL_FROM}>`);
+      // Sin el contenido de los mensajes.
+      expect(request.body.text).not.toContain("12345678Z");
+      expect(request.body.html).not.toContain("12345678Z");
+    }
+
+    // Devuelta al agente y pasada otra vez: es otro paso y otro aviso, con otra clave.
+    await admin.query("update public.conversations set mode = 'agent' where id = $1", [inY1]);
+    await handOff(inY1);
+    const y1Again = await eventsOf(inY1);
+    expect(y1Again).toHaveLength(2);
+    await waitFor(() => new Set(handoffKeys([y1Again[1] as string])).size === 2, "el segundo aviso de Y1", worker.output);
+
+    const { rows } = await admin.query<{ status: string; queue_name: string }>(
+      "select status, queue_name from dbos.workflow_status where workflow_uuid = any($1::text[])",
+      [[...x1Events, ...xEvents, ...y1Again].map((id) => deliveryWorkflowId(id, HANDOFF_EMAIL_HANDLER_KEY))],
+    );
+    expect(rows).toHaveLength(4);
+    expect(rows.every((row) => row.status === "SUCCESS" && row.queue_name === "notifications")).toBe(true);
     expect(worker.output()).not.toContain("@demo.test");
 
     worker.child.kill("SIGTERM");

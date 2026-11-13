@@ -42,5 +42,7 @@ export { renderApprovalEmail } from "./email/approval.js";
 export type { ApprovalEmailInput, EmailLocale, RenderedEmail } from "./email/approval.js";
 export { renderBudgetEmail } from "./email/budget.js";
 export type { BudgetEmailInput } from "./email/budget.js";
+export { renderHandoffEmail } from "./email/handoff.js";
+export type { HandoffEmailInput } from "./email/handoff.js";
 export { EmailSendError, RESEND_API_URL, createResendSender } from "./email/resend.js";
 export type { EmailAddress, EmailSendErrorKind, EmailSender, ResendSenderOptions, SendEmailRequest } from "./email/resend.js";
