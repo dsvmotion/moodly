@@ -648,8 +648,10 @@ export function finalRunStatus(
   superseded = false,
 ): ReturnType<typeof runStatusFor> {
   // El cliente escribió otra vez y contesta el turno de su último mensaje: este
-  // run acabó su parte (no pasa la conversación a nadie).
-  if (superseded && !stillAwaiting) return "completed";
+  // run acabó su parte y nunca pasa la conversación a nadie (si lo hiciera, el
+  // turno del mensaje nuevo ya no contestaría). Si algo suyo sigue esperando a
+  // una persona (una reserva en borrador), espera eso.
+  if (superseded) return stillAwaiting ? "awaiting_approval" : "completed";
   const status = runStatusFor(result);
   if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
   return status;

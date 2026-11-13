@@ -84,6 +84,9 @@ describe("el turno del agente en el worker", () => {
     expect(finalRunStatus(drafted, false, false, true)).toBe("completed");
     // Si otra cosa del turno sigue esperando a una persona (una reserva en borrador), espera.
     expect(finalRunStatus(drafted, false, true, true)).toBe("awaiting_approval");
+    // También si la respuesta autónoma falló por el relevo: espera esa reserva, sin pasar la
+    // conversación a una persona (si no, el turno del mensaje nuevo ya no contestaría).
+    expect(finalRunStatus(failed, false, true, true)).toBe("awaiting_approval");
     // Sin superseded, lo de siempre.
     expect(finalRunStatus(failed, false, false)).toBe("handed_off");
   });
