@@ -13,7 +13,6 @@ import type {
   TurnModelCall,
   TurnResult,
 } from "@repo/agent-core";
-import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
 import type { Embedder } from "@repo/knowledge";
 import {
@@ -34,7 +33,7 @@ import { createKnowledgeRetriever } from "../knowledge/retriever.ts";
 import { handleOptOut } from "../reminders/consent.ts";
 import { BOOK_SKILL_KEY, acceptanceKey, acceptanceText, findAcceptance, holdOffer, holdUntil } from "../waitlist/accept.ts";
 import type { AcceptanceOutcome } from "../waitlist/accept.ts";
-import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
+import { DB_STEP, type DomainEvent, type EventContext, type EventHandler } from "../events/handlers.ts";
 import { AWAITING_PERSON, HELD_NOT_AGENT_MODE, requestApproval } from "./approvals.ts";
 import { createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
 import { createReceptionCatalog } from "./reception-catalog.ts";
@@ -182,86 +181,121 @@ type Prepared =
       now: string;
     };
 
-function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
-  if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
-  return result.data;
+// Las lecturas del turno van por SQL bajo RLS, con el rol moodly_worker (ADR
+// 0049, PL-T1): la organización la fija forOrganization y Postgres no deja ver
+// filas de otra aunque una consulta se olvide de filtrar. El resumen en una
+// transacción corta y lo demás en otra; el contexto del agente sale de
+// private.worker_agent_turn_context (paso 3), que toma la organización de la
+// transacción.
+interface ConversationRow extends Conversation {
+  mode: string;
+  channel_account_id: string;
 }
 
-async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
-  const conversation = check(
-    await db.from("conversations").select("id, location_id, contact_id, agent_id, mode, channel_account_id").eq("id", conversationId).maybeSingle(),
-    "la conversación",
-  );
-  if (!conversation) return { kind: "skip", reason: "conversation_missing" };
-  if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
+type Loaded =
+  | { kind: "skip"; reason: string }
+  | {
+      kind: "turn";
+      conversation: ConversationRow;
+      context: TurnContext;
+      books: boolean;
+      messages: { author: string; content: string }[];
+      location: { name: string; timezone: string } | null;
+      modelSettings: unknown;
+      serviceRows: ServiceRow[];
+      spent: { dayEur: number; monthEur: number };
+    };
 
-  const latest = check(
-    await db
-      .from("messages")
-      .select("id")
-      .eq("conversation_id", conversationId)
-      .eq("author", "contact")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "el último mensaje",
-  );
-  if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
-
-  const raw = await db.agentTurnContext(conversation.agent_id);
-  if (!raw) return { kind: "skip", reason: "agent_missing" };
-  const context = contextSchema.parse(raw);
-  if (!ANSWERING.has(context.agent.status)) {
-    const account = check(
-      await db.from("channel_accounts").select("channel").eq("id", conversation.channel_account_id).maybeSingle(),
-      "el canal de la conversación",
-    );
-    if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
-  }
-
-  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido.
-  // Si no se puede leer, sin resumen: la historia entera, como antes (nunca un turno sin contestar).
-  const { summary, error: summaryError } = await loadSummary(db, conversationId);
-  let history = db.from("messages").select("author, content, created_at").eq("conversation_id", conversationId);
-  if (summary) history = history.gt("created_at", summary.coveredUntil);
-  const messages = check(await history.order("created_at", { ascending: false }).limit(HISTORY_LIMIT), "el historial");
-  const location = conversation.location_id
-    ? check(await db.from("locations").select("name, timezone").eq("id", conversation.location_id).maybeSingle(), "el local")
-    : null;
-  const modelSettings = check(
-    await db
-      .from("org_model_settings")
-      .select("residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur")
-      .maybeSingle(),
-    "la política de modelos",
-  );
-  // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
-  const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
-  const serviceRows =
-    books && conversation.location_id
-      ? check(
-          await db
-            .from("services")
-            .select("id, name, duration_minutes, location_id")
-            .eq("active", true)
-            .or(`location_id.is.null,location_id.eq.${conversation.location_id}`)
-            .order("name")
-            .limit(MAX_PROMPT_SERVICES + 1),
-          "los servicios",
-        )
-      : [];
-  const bookable = books ? bookableServices(serviceRows ?? [], conversation.location_id) : null;
+// Exportada para el test de integración que comprueba que no lee conversaciones de otra organización.
+export async function prepare(db: TenantDb, conversationId: string, messageId: string): Promise<Prepared> {
   const now = new Date();
-  const spent = await db.usageSpend({
-    dayStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
-    monthStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  // Con resumen (PL-T3), solo lo que no cubre: lo anterior va resumido. Va en su
+  // propia transacción de moodly_worker, antes: si no se puede leer, el turno
+  // sigue sin resumen y con la historia entera (nunca un turno sin contestar), y
+  // un error dentro de la transacción del turno la abortaría entera.
+  const { summary, error: summaryError } = await loadSummary(db, conversationId);
+  const loaded = await db.transaction(async (sql): Promise<Loaded> => {
+    const [conversation] = await sql.query<ConversationRow>(
+      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
+      [conversationId],
+    );
+    if (!conversation) return { kind: "skip", reason: "conversation_missing" };
+    if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
+    const [latest] = await sql.query<{ id: string }>(
+      "select id from public.messages where conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
+      [conversationId],
+    );
+    if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
+
+    const [turn] = await sql.query<{ context: unknown }>("select private.worker_agent_turn_context($1) as context", [conversation.agent_id]);
+    if (!turn?.context) return { kind: "skip", reason: "agent_missing" };
+    const context = contextSchema.parse(turn.context);
+    if (!ANSWERING.has(context.agent.status)) {
+      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
+        conversation.channel_account_id,
+      ]);
+      if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
+    }
+
+    const messages = await sql.query<{ author: string; content: string }>(
+      `select author, content from public.messages
+       where conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
+       order by created_at desc limit $2`,
+      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null],
+    );
+    const [location] = conversation.location_id
+      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where id = $1", [
+          conversation.location_id,
+        ])
+      : [];
+    const [modelSettings] = await sql.query(
+      `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur
+       from public.org_model_settings limit 1`,
+    );
+    // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
+    const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
+    const serviceRows =
+      books && conversation.location_id
+        ? await sql.query<ServiceRow>(
+            `select id, name, duration_minutes, location_id from public.services
+             where active and (location_id is null or location_id = $1)
+             order by name limit $2`,
+            [conversation.location_id, MAX_PROMPT_SERVICES + 1],
+          )
+        : [];
+    // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
+    // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
+    // organización, usage_records_worker, 20261112120000).
+    const [spent] = await sql.query<{ day_eur: number; month_eur: number }>(
+      `select coalesce(sum(cost_eur) filter (where occurred_at >= $1), 0)::float8 as day_eur,
+              coalesce(sum(cost_eur) filter (where occurred_at >= $2), 0)::float8 as month_eur
+       from public.usage_records
+       where occurred_at >= least($1::timestamptz, $2::timestamptz)`,
+      [dayStart.toISOString(), monthStart.toISOString()],
+    );
+    return {
+      kind: "turn",
+      conversation,
+      context,
+      books,
+      messages,
+      location: location ?? null,
+      modelSettings: modelSettings ?? null,
+      serviceRows,
+      spent: { dayEur: spent?.day_eur ?? 0, monthEur: spent?.month_eur ?? 0 },
+    };
   });
+  if (loaded.kind === "skip") return loaded;
+  const { conversation, context, books, messages, location, modelSettings, serviceRows, spent } = loaded;
+  const bookable = books ? bookableServices(serviceRows, conversation.location_id) : null;
 
   return {
     kind: "turn",
     conversation: { id: conversation.id, location_id: conversation.location_id, contact_id: conversation.contact_id, agent_id: conversation.agent_id },
     context,
-    history: (messages ?? []).reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
+    history: [...messages].reverse().map((message) => ({ author: message.author as HistoryMessage["author"], content: message.content })),
     summary,
     summaryError,
     location,
@@ -313,17 +347,20 @@ export function agentSkills(available: Map<string, SkillDefinition<unknown>>, co
   return { skills, settings };
 }
 
+// Las escrituras del run y del consumo van por SQL bajo RLS como moodly_worker
+// (ADR 0049, PL-T1 3c-1, 20261112130000): solo de esta organización, solo las
+// columnas que concede la migración y, por guard_worker_agent_run, el run nace
+// «running» y su estado solo sale de «running».
 async function startRun(db: TenantDb, runId: string, conversation: Conversation, messageId: string): Promise<void> {
-  const { error } = await db.from("agent_runs").insert({
-    id: runId,
-    location_id: conversation.location_id,
-    agent_id: conversation.agent_id,
-    trigger: "inbound_message",
-    trigger_ref: messageId,
-    status: "running",
-  });
-  // 23505: el run ya existía (la entrega se reanudó después de crearlo).
-  if (error && error.code !== "23505") throw new Error(`no se pudo crear el run (${error.code})`);
+  // on conflict: el run ya existía (la entrega se reanudó después de crearlo).
+  await db.transaction((sql) =>
+    sql.query(
+      `insert into public.agent_runs (id, organization_id, location_id, agent_id, trigger, trigger_ref, status)
+       values ($1, $2, $3, $4, 'inbound_message', $5, 'running')
+       on conflict (id) do nothing`,
+      [runId, db.organizationId, conversation.location_id, conversation.agent_id, messageId],
+    ),
+  );
 }
 
 /**
@@ -345,49 +382,59 @@ async function recordExecution(
   now: Date,
 ): Promise<boolean> {
   if (execution.status === "rejected" || execution.inputHash === undefined || execution.autonomy === undefined) return false;
-  const { data, error } = await db.from("executions").insert({
-    run_id: runId,
-    location_id: locationId,
-    skill_key: execution.skillKey,
-    skill_version: skill.version,
-    effect_class: skill.effectClass,
-    autonomy_applied: execution.autonomy,
-    input: execution.input as NonNullable<Json>,
-    target: execution.target as unknown as NonNullable<Json>,
-    input_hash: execution.inputHash,
-    preview: (execution.preview ?? null) as unknown as Json,
-    output: (execution.output ?? null) as Json,
-    status: execution.status,
-    idempotency_key: execution.idempotencyKey,
-  }).select("id").single();
-  // 23505: ya guardada (la entrega se reanudó después de guardarla).
-  if (error && error.code !== "23505") throw new Error(`no se pudo guardar la ejecución (${error.code})`);
-  if (!AWAITING_PERSON.has(execution.status)) return false;
-  // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
-  let executionId = data?.id;
-  if (!executionId) {
-    const existing = await db.from("executions").select("id").eq("idempotency_key", execution.idempotencyKey).maybeSingle();
-    if (existing.error || !existing.data) throw new Error(`no se encontró la ejecución guardada (${existing.error?.code ?? "sin fila"})`);
-    executionId = existing.data.id;
-  }
-  // Si la conversación ya la lleva una persona, el mensaje del agente no pide
-  // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
-  // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
-  if (execution.target?.kind === "conversation") {
-    const conversation = check(
-      await db.from("conversations").select("mode").eq("id", execution.target.conversationId).maybeSingle(),
-      "la conversación de la ejecución",
+  // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112140000): guardar,
+  // encontrar y, si hace falta, retener la ejecución, en una transacción.
+  const target = execution.target;
+  const saved = await db.transaction(async (sql) => {
+    // on conflict: ya guardada (la entrega se reanudó después de guardarla).
+    await sql.query(
+      `insert into public.executions (organization_id, run_id, location_id, skill_key, skill_version, effect_class,
+                                      autonomy_applied, input, target, input_hash, preview, output, status, idempotency_key)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       on conflict do nothing`,
+      [
+        db.organizationId,
+        runId,
+        locationId,
+        execution.skillKey,
+        skill.version,
+        skill.effectClass,
+        execution.autonomy,
+        JSON.stringify(execution.input),
+        JSON.stringify(target),
+        execution.inputHash,
+        // Sin vista previa ni salida, NULL de SQL (no el jsonb 'null', que preview no admite).
+        execution.preview == null ? null : JSON.stringify(execution.preview),
+        execution.output == null ? null : JSON.stringify(execution.output),
+        execution.status,
+        execution.idempotencyKey,
+      ],
     );
-    if (holdsForPerson(skill.effectClass, execution.target, conversation?.mode ?? null)) {
-      const held = await db
-        .from("executions")
-        .update({ status: "failed", output: { held: HELD_NOT_AGENT_MODE } })
-        .eq("id", executionId)
-        .in("status", [...AWAITING_PERSON]);
-      if (held.error) throw new Error(`no se pudo retener la ejecución (${held.error.code})`);
-      return true;
+    if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false };
+    // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
+    const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
+    if (!row) throw new Error("no se encontró la ejecución guardada");
+    // Si la conversación ya la lleva una persona, el mensaje del agente no pide
+    // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
+    // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
+    if (target?.kind === "conversation") {
+      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where id = $1", [
+        target.conversationId,
+      ]);
+      if (holdsForPerson(skill.effectClass, target, conversation?.mode ?? null)) {
+        await sql.query(
+          `update public.executions set status = 'failed', output = $2
+           where id = $1 and status = any($3::text[])`,
+          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON]],
+        );
+        return { executionId: row.id, held: true };
+      }
     }
-  }
+    return { executionId: row.id, held: false };
+  });
+  if (!saved.executionId) return false;
+  if (saved.held) return true;
+  const executionId = saved.executionId;
   await requestApproval(db, {
     executionId,
     locationId,
@@ -425,27 +472,33 @@ export async function recordUsageSafely(
 }
 
 async function recordUsage(db: TenantDb, runId: string, conversation: Conversation, call: TurnModelCall): Promise<void> {
-  const { error } = await db.from("usage_records").insert(
-    {
-      location_id: conversation.location_id,
-      run_id: runId,
-      agent_id: conversation.agent_id,
-      source: "agent_turn",
-      metric: "llm_tokens",
-      quantity: call.tokensIn + call.tokensOut,
-      tokens_in: call.tokensIn,
-      tokens_out: call.tokensOut,
-      cost_eur: call.costEur,
-      provider: call.provider,
-      via: call.via,
-      region: call.region,
-      model: call.model,
-      model_key: call.modelKey,
-      call_index: call.index,
-      occurred_at: call.startedAt,
-    },
+  // on conflict: la llamada ya estaba anotada (run, orden y hora la hacen única).
+  await db.transaction((sql) =>
+    sql.query(
+      `insert into public.usage_records (organization_id, location_id, run_id, agent_id, source, metric, quantity,
+                                         tokens_in, tokens_out, cost_eur, provider, via, region, model, model_key,
+                                         call_index, occurred_at)
+       values ($1, $2, $3, $4, 'agent_turn', 'llm_tokens', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       on conflict do nothing`,
+      [
+        db.organizationId,
+        conversation.location_id,
+        runId,
+        conversation.agent_id,
+        call.tokensIn + call.tokensOut,
+        call.tokensIn,
+        call.tokensOut,
+        call.costEur,
+        call.provider,
+        call.via,
+        call.region,
+        call.model,
+        call.modelKey,
+        call.index,
+        call.startedAt,
+      ],
+    ),
   );
-  if (error && error.code !== "23505") throw new Error(`no se pudo anotar el consumo (${error.code})`);
 }
 
 /**
@@ -460,33 +513,39 @@ export function finalRunStatus(result: TurnResult, heldAny: boolean, stillAwaiti
 }
 
 async function finishRun(db: TenantDb, runId: string, conversationId: string, result: TurnResult, heldAny: boolean): Promise<void> {
-  let stillAwaiting = false;
-  if (heldAny) {
-    const pending = check(
-      await db.from("executions").select("id").eq("run_id", runId).in("status", [...AWAITING_PERSON]).limit(1),
-      "lo que queda del run",
+  // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): lo que queda del
+  // run, el paso a una persona y el cierre del run, en una transacción.
+  await db.transaction(async (sql) => {
+    let stillAwaiting = false;
+    if (heldAny) {
+      const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+        runId,
+        [...AWAITING_PERSON],
+      ]);
+      stillAwaiting = pending.length > 0;
+    }
+    const status = finalRunStatus(result, heldAny, stillAwaiting);
+    if (status === "handed_off") {
+      // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
+      // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
+      // una persona. Si el paso se repite, no cambia nada (solo de agent a human;
+      // guard_worker_conversation no deja otra cosa).
+      await sql.query("update public.conversations set mode = 'human' where id = $1 and mode = 'agent'", [conversationId]);
+    }
+    // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
+    // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
+    // fuera de «running», solo suben (guard_worker_agent_run): el uso se apunta igual.
+    await sql.query(
+      `update public.agent_runs
+       set status = case when status = 'running' then $2 else status end,
+           model = case when status = 'running' then $3 else model end,
+           tokens_in = case when status = 'running' then $4 else greatest(tokens_in, $4) end,
+           tokens_out = case when status = 'running' then $5 else greatest(tokens_out, $5) end,
+           cost_eur = case when status = 'running' then $6 else greatest(cost_eur, $6) end
+       where id = $1`,
+      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
     );
-    stillAwaiting = (pending ?? []).length > 0;
-  }
-  const status = finalRunStatus(result, heldAny, stillAwaiting);
-  if (status === "handed_off") {
-    // Paso a una persona (§5.10): el agente deja de contestar hasta que se la devuelvan.
-    // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
-    // una persona. Si el paso se repite, no cambia nada (solo de agent a human).
-    const handed = await db.from("conversations").update({ mode: "human" }).eq("id", conversationId).eq("mode", "agent");
-    if (handed.error) throw new Error(`no se pudo pasar la conversación a una persona (${handed.error.code})`);
-  }
-  const { error } = await db
-    .from("agent_runs")
-    .update({
-      status,
-      model: result.usage.model,
-      tokens_in: result.usage.tokensIn,
-      tokens_out: result.usage.tokensOut,
-      cost_eur: result.usage.costEur,
-    })
-    .eq("id", runId);
-  if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
+  });
 }
 
 /** Lo que decidió el motor para la reserva al aceptar una oferta. Serializable: es el resultado de un paso. */
@@ -630,7 +689,10 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       }
       // Un «sí» a una oferta viva de la lista de espera: la reserva, sin modelo (4f-3).
       if (await acceptOffer(event, ctx, conversationId, messageId)) return;
-      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId));
+      // Con reintentos: si moodly_worker no entra un momento (el pooler, un
+      // reinicio), el mensaje no se pierde; si no entra nunca, el worker no
+      // habría arrancado (worker.ts, verifyWorkerConnection).
+      const prepared = await ctx.step("load", () => prepare(ctx.db, conversationId, messageId), DB_STEP);
       if (prepared.kind === "skip") {
         ctx.logger.info({ conversationId, reason: prepared.reason }, "el agente no contesta este mensaje");
         return;
@@ -668,7 +730,7 @@ export function createConverseHandler({ router, knowledge, intentRouting = false
       // se usa la que tenía (DBOS repite los pasos guardados, no la configuración nueva).
       const routing = await ctx.step("intent-routing", () => Promise.resolve(intentRouting));
       const result = await runAgentTurn({
-        // El tipo del agente sale de su fila (agentTurnContext), nunca del LLM: elige
+        // El tipo del agente sale de su fila (worker_agent_turn_context), nunca del LLM: elige
         // con qué modelo conversa (MANUAL §5.11); uno sin clave propia usa el de la tarea.
         agentType: context.agent.type_key,
         scope: {

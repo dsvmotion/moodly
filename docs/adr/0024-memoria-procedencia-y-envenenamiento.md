@@ -1,6 +1,6 @@
 # 0024 — Memoria: procedencia, confianza y defensa contra el envenenamiento
 
-- **Estado:** propuesto
+- **Estado:** aceptado (producto, 2026-11-12)
 - **Fecha:** 2026-10-20
 - **Secciones del MANUAL afectadas:** §4.2 (`memories`), §5.3, §6.2, §12.4
 

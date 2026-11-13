@@ -56,6 +56,9 @@ export interface StepRetry {
   backoffRate: number;
 }
 
+/** Lecturas de la base de datos: reintentos cortos, por si PostgREST o el pooler fallan un momento. */
+export const DB_STEP: StepRetry = { maxAttempts: 4, intervalSeconds: 1, backoffRate: 2 };
+
 export interface EventHandler {
   /** Estable y único: forma parte del ID de cada entrega. Cambiarlo vuelve a entregar. */
   key: string;

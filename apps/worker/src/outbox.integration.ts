@@ -6,7 +6,7 @@ import { join } from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "./events/outbox.ts";
-import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl } from "./testing/local-system-db.ts";
+import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "./testing/local-system-db.ts";
 
 // W3 (ADR 0009): del alta de una invitación al consumidor, pasando por el
 // outbox, el publicador programado y una entrega por consumidor; con el tenant
@@ -28,6 +28,7 @@ const baseEnv = {
   LOG_LEVEL: "info",
   SUPABASE_URL: api.url,
   SUPABASE_SECRET_KEY: api.secretKey,
+  WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
 };
 
 interface Effect {

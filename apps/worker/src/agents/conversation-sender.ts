@@ -31,27 +31,33 @@ export function isNotAgentMode(error: unknown): boolean {
 
 export function createConversationSender(db: TenantDb): ConversationSender {
   return {
+    // Como moodly_worker, bajo RLS (PL-T1 3c-2, 20261112140000): solo mensajes
+    // del agente (guard_worker_message) y solo en su organización.
     async send({ conversationId, text, idempotencyKey }) {
-      const existing = await db.from("messages").select("id").eq("idempotency_key", idempotencyKey).limit(1).maybeSingle();
-      if (existing.error) throw new Error(`no se pudo comprobar la respuesta (${existing.error.code})`);
-      if (existing.data) return { messageId: existing.data.id };
-      const inserted = await db
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          direction: "out",
-          author: "agent",
-          content: text,
-          status: "sent",
-          idempotency_key: idempotencyKey,
-        })
-        .select("id")
-        .single();
-      if (inserted.error?.code === NOT_AGENT_MODE_CODE) {
-        throw new ConversationNotAgentModeError("la conversación no la lleva el agente: el mensaje no se guarda");
+      try {
+        return await db.transaction(async (sql) => {
+          const [existing] = await sql.query<{ id: string }>("select id from public.messages where idempotency_key = $1 limit 1", [
+            idempotencyKey,
+          ]);
+          if (existing) return { messageId: existing.id };
+          const [inserted] = await sql.query<{ id: string }>(
+            `insert into public.messages (organization_id, conversation_id, direction, author, content, status, idempotency_key)
+             values ($1, $2, 'out', 'agent', $3, 'sent', $4)
+             returning id`,
+            [db.organizationId, conversationId, text, idempotencyKey],
+          );
+          if (!inserted) throw new Error("no se pudo guardar la respuesta");
+          return { messageId: inserted.id };
+        });
+      } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code;
+        if (code === NOT_AGENT_MODE_CODE) {
+          throw new ConversationNotAgentModeError("la conversación no la lleva el agente: el mensaje no se guarda");
+        }
+        // Solo el código: el mensaje de Postgres puede llevar datos.
+        if (typeof code === "string") throw new Error(`no se pudo guardar la respuesta (${code})`, { cause: error });
+        throw error;
       }
-      if (inserted.error) throw new Error(`no se pudo guardar la respuesta (${inserted.error.code})`);
-      return { messageId: inserted.data.id };
     },
   };
 }

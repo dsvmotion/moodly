@@ -7,20 +7,35 @@ import { SEARCH_EMBEDDING_CALL_INDEX, meteredSearchEmbedder, recordEmbeddingUsag
 
 // Las consultas de search_knowledge en el libro de consumo (PL-ledger): cada
 // llamada pagada, una fila con el run, el agente y el local del turno. La
-// organización la pone tenantDb (aquí, falso: se mira lo que se inserta).
+// organización es la de tenantDb (aquí, falso: se mira lo que se inserta).
 
 const ROUTE = { provider: "vercel-ai-gateway", region: "other", connection: "managed" } as const;
 
+/**
+ * Un tenantDb falso con la transacción bajo RLS (PL-T1): cada insert se lee
+ * como la fila que escribiría (columnas con sus parámetros o literales), o
+ * falla con el código de Postgres que se le diga.
+ */
 function fakeDb(fail: { code: string } | null = null) {
   const inserted: Record<string, unknown>[] = [];
+  const query = async (text: string, values: readonly unknown[] = []) => {
+    const match = /insert into public\.(\w+)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\)/s.exec(text);
+    if (!match) throw new Error(`consulta inesperada: ${text}`);
+    if (fail) throw Object.assign(new Error("pg"), { code: fail.code });
+    const columns = (match[2] ?? "").split(",").map((column) => column.trim());
+    const cells = (match[3] ?? "").split(",").map((cell) => cell.trim());
+    const row: Record<string, unknown> = { table: match[1] };
+    columns.forEach((column, i) => {
+      const cell = cells[i] ?? "";
+      const param = /^\$(\d+)$/.exec(cell);
+      row[column] = param ? values[Number(param[1]) - 1] : /^'.*'$/.test(cell) ? cell.slice(1, -1) : Number(cell);
+    });
+    inserted.push(row);
+    return [];
+  };
   const db = {
     organizationId: "a0000000-0000-4000-8000-000000000000",
-    from: (table: string) => ({
-      insert: async (row: Record<string, unknown>) => {
-        inserted.push({ table, ...row });
-        return { error: fail };
-      },
-    }),
+    transaction: async <T>(fn: (sql: { query: typeof query }) => Promise<T>) => fn({ query }),
   } as unknown as TenantDb;
   return { db, inserted };
 }
@@ -66,8 +81,8 @@ describe("meteredSearchEmbedder", () => {
       }),
       expect.objectContaining({ quantity: 3, call_index: SEARCH_EMBEDDING_CALL_INDEX + 1 }),
     ]);
-    // La organización no la pone quien anota: la pone tenantDb.
-    expect(inserted[0]).not.toHaveProperty("organization_id");
+    // La organización no la pone quien anota: es la de tenantDb (y RLS la exige).
+    expect(inserted[0]?.organization_id).toBe(db.organizationId);
   });
 
   it("si falla después de un lote ya pagado, lo gastado va al libro y el error sigue", async () => {

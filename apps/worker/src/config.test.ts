@@ -9,6 +9,7 @@ const valid = {
   WORKER_APP_VERSION: "3f2c1ab",
   SUPABASE_URL: "https://ref.supabase.co",
   SUPABASE_SECRET_KEY: SECRET_KEY,
+  WORKER_DATABASE_URL: "postgresql://moodly_worker:secreto-largo@db.example.test:5432/postgres",
 };
 
 describe("loadConfig", () => {
@@ -21,12 +22,38 @@ describe("loadConfig", () => {
       gitCommit: null,
       supabaseUrl: "https://ref.supabase.co",
       supabaseSecretKey: SECRET_KEY,
+      workerDatabaseUrl: valid.WORKER_DATABASE_URL,
       aiGatewayApiKey: null,
       resendApiKey: null,
       webAppUrl: null,
       intentRouting: false,
       healthPort: 8080,
     });
+  });
+
+  it("WORKER_DATABASE_URL es obligatoria y tiene que ser moodly_worker (directo o por el pooler)", () => {
+    const pooled = "postgresql://moodly_worker.sgeswmdqstonegceusej:secreto@aws-0-eu-west-1.pooler.supabase.com:5432/postgres";
+    expect(loadConfig({ ...valid, WORKER_DATABASE_URL: pooled }).workerDatabaseUrl).toBe(pooled);
+    expect(() => loadConfig({ ...valid, WORKER_DATABASE_URL: undefined })).toThrow(/falta WORKER_DATABASE_URL/);
+    for (const url of [
+      "postgresql://postgres:secreto@db.example.test:5432/postgres",
+      "postgresql://service_role:secreto@db.example.test:5432/postgres",
+      "postgresql://dbos_worker:secreto@db.example.test:5432/postgres",
+      "postgresql://moodly_worker_x:secreto@db.example.test:5432/postgres",
+      "https://moodly_worker:secreto@db.example.test/postgres",
+      "no es una url",
+    ]) {
+      expect(() => loadConfig({ ...valid, WORKER_DATABASE_URL: url }), url).toThrow(WorkerConfigError);
+    }
+  });
+
+  it("los errores de WORKER_DATABASE_URL no llevan su valor (la contraseña)", () => {
+    try {
+      loadConfig({ ...valid, WORKER_DATABASE_URL: "postgresql://postgres:muy-secreta@db.example.test/postgres" });
+      throw new Error("no lanzó");
+    } catch (error) {
+      expect((error as Error).message).not.toContain("muy-secreta");
+    }
   });
 
   it("la clave de Resend es opcional; vacía cuenta como ausente; una que no lo parece no arranca sin decir cuál era", () => {

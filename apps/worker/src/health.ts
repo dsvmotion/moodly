@@ -11,8 +11,12 @@ import type { Logger } from "pino";
 // viejo suelte el lock (lease.ts), y Railway no para el viejo hasta que el nuevo
 // está sano. Si «starting» diera 503, el despliegue nunca terminaría. El 200 de
 // «ok» solo llega con DBOS lanzado.
+//
+// Antes, «checking» (comprobar que entra como moodly_worker, ADR 0049) responde
+// 503 «starting»: si esa comprobación falla, el proceso sale y Railway no da por
+// sano el contenedor nuevo, así que no para el viejo. Dura lo que una conexión.
 
-export type WorkerPhase = "waiting-lease" | "launching" | "running" | "stopping";
+export type WorkerPhase = "checking" | "waiting-lease" | "launching" | "running" | "stopping";
 
 export interface WorkerProbe {
   phase(): WorkerPhase;
@@ -78,6 +82,7 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   const now = options.now ?? Date.now;
   const phase = probe.phase();
   if (phase === "stopping") return { httpStatus: 503, body: { status: "stopping" }, detail: { phase } };
+  if (phase === "checking") return { httpStatus: 503, body: { status: "starting" }, detail: { phase } };
   if (phase !== "running") return { httpStatus: 200, body: { status: "starting" }, detail: { phase } };
 
   const [database, outbox] = await Promise.allSettled([

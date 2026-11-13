@@ -1,6 +1,5 @@
 import { verifyApproval } from "@repo/agent-core";
 import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
-import type { Json } from "@repo/db";
 import type { TenantDb } from "@repo/db/service";
 import type { DomainEvent, EventContext, EventHandler } from "../events/handlers.ts";
 import { isNotAgentMode } from "./conversation-sender.ts";
@@ -55,17 +54,26 @@ export interface ApprovalRequest {
 /** La aprobación de una ejecución que espera a una persona. Una sola por ejecución. */
 export async function requestApproval(db: TenantDb, request: ApprovalRequest): Promise<void> {
   const reason = request.summary?.trim() ? request.summary.trim().slice(0, 500) : null;
-  const { error } = await db.from("approvals").insert({
-    execution_id: request.executionId,
-    location_id: request.locationId,
-    effect_class: request.effectClass,
-    input_hash: request.inputHash,
-    required_role: requiredRoleFor(request.effectClass, request.locationId),
-    reason,
-    expires_at: new Date(request.now.getTime() + APPROVAL_TTL_MS).toISOString(),
-  });
-  // 23505: ya la tenía (la entrega se reanudó después de crearla).
-  if (error && error.code !== "23505") throw new Error(`no se pudo pedir la aprobación (${error.code})`);
+  // Como moodly_worker, bajo RLS (PL-T1 3c-4, 20261112160000): solo la crea,
+  // pendiente; no tiene privilegio para decidirla ni cambiarla.
+  // on conflict: ya la tenía (la entrega se reanudó después de crearla; una por ejecución).
+  await db.transaction((sql) =>
+    sql.query(
+      `insert into public.approvals (organization_id, execution_id, location_id, effect_class, input_hash, required_role, reason, expires_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict do nothing`,
+      [
+        db.organizationId,
+        request.executionId,
+        request.locationId,
+        request.effectClass,
+        request.inputHash,
+        requiredRoleFor(request.effectClass, request.locationId),
+        reason,
+        new Date(request.now.getTime() + APPROVAL_TTL_MS).toISOString(),
+      ],
+    ),
+  );
 }
 
 interface ExecutionRow extends ExecutionRecord {
@@ -83,66 +91,66 @@ type Loaded =
       conversationId: string | null;
     };
 
-function check<T>(result: { data: T; error: { code: string } | null }, what: string): T {
-  if (result.error) throw new Error(`no se pudo leer ${what} (${result.error.code})`);
-  return result.data;
-}
-
 async function load(db: TenantDb, approvalId: string, executionId: string): Promise<Loaded> {
-  const approval = check(
-    await db
-      .from("approvals")
-      .select("id, execution_id, organization_id, location_id, input_hash, status, expires_at, decided_at")
-      .eq("id", approvalId)
-      .maybeSingle(),
-    "la aprobación",
-  );
-  if (!approval || approval.execution_id !== executionId) return { kind: "skip", reason: "approval_missing" };
-  const execution = check(
-    await db
-      .from("executions")
-      .select("id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key")
-      .eq("id", executionId)
-      .maybeSingle(),
-    "la ejecución",
-  );
-  if (!execution) return { kind: "skip", reason: "execution_missing" };
-  // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
-  if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: "already_settled" };
+  // Como moodly_worker, bajo RLS (PL-T1 3c-4): todo lo que se lee, en una transacción.
+  return db.transaction(async (sql): Promise<Loaded> => {
+    const [approval] = await sql.query<Extract<Loaded, { kind: "decided" }>["approval"]>(
+      `select execution_id, organization_id, location_id, input_hash, status,
+              to_json(expires_at) #>> '{}' as expires_at, to_json(decided_at) #>> '{}' as decided_at
+       from public.approvals where id = $1`,
+      [approvalId],
+    );
+    if (!approval || approval.execution_id !== executionId) return { kind: "skip", reason: "approval_missing" };
+    const [execution] = await sql.query<ExecutionRow>(
+      `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key
+       from public.executions where id = $1`,
+      [executionId],
+    );
+    if (!execution) return { kind: "skip", reason: "execution_missing" };
+    // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
+    if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: "already_settled" };
 
-  // El contacto y la conversación del run: los del mensaje que lo despertó.
-  const run = check(await db.from("agent_runs").select("trigger, trigger_ref").eq("id", execution.run_id).maybeSingle(), "el run");
-  let contactId: string | null = null;
-  let conversationId: string | null = null;
-  if (run?.trigger === "inbound_message" && run.trigger_ref) {
-    const message = check(await db.from("messages").select("conversation_id").eq("id", run.trigger_ref).maybeSingle(), "el mensaje del run");
-    if (message) {
-      const conversation = check(await db.from("conversations").select("id, contact_id").eq("id", message.conversation_id).maybeSingle(), "la conversación");
+    // El contacto y la conversación del run: los del mensaje que lo despertó.
+    const [run] = await sql.query<{ trigger: string; trigger_ref: string | null }>("select trigger, trigger_ref from public.agent_runs where id = $1", [
+      execution.run_id,
+    ]);
+    let contactId: string | null = null;
+    let conversationId: string | null = null;
+    if (run?.trigger === "inbound_message" && run.trigger_ref) {
+      const [conversation] = await sql.query<{ id: string; contact_id: string | null }>(
+        `select c.id, c.contact_id from public.messages m join public.conversations c on c.id = m.conversation_id where m.id = $1`,
+        [run.trigger_ref],
+      );
       contactId = conversation?.contact_id ?? null;
       conversationId = conversation?.id ?? null;
     }
-  }
-  return { kind: "decided", execution: execution as ExecutionRow, approval, contactId, conversationId };
+    return { kind: "decided", execution, approval, contactId, conversationId };
+  });
 }
 
 async function settleExecution(db: TenantDb, executionId: string, status: "executed" | "failed" | "rejected", output?: unknown): Promise<void> {
-  const { error } = await db
-    .from("executions")
-    .update({ status, ...(output === undefined ? {} : { output: output as Json }) })
-    .eq("id", executionId)
-    .in("status", [...AWAITING_PERSON]);
-  if (error) throw new Error(`no se pudo cerrar la ejecución (${error.code})`);
+  // «rejected» solo copia la decisión de una persona: guard_worker_execution
+  // (20261112160000) lo deja solo si la aprobación de la ejecución está rechazada.
+  await db.transaction((sql) =>
+    sql.query(
+      `update public.executions set status = $2, output = coalesce($3::jsonb, output)
+       where id = $1 and status = any($4::text[])`,
+      [executionId, status, output === undefined ? null : JSON.stringify(output), [...AWAITING_PERSON]],
+    ),
+  );
 }
 
 /** Cuando ya no queda nada esperando a una persona, el run que esperaba se cierra. */
 async function settleRun(db: TenantDb, runId: string): Promise<void> {
-  const pending = check(
-    await db.from("executions").select("id").eq("run_id", runId).in("status", [...AWAITING_PERSON]).limit(1),
-    "lo que queda del run",
-  );
-  if ((pending ?? []).length > 0) return;
-  const { error } = await db.from("agent_runs").update({ status: "completed" }).eq("id", runId).eq("status", "awaiting_approval");
-  if (error) throw new Error(`no se pudo cerrar el run (${error.code})`);
+  // De awaiting_approval a completed, solo el estado (guard_worker_agent_run, 20261112130000).
+  await db.transaction(async (sql) => {
+    const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+      runId,
+      [...AWAITING_PERSON],
+    ]);
+    if (pending.length > 0) return;
+    await sql.query("update public.agent_runs set status = 'completed' where id = $1 and status = 'awaiting_approval'", [runId]);
+  });
 }
 
 export interface ApprovalHandlerOptions {
