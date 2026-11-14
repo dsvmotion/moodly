@@ -435,9 +435,63 @@
     },
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
-      "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
+      "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado.",
+      "slot_passed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala.",
+      "edit_invalid": "El texto no puede quedar vacío ni pasar de 4000 caracteres."
     },
-    "count": "{count, plural, one {# pendiente} other {# pendientes}}"
+    "count": "{count, plural, one {# pendiente} other {# pendientes}}",
+    "openDetail": "Ver detalle",
+    "close": "Cerrar",
+    "detail": {
+      "what": "Qué se aprueba",
+      "service": "Servicio",
+      "resource": "Con",
+      "startsAt": "Hora",
+      "from": "De",
+      "to": "A",
+      "slotPassed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala y, si hace falta, contesta al cliente desde la bandeja.",
+      "location": "Local",
+      "wholeOrganization": "Toda la organización",
+      "decides": "La decide",
+      "requested": "Pedida",
+      "expires": "Caduca",
+      "conversation": "Conversación",
+      "unknownContact": "Contacto sin nombre",
+      "noMessages": "Sin mensajes.",
+      "openConversation": "Abrir la conversación en la bandeja",
+      "noConversation": "No viene de una conversación con un cliente.",
+      "why": "Por qué",
+      "agent": "Agente",
+      "model": "Modelo",
+      "cost": "Coste",
+      "tokens": "Tokens",
+      "tokensValue": "{in} de entrada, {out} de salida",
+      "others": "Lo demás que hizo en ese turno",
+      "unknown": "Sin dato",
+      "loading": "Cargando el detalle…",
+      "authors": {
+        "contact": "Cliente",
+        "agent": "Agente",
+        "user": "Equipo",
+        "system": "Sistema"
+      },
+      "statuses": {
+        "suggested": "Sugerida",
+        "drafted": "En borrador",
+        "needs_approval": "Pendiente de aprobación",
+        "approved": "Aprobada",
+        "rejected": "Rechazada",
+        "executed": "Hecha",
+        "failed": "Fallida"
+      }
+    },
+    "edit": {
+      "label": "Texto que recibirá el cliente",
+      "help": "Es el que propuso el agente. Puedes corregirlo antes de aprobarlo.",
+      "edited": "Lo has corregido: se enviará tu versión.",
+      "approveEdited": "Aprobar con tu corrección",
+      "count": "{count} de {max} caracteres"
+    }
   },
   "inboxPage": {
     "title": "Bandeja",

@@ -1,4 +1,5 @@
 import { REPLY_SKILL_KEY, defineSkill } from "@repo/agent-core";
+import { MAX_REPLY_LENGTH } from "@repo/config";
 import type { SkillDefinition } from "@repo/agent-core";
 import { z } from "zod";
 
@@ -22,8 +23,8 @@ export class ReplyTargetError extends Error {
   override name = "ReplyTargetError";
 }
 
-/** Por debajo del límite de WhatsApp (4.096) para que quepa en cualquier canal. */
-export const MAX_REPLY_LENGTH = 4000;
+/** Por debajo del límite de WhatsApp (4.096) para que quepa en cualquier canal (@repo/config). */
+export { MAX_REPLY_LENGTH };
 
 export type ReplySkill = SkillDefinition<{ text: string }, { message_id: string }>;
 

@@ -18,6 +18,11 @@ const A1_REPLY = "Responder: «Buenas tardes, le confirmamos la cita del martes.
 const A2_MANAGER = "Responder: «Le enviamos el presupuesto que nos pidió.»";
 const A2_REPLY_ID = "5eed0009-0000-4000-8000-0000000000a1";
 const A2_BOOKING_ID = "5eed0009-0000-4000-8000-0000000000a2";
+const A2_MANAGER_ID = "5eed0009-0000-4000-8000-0000000000a4";
+const A1_REPLY_ID = "5eed0009-0000-4000-8000-0000000000a3";
+const A1_REPLY_EXECUTION_ID = "5eed0008-0000-4000-8000-0000000000a3";
+/** La conversación de la bandeja de la que sale la respuesta de A2 (seed, OA02). */
+const A2_CONVERSATION_ID = "5eed000b-0000-4000-8000-0000000000b2";
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 test("el equipo de un local ve lo que espera en su local, y nada de otro", async ({ page }) => {
@@ -52,6 +57,54 @@ test("cada persona ve y cuenta solo lo que puede decidir: la que pide un encarga
   await expect(manager.getByTestId("approvals-count")).toHaveText("4 pendientes");
   await expect(manager.getByTestId("nav-approvals")).toHaveAccessibleDescription("4 aprobaciones pendientes");
   await manager.close();
+});
+
+test("el detalle de la respuesta: el texto entero, la conversación de la que salió y por qué (OA02)", async ({ page }) => {
+  await signIn(page, "a_staff");
+  await page.goto("/app/approvals");
+  await page.getByTestId("approval").filter({ hasText: A2_REPLY }).getByTestId("approval-open").click();
+  await expect(page).toHaveURL(new RegExp(`record=${A2_REPLY_ID}`));
+  const drawer = page.getByTestId("preview-drawer");
+  await expect(drawer.getByTestId("approval-detail-text")).toHaveText("Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?");
+  // La conversación de la bandeja de la que salió (seed: la de Jorge en A2).
+  await expect(drawer.getByTestId("approval-detail-contact")).toHaveText("Jorge Pérez");
+  await expect(drawer.getByTestId("approval-detail-message").first()).toContainText("Quiero hablar con una persona, por favor.");
+  await expect(drawer.getByTestId("approval-detail-open-conversation")).toHaveAttribute("href", `/app/inbox/${A2_CONVERSATION_ID}`);
+  await expect(drawer).toContainText("Personal");
+  await expect(drawer.getByTestId("approval-approve")).toBeEnabled();
+
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+  const results = await new AxeBuilder({ page }).include("[data-testid=preview-drawer]").withTags(WCAG_21_AA).analyze();
+  expect(results.violations.map((v) => v.id)).toEqual([]);
+
+  // El enlace se puede compartir: con la URL, el panel se abre con el detalle.
+  await page.reload();
+  await expect(page.getByTestId("preview-drawer").getByTestId("approval-detail-text")).toBeVisible();
+  // Cerrar lo quita de la URL.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("preview-drawer")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/record=/);
+});
+
+test("el detalle de la reserva: la hora en la zona del local; lo que no existe, sin dato; sin conversación, lo dice (OA02)", async ({ page }) => {
+  await signIn(page, "a_staff");
+  await page.goto(`/app/approvals?record=${A2_BOOKING_ID}`);
+  const drawer = page.getByTestId("preview-drawer");
+  // El resumen que vio quien aprueba, arriba; el seed no crea el servicio que nombra, así que su nombre sale «Sin dato».
+  await expect(drawer).toContainText(A2_BOOKING);
+  await expect(drawer.getByTestId("approval-detail")).toContainText("ServicioSin dato");
+  await expect(drawer.getByTestId("approval-detail")).toContainText("3/6/30, 9:00");
+  await expect(drawer.getByTestId("approval-detail-no-conversation")).toBeVisible();
+  await expect(drawer.getByTestId("approval-detail-slot-passed")).toHaveCount(0);
+});
+
+test("una aprobación que no es de tu lista no abre detalle aunque la pongas en la URL (OA02)", async ({ page }) => {
+  // La que pide un encargado: el staff de A2 la ve por RLS, pero no la decide.
+  await signIn(page, "a_staff");
+  await page.goto(`/app/approvals?record=${A2_MANAGER_ID}`);
+  await expect(page.getByTestId("approval-summary")).toHaveText([A2_REPLY, A2_BOOKING]);
+  await expect(page.getByTestId("preview-drawer")).toHaveCount(0);
+  await expect(page.getByText("Le enviamos el presupuesto que nos pidió.")).toHaveCount(0);
 });
 
 test("aprobar la respuesta la decide con la sesión de quien aprueba y la saca de pendientes", async ({ page, request }) => {
@@ -97,4 +150,40 @@ test("otra organización no ve las aprobaciones de Demo A", async ({ page }) => 
   await page.goto("/app/approvals");
   await expect(page.getByTestId("approvals-empty")).toBeVisible();
   await expect(page.getByText(A1_REPLY)).toHaveCount(0);
+});
+
+test("corregir el texto de una respuesta al aprobarla: se guarda la corrección con la decisión (OA02)", async ({ page, request }) => {
+  // La de A1, al final del archivo: la única que queda pendiente para quien lleva A1.
+  await signIn(page, "a_location_manager");
+  await page.goto(`/app/approvals?record=${A1_REPLY_ID}`);
+  const drawer = page.getByTestId("preview-drawer");
+  const field = drawer.getByTestId("approval-edit-text");
+  await expect(field).toHaveValue("Buenas tardes, le confirmamos la cita del martes.");
+  await expect(drawer.getByTestId("approval-edit-status")).toHaveText("Es el que propuso el agente. Puedes corregirlo antes de aprobarlo.");
+
+  // Vacío no vale: lo dice y no decide nada.
+  await field.fill("   ");
+  await drawer.getByTestId("approval-approve").click();
+  await expect(drawer.getByTestId("approval-error")).toHaveText("El texto no puede quedar vacío ni pasar de 4000 caracteres.");
+  await expect(page.getByTestId("approval-summary")).toHaveText([A1_REPLY]);
+
+  const corrected = "Buenas tardes, le confirmamos la cita del martes a las 10:00. Un saludo del equipo.";
+  await field.fill(corrected);
+  await expect(drawer.getByTestId("approval-edit-status")).toHaveText("Lo has corregido: se enviará tu versión.");
+  await drawer.getByTestId("approval-approve").click();
+  await expect(drawer.getByTestId("approval-approve")).toHaveCount(0);
+  await expect(page.getByTestId("approvals-empty")).toBeVisible();
+
+  // Lo que quedó, leído con la sesión de esa persona (RLS): aprobada, con la corrección; la propuesta del agente, intacta.
+  const token = await apiToken(request, "a_location_manager");
+  const rows = (await restRows(request, token, `approvals?id=eq.${A1_REPLY_ID}&select=status,edited_input,decided_by`)) as {
+    status: string;
+    edited_input: unknown;
+    decided_by: string | null;
+  }[];
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ status: "approved", edited_input: { text: corrected } });
+  expect(rows[0]?.decided_by).not.toBeNull();
+  const executions = (await restRows(request, token, `executions?id=eq.${A1_REPLY_EXECUTION_ID}&select=input`)) as { input: unknown }[];
+  expect(executions).toEqual([{ input: { text: "Buenas tardes, le confirmamos la cita del martes." } }]);
 });

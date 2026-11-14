@@ -254,6 +254,9 @@ importers:
       '@repo/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@repo/config':
+        specifier: workspace:*
+        version: link:../config
       '@repo/integrations':
         specifier: workspace:*
         version: link:../integrations

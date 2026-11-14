@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@repo/agent-core": "workspace:*",
+    "@repo/config": "workspace:*",
     "@repo/integrations": "workspace:*",
     "@repo/knowledge": "workspace:*",
     "zod": "4.6.7"

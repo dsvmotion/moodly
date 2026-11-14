@@ -435,9 +435,63 @@
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
-      "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
+      "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired.",
+      "slot_passed": "This appointment's time has already passed: it can't be approved. Reject it.",
+      "edit_invalid": "The text can't be empty or longer than 4,000 characters."
     },
-    "count": "{count, plural, one {# pending} other {# pending}}"
+    "count": "{count, plural, one {# pending} other {# pending}}",
+    "openDetail": "View details",
+    "close": "Close",
+    "detail": {
+      "what": "What you're approving",
+      "service": "Service",
+      "resource": "With",
+      "startsAt": "Time",
+      "from": "From",
+      "to": "To",
+      "slotPassed": "This appointment's time has already passed: it can't be approved. Reject it and, if needed, reply to the customer from the inbox.",
+      "location": "Location",
+      "wholeOrganization": "Whole organization",
+      "decides": "Decided by",
+      "requested": "Requested",
+      "expires": "Expires",
+      "conversation": "Conversation",
+      "unknownContact": "Unnamed contact",
+      "noMessages": "No messages.",
+      "openConversation": "Open the conversation in the inbox",
+      "noConversation": "It doesn't come from a conversation with a customer.",
+      "why": "Why",
+      "agent": "Agent",
+      "model": "Model",
+      "cost": "Cost",
+      "tokens": "Tokens",
+      "tokensValue": "{in} in, {out} out",
+      "others": "Everything else it did in that turn",
+      "unknown": "No data",
+      "loading": "Loading the details…",
+      "authors": {
+        "contact": "Customer",
+        "agent": "Agent",
+        "user": "Team",
+        "system": "System"
+      },
+      "statuses": {
+        "suggested": "Suggested",
+        "drafted": "Draft",
+        "needs_approval": "Awaiting approval",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "executed": "Done",
+        "failed": "Failed"
+      }
+    },
+    "edit": {
+      "label": "Text the customer will receive",
+      "help": "This is what the agent proposed. You can correct it before approving.",
+      "edited": "You've corrected it: your version will be sent.",
+      "approveEdited": "Approve with your correction",
+      "count": "{count} of {max} characters"
+    }
   },
   "inboxPage": {
     "title": "Inbox",
