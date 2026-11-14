@@ -99,11 +99,15 @@ jobs:
           jq "$first" "$RUNNER_TEMP/summary.json"
           case "$state" in
             completed | awaiting_approval) echo "El agente contestó (estado: $state)." ;;
-            # Con «precio» y la primera visita sin precio publicado (OA04), pasarla a una persona es lo esperado:
-            # en «ejecuciones» sale request_human. Con precio, el agente contesta con él.
+            # Con «precio» y la primera visita sin precio publicado (OA04), pasarla a una persona es lo esperado,
+            # pero solo si la primera visita no tiene precio y el agente llamó a request_human (ejecutada):
+            # un paso por un fallo (sin AI_GATEWAY_API_KEY, el modelo caído) no la llama, y con precio
+            # el agente tiene que contestar con él. Si no, falla: así la corrida sirve de prueba.
             handed_off)
-              if [ "$MESSAGE" = "precio" ]; then
-                echo "::notice::El agente pasó la conversación a una persona: es lo esperado si la primera visita no tiene precio publicado (mira que en ejecuciones salga request_human)."
+              if [ "$MESSAGE" = "precio" ] && jq -e "$first | (.precio_primera_visita == null) and ((.ejecuciones | if type == \"string\" then fromjson else . end) | any(.skill == \"request_human\" and .estado == \"executed\"))" "$RUNNER_TEMP/summary.json" > /dev/null; then
+                echo "::notice::El agente pasó la conversación a una persona con request_human: es lo esperado, la primera visita no tiene precio publicado."
+              elif [ "$MESSAGE" = "precio" ]; then
+                echo "::error::Con «precio», pasar a una persona solo vale si la primera visita no tiene precio y el agente llamó a request_human: mira precio_primera_visita y ejecuciones, y los logs del worker en Railway." ; exit 1
               else
                 echo "::warning::El agente pasó la conversación a una persona: mira los logs del worker en Railway (¿falta AI_GATEWAY_API_KEY?)." ; exit 1
               fi ;;

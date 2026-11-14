@@ -82,6 +82,7 @@ Usa el workflow **Actions → «Staging · agente» → Run workflow**, desde `m
 2. Lanza «Staging · agente» con `precio`.
 3. **Esperado** en la salida del paso «Qué hizo el agente»: 📸
    - `estado` es `awaiting_approval` o `completed`;
+   - `precio_primera_visita` es `4500` (los céntimos de 45 €);
    - en `ejecuciones` sale `reply` con un `resumen` como `Responder: «… 45,00 € …»`, con el precio exacto que pusiste y ningún otro;
    - no sale `request_human`.
 4. La respuesta nace en borrador. En la app, **Bandeja**, sale la aprobación con ese texto: apruébala o recházala, da igual para la prueba.
@@ -92,7 +93,7 @@ Usa el workflow **Actions → «Staging · agente» → Run workflow**, desde `m
 2. Lanza «Staging · agente» con `precio`.
 3. **Esperado:** 📸
    - en `ejecuciones` no sale ninguna cantidad de dinero;
-   - el agente pasa la conversación a una persona: `estado` es `handed_off` y en `ejecuciones` sale `request_human`. El workflow lo da por bueno con un aviso, porque con `precio` es lo esperado.
+   - el agente pasa la conversación a una persona: `estado` es `handed_off`, `precio_primera_visita` es `null` y en `ejecuciones` sale `request_human` (`executed`). El workflow solo lo da por bueno así, con un aviso. Un paso a una persona sin `request_human` (un fallo: sin `AI_GATEWAY_API_KEY`, el modelo caído) o con la primera visita con precio sale en rojo.
    - Si en vez de eso contesta con texto, ese texto no puede dar ningún precio y tiene que decir que alguien del equipo lo confirmará.
 4. **Si sale un precio** (45 € o cualquier otro): falla. Apunta la salida y avísale a V1.
 
