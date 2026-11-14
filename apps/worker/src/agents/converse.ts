@@ -560,20 +560,25 @@ async function recordExecution(
     // los borradores de respuesta de turnos anteriores (gate M1, más abajo).
     if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false, superseded: false };
     // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
-    const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
+    // Con la organización explícita, además de RLS (control 3.2).
+    const [row] = await sql.query<{ id: string }>("select id from public.executions where organization_id = $2 and idempotency_key = $1", [
+      execution.idempotencyKey,
+      db.organizationId,
+    ]);
     if (!row) throw new Error("no se encontró la ejecución guardada");
     // Si la conversación ya la lleva una persona, el mensaje del agente no pide
     // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
     // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
     if (target?.kind === "conversation") {
-      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where id = $1", [
+      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where organization_id = $2 and id = $1", [
         target.conversationId,
+        db.organizationId,
       ]);
       if (holdsForPerson(skill.effectClass, target, conversation?.mode ?? null)) {
         await sql.query(
           `update public.executions set status = 'failed', output = $2
-           where id = $1 and status = any($3::text[])`,
-          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON]],
+           where organization_id = $4 and id = $1 and status = any($3::text[])`,
+          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON], db.organizationId],
         );
         return { executionId: row.id, held: true, superseded: false };
       }
@@ -681,7 +686,8 @@ export function finalRunStatus(
   return status;
 }
 
-async function finishRun(
+/** Exportada para el test que la prueba sin RLS (org-explicit.integration.ts). */
+export async function finishRun(
   db: TenantDb,
   runId: string,
   conversationId: string,
@@ -690,13 +696,16 @@ async function finishRun(
   superseded = false,
 ): Promise<void> {
   // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): lo que queda del
-  // run, el paso a una persona y el cierre del run, en una transacción.
+  // run, el paso a una persona y el cierre del run, en una transacción. Con la
+  // organización explícita en cada consulta, además de RLS (control 3.2).
+  const org = db.organizationId;
   await db.transaction(async (sql) => {
     let stillAwaiting = false;
     if (heldAny || superseded) {
-      const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+      const pending = await sql.query("select 1 from public.executions where organization_id = $3 and run_id = $1 and status = any($2::text[]) limit 1", [
         runId,
         [...AWAITING_PERSON],
+        org,
       ]);
       stillAwaiting = pending.length > 0;
     }
@@ -706,7 +715,7 @@ async function finishRun(
       // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
       // una persona. Si el paso se repite, no cambia nada (solo de agent a human;
       // guard_worker_conversation no deja otra cosa).
-      await sql.query("update public.conversations set mode = 'human' where id = $1 and mode = 'agent'", [conversationId]);
+      await sql.query("update public.conversations set mode = 'human' where organization_id = $2 and id = $1 and mode = 'agent'", [conversationId, org]);
     }
     // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
     // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
@@ -718,8 +727,8 @@ async function finishRun(
            tokens_in = case when status = 'running' then $4 else greatest(tokens_in, $4) end,
            tokens_out = case when status = 'running' then $5 else greatest(tokens_out, $5) end,
            cost_eur = case when status = 'running' then $6 else greatest(cost_eur, $6) end
-       where id = $1`,
-      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
+       where organization_id = $7 and id = $1`,
+      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur, org],
     );
   });
 }

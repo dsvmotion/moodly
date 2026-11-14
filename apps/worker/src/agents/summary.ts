@@ -124,8 +124,8 @@ export async function saveSummary(db: TenantDb, conversationId: string, step: Ex
     await db.transaction(async (sql) => {
       const updated = await sql.query(
         `update public.conversation_summaries set summary = $2, covered_until = $3, model = $4
-         where conversation_id = $1 and covered_until <= $3 returning conversation_id`,
-        [conversationId, step.summary, step.coveredUntil, step.usage.model],
+         where organization_id = $5 and conversation_id = $1 and covered_until <= $3 returning conversation_id`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model, db.organizationId],
       );
       if (updated.length > 0) return;
       // Sin fila pisada: no la había, o la que hay cubre hasta más tarde (on conflict: se queda esa).
@@ -159,8 +159,8 @@ export async function bookSummaryUsage(
       sql.query(
         `update public.agent_runs
          set tokens_in = greatest(tokens_in, $2), tokens_out = greatest(tokens_out, $3), cost_eur = greatest(cost_eur, $4)
-         where id = $1`,
-        [runId, total.tokensIn, total.tokensOut, total.costEur],
+         where organization_id = $5 and id = $1`,
+        [runId, total.tokensIn, total.tokensOut, total.costEur, db.organizationId],
       ),
     );
     return null;
