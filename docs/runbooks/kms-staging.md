@@ -23,6 +23,7 @@ Cifra las claves de datos de cada secreto, con el contexto de cifrado `organizat
 3. **Alias:** `moodly-staging-secret-vault`. **Description:** `Moodly staging: SecretVault (ADR 0034)`.
 4. **Key administrators:** solo tu usuario administrador. Desmarca «Allow key administrators to delete this key» si no lo necesitas.
 5. **Key users:** **ninguno**. El permiso de uso lo da la política de IAM del paso 3, que es más estrecha que la que pone el asistente.
+   - **Deja la política de la clave tal como la propone el asistente.** Su primera declaración, `"Sid": "Enable IAM User Permissions"` (principal `arn:aws:iam::<cuenta>:root`, acción `kms:*`), es la que hace que KMS respete las políticas de IAM de esta cuenta. Sin ella, y con «Key users» vacío, la política del paso 3 no serviría y el worker no podría usar la clave. No la borres ni la edites (en la clave → **Key policy**, debe seguir ahí).
 6. Crea la clave. En la clave → pestaña **Key rotation** → activa **Automatically rotate this KMS key** (cada año). Los secretos antiguos se siguen descifrando.
 7. Apunta el **ARN** de la clave (`arn:aws:kms:eu-central-1:<cuenta>:key/<id>`). No es secreto.
 
@@ -33,7 +34,7 @@ La web cifra con su parte pública la clave que pega el cliente, y solo el worke
 1. KMS → **Customer managed keys** → **Create key**.
 2. **Key type:** Asymmetric. **Key usage:** Encrypt and decrypt. **Key spec:** `RSA_4096`. Single-Region.
 3. **Alias:** `moodly-staging-integration-ingress`. **Description:** `Moodly staging: ingreso de claves de integraciones (ADR 0055)`.
-4. **Key administrators:** solo tu usuario administrador. **Key users:** ninguno (igual que en el paso 1).
+4. **Key administrators:** solo tu usuario administrador. **Key users:** ninguno (igual que en el paso 1), y la política de la clave tal como la propone el asistente, con la declaración `Enable IAM User Permissions` (ver el paso 1.5).
 5. Crea la clave y apunta su **ARN**.
 6. La parte pública: en la clave → pestaña **Public key** → **Download**, o con la CLI:
    ```
@@ -122,7 +123,12 @@ La web **no** recibe ninguna clave de acceso de AWS ni permiso de KMS (ADR 0050 
   3. comprueba que el worker responde en `/health` y que una integración de Koibox sigue activa;
   4. **desactiva** la clave vieja, y bórrala una semana después si nada ha fallado.
 - **Clave de `SecretVault`:** la rotación automática anual del paso 1.6. No hace falta nada más.
-- **Clave de ingreso:** crea otra igual (paso 2) y añade su ARN a la política del paso 3. Después, cambia en Vercel la parte pública y la referencia. Los envíos viejos caducan a los 15 minutos (ADR 0055 §2). Pasado ese tiempo, quita la clave vieja de la política y programa su borrado en KMS (el mínimo son 7 días).
+- **Clave de ingreso:**
+  1. crea otra igual (paso 2);
+  2. en la política del paso 3, la declaración `IngresoSoloDescifrar` pasa a tener las dos claves: `"Resource": ["<ARN de la clave vieja>", "<ARN de la nueva>"]`. Así el worker puede abrir los envíos cifrados con cualquiera de las dos mientras dura el cambio;
+  3. cambia en Vercel `INTEGRATION_INGRESS_PUBLIC_KEY` y `INTEGRATION_INGRESS_KEY_REF` a los de la nueva, y en Railway `INTEGRATION_INGRESS_KMS_KEY_ID`;
+  4. espera al menos 15 minutos: los envíos viejos caducan (ADR 0055 §2);
+  5. deja en `Resource` solo el ARN nuevo (vuelve a ser una cadena, no una lista) y programa el borrado de la vieja en KMS (el mínimo son 7 días).
 
 ## Si se filtra una clave de acceso
 

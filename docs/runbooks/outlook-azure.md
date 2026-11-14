@@ -39,6 +39,8 @@ El worker solo lee las horas ocupadas del calendario (`GET /v1.0/me/calendarView
 1. **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated permissions**.
 2. Marca `Calendars.Read` (grupo Calendars) y `offline_access` (grupo OpenId permissions) → **Add permissions**.
 3. **Quita `User.Read`**, que Entra añade por defecto: no lo usamos. En la fila → **…** → **Remove permission**.
+   - Comprobado (2026-11-14): ni nuestro código ni Nango leen el perfil (`/me`) al conectar. El código solo llama a `/v1.0/me/calendarView` (`packages/integrations/src/calendar/outlook.ts`), que pide `Calendars.Read`. La definición del proveedor `outlook` de Nango (`GET /providers/outlook`) no tiene `post_connection_script` ni `proxy.verification`, así que Nango no hace ninguna llamada al conectar. Sus scopes por defecto (`offline_access` y `.default`) los sustituyen los del paso 5.
+   - Si al probar la conexión real Microsoft o Nango piden `User.Read`, se añade (delegado, solo leer el perfil de quien conecta) y se apunta aquí por qué.
 4. **Ninguno de permisos de aplicación** (application permissions): darían acceso a los calendarios de todo un inquilino sin una persona detrás.
 5. No hace falta **Grant admin consent**: `Calendars.Read` delegado lo puede aceptar la propia persona. Algunas empresas exigen que su administrador lo apruebe. Entonces esa persona verá un aviso al conectar, y es el administrador de **su** empresa quien lo concede.
 
