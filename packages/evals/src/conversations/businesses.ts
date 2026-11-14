@@ -154,4 +154,40 @@ export const INMOBILIARIA_SOL: Business = {
   ],
 };
 
+// --- Peluquería, con los precios en Ajustes (OA04) -----------------------------
+
+export const CORTE = id("f1", 1);
+export const PEINADO = id("f1", 2);
+export const MECHAS = id("f1", 3);
+
+/**
+ * Los precios de este negocio están en Ajustes (services.price_cents), no en
+ * su conocimiento: el agente los ve en la lista de lo que se puede reservar.
+ * Las mechas no tienen precio publicado (el negocio lo da según el pelo).
+ * No es un sector más (SECTOR_BUSINESSES): sus casos solo prueban los precios.
+ */
+export const PELUQUERIA_BRISA: Business = {
+  key: "peluqueria",
+  name: "Peluquería Brisa",
+  locationName: "Malasaña",
+  services: [
+    { id: CORTE, name: "Corte de pelo", durationMinutes: 30, price: { cents: 1850, currency: "EUR" } },
+    { id: PEINADO, name: "Peinado", durationMinutes: 45, price: { cents: 2200, currency: "EUR" } },
+    { id: MECHAS, name: "Mechas", durationMinutes: 120, price: null },
+  ],
+  resources: [
+    { id: id("f3", 1), name: "Sillón 1", serviceIds: [CORTE, PEINADO, MECHAS] },
+    { id: id("f3", 2), name: "Sillón 2", serviceIds: [CORTE, PEINADO] },
+  ],
+  knowledge: [
+    {
+      id: "p-pago",
+      type: "faq",
+      title: "Formas de pago",
+      content: "Aceptamos efectivo, tarjeta y Bizum.",
+      tags: ["pago", "pagar", "tarjeta", "bizum", "efectivo", "pay", "card"],
+    },
+  ],
+};
+
 export const SECTOR_BUSINESSES = [CASA_LOLA, TALLERES_RUIZ, FISIO_RETIRO, INMOBILIARIA_SOL] as const;
