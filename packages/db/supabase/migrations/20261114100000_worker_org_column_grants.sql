@@ -11,7 +11,7 @@
 -- no amplía qué filas ve (RLS sigue igual) ni qué otras columnas lee.
 --
 -- Sin funciones security definer. service_role queda igual.
--- Tests en 57_worker_org_column_grants (y los privilegios exactos en 51).
+-- Tests en 58_worker_org_column_grants (y los privilegios exactos en 51).
 -- Vuelta atrás: rollbacks/20261114100000_worker_org_column_grants.down.sql.
 
 grant select (organization_id) on public.contact_identities to moodly_worker;
