@@ -1,8 +1,15 @@
 import { DBOS, Error as DBOSErrors } from "@dbos-inc/dbos-sdk";
-import type { ServiceDb, TenantDb } from "@repo/db/service";
+import type { PublishedCursor, PublishedDomainEvent, ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { isEventType, parsePayload } from "./catalog.ts";
-import { DB_STEP, StepRetriesExhaustedError, type DeliveryQueue, type DomainEvent, type EventRegistry } from "./handlers.ts";
+import {
+  DB_STEP,
+  StepRetriesExhaustedError,
+  type DeliveryQueue,
+  type DomainEvent,
+  type EventHandler,
+  type EventRegistry,
+} from "./handlers.ts";
 
 // Las lecturas del outbox con DBOS.runStep directo: los reintentos de DB_STEP.
 const DB_RUN_STEP = { retriesAllowed: true, ...DB_STEP } as const;
@@ -20,6 +27,12 @@ const DB_RUN_STEP = { retriesAllowed: true, ...DB_STEP } as const;
 //      la fila, nunca del payload (control 3.7).
 //   4. «outbox.prune», cada hora, borra del esquema dbos las vueltas del
 //      publicador ya terminadas (unas 17.000 al día). Las entregas se quedan.
+//   5. «outbox.backfill» (W3): el publicador solo conoce a los consumidores
+//      que hay al publicar, así que uno que llega después no recibiría nunca
+//      lo anterior. Un consumidor con `backfill` lo recibe: al arrancar, una
+//      vez por consumidor y tipo (ID backfill:<consumidor>:<tipo>), se le
+//      encolan los eventos de ese tipo ya publicados en su ventana, con el
+//      mismo ID de entrega: lo que ya tenía no se le vuelve a entregar.
 
 export const PUBLISH_WORKFLOW = "outbox.publish";
 export const DELIVER_WORKFLOW = "outbox.deliver";
@@ -30,6 +43,7 @@ export const EVENTS_QUEUE = "domain-events" satisfies DeliveryQueue;
 /** La de los avisos (emails…): lo que espera a un servicio de fuera no frena a las demás entregas. */
 export const NOTIFICATIONS_QUEUE = "notifications" satisfies DeliveryQueue;
 export const PRUNE_WORKFLOW = "outbox.prune";
+export const BACKFILL_WORKFLOW = "outbox.backfill";
 export const PRUNE_SCHEDULE_NAME = "outbox.prune";
 /** Cada hora, a los 7 minutos. */
 export const PRUNE_SCHEDULE = "0 7 * * * *";
@@ -37,6 +51,18 @@ export const PRUNE_SCHEDULE = "0 7 * * * *";
 const PUBLISH_RETENTION_MS = 60 * 60 * 1000;
 const PRUNE_PAGE = 1000;
 const BATCH = 100;
+
+/** El ID del relleno de un consumidor para un tipo: corre una vez en la vida de ese par. */
+export function backfillWorkflowId(handlerKey: string, eventType: string): string {
+  return `backfill:${handlerKey}:${eventType}`;
+}
+
+export interface BackfillInput {
+  handler: string;
+  type: string;
+  /** Desde cuándo (ISO): fijado al lanzarlo, así una reanudación rellena la misma ventana. */
+  since: string;
+}
 
 /** El ID de la entrega de un evento a un consumidor: el mismo cada vez que se encola. */
 export function deliveryWorkflowId(eventId: string, handlerKey: string): string {
@@ -133,14 +159,18 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
    * estaba encolada (por el publicador o por la entrada de canales), DBOS
    * devuelve la que existe. Devuelve cuántas.
    */
+  async function enqueueDelivery(event: { id: string; organizationId: string }, handler: EventHandler): Promise<void> {
+    await DBOS.startWorkflow(deliverWorkflow, {
+      workflowID: deliveryWorkflowId(event.id, handler.key),
+      queueName: handler.queue ?? EVENTS_QUEUE,
+      workflowIDReusePolicy: "return-existing",
+    })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
+  }
+
   async function enqueueDeliveries(event: { id: string; organizationId: string; type: string }): Promise<number> {
     let deliveries = 0;
     for (const handler of registry.handlersFor(event.type)) {
-      await DBOS.startWorkflow(deliverWorkflow, {
-        workflowID: deliveryWorkflowId(event.id, handler.key),
-        queueName: handler.queue ?? EVENTS_QUEUE,
-        workflowIDReusePolicy: "return-existing",
-      })({ eventId: event.id, organizationId: event.organizationId, handler: handler.key });
+      await enqueueDelivery(event, handler);
       deliveries += 1;
     }
     return deliveries;
@@ -189,7 +219,50 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
   }
 
   const pruneWorkflow = DBOS.registerWorkflow(prune, { name: PRUNE_WORKFLOW });
-  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow, enqueueDeliveries };
+
+  // Solo a este consumidor (no a todos los del tipo): otro que llegó también
+  // después pero no pidió relleno no recibe nada viejo. Devuelve cuántos encoló.
+  async function backfill(input: BackfillInput): Promise<number> {
+    const handler = registry.get(input.handler);
+    if (!handler?.backfill) return 0;
+    const since = new Date(input.since);
+    let cursor: PublishedCursor | null = null;
+    let enqueued = 0;
+    for (let page = 0; ; page += 1) {
+      const after: PublishedCursor | null = cursor;
+      const events: PublishedDomainEvent[] = await DBOS.runStep(() => db.outbox.published(input.type, since, after, BATCH), { name: `page:${page}`, ...DB_RUN_STEP });
+      for (const event of events) await enqueueDelivery(event, handler);
+      enqueued += events.length;
+      const last = events.at(-1);
+      if (!last || events.length < BATCH) return enqueued;
+      cursor = { createdAt: last.createdAt, id: last.id };
+    }
+  }
+
+  const backfillWorkflow = DBOS.registerWorkflow(backfill, { name: BACKFILL_WORKFLOW });
+
+  /**
+   * Lanza los rellenos que falten, sin esperarlos: el worker arranca igual y
+   * cada uno deja en el log cuántos encoló. Un par (consumidor, tipo) que ya
+   * tiene su workflow, terminado o a medias (DBOS lo reanuda), no se repite.
+   */
+  async function startBackfills(now: Date = new Date()): Promise<void> {
+    for (const handler of registry.all()) {
+      if (!handler.backfill || handler.eventTypes === "*") continue;
+      for (const type of handler.eventTypes) {
+        const workflowID = backfillWorkflowId(handler.key, type);
+        if (await DBOS.getWorkflowStatus(workflowID)) continue;
+        const since = new Date(now.getTime() - handler.backfill.maxAgeHours * 3_600_000).toISOString();
+        const handle = await DBOS.startWorkflow(backfillWorkflow, { workflowID })({ handler: handler.key, type, since });
+        void handle.getResult().then(
+          (enqueued) => log.info({ handler: handler.key, type, enqueued }, `backfill: ${enqueued} eventos encolados`),
+          (err: unknown) => log.error({ handler: handler.key, type, err }, "backfill: falló"),
+        );
+      }
+    }
+  }
+
+  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow, backfill: backfillWorkflow, enqueueDeliveries, startBackfills };
 }
 
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */
