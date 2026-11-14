@@ -679,8 +679,16 @@ export function finalRunStatus(
   superseded = false,
 ): ReturnType<typeof runStatusFor> {
   // El cliente escribió otra vez y contesta el turno de su último mensaje: este
-  // run acabó su parte (no pasa la conversación a nadie).
-  if (superseded && !stillAwaiting) return "completed";
+  // run acabó su parte. El relevo nunca pasa la conversación a una persona (si
+  // lo hiciera, el turno del mensaje nuevo ya no contestaría), pero un
+  // request_human que este turno ya ejecutó se mantiene: el cliente pidió una
+  // persona, o el agente decidió pasarla, y la persona ve los dos mensajes. Si
+  // no, espera lo suyo pendiente (una reserva en borrador) o se cierra.
+  if (superseded) {
+    const askedForPerson = result.executions.some((execution) => execution.skillKey === REQUEST_HUMAN_SKILL_KEY && execution.status === "executed");
+    if (askedForPerson) return "handed_off";
+    return stillAwaiting ? "awaiting_approval" : "completed";
+  }
   const status = runStatusFor(result);
   if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
   return status;

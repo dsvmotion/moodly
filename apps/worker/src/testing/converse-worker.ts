@@ -19,7 +19,14 @@
 //
 // Si el cliente pide «un momento», el modelo se queda pensando hasta que exista
 // <archivo>.gate (lo crea el test después de tomar el control, R-02) y luego
-// contesta como siempre.
+// contesta como siempre; si además pidió reservar, primero reserva y se queda
+// pensando con el resultado (gate M1: un turno que ya hizo algo y queda relevado);
+// si pidió hablar con una persona, se queda pensando antes de llamar a request_human.
+//
+// Si pregunta «¿y mi cita?», hace lo que haría un modelo razonable: si el
+// prompt dice que hay una reserva pendiente del equipo, lo dice; si no, mira
+// sus citas (list_my_appointments) y, si no tiene ninguna, la reserva. Así, si
+// lo que hizo un turno anterior no le llegara, reservaría otra vez.
 //
 // El conocimiento, con embeddings falsos y deterministas: el mismo worker
 // indexa las fuentes (knowledge.ingest) y el agente busca en ellas, por una vía
@@ -109,14 +116,29 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     context: request.messages[1]?.role === "system" ? request.messages[1].content : null,
     summary: request.messages.find((message) => message.content.startsWith(SUMMARY_MARK))?.content ?? null,
     messages: request.messages.length,
+    // El resultado de la herramienta que acaba de usar, si viene de una.
+    toolResult: last?.role === "tool" ? last.content : null,
   });
   if (last?.role === "tool") {
-    const result = JSON.parse(last.content) as { status: string; output?: { results?: { text: string }[] } };
+    const result = JSON.parse(last.content) as { status: string; output?: { results?: { text: string }[]; appointments?: unknown[] } };
     const found = result.output?.results;
     if (found) return say(found[0] ? `Según el centro: ${found[0].text}` : "Una persona del equipo te contestará enseguida.");
-    return say(result.status === "executed" ? "Tengo hueco el lunes a las 9:00." : "Una persona del equipo te lo confirma enseguida.");
+    // Sus citas: con una, la dice; sin ninguna, la reserva.
+    const appointments = result.output?.appointments;
+    if (appointments) {
+      if (appointments.length > 0) return say("Ya tienes tu cita del lunes a las 9:00.");
+      const plan = currentPlan();
+      return call("book_appointment", { service_id: plan.serviceId, resource_id: plan.resourceId, starts_at: plan.startsAt });
+    }
+    const answer = say(result.status === "executed" ? "Tengo hueco el lunes a las 9:00." : "Una persona del equipo te lo confirma enseguida.");
+    return /un momento/i.test(customer) ? gated(answer) : answer;
   }
   // La pregunta, sin la marca de mensaje del cliente.
+  if (/y mi cita/i.test(customer)) {
+    const context = request.messages[1]?.role === "system" ? request.messages[1].content : "";
+    if (/^- Reservar /m.test(context)) return say("Tu reserva está pendiente de que la confirme el equipo.");
+    return call("list_my_appointments", {});
+  }
   if (/cuesta|precio|tatuaje/i.test(customer)) return call("search_knowledge", { query: customer.split("\n").slice(1).join("\n") });
   if (/res[eé]rv/i.test(customer)) {
     const plan = currentPlan();
@@ -126,9 +148,12 @@ function respond(request: TransportRequest): TransportResponse | Promise<Transpo
     return call("join_waitlist", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00", until: "2030-06-10T00:00:00+02:00" });
   }
   if (/hueco/i.test(customer)) return call("find_slots", { service_id: serviceIdFromPrompt(system, "Láser"), from: "2030-06-03T00:00:00+02:00" });
+  // Pide una persona (CU3): request_human con su motivo (con «un momento», después de pensar).
+  if (/hablar con una persona/i.test(customer)) {
+    const asked = call("request_human", { reason: "customer_asked" });
+    return /un momento/i.test(customer) ? gated(asked) : asked;
+  }
   if (/un momento/i.test(customer)) return gated(say("Ya está, te lo confirmo ahora mismo."));
-  // Pide una persona (CU3): request_human con su motivo.
-  if (/hablar con una persona/i.test(customer)) return call("request_human", { reason: "customer_asked" });
   // Una respuesta vacía: el turno pasa la conversación a una persona.
   if (/médic/i.test(customer)) return say("   ");
   return say("Hola, soy el asistente de IA del centro.");
