@@ -40,7 +40,7 @@
 
 C y D quedan descartadas por romper el ADR 0034.
 
-## Decisión recomendada
+## Decisión
 
 **A.** No añade superficie al worker, no le da a la web nada que descifre, y el envío sobrevive a un worker caído o a un despliegue. B es razonable, pero es un endpoint público más que proteger y una dependencia síncrona entre la web y el worker.
 
