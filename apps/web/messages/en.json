@@ -313,7 +313,8 @@
       "models": "AI models",
       "integrations": "Integrations",
       "security": "Security and access",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "services": "Services and team"
     },
     "pending": {
       "notYet": "Not available yet",
@@ -725,5 +726,70 @@
       "unavailable": "Integrations are not available in this environment yet.",
       "platform_failed": "We could not reach the integration provider. Nothing has changed: try again in a few minutes."
     }
+  },
+  "servicesPage": {
+    "title": "Services and team",
+    "description": "What can be booked, how long it takes and what it costs, and who or what does it at each location. The agents use it to offer slots and book.",
+    "mfaRequired": "You need the second factor to change services, prices and team.",
+    "mfaLink": "Turn it on in Security",
+    "tabsLabel": "Services and team",
+    "tabs": {
+      "services": "Services",
+      "team": "Team and resources"
+    },
+    "errors": {
+      "invalid": "Check the details: something can't be saved like this.",
+      "not_allowed": "You don't have permission to change this.",
+      "synced": "This comes from an integration: change it there."
+    },
+    "saved": "Saved",
+    "fields": {
+      "name": "Name",
+      "duration": "Duration (min)",
+      "price": "Price",
+      "currency": "Currency",
+      "offeredAt": "Offered at",
+      "status": "Status",
+      "kind": "Type",
+      "location": "Location",
+      "services": "Services they do"
+    },
+    "pricePlaceholder": "No price",
+    "priceHelp": "Leave it empty if you don't want to publish a price. The agents don't quote prices yet: coming soon.",
+    "allLocations": "All locations",
+    "create": "Create",
+    "save": "Save",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "active": "Active",
+    "inactive": "Deactivated",
+    "kinds": {
+      "staff": "Professional",
+      "room": "Room",
+      "equipment": "Equipment"
+    },
+    "noServicesYet": "There are no services offered at this location yet.",
+    "servicesHelp": "Only active services offered at the chosen location can be picked.",
+    "noServices": "None",
+    "synced": "This comes from an integration and is synced from there: here you can only view it.",
+    "noPrice": "No price",
+    "minutes": "{count, plural, one {# minute} other {# minutes}}",
+    "addService": "New service",
+    "servicesEmptyTitle": "No services yet",
+    "servicesEmpty": "Create the services that can be booked, with their duration and price.",
+    "emptyReadOnly": "They'll show up here when someone with permission creates them.",
+    "close": "Close",
+    "newService": "New service",
+    "newServiceDescription": "What can be booked, how long it takes and, if you like, what it costs.",
+    "addResource": "New professional or resource",
+    "resourcesEmptyTitle": "No team or resources yet",
+    "resourcesEmpty": "Add who or what serves at each location and which services they do: without it there are no slots to book.",
+    "newResource": "New professional or resource",
+    "newResourceDescription": "A person, a room or equipment at a location, and the services they do.",
+    "hoursTitle": "Change opening hours",
+    "opensAt": "{day}: opens at",
+    "closesAt": "{day}: closes at",
+    "closed": "Closed",
+    "hoursHelp": "The agents only offer slots within these hours, in the location's time zone."
   }
 }

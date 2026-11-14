@@ -143,5 +143,10 @@ export function createMoodlyCalendar(db: TenantDb): BookingProvider {
       if (error) throw bookingError(error);
       return (data as AppointmentRow[]).map(toAppointment);
     },
+
+    async getForContact({ appointmentId, contactId }) {
+      // Con la organización de este acceso (tenantDb) y el contacto del runtime: una cita de otro no existe.
+      return toAppointment(await ownedBy(appointmentId, contactId));
+    },
   };
 }

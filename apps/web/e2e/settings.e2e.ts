@@ -7,7 +7,7 @@ import { credentialsFor, signIn } from "./helpers";
 const SECTIONS = [
   "Mi perfil", "Preferencias", "Privacidad",
   "Miembros", "Roles",
-  "General", "Sedes", "Plan y consumo", "Facturación",
+  "General", "Sedes", "Servicios y equipo", "Plan y consumo", "Facturación",
   "Modelos de IA", "Integraciones",
   "Seguridad y acceso", "Registro de auditoría",
 ];
@@ -23,7 +23,7 @@ const PENDING = [
 test.describe("Ajustes", () => {
   test.beforeEach(async ({ page }) => signIn(page, "a_org_admin"));
 
-  test("navegación secundaria con las 13 secciones, una sola activa y migas", async ({ page }) => {
+  test("navegación secundaria con las 14 secciones, una sola activa y migas", async ({ page }) => {
     await page.goto("/app/settings");
     await expect(page).toHaveURL(/\/app\/settings\/general$/);
     const nav = page.getByTestId("settings-nav");
