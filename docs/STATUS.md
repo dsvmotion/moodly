@@ -80,7 +80,7 @@
 - **Créditos y prueba de 7 días (B5/B6):** la cuenta de Stripe existe y su conector está autorizado; la clave de prueba está en las variables de Vercel (producto, 2026-11-12). Falta decidir los importes (§15.1) para construirlo.
 - **App móvil:** falta la prueba en un iPhone real (la hace producto).
 - **Cliente piloto:** sin elegir (MANUAL §18 #3).
-- **Despliegue ordenado a staging (PL-deploy):** faltan los secretos `VERCEL_TOKEN` y `RAILWAY_TOKEN` en el entorno de staging, y la variable `STAGING_WEB_HEALTH_URL` para la alerta de salud.
+- **Despliegue ordenado a staging (PL-deploy):** resuelto: con los secretos `VERCEL_TOKEN` y `RAILWAY_TOKEN` del entorno `staging`, «Despliegue a staging» despliega la web y el worker ([run 43537230575](https://github.com/dsvmotion/moodly/actions/runs/43537230575), `d7c4cbf`: los pasos «Web (Vercel)» y «Worker (Railway)» en verde). La alerta de salud ya no necesita variables (URLs fijas, #308).
 - **Worker con rol propio (PL-T1):** los secretos de base de datos del worker en staging ya están (producto, 2026-11-12); falta mergear la pila (#238 a #268) y ejecutar «Staging · worker» `rls-role` y `rls-connect`.
 - **Inferencia en la UE:** decidido (producto, 2026-11-12, ADR 0051): inferencia global bajo un DPA con cada proveedor, sin afirmación pública de «inferencia en la UE». Lo que falta es la condición: los DPAs firmados (F10) antes del primer dato real (condiciones 3 y 9, abajo).
 - **O-02, Google Calendar de verdad:** resuelto el 2026-11-13: conexión real en Nango `dev` y horas ocupadas verificadas en staging (ver En curso, #297 y #310). Sin verificar en real: la reserva contra una hora ocupada y el fallo real del proveedor.
