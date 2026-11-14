@@ -1,4 +1,4 @@
-import { verifyApproval } from "@repo/agent-core";
+import { REPLY_SKILL_KEY, verifyApproval } from "@repo/agent-core";
 import type { EffectClass, ExecutionRecord, SkillContext, SkillDefinition, Target } from "@repo/agent-core";
 import type { TenantDb } from "@repo/db/service";
 import type { BusySource, ConnectorPlatform } from "@repo/integrations";
@@ -16,6 +16,12 @@ import { isNotAgentMode } from "./conversation-sender.ts";
 //   ejecuta exactamente lo que se aprobó, con su clave de idempotencia: un
 //   reintento no envía ni reserva dos veces. Si algo no cuadra, no se ejecuta.
 // - Si se rechazó, no se ejecuta nada.
+// - Si quien aprobó corrigió el texto de una respuesta (OA02,
+//   approvals.edited_input), el hash que se comprueba es el de lo que propuso
+//   el agente, como siempre; lo que se ejecuta es la corrección, con la misma
+//   clave de idempotencia, solo en los campos que se pueden editar y pasando
+//   por el mismo esquema de la skill (approvedInput). Si no cuadra, no se
+//   ejecuta nada.
 // - Un mensaje del agente aprobado con la conversación ya en manos de una
 //   persona no sale (R-02): lo rechaza la base de datos al guardarlo, y la
 //   ejecución queda como fallida, retenida (output.held).
@@ -78,6 +84,33 @@ export async function requestApproval(db: TenantDb, request: ApprovalRequest): P
   );
 }
 
+/**
+ * Lo que una persona puede corregir al aprobar, por skill (OA02): solo el
+ * texto de una respuesta. La base de datos ya lo exige (guard_approval y
+ * private.valid_reply_edit); aquí se vuelve a comprobar antes de ejecutar.
+ */
+export const EDITABLE_FIELDS: Readonly<Record<string, readonly string[]>> = { [REPLY_SKILL_KEY]: ["text"] };
+
+export type ApprovedInput = { ok: true; input: unknown; edited: boolean } | { ok: false; reason: "not_editable" | "edit_fields" };
+
+/**
+ * Lo que se ejecuta: lo que propuso el agente o, si quien aprobó lo corrigió,
+ * eso mismo con los campos corregidos. Una edición de una skill que no se
+ * edita, o con campos que no se pueden editar, no se ejecuta. El esquema de la
+ * skill (skill.input) se aplica después, igual que a la propuesta del agente.
+ */
+export function approvedInput(skillKey: string, original: unknown, edited: unknown): ApprovedInput {
+  if (edited === null || edited === undefined) return { ok: true, input: original, edited: false };
+  const fields = EDITABLE_FIELDS[skillKey];
+  if (!fields) return { ok: false, reason: "not_editable" };
+  if (typeof edited !== "object" || Array.isArray(edited) || typeof original !== "object" || original === null || Array.isArray(original)) {
+    return { ok: false, reason: "edit_fields" };
+  }
+  const keys = Object.keys(edited);
+  if (keys.length === 0 || keys.some((key) => !fields.includes(key))) return { ok: false, reason: "edit_fields" };
+  return { ok: true, input: { ...original, ...edited }, edited: true };
+}
+
 interface ExecutionRow extends ExecutionRecord {
   status: string;
   idempotency_key: string;
@@ -101,7 +134,18 @@ type Loaded =
   | {
       kind: "decided";
       execution: ExecutionRow;
-      approval: { execution_id: string; organization_id: string; location_id: string | null; input_hash: string; status: string; expires_at: string; decided_at: string | null };
+      approval: {
+        execution_id: string;
+        organization_id: string;
+        location_id: string | null;
+        input_hash: string;
+        status: string;
+        expires_at: string;
+        decided_at: string | null;
+        decided_by?: string | null;
+        /** La corrección de quien aprobó (OA02). Sin ella (o en una carga de antes de este cambio), lo del agente. */
+        edited_input?: unknown;
+      };
       contactId: string | null;
       conversationId: string | null;
     };
@@ -111,7 +155,8 @@ async function load(db: TenantDb, approvalId: string, executionId: string): Prom
   return db.transaction(async (sql): Promise<Loaded> => {
     const [approval] = await sql.query<Extract<Loaded, { kind: "decided" }>["approval"]>(
       `select execution_id, organization_id, location_id, input_hash, status,
-              to_json(expires_at) #>> '{}' as expires_at, to_json(decided_at) #>> '{}' as decided_at
+              to_json(expires_at) #>> '{}' as expires_at, to_json(decided_at) #>> '{}' as decided_at,
+              decided_by, edited_input
        from public.approvals where id = $1`,
       [approvalId],
     );
@@ -235,11 +280,25 @@ export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptio
         target: execution.target as Target,
         idempotencyKey: execution.idempotency_key,
       };
+      // Lo aprobado: lo del agente o la corrección de quien aprobó (OA02).
+      const approved = approvedInput(execution.skill_key, execution.input, approval.edited_input);
+      if (!approved.ok) {
+        await ctx.step("settle:refused", () => settleExecution(ctx.db, execution.id, "failed"));
+        ctx.logger.warn(
+          { approvalId, executionId, skillKey: execution.skill_key, reason: approved.reason, securityEvent: "approval.edit_refused" },
+          "aprobación con una corrección que no se puede ejecutar: no se ejecuta",
+        );
+        await ctx.step("run:settle", () => settleRun(ctx.db, execution.run_id));
+        return;
+      }
       try {
-        const input = skill.input.parse(execution.input);
+        // El mismo esquema que a la propuesta del agente: una corrección que no lo pasa no se ejecuta.
+        const input = skill.input.parse(approved.input);
         const output = await ctx.step(`execute:${execution.idempotency_key}`, () => skill.execute(skillCtx, input));
-        await ctx.step("settle:executed", () => settleExecution(ctx.db, execution.id, "executed", output));
-        ctx.logger.info({ approvalId, executionId, skillKey: execution.skill_key }, "aprobada y ejecutada");
+        // Quién corrigió lo que se ejecutó, en el resultado (sin el texto: ese ya está en el mensaje).
+        const recorded = approved.edited && typeof output === "object" && output !== null ? { ...output, edited_by: approval.decided_by ?? null } : output;
+        await ctx.step("settle:executed", () => settleExecution(ctx.db, execution.id, "executed", recorded));
+        ctx.logger.info({ approvalId, executionId, skillKey: execution.skill_key, edited: approved.edited }, "aprobada y ejecutada");
       } catch (error) {
         if (isNotAgentMode(error)) {
           await ctx.step("settle:held", () => settleExecution(ctx.db, execution.id, "failed", { held: HELD_NOT_AGENT_MODE }));

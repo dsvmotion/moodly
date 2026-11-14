@@ -768,11 +768,21 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
    * (RLS y guard_approval, probados en pgTAP); aquí se prueba lo que hace el
    * worker con la decisión.
    */
-  async function decide(approvalId: string, decision: "approved" | "rejected"): Promise<string> {
+  async function decide(
+    approvalId: string,
+    decision: "approved" | "rejected",
+    options: { edited?: unknown; decidedBy?: string } = {},
+  ): Promise<string> {
     await admin.query("begin");
     try {
       await admin.query("set local session_replication_role = replica");
-      await admin.query("update public.approvals set status = $2, decided_at = now() where id = $1", [approvalId, decision]);
+      // Con edited_input, la corrección de quien aprueba (OA02): sin triggers, también una que guard_approval no dejaría.
+      await admin.query("update public.approvals set status = $2, decided_at = now(), edited_input = $3, decided_by = $4 where id = $1", [
+        approvalId,
+        decision,
+        options.edited === undefined ? null : JSON.stringify(options.edited),
+        options.decidedBy ?? null,
+      ]);
       await admin.query("set local session_replication_role = origin");
       const eventId = await one(
         `insert into public.domain_events (organization_id, location_id, type, payload)
@@ -874,6 +884,52 @@ describe("las aprobaciones del agente (paso 4d-3d)", () => {
     expect(messages.at(-1)).toMatchObject({ content: "Hola, soy el asistente de IA del centro.", idempotency_key: reply.idempotency_key });
     expect(await executionStatus(reply.execution_id)).toBe("executed");
     await setAutonomy("reply", "autonomous");
+  });
+
+  it("al aprobar una respuesta corregida, se envía la corrección, una sola vez, y queda quién la corrigió (OA02)", async () => {
+    await setAutonomy("reply", "draft");
+    const messageId = await customerSays("¿Me confirmáis el horario?");
+    await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+    const reply = (await pendingApprovals()).find((approval) => approval.skill_key === "reply");
+    if (!reply) throw new Error("no hay respuesta pendiente");
+    const before = (await agentMessages()).length;
+    const editor = await one("select user_id as id from public.memberships where organization_id = $1 order by user_id limit 1", [ids.org]);
+    const corrected = "Hola, te escribe el equipo: abrimos de 9:00 a 14:00.";
+
+    // Con espacios a los lados: la skill los quita, como a lo que propone el agente.
+    const eventId = await decide(reply.id, "approved", { edited: { text: `  ${corrected}  ` }, decidedBy: editor });
+    await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+    const messages = await agentMessages();
+    expect(messages).toHaveLength(before + 1);
+    expect(messages.at(-1)).toMatchObject({ content: corrected, idempotency_key: reply.idempotency_key });
+    const { rows } = await admin.query<{ status: string; input: unknown; output: { edited_by?: string; message_id?: string } }>(
+      "select status, input, output from public.executions where id = $1",
+      [reply.execution_id],
+    );
+    expect(rows[0]?.status).toBe("executed");
+    expect(rows[0]?.output.edited_by).toBe(editor);
+    // Lo que propuso el agente sigue tal cual en su ejecución.
+    expect(rows[0]?.input).toEqual({ text: "Hola, soy el asistente de IA del centro." });
+    await setAutonomy("reply", "autonomous");
+  });
+
+  it("una corrección que la base de datos no dejaría (otros campos, o demasiado larga) no se ejecuta (OA02)", async () => {
+    await setAutonomy("reply", "draft");
+    try {
+      for (const edited of [{ text: "Hola", conversation_id: randomUUID() }, { text: "a".repeat(4001) }]) {
+        const messageId = await customerSays(`Otra pregunta ${randomUUID().slice(0, 4)}`);
+        await waitFor(async () => (await runFor(messageId))[0]?.status === "awaiting_approval", "el run espera");
+        const reply = (await pendingApprovals()).find((approval) => approval.skill_key === "reply");
+        if (!reply) throw new Error("no hay respuesta pendiente");
+        const before = (await agentMessages()).length;
+        const eventId = await decide(reply.id, "approved", { edited });
+        await waitFor(() => approvalDelivered(eventId), "la aprobación se entrega");
+        expect(await executionStatus(reply.execution_id)).toBe("failed");
+        expect(await agentMessages()).toHaveLength(before);
+      }
+    } finally {
+      await setAutonomy("reply", "autonomous");
+    }
   });
 
   it("si lo guardado ya no es lo que se aprobó, no se ejecuta", async () => {
