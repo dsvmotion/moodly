@@ -1,7 +1,6 @@
 "use client";
 import LangLink from "@/components/lang-link";
 import PageShell, { card, h2, h3, muted, pillBtn, section, wrap } from "@/components/page-shell";
-import { AGENTS } from "@/components/site-data";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
 
@@ -38,21 +37,6 @@ export default function SobreNosotros() {
                 <p style={{ margin: 0, fontSize: "16px", lineHeight: "24px", opacity: 0.78 }}>{d}</p>
               </div>);
             })}
-          </div>
-        </div>
-      </section>
-
-      <section style={section}>
-        <div style={{ ...wrap, display: "flex", flexDirection: "column", gap: "24px" }}>
-          <h2 style={h2}>{t.teamA} <span style={muted}>{t.teamB}</span></h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "16px" }}>
-            {AGENTS.map((a, i) => (
-              <div key={a.name} style={{ ...card, padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                <span aria-hidden="true" style={{ width: "100%", aspectRatio: "4 / 3", borderRadius: "8px", background: a.color, opacity: 0.9 }} />
-                <span style={{ fontSize: "16px", lineHeight: "22px", fontWeight: 500 }}>{t.teamName(i + 1)}</span>
-                <span style={{ fontSize: "14px", lineHeight: "20px", ...muted }}>{t.teamRole}</span>
-              </div>
-            ))}
           </div>
         </div>
       </section>
