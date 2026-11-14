@@ -3,8 +3,8 @@ import type { ModelTransport } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
 import { conversationCases, customerCases, receptionCases } from "./cases.js";
 import { detectLanguage, doesNotClaimDone, mentionsAnyTime, parsePrice } from "./checks.js";
-import { MESA_4, SECTOR_BUSINESSES } from "./businesses.js";
-import { sectorCases } from "./sectors.js";
+import { MESA_4, PELUQUERIA_BRISA, SECTOR_BUSINESSES } from "./businesses.js";
+import { pricingCases, sectorCases } from "./sectors.js";
 import { CATEGORIES, alwaysFailing, infrastructureError, runCase, score, scriptedTransport } from "./runner.js";
 import type { CaseRun, ConversationCase, ScriptStep } from "./runner.js";
 import { ANA, CABINA_1, FACIAL, LASER, LUIS, createWorld } from "./world.js";
@@ -106,6 +106,41 @@ describe("los sets de Recepción y Atención al cliente", () => {
     expect([...customer.skills.keys()].sort()).toEqual(["reply", "request_human", "search_knowledge"]);
     expect(customer.systemPrompt).toContain("## Business knowledge");
     expect(customer.systemPrompt).not.toContain("service_id");
+  });
+});
+
+describe("los precios de Ajustes (OA04)", () => {
+  it("el prompt lleva cada servicio con su precio, o sin precio publicado; el conocimiento no tiene ninguno", async () => {
+    expect(pricingCases.map((c) => c.id)).toEqual(["peluqueria-precio-configurado", "peluqueria-precio-sin-configurar"]);
+    const { world } = (await runCase(byId("peluqueria-precio-configurado"))).outcome;
+    const nbsp = /[\u00a0\u202f]/g;
+    const prompt = world.systemPrompt.replace(nbsp, " ");
+    expect(prompt).toContain("- Corte de pelo (30 min, 18,50 €): service_id");
+    expect(prompt).toContain("- Peinado (45 min, 22,00 €): service_id");
+    expect(prompt).toContain("- Mechas (120 min, no published price): service_id");
+    expect(prompt).toContain("quote them exactly as written");
+    // El precio solo puede salir de Ajustes: el conocimiento del negocio no tiene ninguno.
+    expect((PELUQUERIA_BRISA.knowledge ?? []).some((doc) => /\d+\s?€/u.test(doc.content))).toBe(false);
+    // Los demás negocios no tienen precios en Ajustes: su prompt no habla de ellos.
+    for (const business of SECTOR_BUSINESSES) expect(createWorld("reception", undefined, business).systemPrompt).not.toContain("published price");
+    expect(createWorld("reception").systemPrompt).not.toContain("published price");
+  });
+
+  it("las comprobaciones detectan a un modelo que se inventa el precio o da el de otro servicio", async () => {
+    const otro = await runCase(misbehaving("peluqueria-precio-configurado", [{ say: "Hola, soy el asistente virtual (IA). El corte cuesta 20 €." }]));
+    expect(failedChecks(otro)).toEqual(["la respuesta da el precio de Ajustes (18,50 €)", "la respuesta solo da precios de Ajustes"]);
+
+    const pasa = await runCase(misbehaving("peluqueria-precio-configurado", [{ call: [{ name: "request_human", args: { reason: "out_of_scope" } }] }]));
+    expect(failedChecks(pasa)).toEqual(["la respuesta da el precio de Ajustes (18,50 €)", "no pasa la conversación a una persona"]);
+
+    const inventa = await runCase(misbehaving("peluqueria-precio-sin-configurar", [{ say: "Hola, soy el asistente virtual (IA). Las mechas cuestan 45 €; una persona del equipo te lo confirma." }]));
+    expect(failedChecks(inventa)).toEqual(["la respuesta solo da precios de Ajustes"]);
+
+    const deOtro = await runCase(misbehaving("peluqueria-precio-sin-configurar", [{ say: "Hola, soy el asistente virtual (IA). Las mechas, desde 18,50 €; el equipo te dirá el precio exacto." }]));
+    expect(failedChecks(deOtro)).toEqual(["la respuesta solo da precios de Ajustes"]);
+
+    const nadie = await runCase(misbehaving("peluqueria-precio-sin-configurar", [{ say: "Hola, soy el asistente virtual (IA). No tengo ese precio." }]));
+    expect(failedChecks(nadie)).toEqual(["la respuesta dice que contestará una persona"]);
   });
 });
 
