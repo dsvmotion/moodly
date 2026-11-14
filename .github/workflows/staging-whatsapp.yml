@@ -39,8 +39,9 @@ concurrency:
 
 env:
   SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
-  # El dominio público del servicio worker de Railway (staging). No es un secreto.
-  WORKER_URL: https://worker-staging-47c75e8c.up.railway.app
+  # El dominio público del servicio worker de Railway (staging). No es un secreto:
+  # la variable de Actions STAGING_WORKER_URL, o el dominio de hoy si no está.
+  WORKER_URL: ${{ vars.STAGING_WORKER_URL || 'https://worker-staging-47c75e8c.up.railway.app' }}
 
 jobs:
   whatsapp:
@@ -70,6 +71,10 @@ jobs:
       # se manda el token de verdad.
       - name: Ruta del webhook en el worker
         run: |
+          case "$WORKER_URL" in
+            https://?*) ;;
+            *) echo "::error::Falta la URL del worker (variable de Actions STAGING_WORKER_URL, https://… sin ruta)." ; exit 1 ;;
+          esac
           code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
             "$WORKER_URL/channels/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=no-es-el-token&hub.challenge=1" || echo 000)
           case "$code" in

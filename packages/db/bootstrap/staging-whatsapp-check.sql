@@ -67,7 +67,13 @@ select
       'quien', m.author,
       'estado', m.status,
       'wamid', m.external_message_id is not null,
-      'error', m.delivery_error,
+      -- Solo un código o una categoría (whatsapp:131047, http_502, timeout): nunca
+      -- texto libre, que podría llevar datos del proveedor o del cliente.
+      'error', case
+        when m.delivery_error is null then null
+        when m.delivery_error ~ '^[a-z0-9_:.-]{1,60}$' then m.delivery_error
+        else 'otro'
+      end,
       'run', (select r.status from public.agent_runs r where r.trigger_ref = m.id::text limit 1)
     ) order by m.created_at), '[]'::json) from msgs m) as mensajes,
   (select coalesce(json_agg(json_build_object('skill', e.skill_key, 'estado', e.status, 'aprobacion', a.status) order by e.created_at), '[]'::json)

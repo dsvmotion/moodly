@@ -48,6 +48,8 @@ Servicio `worker` del proyecto `moodly-staging` → *Variables*. Las tres a la v
 
 Guarda y deja que Railway redespliegue. Nunca van a los logs ni a GitHub.
 
+El workflow llama al worker en la variable de Actions `STAGING_WORKER_URL` (`https://…`, sin ruta) o, si no está, en el dominio de hoy (`https://worker-staging-47c75e8c.up.railway.app`). Si Railway cambia el dominio del servicio, se pone esa variable y se actualiza la Callback URL del paso 4.
+
 Comprobación: Actions → **«Staging · WhatsApp»** → Run workflow con `check`. El primer paso, «Ruta del webhook en el worker», tiene que decir que la ruta existe (el worker contesta 403 a un token que no es el suyo). Si dice 404, al worker le faltan las variables o no se ha redesplegado. El resto del `check` fallará todavía: aún no hay cuenta ni mensajes.
 
 ## 3. GitHub: la cuenta de WhatsApp de la organización de demo
