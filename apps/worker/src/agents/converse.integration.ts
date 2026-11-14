@@ -56,6 +56,8 @@ interface ModelCall {
   messages?: number;
   modelKey?: string;
   input?: string;
+  /** El resultado de la herramienta que acababa de usar, si la llamada venía de una. */
+  toolResult?: string | null;
 }
 function effects(step: string): ModelCall[] {
   if (!existsSync(effectsFile)) return [];
@@ -1271,6 +1273,145 @@ describe("tomar el control a mitad del turno (R-02)", () => {
         await setMode("agent", conversationId);
       }
     });
+  });
+});
+
+describe("gate M1: lo que hizo un turno relevado lo ve el siguiente, y no se duplica", () => {
+  // El turno 1 reserva y, con el resultado, se queda pensando; mientras, el
+  // cliente escribe otra vez. Su respuesta ya no toca (gate M1), pero la reserva
+  // no se deshace (límite conocido, docs/STATUS.md): el turno 2 tiene que verla
+  // para no reservar otra vez. El modelo falso del turno 2 hace lo que haría uno
+  // razonable con lo que le llega; el control de abajo comprueba que, sin ver
+  // nada, reservaría.
+  const gate = `${effectsFile}.gate`;
+  const gates = () => effects("gate").length;
+  const newConversation = () =>
+    one(
+      `insert into public.conversations (organization_id, location_id, contact_id, channel_account_id, agent_id)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [ids.org, ids.location, ids.contact, ids.channel, ids.agent],
+    );
+  const settled = async (messageId: string) => {
+    const status = (await runFor(messageId))[0]?.status;
+    return status !== undefined && status !== "running";
+  };
+  /** Las ejecuciones de reservar y de mirar sus citas en una conversación, por orden, con el mensaje que las despertó. */
+  const bookingWork = async (conversationId: string) =>
+    (
+      await admin.query<{ skill_key: string; status: string; approval: string | null; trigger_ref: string }>(
+        `select e.skill_key, e.status, (select a.status from public.approvals a where a.execution_id = e.id) as approval, r.trigger_ref
+         from public.executions e
+         join public.agent_runs r on r.id = e.run_id
+         join public.messages m on m.id::text = r.trigger_ref
+         where m.conversation_id = $1 and e.skill_key in ('book_appointment', 'list_my_appointments')
+         order by e.created_at`,
+        [conversationId],
+      )
+    ).rows;
+  const agentReplies = async (conversationId: string) =>
+    (
+      await admin.query<{ content: string }>(
+        "select content from public.messages where conversation_id = $1 and author = 'agent' order by created_at",
+        [conversationId],
+      )
+    ).rows.map((row) => row.content);
+  const appointments = async () =>
+    Number((await one("select count(*)::text as id from public.appointments where location_id = $1 and contact_id = $2", [ids.location, ids.contact])) ?? 0);
+
+  /** Turno 1: reserva y se queda pensando; llega «¿Y mi cita?»; se abre la puerta y terminan los dos. */
+  async function supersededBooking(conversationId: string): Promise<{ first: string; second: string }> {
+    const before = gates();
+    const first = await customerSays("Resérvame el lunes a las 9, un momento", conversationId);
+    await waitFor(async () => gates() > before, "el turno 1 ya reservó y está pensando");
+    const second = await customerSays("¿Y mi cita?", conversationId);
+    writeFileSync(gate, "");
+    await waitFor(async () => (await settled(first)) && (await settled(second)), "terminan los dos turnos");
+    return { first, second };
+  }
+  const conversations: string[] = [];
+  beforeAll(async () => {
+    await setAutonomy("reply", "autonomous");
+    // El hueco del plan, libre: lo pudo ocupar una reserva aprobada en otro test.
+    await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
+  });
+  afterAll(async () => {
+    await setAutonomy("book_appointment", "draft");
+    await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
+    await admin.query("delete from public.agent_runs where trigger_ref in (select id::text from public.messages where conversation_id = any($1))", [
+      conversations,
+    ]);
+    await admin.query("delete from public.conversations where id = any($1)", [conversations]);
+  });
+
+  it("en borrador: la reserva del turno relevado sigue pendiente, el turno 2 la ve en su prompt y no reserva otra", async () => {
+    await setAutonomy("book_appointment", "draft");
+    const conversation = await newConversation();
+    conversations.push(conversation);
+    const { first, second } = await supersededBooking(conversation);
+
+    // Una sola reserva, la del turno 1, pendiente del equipo; el turno 2 no reservó ni miró nada.
+    expect(await bookingWork(conversation)).toEqual([{ skill_key: "book_appointment", status: "drafted", approval: "pending", trigger_ref: first }]);
+    // El turno 2 la tenía en su prompt, en lo pendiente con el equipo.
+    const seen = modelCalls().filter((entry) => entry.customer?.endsWith("¿Y mi cita?") && entry.lastRole === "user").at(-1);
+    expect(seen?.context).toContain("- Reservar ");
+    // Una sola respuesta, la del turno 2; el turno 1 terminó sin la suya.
+    expect(await agentReplies(conversation)).toEqual(["Tu reserva está pendiente de que la confirme el equipo."]);
+    expect((await runFor(first))[0]?.status).toBe("awaiting_approval");
+    expect((await runFor(second))[0]?.status).toBe("completed");
+  });
+
+  it("si el turno relevado ya pidió una persona (request_human), se mantiene: la conversación pasa a una persona con los dos mensajes", async () => {
+    const conversation = await newConversation();
+    conversations.push(conversation);
+    const before = gates();
+    const first = await customerSays("Quiero hablar con una persona, un momento", conversation);
+    await waitFor(async () => gates() > before, "el turno 1 está pensando");
+    const second = await customerSays("¿Hola?", conversation);
+    writeFileSync(gate, "");
+    await waitFor(async () => settled(first), "termina el turno 1");
+    // El turno 1 ejecutó request_human: el relevo no lo deshace.
+    expect((await runFor(first))[0]?.status).toBe("handed_off");
+    const { rows } = await admin.query<{ mode: string }>("select mode from public.conversations where id = $1", [conversation]);
+    expect(rows[0]?.mode).toBe("human");
+    // El agente ya no contesta el mensaje nuevo (lo lleva una persona), y el aviso del
+    // paso a una persona del turno 1 no sale: ya no tocaba.
+    await waitFor(async () => delivered(await eventOf(second)), "el mensaje nuevo se procesa");
+    expect(await runFor(second)).toEqual([]);
+    expect(await agentReplies(conversation)).toEqual([]);
+  });
+
+  it("control: sin nada hecho antes, el mismo modelo sí reservaría (el test de abajo no pasa por casualidad)", async () => {
+    await setAutonomy("book_appointment", "autonomous");
+    const conversation = await newConversation();
+    conversations.push(conversation);
+    const asked = await customerSays("¿Y mi cita?", conversation);
+    await waitFor(async () => settled(asked), "termina el turno");
+    expect((await bookingWork(conversation)).map((row) => [row.skill_key, row.status])).toEqual([
+      ["list_my_appointments", "executed"],
+      ["book_appointment", "executed"],
+    ]);
+    expect(await appointments()).toBe(1);
+    await admin.query("delete from public.appointments where location_id = $1", [ids.location]);
+  });
+
+  it("autónoma: la cita que hizo el turno relevado ya existe, el turno 2 la encuentra con sus herramientas y no reserva otra", async () => {
+    await setAutonomy("book_appointment", "autonomous");
+    expect(await appointments()).toBe(0);
+    const conversation = await newConversation();
+    conversations.push(conversation);
+    const { first, second } = await supersededBooking(conversation);
+
+    // Una sola cita: la del turno 1. El turno 2 miró sus citas y no reservó.
+    expect(await appointments()).toBe(1);
+    expect((await bookingWork(conversation)).map((row) => [row.skill_key, row.status, row.trigger_ref])).toEqual([
+      ["book_appointment", "executed", first],
+      ["list_my_appointments", "executed", second],
+    ]);
+    // Lo que le devolvió list_my_appointments: la cita del turno 1.
+    const listed = modelCalls().filter((entry) => entry.customer?.endsWith("¿Y mi cita?") && entry.toolResult?.includes('"appointments"')).at(-1);
+    expect((JSON.parse(listed?.toolResult ?? "{}") as { output?: { appointments?: unknown[] } }).output?.appointments).toHaveLength(1);
+    expect(await agentReplies(conversation)).toEqual(["Ya tienes tu cita del lunes a las 9:00."]);
+    expect((await runFor(first))[0]?.status).toBe("completed");
   });
 });
 
