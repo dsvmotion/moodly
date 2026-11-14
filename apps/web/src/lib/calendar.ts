@@ -67,21 +67,47 @@ export function stepDate(view: CalendarView, date: string, direction: -1 | 1): s
   return shiftDate(date, direction * (view === "week" ? 7 : 1));
 }
 
+/** Cuántos minutos va por delante de UTC esa zona en ese instante (Europe/Madrid en invierno: 60). */
+function offsetMinutes(at: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(at);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const asUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+  return Math.round((asUtc - at.getTime()) / 60_000);
+}
+
+/** El instante en que empieza ese día (00:00) en esa zona, también los días de cambio de hora. */
+export function startOfDayIn(date: string, timeZone: string): Date {
+  const guess = toUtc(date).getTime();
+  let at = new Date(guess - offsetMinutes(new Date(guess), timeZone) * 60_000);
+  // Si el cambio de hora cae entre la suposición y el resultado, el segundo intento ya usa el desfase bueno.
+  at = new Date(guess - offsetMinutes(at, timeZone) * 60_000);
+  return at;
+}
+
 /**
- * La ventana de instantes que se pide a la base de datos: del primer día a las
- * 00:00 menos 14 h al día siguiente al último más 14 h. Cubre ese día en
- * cualquier zona horaria (de UTC−12 a UTC+14); lo que sobra lo quita
- * `groupByDay`, que pone cada cita en el día de su sede.
+ * La ventana de instantes que se pide a la base de datos: desde las 00:00 del
+ * primer día hasta las 00:00 del día siguiente al último, en cada zona de las
+ * sedes que se ven (de la que empieza antes a la que acaba después). Así el tope
+ * de filas cuenta solo lo de los días visibles; lo que sobra entre zonas lo
+ * quita `groupByDay`, que pone cada cita en el día de su sede.
  */
-export function queryWindow(days: readonly string[]): { from: string; to: string } {
+export function queryWindow(days: readonly string[], timeZones: readonly string[]): { from: string; to: string } {
   const first = days[0];
   const last = days[days.length - 1];
   if (!first || !last) throw new Error("queryWindow: sin días");
-  const from = toUtc(first);
-  from.setUTCHours(-14);
-  const to = toUtc(shiftDate(last, 1));
-  to.setUTCHours(14);
-  return { from: from.toISOString(), to: to.toISOString() };
+  const zones = timeZones.length > 0 ? [...new Set(timeZones)] : ["UTC"];
+  const from = Math.min(...zones.map((zone) => startOfDayIn(first, zone).getTime()));
+  const to = Math.max(...zones.map((zone) => startOfDayIn(shiftDate(last, 1), zone).getTime()));
+  return { from: new Date(from).toISOString(), to: new Date(to).toISOString() };
 }
 
 export interface CalendarAppointment {

@@ -185,7 +185,13 @@ async function seedCalendar(dbUrl: string): Promise<void> {
   try {
     await client.query("begin");
     const appointmentIds = seedAppointments.map((a) => a.id);
-    await client.query("delete from public.appointments where id = any($1::uuid[])", [appointmentIds]);
+    // También las citas que otros (un e2e, el worker en local) hayan creado con los
+    // servicios o recursos del seed: si no, borrarlos chocaría con su clave ajena.
+    await client.query(
+      `delete from public.appointments
+       where id = any($1::uuid[]) or service_id = any($2::uuid[]) or resource_id = any($3::uuid[])`,
+      [appointmentIds, seedServices.map((s) => s.id), seedResources.map((r) => r.id)],
+    );
     await client.query("delete from public.booking_resources where id = any($1::uuid[])", [seedResources.map((r) => r.id)]);
     await client.query("delete from public.services where id = any($1::uuid[])", [seedServices.map((s) => s.id)]);
     for (const contact of seedCalendarContacts) {

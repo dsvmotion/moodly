@@ -8,6 +8,7 @@ import {
   parseDate,
   parseView,
   queryWindow,
+  startOfDayIn,
   stepDate,
   todayIn,
   type CalendarAppointment,
@@ -64,13 +65,26 @@ describe("zonas horarias", () => {
     expect(todayIn("Europe/Madrid", now)).toBe("2026-11-14");
     expect(todayIn("Atlantic/Canary", now)).toBe("2026-11-13");
   });
-  it("la ventana cubre el día en cualquier zona", () => {
-    const { from, to } = queryWindow(["2026-11-14"]);
-    expect(from).toBe("2026-11-13T10:00:00.000Z");
-    expect(to).toBe("2026-11-15T14:00:00.000Z");
-    // 00:00 en Kiritimati (UTC+14) y 23:59 en Baker (UTC−12) caen dentro.
-    expect(new Date("2026-11-13T10:00:00.000Z") >= new Date(from)).toBe(true);
-    expect(new Date("2026-11-15T11:59:00.000Z") < new Date(to)).toBe(true);
+  it("la ventana va de las 00:00 del primer día al día siguiente al último, en la zona de cada sede", () => {
+    expect(queryWindow(["2026-11-14"], ["Europe/Madrid"])).toEqual({
+      from: "2026-11-13T23:00:00.000Z",
+      to: "2026-11-14T23:00:00.000Z",
+    });
+    // Madrid (UTC+1) empieza antes y Canarias (UTC+0) acaba después.
+    expect(queryWindow(["2026-11-09", "2026-11-15"], ["Atlantic/Canary", "Europe/Madrid"])).toEqual({
+      from: "2026-11-08T23:00:00.000Z",
+      to: "2026-11-16T00:00:00.000Z",
+    });
+    // Sin zonas (nadie en el alcance), UTC.
+    expect(queryWindow(["2026-11-14"], [])).toEqual({ from: "2026-11-14T00:00:00.000Z", to: "2026-11-15T00:00:00.000Z" });
+  });
+  it("los días de cambio de hora duran lo que duran", () => {
+    // 29 de marzo de 2026: en Madrid se pasa de UTC+1 a UTC+2 a las 02:00; el día dura 23 horas.
+    expect(startOfDayIn("2026-03-29", "Europe/Madrid").toISOString()).toBe("2026-03-28T23:00:00.000Z");
+    expect(startOfDayIn("2026-03-30", "Europe/Madrid").toISOString()).toBe("2026-03-29T22:00:00.000Z");
+    // 25 de octubre de 2026: de UTC+2 a UTC+1; el día dura 25 horas.
+    expect(startOfDayIn("2026-10-25", "Europe/Madrid").toISOString()).toBe("2026-10-24T22:00:00.000Z");
+    expect(startOfDayIn("2026-10-26", "Europe/Madrid").toISOString()).toBe("2026-10-25T23:00:00.000Z");
   });
   it("cada cita cae en el día de su sede", () => {
     // 23:30 UTC: domingo 00:30 en Madrid, sábado 23:30 en Canarias.

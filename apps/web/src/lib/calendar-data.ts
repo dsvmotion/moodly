@@ -27,7 +27,12 @@ export async function loadCalendar(
   const locations = locationFilter(scope, context.locations);
   if (locations.kind === "only" && locations.locationIds.length === 0) return { rows: [], truncated: false };
 
-  const { from, to } = queryWindow(days);
+  // La ventana, en las zonas de las sedes que se ven: el tope cuenta solo lo de los días visibles.
+  const visibleZones = (locations.kind === "only"
+    ? context.locations.filter((location) => locations.locationIds.includes(location.id))
+    : context.locations
+  ).map((location) => location.timeZone);
+  const { from, to } = queryWindow(days, visibleZones);
   const supabase = await createClient();
   let query = supabase
     .from("appointments")
