@@ -755,7 +755,7 @@
       "services": "Servicios que hace"
     },
     "pricePlaceholder": "Sin precio",
-    "priceHelp": "Déjalo vacío si no quieres publicar un precio. Los agentes todavía no dicen precios: llegará pronto.",
+    "priceHelp": "Los agentes que reservan citas dicen este precio a quien lo pregunta. Déjalo vacío si no quieres publicarlo: sin precio, no dan ninguno y lo pasan al equipo.",
     "allLocations": "Todas las sedes",
     "create": "Crear",
     "save": "Guardar",
