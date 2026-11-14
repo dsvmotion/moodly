@@ -311,7 +311,7 @@ areas:
     units:
       - {id: "OA01", name: "Inbox with takeover and reply", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "Takeover merged in #154; the worker can still post after a takeover (finding R-02)"}
       - {id: "OA02", name: "Approvals with detail and edit", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "List with approve and reject exists; no detail, no edit"}
-      - {id: "OA03", name: "Appointments calendar", milestone: "M2", owner: "V2", status: "planned", evidence: []}
+      - {id: "OA03", name: "Appointments calendar", milestone: "M2", owner: "V3", status: "planned", evidence: []}
       - {id: "OA04", name: "Business setup: services, resources, hours, prices", milestone: "M2", owner: "V2", status: "planned", evidence: []}
       - {id: "OA05", name: "Agent controls: pause, autonomy, tone", milestone: "M2", owner: "V2", status: "planned", evidence: []}
       - {id: "OA06", name: "Knowledge from text and files", milestone: "M2", owner: "V2", status: "in_progress", evidence: [], note: "Text sources only"}
