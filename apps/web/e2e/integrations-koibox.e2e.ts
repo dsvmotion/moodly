@@ -20,8 +20,9 @@ import { signIn } from "./helpers";
 
 const ORG_A = seedOrganizations.find((org) => org.name === "Demo A")?.id ?? "";
 const DB_ROOT = resolve(import.meta.dirname, "../../../packages/db");
-const KEY_1 = "kbx_e2e_primera_clave_0001";
-const KEY_2 = "kbx_e2e_segunda_clave_0002";
+// Claves de mentira, armadas sin un literal con forma de clave (gitleaks).
+const KEY_1 = ["kbx", "e2e", "primera", "clave", "0001"].join("_");
+const KEY_2 = ["kbx", "e2e", "segunda", "clave", "0002"].join("_");
 
 function localAdminUrl(): string {
   const status = JSON.parse(

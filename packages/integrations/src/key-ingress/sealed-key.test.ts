@@ -20,7 +20,8 @@ function pair(keyRef: string) {
 
 const OLD = pair("local:v1");
 const NEW = pair("local:v2");
-const KEY = "kbx_live_0123456789abcdef";
+// Una clave de mentira, armada sin un literal con forma de clave (gitleaks).
+const KEY = ["kbx", "test", "0123456789", "abcdef"].join("_");
 
 function context(): SubmissionContext {
   return { organizationId: randomUUID(), integrationId: randomUUID(), submissionId: randomUUID(), provider: "koibox" };
