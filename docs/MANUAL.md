@@ -1441,6 +1441,7 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0051 | Todos los proveedores de modelos detrás del enrutador, con inferencia global bajo DPA con cada proveedor (T6) | aceptado (producto, 2026-11-12) |
 | 0052 | Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10) | aceptado (producto, 2026-11-12) |
 | 0053 | Hub de integraciones: gobierno propio para todas las conexiones y una plataforma de conectores para la amplitud (Nango autoalojado en la UE; modifica el 0034 y el 0036) | aceptado (producto, 2026-11-11) |
+| 0054 | La bandeja en vivo: un relé de Server-Sent Events del mismo origen | aceptado (V1, 2026-11-12: «opción B») |
 | 0055 | Alta de las claves de una integración: la web las cifra hacia el worker (sobre con una clave asimétrica de ingreso en KMS) y las deja en una tabla de solo inserción | aceptado (producto, 2026-11-14) |
 
 ---
