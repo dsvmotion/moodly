@@ -6,7 +6,7 @@
 // - Genera una contraseña nueva para cada usuario en cada ejecución y la
 //   escribe solo en packages/db/.seed/credentials.local.json (ignorado por
 //   git, permisos 0600). No se imprime por pantalla.
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +42,14 @@ const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
 // `pnpm --filter @repo/web env:local` y `pnpm --filter @repo/worker env:local`
 // las copian allí. Ignorado por git, permisos 0600.
 const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
+
+function localIngressKeyPair(): { privatePem: string; publicSpki: string } {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
+  return {
+    privatePem: privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
+    publicSpki: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+  };
+}
 
 function check(label: string, error: { message: string } | null): void {
   if (error) throw new Error(`${label}: ${error.message}`);
@@ -314,10 +322,25 @@ async function main(): Promise<void> {
   // El rol de los datos de las organizaciones bajo RLS (ADR 0049, PL-T1).
   const workerRlsPassword = serverKeys.worker_rls_password ?? randomBytes(24).toString("base64url");
   await enableWorkerDbLogin(local.dbUrl, workerRlsPassword, "moodly_worker");
+  // El alta de claves de integraciones en local (ADR 0055): el par de la clave
+  // de ingreso (la web cifra con la pública, el worker abre con la privada) y la
+  // clave maestra local de SecretVault (ADR 0034). En staging y producción, KMS.
+  const ingress = serverKeys.integration_ingress_private_pem && serverKeys.integration_ingress_public_spki
+    ? { privatePem: serverKeys.integration_ingress_private_pem, publicSpki: serverKeys.integration_ingress_public_spki }
+    : localIngressKeyPair();
+  const secretVaultKey = serverKeys.secret_vault_local ?? randomBytes(32).toString("base64");
   writeFileSync(
     serverKeysFile,
     JSON.stringify(
-      { ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword, worker_rls_password: workerRlsPassword },
+      {
+        ...serverKeys,
+        login_throttle: loginThrottleKey,
+        worker_db_password: workerDbPassword,
+        worker_rls_password: workerRlsPassword,
+        integration_ingress_private_pem: ingress.privatePem,
+        integration_ingress_public_spki: ingress.publicSpki,
+        secret_vault_local: secretVaultKey,
+      },
       null,
       2,
     ),
