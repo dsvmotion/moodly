@@ -43,11 +43,12 @@ interface IntegrationState {
   secret_id: string | null;
   last_submission_at: Date | null;
   last_submission_id: string | null;
+  last_submission_result: string | null;
 }
 
 async function integration(id: string): Promise<IntegrationState> {
   const { rows } = await admin.query<IntegrationState>(
-    `select status, secret_id, last_submission_at, last_submission_id from public.integrations where id = $1`,
+    `select status, secret_id, last_submission_at, last_submission_id, last_submission_result from public.integrations where id = $1`,
     [id],
   );
   if (!rows[0]) throw new Error("no existe la integración");
@@ -141,6 +142,7 @@ describe("primera conexión", () => {
     const state = await integration(id);
     expect(state.status).toBe("active");
     expect(state.last_submission_id).toBe(sub);
+    expect(state.last_submission_result).toBe("applied");
     expect(state.secret_id).not.toBeNull();
     await expect(openSecret(ORG_A, state.secret_id ?? "")).resolves.toBe(GOOD_1);
     expect((await secret(state.secret_id ?? ""))?.name).toBe("koibox.api_key");
@@ -152,7 +154,7 @@ describe("primera conexión", () => {
     const { id } = await koibox(ORG_A, "pending");
     const sub = await submit(ORG_A, id, BAD);
     await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "rejected" });
-    expect(await integration(id)).toMatchObject({ status: "error", secret_id: null, last_submission_id: sub });
+    expect(await integration(id)).toMatchObject({ status: "error", secret_id: null, last_submission_id: sub, last_submission_result: "rejected" });
     expect(await submissionExists(sub)).toBe(false);
   });
 
@@ -210,6 +212,7 @@ describe("rotar", () => {
     await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "applied" });
     const state = await integration(id);
     expect(state.secret_id).toBe(secretId);
+    expect(state.last_submission_result).toBe("applied");
     await expect(openSecret(ORG_A, secretId ?? "")).resolves.toBe(GOOD_2);
     expect((await secret(secretId ?? ""))?.rotated_at).not.toBeNull();
     const { rows } = await admin.query(`select 1 from public.integration_secrets where organization_id = $1 and name like 'koibox.%'`, [ORG_A]);
@@ -221,7 +224,12 @@ describe("rotar", () => {
     const before = await secret(secretId ?? "");
     const sub = await submit(ORG_A, id, BAD);
     await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "rejected" });
-    expect(await integration(id)).toMatchObject({ status: "active", secret_id: secretId, last_submission_id: sub });
+    expect(await integration(id)).toMatchObject({
+      status: "active",
+      secret_id: secretId,
+      last_submission_id: sub,
+      last_submission_result: "rejected",
+    });
     expect((await secret(secretId ?? ""))?.ciphertext).toBe(before?.ciphertext);
     await expect(openSecret(ORG_A, secretId ?? "")).resolves.toBe(GOOD_1);
     expect(await submissionExists(sub)).toBe(false);

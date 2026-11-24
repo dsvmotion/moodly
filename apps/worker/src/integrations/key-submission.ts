@@ -179,7 +179,8 @@ async function applyInTransaction(
       secretId = inserted?.id ?? null;
     }
     await sql.query(
-      `update public.integrations set status = 'active', secret_id = $1, last_submission_at = $2, last_submission_id = $3
+      `update public.integrations set status = 'active', secret_id = $1, last_submission_at = $2, last_submission_id = $3,
+            last_submission_result = 'applied'
         where id = $4 and organization_id = $5`,
       [secretId, mark[0], mark[1], input.integrationId, org],
     );
@@ -188,7 +189,8 @@ async function applyInTransaction(
 
   if (integration.status === "pending") {
     await sql.query(
-      `update public.integrations set status = 'error', secret_id = null, last_submission_at = $1, last_submission_id = $2
+      `update public.integrations set status = 'error', secret_id = null, last_submission_at = $1, last_submission_id = $2,
+            last_submission_result = 'rejected'
         where id = $3 and organization_id = $4`,
       [mark[0], mark[1], input.integrationId, org],
     );
@@ -201,7 +203,8 @@ async function applyInTransaction(
     }
   } else {
     await sql.query(
-      `update public.integrations set last_submission_at = $1, last_submission_id = $2 where id = $3 and organization_id = $4`,
+      `update public.integrations set last_submission_at = $1, last_submission_id = $2, last_submission_result = 'rejected'
+        where id = $3 and organization_id = $4`,
       [mark[0], mark[1], input.integrationId, org],
     );
   }
