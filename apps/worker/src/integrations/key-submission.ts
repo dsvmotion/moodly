@@ -129,12 +129,6 @@ function isGuardRefusal(err: unknown): boolean {
 }
 
 /** (a, idA) > (b, idB), como la comparación de filas de Postgres (uuid en texto, minúsculas). */
-function after(at: Date, id: string, markAt: Date | null, markId: string | null): boolean {
-  if (!markAt || !markId) return true;
-  if (at.getTime() !== markAt.getTime()) return at.getTime() > markAt.getTime();
-  return id > markId;
-}
-
 /**
  * La decisión y las escrituras, en una sola transacción que empieza bloqueando
  * la integración. `check` es el resultado de la comprobación (hecha antes y
@@ -154,13 +148,20 @@ async function applyInTransaction(
       for update`,
     [input.integrationId, org, input.provider],
   );
-  const [own] = await sql.query<{ created_at: Date }>(
-    `delete from public.integration_secret_submissions where id = $1 and organization_id = $2 returning created_at`,
-    [input.submissionId, org],
+  // La marca se compara y se guarda en SQL, con la precisión de Postgres (µs):
+  // un Date de JS la truncaría a ms (hallazgo L1 de V10).
+  const [own] = await sql.query<{ created_at: string; newer: boolean }>(
+    `with own as (
+       delete from public.integration_secret_submissions where id = $1 and organization_id = $2 returning id, created_at
+     )
+     select own.created_at::text as created_at,
+            (i.last_submission_at is null or (own.created_at, own.id) > (i.last_submission_at, i.last_submission_id)) as newer
+       from own left join public.integrations i on i.id = $3 and i.organization_id = $2`,
+    [input.submissionId, org, input.integrationId],
   );
   if (!own) return "already_processed";
   if (!integration || integration.status === "disconnected") return "disconnected";
-  if (!after(own.created_at, input.submissionId, integration.last_submission_at, integration.last_submission_id)) return "stale";
+  if (!own.newer) return "stale";
 
   const mark = [own.created_at, input.submissionId] as const;
   if (check === "valid" && sealedSecret) {

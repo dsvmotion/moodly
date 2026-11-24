@@ -99,7 +99,7 @@ async function koibox(org: string, status: string, withKey?: string, locationId:
 }
 
 /** Un envío como lo deja la web: cifrado hacia el worker con su contexto. */
-async function submit(org: string, integrationId: string, apiKey: string, options: { id?: string; createdAt?: Date; sealFor?: string } = {}): Promise<string> {
+async function submit(org: string, integrationId: string, apiKey: string, options: { id?: string; createdAt?: Date | string; sealFor?: string } = {}): Promise<string> {
   const id = options.id ?? randomUUID();
   const sealed = sealSubmission(INGRESS, { organizationId: org, integrationId: options.sealFor ?? integrationId, submissionId: id, provider: "koibox" }, apiKey);
   await admin.query(
@@ -269,6 +269,22 @@ describe("dos envíos seguidos (K2, K3) y los reintentos", () => {
     const high = await submit(ORG_A, id, GOOD_3, { id: "ffffffff-ffff-4fff-bfff-ffffffffffff", createdAt: at });
     await applySubmission(deps, input(ORG_A, id, high));
     await expect(applySubmission(deps, input(ORG_A, id, low))).resolves.toMatchObject({ outcome: "stale" });
+    await expect(openSecret(ORG_A, (await integration(id)).secret_id ?? "")).resolves.toBe(GOOD_3);
+  });
+
+  it("en el mismo milisegundo, gana el más reciente por µs, no el de mayor id (la marca guarda µs; L1 de V10)", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const ms = new Date(Date.now() - 1000).toISOString().slice(0, 23);
+    // El más reciente (µs 900) tiene el id menor: si la marca se truncara a ms, ganaría el otro.
+    const newer = await submit(ORG_A, id, GOOD_3, { id: "00000000-0000-4000-8000-000000000002", createdAt: `${ms}900+00` });
+    const older = await submit(ORG_A, id, GOOD_2, { id: "ffffffff-ffff-4fff-bfff-fffffffffffe", createdAt: `${ms}100+00` });
+    await expect(applySubmission(deps, input(ORG_A, id, newer))).resolves.toMatchObject({ outcome: "applied" });
+    await expect(applySubmission(deps, input(ORG_A, id, older))).resolves.toMatchObject({ outcome: "stale" });
+    const { rows } = await admin.query<{ exact: boolean }>("select last_submission_at = $2::timestamptz as exact from public.integrations where id = $1", [
+      id,
+      `${ms}900+00`,
+    ]);
+    expect(rows[0]?.exact).toBe(true);
     await expect(openSecret(ORG_A, (await integration(id)).secret_id ?? "")).resolves.toBe(GOOD_3);
   });
 
