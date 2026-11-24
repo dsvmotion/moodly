@@ -74,17 +74,125 @@ export function queryCalls(file: string, raw: string): QueryCall[] {
   return calls;
 }
 
-/** Por qué una consulta no cumple la regla, o null si la cumple (o no toca tablas de public). */
-export function violation(sql: string): string | null {
-  const text = sql.replace(/\s+/g, " ");
-  const tables = [...text.matchAll(/\bpublic\.([a-z_]+)/gi)].map((match) => match[1]);
-  if (tables.length === 0) return null;
-  const insert = /^\s*insert\s+into\s+public\.[a-z_]+\s*\(([^)]*)\)/i.exec(text);
-  if (insert) {
-    return /\borganization_id\b/.test(insert[1] ?? "") ? null : "un insert sin organization_id entre sus columnas";
+/** Palabras que pueden ir detrás de una tabla y no son su alias. */
+const NOT_ALIAS = new Set([
+  "where", "join", "inner", "left", "right", "full", "cross", "on", "set", "order", "group", "limit", "offset",
+  "returning", "using", "values", "select", "union", "and", "or", "for", "having", "window", "natural", "lateral",
+]);
+
+/** Esquemas que no son de tenants: la base de datos de sistema, el catálogo y las funciones de private. */
+const OTHER_SCHEMAS = new Set(["private", "pg_catalog", "information_schema", "dbos", "auth", "extensions"]);
+
+interface TableRef {
+  table: string;
+  /** Con lo que se la nombra en los filtros: su alias o, sin alias, su nombre. */
+  name: string;
+  aliased: boolean;
+}
+
+/** El SQL sin comentarios (-- y bloques) y en una sola línea: un filtro en un comentario no cuenta. */
+function cleanSql(sql: string): string {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--[^\n]*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Las tablas que nombra una consulta, con su alias: detrás de from, join,
+ * update, into o delete from. Con esquema public o sin esquema (el search_path
+ * del worker resuelve una tabla sin esquema en public). No cuentan las
+ * funciones («from jsonb_each(…)»), las subconsultas ni otros esquemas.
+ */
+function tableRefs(text: string): TableRef[] {
+  const refs: TableRef[] = [];
+  const pattern = /\b(?:from|join|update|into)\s+(?:only\s+)?("?[a-z_][a-z0-9_]*"?)(?:\.("?[a-z_][a-z0-9_]*"?))?(\s*\()?(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?/gi;
+  for (const match of text.matchAll(pattern)) {
+    const first = (match[1] ?? "").replace(/"/g, "").toLowerCase();
+    const second = match[2]?.replace(/"/g, "").toLowerCase();
+    if (match[3]) continue; // una función de tabla o una llamada
+    const schema = second ? first : null;
+    const table = second ?? first;
+    if (schema && schema !== "public") continue;
+    if (!schema && (OTHER_SCHEMAS.has(table) || NOT_ALIAS.has(table))) continue;
+    const alias = match[4]?.toLowerCase();
+    const aliased = alias !== undefined && !NOT_ALIAS.has(alias);
+    refs.push({ table, name: aliased ? alias : table, aliased });
   }
-  const filters = (text.match(/\borganization_id\s*=/gi) ?? []).length;
-  return filters >= tables.length ? null : `${tables.length} tabla(s) de public (${tables.join(", ")}) y ${filters} filtro(s) organization_id =`;
+  return refs;
+}
+
+/**
+ * Por qué una consulta no cumple la regla, o null si la cumple (o no toca
+ * tablas de tenants). Cada tabla que lee, cambia o borra tiene su filtro
+ * «<tabla o alias>.organization_id = $n», o igual al organization_id de otra
+ * tabla ya ligada a un parámetro (transitivo); sin alias, también vale
+ * «organization_id = $n» sin calificar, una vez por tabla sin alias. Y al
+ * menos un filtro va a un parámetro: «organization_id = organization_id» no
+ * liga nada. Un insert nombra organization_id entre sus columnas y, si sus
+ * filas salen de un select, ese select cumple la misma regla.
+ */
+export function violation(sql: string): string | null {
+  const text = cleanSql(sql);
+  const insert = /^insert\s+into\s+(?:public\.)?[a-z_]+\s*\(([^)]*)\)\s*(.*)$/i.exec(text);
+  if (insert) {
+    if (!/\borganization_id\b/.test(insert[1] ?? "")) return "un insert sin organization_id entre sus columnas";
+    const rest = insert[2] ?? "";
+    return /^select\b/i.test(rest) ? filtersViolation(rest) : null;
+  }
+  return filtersViolation(text);
+}
+
+function filtersViolation(text: string): string | null {
+  const refs = tableRefs(text);
+  if (refs.length === 0) return null;
+  const column = "([a-z_][a-z0-9_]*\\.)?organization_id";
+  const value = "(\\$\\d+|[a-z_][a-z0-9_]*\\.organization_id)";
+  // Cada comparación, en los dos sentidos: «x.organization_id = $1» o «$1 = x.organization_id».
+  const pairs: { left: string | null; right: string }[] = [];
+  for (const match of text.matchAll(new RegExp(`${column}\\s*=\\s*${value}`, "gi"))) {
+    pairs.push({ left: match[1] ? match[1].slice(0, -1).toLowerCase() : null, right: (match[2] ?? "").toLowerCase() });
+  }
+  for (const match of text.matchAll(new RegExp(`(\\$\\d+)\\s*=\\s*${column}`, "gi"))) {
+    pairs.push({ left: match[2] ? match[2].slice(0, -1).toLowerCase() : null, right: (match[1] ?? "").toLowerCase() });
+  }
+  if (!pairs.some((pair) => pair.right.startsWith("$"))) return "ningún filtro organization_id va a un parámetro";
+
+  // Las tablas con nombre (alias o tabla) ligadas: a un parámetro, o a otra ya ligada (que no sea ella misma).
+  const bound = new Set<string>();
+  let unqualified = 0;
+  for (let changed = true; changed; ) {
+    changed = false;
+    unqualified = 0;
+    for (const pair of pairs) {
+      const target = pair.right.startsWith("$") ? "param" : pair.right.split(".")[0] ?? "";
+      const ok = target === "param" || (bound.has(target) && target !== pair.left);
+      if (!ok) continue;
+      if (pair.left === null) unqualified += 1;
+      else if (!bound.has(pair.left)) {
+        bound.add(pair.left);
+        changed = true;
+      }
+      // Lo transitivo en el otro sentido: «c.organization_id = m.organization_id» con m ligada liga c.
+    }
+    for (const pair of pairs) {
+      if (pair.left && !pair.right.startsWith("$")) {
+        const other = pair.right.split(".")[0] ?? "";
+        if (bound.has(pair.left) && other !== pair.left && !bound.has(other)) {
+          bound.add(other);
+          changed = true;
+        }
+      }
+    }
+  }
+  const unaliasedUnbound = refs.filter((ref) => !ref.aliased && !bound.has(ref.name));
+  const missing = [
+    ...refs.filter((ref) => ref.aliased && !bound.has(ref.name)),
+    ...unaliasedUnbound.slice(Math.min(unqualified, unaliasedUnbound.length)),
+  ];
+  if (missing.length === 0) return null;
+  return `sin organization_id ligado a un parámetro en: ${missing.map((ref) => (ref.aliased ? `${ref.table} ${ref.name}` : ref.table)).join(", ")}`;
 }
 
 function sourceFiles(dir: string): string[] {
@@ -114,6 +222,38 @@ describe("la regla (para que el test mida algo)", () => {
     expect(violation("select organization_id, id from public.approvals where id = $1")).not.toBeNull();
     // Sin tablas de public (funciones de private, la base de datos de sistema): no aplica.
     expect(violation("select private.worker_agent_turn_context($1) as context")).toBeNull();
+  });
+
+  it("los huecos de la revisión de V10 (#331): sin esquema, tautologías, una tabla filtrada dos veces y filtros en comentarios", () => {
+    // Una tabla sin esquema la resuelve el search_path en public: cuenta.
+    expect(violation("select id from messages where id = $1")).not.toBeNull();
+    expect(violation("select id from messages where organization_id = $1 and id = $2")).toBeNull();
+    // organization_id = organization_id no liga nada.
+    expect(violation("select id from public.messages where organization_id = organization_id and id = $1")).not.toBeNull();
+    expect(violation("select id from public.messages m where m.organization_id = m.organization_id and m.id = $1")).not.toBeNull();
+    // Dos filtros sobre la misma tabla no cubren la otra del join.
+    expect(
+      violation(
+        "select c.id from public.messages m join public.conversations c on c.id = m.conversation_id where m.organization_id = $1 and m.organization_id = $1",
+      ),
+    ).not.toBeNull();
+    // Un filtro que solo está en un comentario no filtra.
+    expect(violation("select id from public.messages where id = $1 -- organization_id = $2")).not.toBeNull();
+    expect(violation("select id from public.messages where id = $1 /* organization_id = $2 */")).not.toBeNull();
+  });
+
+  it("insert … select: el select cumple la regla; y lo transitivo, el orden al revés, las funciones y otros esquemas", () => {
+    expect(violation("insert into public.x (organization_id, a) select organization_id, a from public.y where id = $1")).not.toBeNull();
+    expect(violation("insert into public.x (organization_id, a) select organization_id, a from public.y where organization_id = $2 and id = $1")).toBeNull();
+    // Una tabla ligada a otra ya ligada a un parámetro.
+    expect(
+      violation(
+        "select c.id from public.messages m join public.conversations c on c.id = m.conversation_id and c.organization_id = m.organization_id where m.organization_id = $1",
+      ),
+    ).toBeNull();
+    expect(violation("select id from public.messages where $1 = organization_id")).toBeNull();
+    expect(violation("select key from jsonb_each($1) as d(key, value)")).toBeNull();
+    expect(violation("select * from private.thing where id = $1")).toBeNull();
   });
 
   it("lee el SQL literal de cada llamada, y marca como ilegible el que lleva ${}", () => {

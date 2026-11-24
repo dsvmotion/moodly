@@ -4,8 +4,8 @@
 -- organization_id, la consulta falla con 42501 como moodly_worker aunque los
 -- tests sin RLS pasen (le pasó a V8 en ingress/, 20261114100000). Por eso: en
 -- toda tabla de public con organization_id en la que moodly_worker puede leer
--- alguna columna, también puede leer organization_id. Vale para las tablas
--- que lleguen después.
+-- alguna columna, cambiar alguna o borrar filas, también puede leer
+-- organization_id. Vale para las tablas que lleguen después.
 begin;
 select plan(2);
 
@@ -17,10 +17,14 @@ select is(
    -- y SQL no garantiza el orden de un AND.
    join pg_attribute a on a.attrelid = c.oid and a.attname = 'organization_id' and not a.attisdropped
    where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relispartition
-     and has_any_column_privilege('moodly_worker', c.oid, 'select')
+     -- Lee, cambia o borra: un update o un delete con «where organization_id = $1» también necesita
+     -- leer la columna (revisión de V10 sobre #331).
+     and (has_any_column_privilege('moodly_worker', c.oid, 'select')
+          or has_any_column_privilege('moodly_worker', c.oid, 'update')
+          or has_table_privilege('moodly_worker', c.oid, 'delete'))
      and not has_column_privilege('moodly_worker', c.oid, a.attnum, 'select')),
   null,
-  'moodly_worker puede leer organization_id en toda tabla en la que lee algo: filtrar por ella no falla con 42501');
+  'moodly_worker puede leer organization_id en toda tabla que lee, cambia o borra: filtrar por ella no falla con 42501');
 
 -- Que el test mire algo: hay tablas en las que el worker lee (las del turno, como mínimo).
 select cmp_ok(
