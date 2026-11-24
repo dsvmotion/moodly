@@ -55,11 +55,14 @@ timed() { # timed <nombre> <comando…>
   return $rc
 }
 
+# Cada orden lleva su `|| return/exit`: `set -e` no actúa dentro de una función
+# que se llama con `||` (como hace `timed`), y sin esto un volcado que falla a
+# medias quedaba tapado por el último, que sí sale bien.
 dump() {
-  ( cd "$DB_DIR"
-    supabase db dump "$SOURCE_FLAG" --role-only -f "$WORK/roles.sql" > /dev/null
-    supabase db dump "$SOURCE_FLAG" -s "$SCHEMAS" -f "$WORK/schema.sql" > /dev/null
-    supabase db dump "$SOURCE_FLAG" --data-only --use-copy -s "$SCHEMAS" -f "$WORK/data.sql" > /dev/null )
+  ( cd "$DB_DIR" || exit 1
+    supabase db dump "$SOURCE_FLAG" --role-only -f "$WORK/roles.sql" > /dev/null || exit 1
+    supabase db dump "$SOURCE_FLAG" -s "$SCHEMAS" -f "$WORK/schema.sql" > /dev/null || exit 1
+    supabase db dump "$SOURCE_FLAG" --data-only --use-copy -s "$SCHEMAS" -f "$WORK/data.sql" > /dev/null || exit 1 )
 }
 
 # La imagen trae sus propios `auth` y `storage` (los de GoTrue y Storage de su
@@ -68,19 +71,23 @@ dump() {
 # migraciones (el volcado no las incluye).
 prepare_target() {
   export PGOPTIONS='-c client_min_messages=warning'
-  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -c 'drop schema if exists auth cascade' -c 'drop schema if exists storage cascade' -c 'create schema if not exists extensions'
+  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -c 'drop schema if exists auth cascade' -c 'drop schema if exists storage cascade' -c 'create schema if not exists extensions' || return 1
   local ext
   for ext in $(grep -rhoiE 'create extension( if not exists)? +"?[a-z_0-9-]+"?' "$MIGRATIONS_DIR" | awk '{print $NF}' | tr -d '"' | sort -u); do
-    psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -c "create extension if not exists \"$ext\" with schema extensions"
+    psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -c "create extension if not exists \"$ext\" with schema extensions" || return 1
   done
 }
 
 restore() {
-  # Los errores se miran aparte: la restauración sigue hasta el final y se cuentan.
-  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -f "$WORK/roles.sql" > "$WORK/roles.out" 2>&1 || true
-  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -f "$WORK/schema.sql" > "$WORK/schema.out" 2>&1 || true
+  # Los errores de SQL se miran aparte (verify): la restauración sigue hasta el
+  # final y se cuentan. Con ON_ERROR_STOP=0 psql solo sale con código distinto de
+  # 0 si no puede ni conectar o se cae: eso sí corta la fase.
+  local rc=0
+  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -f "$WORK/roles.sql" > "$WORK/roles.out" 2>&1 || rc=$?
+  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -f "$WORK/schema.sql" > "$WORK/schema.out" 2>&1 || rc=$?
   # Datos: solo el código SQLSTATE de cada error, nunca el mensaje.
-  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -v VERBOSITY=sqlstate -f "$WORK/data.sql" > "$WORK/data.out" 2>&1 || true
+  psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=0 -v VERBOSITY=sqlstate -f "$WORK/data.sql" > "$WORK/data.out" 2>&1 || rc=$?
+  return $rc
 }
 
 # Filas de cada tabla que lleva el volcado de datos: «esquema.tabla filas».
@@ -94,17 +101,24 @@ verify() {
   local errors
   # Roles y esquema: sus mensajes no llevan datos de clientes. Solo se tolera lo
   # propio de la plataforma que no existe en un Postgres desechable.
-  errors=$(grep -h 'ERROR' "$WORK/roles.out" "$WORK/schema.out" | grep -v 'supabase_realtime_admin' || true)
+  # Además de «ERROR», un FATAL o un «psql: error:» (la conexión que se cae a
+  # mitad de la restauración) también son errores.
+  errors=$(grep -hE 'ERROR|FATAL|psql: error' "$WORK/roles.out" "$WORK/schema.out" | grep -v 'supabase_realtime_admin' || true)
   if [ -n "$errors" ]; then
     problem "errores al restaurar roles o esquema ($(printf '%s\n' "$errors" | wc -l)):"
     printf '%s\n' "$errors" | sed 's/^/    /' | head -20
   else
     ok "roles y esquema restaurados sin errores"
   fi
-  errors=$(grep -h 'ERROR' "$WORK/data.out" | sed 's/.*ERROR: *//' | sort | uniq -c | sort -rn || true)
-  if [ -n "$errors" ]; then
-    problem "errores al restaurar datos, por SQLSTATE:"
-    printf '%s\n' "$errors" | sed 's/^/    /' | head -20
+  # Datos: solo el SQLSTATE de cada error de SQL y, de la conexión, cuántos
+  # (su texto no se enseña: el de un error de datos puede llevar el valor de una fila).
+  errors=$(grep -h '^ERROR' "$WORK/data.out" | sed 's/.*ERROR: *//' | sort | uniq -c | sort -rn || true)
+  local conn_errors
+  conn_errors=$(grep -cE 'FATAL|psql: error' "$WORK/data.out" || true)
+  if [ -n "$errors" ] || [ "$conn_errors" -gt 0 ]; then
+    problem "errores al restaurar datos:"
+    [ -n "$errors" ] && { echo "    por SQLSTATE:"; printf '%s\n' "$errors" | sed 's/^/      /' | head -20; }
+    [ "$conn_errors" -gt 0 ] && echo "    de conexión o de psql: $conn_errors"
   else
     ok "datos restaurados sin errores"
   fi
@@ -127,20 +141,55 @@ verify() {
   if [ "$bad" -gt 0 ]; then problem "$bad de $tables tablas no cuadran"; else ok "$tables tablas con datos cuadran ($total filas)"; fi
 
   # Invariantes del esquema.
-  local no_rls no_force policies expected_policies
+  local no_rls no_force policies expected_policies public_tables expected_public
+  expected_public=$(grep -cE '^CREATE TABLE (IF NOT EXISTS )?"public"\.' "$WORK/schema.sql" || true)
+  public_tables=$(psql "$TARGET_URL" -X -At -c "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r','p')")
   no_rls=$(psql "$TARGET_URL" -X -At -c "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r','p') and not c.relrowsecurity")
   no_force=$(psql "$TARGET_URL" -X -At -c "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r','p') and not c.relforcerowsecurity")
-  if [ "$no_rls" = "0" ] && [ "$no_force" = "0" ]; then ok "RLS activado y forzado en todas las tablas de public"; else problem "tablas de public sin RLS: $no_rls; sin RLS forzado: $no_force"; fi
+  # «0 tablas sin RLS» no vale si public está vacío: el destino tiene que traer
+  # al menos las tablas de public que crea el esquema del origen.
+  if [ "$expected_public" -lt 1 ]; then
+    problem "el esquema del origen no crea ninguna tabla en public (¿volcado vacío?)"
+  elif [ "$public_tables" -lt "$expected_public" ]; then
+    problem "public tiene $public_tables tablas en el destino y el esquema del origen crea $expected_public"
+  elif [ "$no_rls" = "0" ] && [ "$no_force" = "0" ]; then
+    ok "RLS activado y forzado en las $public_tables tablas de public (el origen crea $expected_public)"
+  else
+    problem "tablas de public sin RLS: $no_rls; sin RLS forzado: $no_force"
+  fi
 
   policies=$(psql "$TARGET_URL" -X -At -c "select count(*) from pg_policies where schemaname in ('public','private','dbos','storage','auth')")
   expected_policies=$(grep -c '^CREATE POLICY' "$WORK/schema.sql" || true)
   if [ "$policies" = "$expected_policies" ]; then ok "políticas: $policies (las del volcado)"; else problem "políticas restauradas $policies, el volcado trae $expected_policies"; fi
 
-  local role missing=""
-  for role in anon authenticated service_role authenticator dbos_worker moodly_worker; do
-    [ "$(psql "$TARGET_URL" -X -At -c "select count(*) from pg_roles where rolname = '$role'")" = "1" ] || missing="$missing $role"
+  # Roles propios: los que crea el volcado de roles del ORIGEN (los de la
+  # plataforma, anon, authenticated…, ya vienen en la imagen y no prueban nada).
+  # Cada uno tiene que existir en el destino con los mismos atributos que en el
+  # origen: un rol con BYPASSRLS de más se salta RLS.
+  local own_roles must role line attr have mismatches="" checked=0
+  own_roles=$(sed -n 's/^CREATE ROLE "\(.*\)";$/\1/p' "$WORK/roles.sql")
+  for must in dbos_worker moodly_worker; do
+    if ! grep -qx "$must" <<< "$own_roles"; then problem "el volcado de roles del origen no trae $must"; fi
   done
-  if [ -z "$missing" ]; then ok "roles presentes (anon, authenticated, service_role, authenticator, dbos_worker, moodly_worker)"; else problem "faltan roles:$missing"; fi
+  for role in $own_roles; do
+    checked=$((checked + 1))
+    line=$(grep -m1 "^ALTER ROLE \"$role\" WITH " "$WORK/roles.sql" || true)
+    have=$(psql "$TARGET_URL" -X -At -c "select concat_ws(' ', case when rolsuper then 'SUPERUSER' else 'NOSUPERUSER' end, case when rolinherit then 'INHERIT' else 'NOINHERIT' end, case when rolcreaterole then 'CREATEROLE' else 'NOCREATEROLE' end, case when rolcreatedb then 'CREATEDB' else 'NOCREATEDB' end, case when rolcanlogin then 'LOGIN' else 'NOLOGIN' end, case when rolreplication then 'REPLICATION' else 'NOREPLICATION' end, case when rolbypassrls then 'BYPASSRLS' else 'NOBYPASSRLS' end) from pg_roles where rolname = '$role'")
+    if [ -z "$have" ]; then
+      mismatches="$mismatches $role(no existe)"
+      continue
+    fi
+    for attr in $(grep -oE '\b(NO)?(SUPERUSER|INHERIT|CREATEROLE|CREATEDB|LOGIN|REPLICATION|BYPASSRLS)\b' <<< "$line"); do
+      [[ " $have " == *" $attr "* ]] || mismatches="$mismatches $role($attr en el origen)"
+    done
+  done
+  if [ -z "$mismatches" ] && [ "$checked" -gt 0 ]; then
+    ok "roles propios del origen presentes y con sus atributos ($checked: $(tr '\n' ' ' <<< "$own_roles" | sed 's/ $//'))"
+  elif [ "$checked" -eq 0 ]; then
+    problem "el volcado de roles del origen no trae ningún rol propio"
+  else
+    problem "roles propios que no cuadran con el origen:$mismatches"
+  fi
 
   # Migraciones aplicadas = las del repositorio.
   local repo_versions applied_versions
@@ -162,24 +211,25 @@ main() {
 
   START=$(now)
   echo "Simulacro de restauración · origen: $SOURCE · esquemas: $SCHEMAS"
-  timed volcado dump
-  echo "Volcado: roles $(stat -c %s "$WORK/roles.sql") B, esquema $(stat -c %s "$WORK/schema.sql") B, datos $(stat -c %s "$WORK/data.sql") B (no se imprime ni se sube su contenido)"
-  timed preparar prepare_target
-  timed restaurar restore
-  timed comprobar verify
+  # Si una fase falla, las siguientes no corren y el simulacro termina en FALLA.
+  phase() { timed "$@" || { problem "la fase «$1» ha fallado"; return 1; }; }
+  if phase volcado dump; then
+    echo "Volcado: roles $(stat -c %s "$WORK/roles.sql") B, esquema $(stat -c %s "$WORK/schema.sql") B, datos $(stat -c %s "$WORK/data.sql") B (no se imprime ni se sube su contenido)"
+    phase preparar prepare_target && phase restaurar restore && phase comprobar verify
+  fi
   TOTAL=$(( $(now) - START ))
   
   echo
-  echo "Tiempos: volcado ${PHASE[volcado]} s · preparar el destino ${PHASE[preparar]} s · restaurar ${PHASE[restaurar]} s · comprobar ${PHASE[comprobar]} s · total ${TOTAL} s"
+  echo "Tiempos: volcado ${PHASE[volcado]:--} s · preparar el destino ${PHASE[preparar]:--} s · restaurar ${PHASE[restaurar]:--} s · comprobar ${PHASE[comprobar]:--} s · total ${TOTAL} s"
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
       echo "### Simulacro de restauración ($SOURCE)"
       echo "| Fase | Segundos |"
       echo "|---|---|"
-      echo "| Volcado | ${PHASE[volcado]} |"
-      echo "| Preparar el destino | ${PHASE[preparar]} |"
-      echo "| Restaurar | ${PHASE[restaurar]} |"
-      echo "| Comprobar | ${PHASE[comprobar]} |"
+      echo "| Volcado | ${PHASE[volcado]:--} |"
+      echo "| Preparar el destino | ${PHASE[preparar]:--} |"
+      echo "| Restaurar | ${PHASE[restaurar]:--} |"
+      echo "| Comprobar | ${PHASE[comprobar]:--} |"
       echo "| **Total (RTO del simulacro lógico)** | **${TOTAL}** |"
       echo
       [ "$fail" -eq 0 ] && echo "Resultado: **todo cuadra**." || echo "Resultado: **hay diferencias** (ver el log)."

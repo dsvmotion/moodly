@@ -8,8 +8,8 @@ Puerta de M1: «se ha hecho un simulacro de restauración». Este documento dice
 
 - el volcado entra sin errores (roles y esquema, y datos, de estos solo se enseña el código SQLSTATE);
 - cada tabla con datos tiene las mismas filas que el volcado (recuento por tabla);
-- RLS sigue activado **y forzado** en todas las tablas de `public`, y el número de políticas es el del volcado;
-- los roles `anon`, `authenticated`, `service_role`, `authenticator`, `dbos_worker` y `moodly_worker` existen;
+- RLS sigue activado **y forzado** en todas las tablas de `public`, y `public` tiene al menos las tablas que crea el esquema del origen (con `public` vacío, «0 tablas sin RLS» no vale); el número de políticas es el del volcado;
+- los roles propios del origen (los que crea su volcado de roles: `dbos_worker` y `moodly_worker`, y tienen que estar) existen en el destino con los mismos atributos (`LOGIN`, `NOBYPASSRLS`…): los de la plataforma (`anon`, `authenticated`…) ya vienen en la imagen y no prueban nada;
 - las migraciones aplicadas (`supabase_migrations.schema_migrations`) son exactamente las del repositorio.
 
 **No prueba:**
@@ -31,16 +31,17 @@ El volcado puede llevar datos personales (`auth.users`, contactos, mensajes). Po
   DRILL_SOURCE=local DRILL_TARGET_URL='postgresql://supabase_admin:postgres@127.0.0.1:54399/postgres' bash scripts/supabase/restore-drill.sh
   ```
 
-  Cada ensayo necesita un destino nuevo (`docker rm -f drill-pg` y volver a crearlo). El script sale con 0 solo si todo cuadra y con 1 si algo no, y no necesita nada más que `supabase`, `psql` y Docker.
+  Cada ensayo necesita un destino nuevo (`docker rm -f drill-pg` y volver a crearlo). El script sale con 0 solo si todo cuadra y con 1 si algo no (también si falla una fase, como el volcado o la conexión con el destino), y no necesita nada más que `supabase`, `psql` y Docker.
+- **Pruebas del propio simulacro** (`bash scripts/supabase/tests/restore-drill.test.sh`, con Supabase local y el seed; no corren en el CI): hace una restauración de verdad, comprueba que sale bien y después estropea una cosa por caso, exigiendo que el simulacro la detecte: un rol propio con `BYPASSRLS` de más, un destino sin tablas en `public`, un `FATAL` o un `psql: error:` en la salida de la restauración (esquema y datos) y un volcado que falla a medias. Se lanzan al tocar `scripts/supabase/restore-drill.sh`.
 
 ## 3. Resultado
 
 | Dónde | Cuándo | Resultado | Tiempos |
 |---|---|---|---|
-| Local (ensayo, Supabase local con el seed, 69 migraciones) | 2026-11-24 | OK: 122 tablas con datos cuadran (1850 filas), RLS activado y forzado, 145 políticas, 6 roles, 69 migraciones = repositorio | volcado 7 s · preparar 1 s · restaurar 3 s · comprobar 7 s · **total 18 s** |
+| Local (ensayo, Supabase local con el seed, 69 migraciones) | 2026-11-24 | OK: 122 tablas con datos cuadran (1850 filas), RLS activado y forzado en las 40 tablas de `public` (el origen crea 40), 145 políticas, 2 roles propios con sus atributos, 69 migraciones = repositorio | volcado 6 s · preparar 0 s · restaurar 4 s · comprobar 6 s · **total 16 s** |
 | Staging (la corrida real desde `main`) | **pendiente** | — | — |
 
-Pruebas en negativo del ensayo (el simulacro tiene que fallar cuando algo no cuadra): con una migración en el repositorio que la base no tiene, sale con 1 y dice qué versión falta; con RLS desactivado en una tabla de `public` del origen, sale con 1 y cuenta las tablas sin RLS. Y el camino de los errores de datos imprime solo `ERROR: 23505`, sin el mensaje ni el detalle (que llevan el valor de la fila).
+Pruebas en negativo (el simulacro tiene que fallar cuando algo no cuadra; ver `scripts/supabase/tests/restore-drill.test.sh`): contra las comprobaciones de la primera versión, 5 fallos pasaban sin que se detectaran (un rol propio con `BYPASSRLS`, un `public` vacío, un `psql: error:`/`FATAL` en la restauración del esquema y otro en la de datos, y un volcado que falla a medias); con las comprobaciones actuales se detectan los 5. Además, con una migración en el repositorio que la base no tiene, sale con 1 y dice qué versión falta. Y el camino de los errores de datos imprime solo `ERROR: 23505`, sin el mensaje ni el detalle (que llevan el valor de la fila).
 
 La fila de staging se rellena con la primera corrida real desde `main` (número de la ejecución, recuentos y tiempos). Hasta entonces la puerta **no** está cumplida.
 
