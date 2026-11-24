@@ -1,9 +1,9 @@
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import type { ServiceDb, TenantSql } from "@repo/db/service";
-import { createLocalIngressKeyring, sealSubmission } from "@repo/integrations/key-ingress";
+import { IngressKeyUnavailableError, createLocalIngressKeyring, sealSubmission } from "@repo/integrations/key-ingress";
 import { describe, expect, it, vi } from "vitest";
 import { createLocalKeyProvider, createSecretVault } from "../secrets/vault.ts";
-import { applySubmission, createKoiboxVerifier, keySubmissionWorkflowId } from "./key-submission.ts";
+import { APPLY_RETRY_DELAYS_MS, applySubmission, attemptUntil, createKoiboxVerifier, keySubmissionWorkflowId } from "./key-submission.ts";
 
 const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const keyring = createLocalIngressKeyring([{ keyRef: "local:v1", privateKeyPem: privateKey.export({ format: "pem", type: "pkcs8" }).toString() }]);
@@ -52,6 +52,14 @@ describe("applySubmission", () => {
     expect(transaction).toHaveBeenCalledOnce();
   });
 
+  it("si la clave de ingreso no responde (KMS), se lanza para reintentar: ni «unopenable» ni comprobación", async () => {
+    const { db, ctx } = fakeDb(() => new Error("no debería escribir"));
+    const verify = vi.fn();
+    const down = { accepts: () => true, unwrap: () => Promise.reject(new IngressKeyUnavailableError("KMS no respondió")) };
+    await expect(applySubmission({ db, keyring: down, vault, verify }, ctx)).rejects.toBeInstanceOf(IngressKeyUnavailableError);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
   it("un proveedor que el worker no sabe comprobar no se abre", async () => {
     const { db, ctx } = fakeDb(() => new Error("no debería escribir"));
     const verify = vi.fn();
@@ -83,4 +91,41 @@ describe("createKoiboxVerifier", () => {
 it("el ID del workflow es solo el id del envío", () => {
   const id = randomUUID();
   expect(keySubmissionWorkflowId(id)).toBe(`key-submission:${id}`);
+});
+
+describe("attemptUntil (M1 de V10 en #337)", () => {
+  function fakeClock(start = 0) {
+    let now = start;
+    const slept: number[] = [];
+    return {
+      clock: { now: () => Promise.resolve(now), sleep: (ms: number) => ((slept.push(ms), (now += ms)), Promise.resolve()) },
+      slept,
+    };
+  }
+
+  it("una caída de unos minutos no descarta el envío: reintenta con pausas crecientes y acaba bien", async () => {
+    const { clock, slept } = fakeClock();
+    let calls = 0;
+    const attempt = () => (++calls <= 4 ? Promise.reject(new IngressKeyUnavailableError("KMS no respondió")) : Promise.resolve("applied"));
+    const errors: number[] = [];
+    await expect(attemptUntil(attempt, clock, 15 * 60_000, (_e, n) => errors.push(n))).resolves.toBe("applied");
+    expect(slept).toEqual([15_000, 30_000, 60_000, 120_000]);
+    expect(errors).toEqual([1, 2, 3, 4]);
+  });
+
+  it("la pausa se queda en la última (2 min) y para antes de pasar la caducidad: null", async () => {
+    const { clock, slept } = fakeClock();
+    const attempt = vi.fn(() => Promise.reject(new Error("caído")));
+    await expect(attemptUntil(attempt, clock, 15 * 60_000, () => undefined)).resolves.toBeNull();
+    expect(slept.slice(0, 4)).toEqual([...APPLY_RETRY_DELAYS_MS]);
+    expect(new Set(slept.slice(4))).toEqual(new Set([120_000]));
+    expect(slept.reduce((a, b) => a + b, 0)).toBeLessThan(15 * 60_000);
+    expect(attempt).toHaveBeenCalledTimes(slept.length + 1);
+  });
+
+  it("a la primera, sin esperar", async () => {
+    const { clock, slept } = fakeClock();
+    await expect(attemptUntil(() => Promise.resolve(1), clock, 1000, () => undefined)).resolves.toBe(1);
+    expect(slept).toEqual([]);
+  });
 });
