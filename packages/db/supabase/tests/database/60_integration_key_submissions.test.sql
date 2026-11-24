@@ -405,7 +405,7 @@ create function pg_temp.w_delta() returns table (t text, ins bigint, upd bigint,
     from pg_stat_xact_user_tables a left join w_before b on b.t = a.relid::regclass::text
    where a.schemaname not like 'pg_temp%'
      and (a.n_tup_ins, a.n_tup_upd, a.n_tup_del) is distinct from (b.n_tup_ins, b.n_tup_upd, b.n_tup_del)
-   order by 1;
+   order by a.relid::regclass::text collate "C";
 $$;
 select pg_temp.act_as_mfa(:a_admin, :'s_a2');
 insert into public.integration_secret_submissions (id, organization_id, integration_id, provider, key_ref, encrypted_data_key, ciphertext)
