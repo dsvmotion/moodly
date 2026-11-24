@@ -23,6 +23,8 @@ const api = localSupabaseApi();
 const PROBE = "backfill_probe";
 const LATE = "test.late";
 const BACKFILL_ID = backfillWorkflowId(APPROVAL_HANDLER_KEY, "approval.decided");
+const BACKFILL_RETRY_ID = backfillWorkflowId(APPROVAL_HANDLER_KEY, "approval.decided", 2);
+const BACKFILL_ATTEMPTS = [1, 2, 3].map((attempt) => backfillWorkflowId(APPROVAL_HANDLER_KEY, "approval.decided", attempt));
 const baseEnv = {
   ...process.env,
   WORKER_SYSTEM_DATABASE_URL: localSystemDatabaseUrl(),
@@ -203,7 +205,7 @@ describe("outbox: relleno de un consumidor que llega después que sus eventos (W
     // Entero: los resultados de sus pasos (operation_outputs, sin cascada desde
     // workflow_status) harían que el relleno repitiera la página de otra vuelta.
     for (const table of ["operation_outputs", "workflow_input", "workflow_output", "workflow_status"]) {
-      await admin.query(`delete from dbos.${table} where workflow_uuid = $1`, [BACKFILL_ID]);
+      await admin.query(`delete from dbos.${table} where workflow_uuid = any($1)`, [BACKFILL_ATTEMPTS]);
     }
 
     // Después: llegan agent.approval (con relleno) y test.late (sin él).
@@ -249,5 +251,26 @@ describe("outbox: relleno de un consumidor que llega después que sus eventos (W
     expect(executed.filter((key) => key === fresh.idempotencyKey)).toHaveLength(1);
     expect(effects(file).filter((e) => e.step === "late")).toHaveLength(1);
     expect(again.output()).not.toContain(api.secretKey);
+
+    // Si el relleno hubiera terminado en error, el siguiente arranque lo
+    // vuelve a lanzar con el ID del segundo intento; lo que ya se entregó no se
+    // repite (mismo ID de entrega), y un arranque más no lanza un tercero.
+    await admin.query("update dbos.workflow_status set status = 'ERROR' where workflow_uuid = $1", [BACKFILL_ID]);
+    const retried = startWorker(file, "after");
+    await waitFor(() => /backfill: \d+ eventos encolados/.test(retried.output()), "el segundo intento termina y lo dice", retried.output);
+    expect(retried.output()).toContain("backfill: el anterior terminó en error, se vuelve a lanzar");
+    expect(await workflowStatus(BACKFILL_RETRY_ID)).toBe("SUCCESS");
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    await stop(retried);
+    const settledAgain = startWorker(file, "after");
+    await waitFor(() => settledAgain.output().includes("worker arrancado"), "arranca tras el segundo intento", settledAgain.output);
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    expect(settledAgain.output()).not.toMatch(/backfill: \d+ eventos encolados/);
+    await stop(settledAgain);
+    expect(await workflowStatus(BACKFILL_ATTEMPTS[2] as string)).toBeNull();
+    const afterRetry = effects(file).filter((e) => e.step === "execute").map((e) => e.idempotencyKey);
+    expect(afterRetry.filter((key) => key === waiting.idempotencyKey)).toHaveLength(1);
+    expect(afterRetry.filter((key) => key === fresh.idempotencyKey)).toHaveLength(1);
+    expect(effects(file).filter((e) => e.step === "late")).toHaveLength(1);
   });
 });

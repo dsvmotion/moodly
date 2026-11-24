@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eventPayloads, isEventType, parsePayload } from "./catalog.ts";
 import { MAX_BACKFILL_HOURS, createEventRegistry, type EventHandler } from "./handlers.ts";
-import { backfillWorkflowId, deliveryWorkflowId } from "./outbox.ts";
+import { MAX_BACKFILL_ATTEMPTS, backfillWorkflowId, deliveryWorkflowId, nextBackfillAttempt } from "./outbox.ts";
 
 const INVITATION = "5eed0000-0000-4000-8000-0000000000a1";
 const USER = "5eed0000-0000-4000-8000-0000000000b1";
@@ -88,9 +88,25 @@ describe("registro de consumidores", () => {
     }
   });
 
-  it("el ID de un relleno es uno por consumidor y tipo: no se repite al volver a arrancar", () => {
+  it("el ID de un relleno es uno por consumidor, tipo e intento: no se repite al volver a arrancar", () => {
     expect(backfillWorkflowId("x", "invitation.created")).toBe("backfill:x:invitation.created");
+    expect(backfillWorkflowId("x", "invitation.created", 1)).toBe("backfill:x:invitation.created");
+    expect(backfillWorkflowId("x", "invitation.created", 2)).toBe("backfill:x:invitation.created:intento-2");
     expect(backfillWorkflowId("x", "invitation.created")).not.toBe(backfillWorkflowId("x", "approval.decided"));
+  });
+
+  it("un relleno que terminó en error se vuelve a lanzar, hasta tres intentos; nunca si alguno acabó bien, sigue o se canceló", () => {
+    expect(MAX_BACKFILL_ATTEMPTS).toBe(3);
+    expect(nextBackfillAttempt([])).toBe(1);
+    expect(nextBackfillAttempt([null])).toBe(1);
+    expect(nextBackfillAttempt(["ERROR"])).toBe(2);
+    expect(nextBackfillAttempt(["MAX_RECOVERY_ATTEMPTS_EXCEEDED", null])).toBe(2);
+    expect(nextBackfillAttempt(["ERROR", "ERROR"])).toBe(3);
+    expect(nextBackfillAttempt(["ERROR", "ERROR", "ERROR"])).toBeNull();
+    for (const status of ["SUCCESS", "PENDING", "ENQUEUED", "CANCELLED"]) {
+      expect(nextBackfillAttempt([status])).toBeNull();
+      expect(nextBackfillAttempt(["ERROR", status])).toBeNull();
+    }
   });
 
   it("el ID de una entrega es el mismo cada vez: volver a encolar no crea otra", () => {

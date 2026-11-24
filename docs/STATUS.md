@@ -412,6 +412,7 @@ La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y
       - El hallazgo (de V2): el publicador solo entrega a los consumidores que existen al publicar, así que uno que llega después no recibía nunca lo anterior. Ejemplo: los `approval.decided` de antes de `agent.approval`.
       - El arreglo: un consumidor con `backfill: { maxAgeHours }` recibe una vez, al arrancar el worker, los eventos de sus tipos ya publicados dentro de su ventana. Es el workflow `outbox.backfill`, con ID `backfill:<consumidor>:<tipo>`, y el log de arranque dice «backfill: N eventos encolados».
       - Lo que ya tenía no se reentrega, porque usa el mismo ID de entrega que el publicador.
+      - Un relleno que termina en error se vuelve a lanzar en el siguiente arranque, con otro ID (`:intento-2`, `:intento-3`), hasta 3 intentos; después, error en el log y no se reintenta más.
       - Por defecto, ningún consumidor tiene relleno. Solo `agent.approval`, con 24 h, lo que dura una aprobación.
       - Las decisiones de staging anteriores a `agent.approval` son datos de prueba y quedan perdidas: son de hace más de 24 h (decisión de V1).
       - Sin índice nuevo: la lectura filtra por `type` y `created_at` entre los publicados. Con poco volumen va bien. Merece un índice `(type, created_at, id) where published_at is not null` cuando `domain_events` pase de ~1 millón de filas o el relleno tarde más de unos segundos.

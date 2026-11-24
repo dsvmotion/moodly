@@ -53,8 +53,29 @@ const PRUNE_PAGE = 1000;
 const BATCH = 100;
 
 /** El ID del relleno de un consumidor para un tipo: corre una vez en la vida de ese par. */
-export function backfillWorkflowId(handlerKey: string, eventType: string): string {
-  return `backfill:${handlerKey}:${eventType}`;
+export function backfillWorkflowId(handlerKey: string, eventType: string, attempt = 1): string {
+  const base = `backfill:${handlerKey}:${eventType}`;
+  return attempt === 1 ? base : `${base}:intento-${attempt}`;
+}
+
+/** Cuántas veces se lanza como mucho el relleno de un par: el primero y dos más si terminan en error. */
+export const MAX_BACKFILL_ATTEMPTS = 3;
+
+/** Los estados de DBOS de un workflow que terminó mal y no se va a reanudar solo. */
+const FAILED_STATUSES = new Set(["ERROR", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"]);
+
+/**
+ * Qué intento de relleno toca, según el estado de los anteriores (null si no
+ * existe): el primero que no exista, si todos los de antes fallaron; ninguno
+ * si alguno terminó bien, está en marcha o se canceló, o si ya se agotaron.
+ */
+export function nextBackfillAttempt(statuses: readonly (string | null)[]): number | null {
+  for (let i = 0; i < MAX_BACKFILL_ATTEMPTS; i += 1) {
+    const status = statuses[i] ?? null;
+    if (status === null) return i + 1;
+    if (!FAILED_STATUSES.has(status)) return null;
+  }
+  return null;
 }
 
 export interface BackfillInput {
@@ -250,8 +271,23 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     for (const handler of registry.all()) {
       if (!handler.backfill || handler.eventTypes === "*") continue;
       for (const type of handler.eventTypes) {
-        const workflowID = backfillWorkflowId(handler.key, type);
-        if (await DBOS.getWorkflowStatus(workflowID)) continue;
+        // Un relleno que terminó en error se vuelve a lanzar con otro ID (hasta
+        // MAX_BACKFILL_ATTEMPTS): lo ya entregado no se repite, por el ID de entrega.
+        const statuses: (string | null)[] = [];
+        let attempt: number | null = null;
+        for (let i = 1; i <= MAX_BACKFILL_ATTEMPTS; i += 1) {
+          statuses.push((await DBOS.getWorkflowStatus(backfillWorkflowId(handler.key, type, i)))?.status ?? null);
+          attempt = nextBackfillAttempt(statuses);
+          if (statuses[i - 1] === null || attempt === null) break;
+        }
+        if (attempt === null) {
+          if (statuses.length === MAX_BACKFILL_ATTEMPTS && statuses.every((status) => status !== null && FAILED_STATUSES.has(status))) {
+            log.error({ handler: handler.key, type, attempts: MAX_BACKFILL_ATTEMPTS }, "backfill: agotó sus intentos");
+          }
+          continue;
+        }
+        const workflowID = backfillWorkflowId(handler.key, type, attempt);
+        if (attempt > 1) log.warn({ handler: handler.key, type, attempt }, "backfill: el anterior terminó en error, se vuelve a lanzar");
         const since = new Date(now.getTime() - handler.backfill.maxAgeHours * 3_600_000).toISOString();
         const handle = await DBOS.startWorkflow(backfillWorkflow, { workflowID })({ handler: handler.key, type, since });
         void handle.getResult().then(
