@@ -45,7 +45,7 @@
 --   una sola fila en domain_events (authenticated no tiene INSERT en la tabla),
 --   con la organización y el local de la fila y solo ids, como
 --   emit_conversation_handed_off (20261112200000). No escriben en ninguna otra
---   tabla. Tests en negativo en 57_integration_key_submissions.
+--   tabla. Tests en negativo en 60_integration_key_submissions.
 -- Las guardas son invoker: se ejecutan como quien escribe, y RLS sigue actuando.
 --
 -- Vuelta atrás: rollbacks/20261114110000_integration_key_submissions.down.sql.

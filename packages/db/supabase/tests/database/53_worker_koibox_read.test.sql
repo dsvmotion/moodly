@@ -2,7 +2,7 @@
 -- lee las columnas del secreto cifrado que necesita SecretVault, solo de su
 -- organización; la app y el equipo siguen sin ver los secretos. Desde
 -- 20261114110000 (ADR 0055) el worker también escribe los secretos de
--- integración (lo prueban, exacto y en negativo, 57_integration_key_submissions);
+-- integración (lo prueban, exacto y en negativo, 60_integration_key_submissions);
 -- aquí queda que sigue sin tocar las claves de modelo de BYOK ni enlazar a una
 -- integración un secreto que no es el suyo.
 begin;
@@ -31,7 +31,7 @@ select is(
 select is(
   (select string_agg(privilege_type::text, ', ' order by privilege_type::text) from information_schema.role_table_grants
    where grantee = 'moodly_worker' and table_name = 'integration_secrets'),
-  'DELETE', 'de tabla entera, solo DELETE (20261114110000; las columnas de INSERT y UPDATE las fija 57_integration_key_submissions)');
+  'DELETE', 'de tabla entera, solo DELETE (20261114110000; las columnas de INSERT y UPDATE las fija 60_integration_key_submissions)');
 select ok(not has_table_privilege('moodly_worker', 'public.integration_secrets', 'select,truncate'),
   'sin SELECT de la tabla entera (ni created_at ni rotated_at) ni TRUNCATE');
 select ok(has_column_privilege('moodly_worker', 'public.integrations', 'secret_id', 'select'), 'lee el secret_id de integrations');

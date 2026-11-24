@@ -38,7 +38,7 @@ select is(
   (select array_agg(format('%s:%s', table_name, privilege_type) order by 1) from information_schema.role_table_grants
     where grantee = 'moodly_worker' and privilege_type <> 'SELECT'),
   array['integration_secrets:DELETE', 'integration_secret_submissions:DELETE'],
-  'y de tabla entera, solo de lectura, salvo DELETE de los envíos y los secretos de integración (20261114110000; los privilegios por columnas de integrations los fija 52_integrations_worker_columns, y los de los envíos y los secretos, 57_integration_key_submissions)');
+  'y de tabla entera, solo de lectura, salvo DELETE de los envíos y los secretos de integración (20261114110000; los privilegios por columnas de integrations los fija 52_integrations_worker_columns, y los de los envíos y los secretos, 60_integration_key_submissions)');
 select is(
   (select array_agg(p.proname::text order by p.proname) from pg_proc p
    where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)

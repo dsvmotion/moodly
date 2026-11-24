@@ -6,7 +6,7 @@
 -- negativo). La lista blanca de la app para crear la integración nativa, también.
 begin;
 \ir _fixtures/tenants.psql
-select plan(100);
+select plan(105);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (como postgres: las guardas no actúan)
@@ -375,6 +375,54 @@ select is((select count(*)::int from public.domain_events where type = 'integrat
   0, 'ni por una de plataforma');
 select is((select count(*)::int from public.domain_events where type = 'integration.disconnected' and organization_id = :org_a),
   2, 'en total, uno por cada desconexión de una nativa con secreto (int_act antes y int_pend ahora)');
+
+-- ===========================================================================
+-- 8. Los dos security definer: solo una fila en domain_events, y el tenant de la fila
+-- ===========================================================================
+select is(
+  (select array_agg(format('%s:%s', proname, regexp_count(prosrc, '\m(insert|update|delete|truncate|merge|copy)\M', 1, 'i')) order by proname)
+     from pg_proc where oid in ('private.emit_integration_key_submitted()'::regprocedure, 'private.emit_integration_disconnected()'::regprocedure)),
+  array['emit_integration_disconnected:1', 'emit_integration_key_submitted:1'],
+  'cada emisor tiene una sola sentencia de escritura');
+select ok(
+  (select bool_and(prosrc ~* 'insert into public\.domain_events') from pg_proc
+    where oid in ('private.emit_integration_key_submitted()'::regprocedure, 'private.emit_integration_disconnected()'::regprocedure)),
+  'y es un INSERT en public.domain_events');
+select ok(
+  (select bool_and(prosrc !~* '(auth\.|current_setting|request\.jwt|current_user|session_user|set_config)') from pg_proc
+    where oid in ('private.emit_integration_key_submitted()'::regprocedure, 'private.emit_integration_disconnected()'::regprocedure)),
+  'ninguno mira quién llama (ni auth.uid(), ni el JWT, ni current_setting): la organización y el local salen de la fila');
+
+-- Lo que escribe de verdad un envío y una desconexión, tabla a tabla (pg_stat_xact_user_tables cuenta
+-- lo de esta transacción, también lo que escriben los triggers).
+insert into public.integration_secrets (organization_id, kind, name, key_ref, encrypted_data_key, ciphertext)
+values (:org_a, 'integration', :kname_a2, 'local:v1', 'RERE', 'RERE') returning id as sec_err \gset
+update public.integrations set status = 'active', secret_id = :'sec_err' where id = :'int_err';
+create temp table w_before as
+  select relid::regclass::text as t, n_tup_ins, n_tup_upd, n_tup_del from pg_stat_xact_user_tables;
+create function pg_temp.w_delta() returns table (t text, ins bigint, upd bigint, del bigint) language sql as $$
+  select a.relid::regclass::text, a.n_tup_ins - coalesce(b.n_tup_ins, 0), a.n_tup_upd - coalesce(b.n_tup_upd, 0), a.n_tup_del - coalesce(b.n_tup_del, 0)
+    from pg_stat_xact_user_tables a left join w_before b on b.t = a.relid::regclass::text
+   where a.schemaname not like 'pg_temp%'
+     and (a.n_tup_ins, a.n_tup_upd, a.n_tup_del) is distinct from (b.n_tup_ins, b.n_tup_upd, b.n_tup_del)
+   order by 1;
+$$;
+select pg_temp.act_as_mfa(:a_admin, :'s_a2');
+insert into public.integration_secret_submissions (id, organization_id, integration_id, provider, key_ref, encrypted_data_key, ciphertext)
+values (gen_random_uuid(), :org_a, :'int_err', 'koibox', 'local:v1', 'ZGVrNA==', 'Y2lwNA==');
+update public.integrations set status = 'disconnected' where id = :'int_err';
+reset role;
+select results_eq(
+  $$select t, ins, upd, del from pg_temp.w_delta()$$,
+  $$values ('domain_events'::text, 2::bigint, 0::bigint, 0::bigint),
+           ('integration_secret_submissions'::text, 1::bigint, 0::bigint, 0::bigint),
+           ('integrations'::text, 0::bigint, 1::bigint, 0::bigint)$$,
+  'un envío y una desconexión escriben solo el envío, la integración y un evento cada uno: nada más');
+select results_eq(
+  format($$select distinct organization_id, type from public.domain_events
+    where type in ('integration.key_submitted', 'integration.disconnected') and payload->>'integration_id' = %L order by type$$, :'int_err'),
+  format($$values (%L::uuid, 'integration.disconnected'::text), (%L::uuid, 'integration.key_submitted'::text)$$, :org_a, :org_a),
+  'y los dos eventos son de la organización de la fila');
 
 select * from finish();
 rollback;
