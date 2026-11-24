@@ -66,6 +66,7 @@
     "coach": "Coach",
     "approvals": "Approvals",
     "inbox": "Inbox",
+    "calendar": "Calendar",
     "tasks": "Tasks",
     "activity": "Activity",
     "analytics": "Reports",
@@ -410,6 +411,38 @@
     },
     "noAgentsTitle": "You have no agents yet",
     "noAgentsDescription": "Your agents appear once you belong to an organization: accept the invitation you were sent."
+  },
+  "calendarPage": {
+    "title": "Calendar",
+    "description": "Appointments at the locations you can see, each in its location's local time. View only for now.",
+    "views": "View",
+    "day": "Day",
+    "week": "Week",
+    "today": "Today",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "emptyTitle": "No appointments",
+    "empty": "There are no appointments on these days at the locations in your scope.",
+    "emptyDay": "No appointments",
+    "count": "{count, plural, one {# appointment} other {# appointments}}",
+    "unknownContact": "Client",
+    "unknownService": "Service",
+    "unknownResource": "No staff member or resource",
+    "with": "with {resource}",
+    "status": {
+      "booked": "Booked",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "no_show": "No-show"
+    },
+    "origin": {
+      "agent": "Booked by an agent",
+      "user": "Added by the team",
+      "sync": "Synced"
+    },
+    "truncated": "Only the first {count} appointments are shown. Pick a location or the day view to see the rest."
   },
   "approvalsPage": {
     "title": "Approvals",
