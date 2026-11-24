@@ -22,6 +22,8 @@ const rules = timing ? { ...REMINDER_RULES, offsets: { "24h": timing["24h"], "4h
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const worker = createWorker(config, logger, {
+  // El publicador del outbox cada segundo en lugar de cada 5 s: estos tests esperan a la entrega, no prueban el publicador (eso, outbox.integration.ts).
+  outboxTesting: { publishSchedule: "* * * * * *" },
   eventHandlers: ({ db }) => [logHandler, registerReminders({ db, logger, rules })],
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");

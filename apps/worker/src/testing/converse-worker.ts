@@ -166,6 +166,8 @@ const router = createModelRouter([createFakeTransport({ provider: "fake", respon
 const embedder = createFakeEmbedder(256);
 const route: RouteOrigin = { provider: "vercel-ai-gateway", region: "other", connection: "managed" };
 const worker = createWorker(config, logger, {
+  // El publicador del outbox cada segundo en lugar de cada 5 s: estos tests esperan a la entrega, no prueban el publicador (eso, outbox.integration.ts).
+  outboxTesting: { publishSchedule: "* * * * * *" },
   eventHandlers: [
     logHandler,
     createConverseHandler({ router, knowledge: { embedder, route }, platform }),

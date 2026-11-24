@@ -429,7 +429,7 @@ export function registerIngest({ db, logger, enqueueDeliveries, beforeAttempt, b
 }
 
 /** La cola y el barrido de la entrada viven en la base de datos: después de DBOS.launch(). */
-export async function startIngestQueue(sweep: () => Promise<void>): Promise<void> {
+export async function startIngestQueue(sweep: () => Promise<void>, schedule: string = SWEEP_SCHEDULE): Promise<void> {
   await DBOS.registerQueue(INGEST_QUEUE, { workerConcurrency: 4 });
-  await DBOS.applySchedules([{ scheduleName: SWEEP_SCHEDULE_NAME, workflowFn: sweep, schedule: SWEEP_SCHEDULE }]);
+  await DBOS.applySchedules([{ scheduleName: SWEEP_SCHEDULE_NAME, workflowFn: sweep, schedule }]);
 }
