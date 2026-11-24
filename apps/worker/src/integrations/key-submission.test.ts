@@ -1,6 +1,6 @@
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import type { ServiceDb, TenantSql } from "@repo/db/service";
-import { createLocalIngressKeyring, sealSubmission } from "@repo/integrations/key-ingress";
+import { IngressKeyUnavailableError, createLocalIngressKeyring, sealSubmission } from "@repo/integrations/key-ingress";
 import { describe, expect, it, vi } from "vitest";
 import { createLocalKeyProvider, createSecretVault } from "../secrets/vault.ts";
 import { applySubmission, createKoiboxVerifier, keySubmissionWorkflowId } from "./key-submission.ts";
@@ -50,6 +50,14 @@ describe("applySubmission", () => {
     const { db, ctx, transaction } = fakeDb(() => new Error("no debería escribir"));
     await expect(applySubmission({ db, keyring, vault, verify: () => Promise.reject(new Error("503")) }, ctx)).rejects.toThrow("503");
     expect(transaction).toHaveBeenCalledOnce();
+  });
+
+  it("si la clave de ingreso no responde (KMS), se lanza para reintentar: ni «unopenable» ni comprobación", async () => {
+    const { db, ctx } = fakeDb(() => new Error("no debería escribir"));
+    const verify = vi.fn();
+    const down = { accepts: () => true, unwrap: () => Promise.reject(new IngressKeyUnavailableError("KMS no respondió")) };
+    await expect(applySubmission({ db, keyring: down, vault, verify }, ctx)).rejects.toBeInstanceOf(IngressKeyUnavailableError);
+    expect(verify).not.toHaveBeenCalled();
   });
 
   it("un proveedor que el worker no sabe comprobar no se abre", async () => {

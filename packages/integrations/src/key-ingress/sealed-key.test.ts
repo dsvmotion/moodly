@@ -1,6 +1,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  IngressKeyUnavailableError,
   SubmissionRejectedError,
   createLocalIngressKeyring,
   isAcceptableSubmittedKey,
@@ -86,6 +87,20 @@ describe("sealSubmission / openSubmission", () => {
     await expect(openSubmission(keyring, ctx, sealed)).rejects.toThrow("clave de ingreso no aceptada");
     // Ni haciéndose pasar por la que sí acepta: la clave de datos no se descifra con otra privada.
     await expect(openSubmission(keyring, ctx, { ...sealed, keyRef: "local:v2" })).rejects.toBeInstanceOf(SubmissionRejectedError);
+  });
+
+  it("si la clave de ingreso no responde (KMS caído), el error sale tal cual para reintentar, no como envío que no se abre", async () => {
+    const ctx = context();
+    const sealed = sealSubmission(OLD.publicKey, ctx, KEY);
+    const keyring = {
+      accepts: () => true,
+      unwrap: () => Promise.reject(new IngressKeyUnavailableError("KMS no respondió")),
+    };
+    await expect(openSubmission(keyring, ctx, sealed)).rejects.toBeInstanceOf(IngressKeyUnavailableError);
+    // Cualquier otro error del keyring sí es «no se abre».
+    await expect(openSubmission({ accepts: () => true, unwrap: () => Promise.reject(new Error("otro")) }, ctx, sealed)).rejects.toBeInstanceOf(
+      SubmissionRejectedError,
+    );
   });
 
   it("los errores no llevan ni la clave ni el texto cifrado", async () => {
