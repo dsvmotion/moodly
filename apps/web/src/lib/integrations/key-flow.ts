@@ -4,6 +4,7 @@ import {
   type IngressPublicKey,
   type SealedSubmission,
 } from "@repo/integrations/key-ingress";
+import type { KeySubmissionResult } from "./key-check";
 
 // El alta de la clave de una integración nativa, sin Next.js ni Supabase
 // (ADR 0055; int-koibox). La Server Action le da el acceso a las filas con el
@@ -81,7 +82,7 @@ export async function submitKeyFlow(
   return { ok: true, integrationId, submissionId: context.submissionId };
 }
 
-export type KeySubmissionResult = "checking" | "applied" | "rejected";
+export type { KeySubmissionResult };
 
 /**
  * Qué pasó con un envío, según la marca de la integración: el worker la mueve
@@ -100,3 +101,4 @@ export function submissionResult(
 export function insertErrorFor(code: string | undefined): InsertSubmissionResult {
   return code === "54000" ? "too_many" : "not_allowed";
 }
+

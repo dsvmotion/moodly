@@ -776,7 +776,8 @@
       "applied": "Key checked: Koibox is connected.",
       "rejected": "Koibox did not accept that key. Check it is your account's key and paste it again.",
       "rejected_kept": "Koibox did not accept the last key you sent: the previous one still works.",
-      "still_checking": "We are still checking the key. Look again in a few minutes."
+      "still_checking": "We are still checking the key. Look again in a few minutes.",
+      "timed_out": "The key couldn't be checked in time and wasn't saved. Paste it again."
     }
   },
   "servicesPage": {
