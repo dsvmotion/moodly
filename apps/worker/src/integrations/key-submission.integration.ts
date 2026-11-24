@@ -300,11 +300,33 @@ describe("desconectar y reconectar", () => {
     expect(await secret(secretId ?? "")).toBeNull();
   });
 
-  it("si la persona reconectó antes de que llegara el evento, la limpieza no toca nada", async () => {
+  it("si la persona reconectó antes de que llegara el evento, la limpieza igualmente borra el secreto que pidió quitar (y la deja en error)", async () => {
     const { id, secretId } = await koibox(ORG_A, "pending", GOOD_1);
-    await expect(cleanupDisconnected(db.forOrganization(ORG_A), { organizationId: ORG_A, integrationId: id, secretId: secretId ?? "" })).resolves.toBe(false);
-    expect(await integration(id)).toMatchObject({ status: "pending", secret_id: secretId });
+    await expect(cleanupDisconnected(db.forOrganization(ORG_A), { organizationId: ORG_A, integrationId: id, secretId: secretId ?? "" })).resolves.toBe(true);
+    expect(await integration(id)).toMatchObject({ status: "error", secret_id: null });
+    expect(await secret(secretId ?? "")).toBeNull();
+  });
+
+  it("desconectar, reconectar y un envío nuevo que no llega a procesarse (solo caduca): el secreto viejo no se queda (M1 de V10)", async () => {
+    const { id, secretId } = await koibox(ORG_A, "active", GOOD_1);
+    await admin.query(`update public.integrations set status = 'disconnected' where id = $1`, [id]);
+    await admin.query(`update public.integrations set status = 'pending' where id = $1`, [id]);
+    const sub = await submit(ORG_A, id, GOOD_2);
+    // Sin claves de ingreso (como hoy en staging): el envío no se abre y solo caducaría.
+    await expect(applySubmission({ ...deps, keyring: null }, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "unopenable" });
     expect(await secret(secretId ?? "")).not.toBeNull();
+    await expect(cleanupDisconnected(db.forOrganization(ORG_A), { organizationId: ORG_A, integrationId: id, secretId: secretId ?? "" })).resolves.toBe(true);
+    expect(await integration(id)).toMatchObject({ status: "error", secret_id: null });
+    expect(await secret(secretId ?? "")).toBeNull();
+  });
+
+  it("si el envío nuevo ya rotó ese secreto (activa), la limpieza no lo toca", async () => {
+    const { id, secretId } = await koibox(ORG_A, "pending", GOOD_1);
+    const sub = await submit(ORG_A, id, GOOD_2);
+    await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "applied" });
+    await expect(cleanupDisconnected(db.forOrganization(ORG_A), { organizationId: ORG_A, integrationId: id, secretId: secretId ?? "" })).resolves.toBe(false);
+    expect(await integration(id)).toMatchObject({ status: "active", secret_id: secretId });
+    await expect(openSecret(ORG_A, secretId ?? "")).resolves.toBe(GOOD_2);
   });
 
   it("un evento con el secret_id de otra organización no cambia ni borra nada", async () => {

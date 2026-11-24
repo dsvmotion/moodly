@@ -71,7 +71,10 @@ export function createKoiboxVerifier(options: { apiBase: string; fetch?: typeof 
       await reader.verifyKey();
       return "valid";
     } catch (err) {
-      if (err instanceof KoiboxError && !err.retryable) return "invalid";
+      // Solo un 401/403 dice que la clave no vale. Lo demás (404, otro 4xx, una
+      // respuesta con otra forma, 5xx) no es culpa de la clave: se reintenta y,
+      // si sigue, el envío solo caduca (hallazgo L2 de V10).
+      if (err instanceof KoiboxError && err.kind === "unauthorized") return "invalid";
       throw err;
     }
   };
@@ -259,9 +262,18 @@ export async function cleanupDisconnected(
 ): Promise<boolean> {
   return tenant.transaction(async (sql) => {
     await sql.query(`select id from public.integrations where id = $1 and organization_id = $2 for update`, [input.integrationId, input.organizationId]);
+    // Desconectada con ese secreto: se le quita. Si la persona ya reconectó
+    // (pendiente) y sigue enlazado el secreto que pidió quitar, también: si el
+    // envío nuevo no llega a procesarse (no se abre, lo rechaza una guarda o
+    // agota los reintentos), nadie más lo borraría (hallazgo M1 de V10). La
+    // guarda del worker solo deja quitar el secreto de una pendiente al pasarla a
+    // error; el envío nuevo, si llega y vale, la activa con un secreto nuevo. Una
+    // activa (el envío nuevo ya rotó ese secreto) no se toca.
     const cleared = await sql.query(
-      `update public.integrations set secret_id = null
-        where id = $1 and organization_id = $2 and status = 'disconnected' and secret_id = $3 returning id`,
+      `update public.integrations
+          set secret_id = null,
+              status = case when status = 'pending' then 'error' else status end
+        where id = $1 and organization_id = $2 and status in ('disconnected', 'pending') and secret_id = $3 returning id`,
       [input.integrationId, input.organizationId, input.secretId],
     );
     if (cleared.length === 0) return false;

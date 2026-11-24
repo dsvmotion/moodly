@@ -63,11 +63,12 @@ describe("applySubmission", () => {
 describe("createKoiboxVerifier", () => {
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-  it("200 vale; 401, 403, 404 y 400 no valen; 5xx y sin respuesta se lanzan (pasajeros)", async () => {
+  it("200 vale; solo 401 y 403 dicen que la clave no vale; 404, 400, 5xx y sin respuesta se lanzan (no son culpa de la clave)", async () => {
     const verifier = (response: () => Response) =>
       createKoiboxVerifier({ apiBase: "https://api.koibox.cloud", fetch: () => Promise.resolve(response()) })("koibox", KEY);
     await expect(verifier(() => json(200, { name: "Moodly", centro: 1, centro_slug: "demo" }))).resolves.toBe("valid");
-    for (const status of [401, 403, 404, 400]) await expect(verifier(() => json(status, {}))).resolves.toBe("invalid");
+    for (const status of [401, 403]) await expect(verifier(() => json(status, {}))).resolves.toBe("invalid");
+    for (const status of [404, 400]) await expect(verifier(() => json(status, {}))).rejects.toThrow();
     await expect(verifier(() => json(503, {}))).rejects.toThrow();
     await expect(
       createKoiboxVerifier({ apiBase: "https://api.koibox.cloud", fetch: () => Promise.reject(new TypeError("fetch failed")) })("koibox", KEY),
