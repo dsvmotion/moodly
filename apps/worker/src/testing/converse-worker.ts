@@ -82,7 +82,8 @@ const call = (name: string, args: Record<string, unknown>): TransportResponse =>
 
 /** El service_id de un servicio por su nombre, de la capa «What can be booked» del prompt. */
 function serviceIdFromPrompt(system: string | null, name: string): string {
-  return new RegExp(`^- ${name} \\(\\d+ min\\): service_id (\\S+)$`, "m").exec(system ?? "")?.[1] ?? "no-esta-en-el-prompt";
+  // «(30 min)», o con el precio de Ajustes (OA04): «(30 min, 45,00 €)».
+  return new RegExp(`^- ${name} \\(\\d+ min(?:, [^)]*)?\\): service_id (\\S+)$`, "m").exec(system ?? "")?.[1] ?? "no-esta-en-el-prompt";
 }
 
 /** Espera a que el test abra la puerta (R-02): mientras, el turno está a medias. */

@@ -38,8 +38,10 @@ export async function loadSummary(db: TenantDb, conversationId: string): Promise
     // corte de la historia se movería.
     const [row] = await db.transaction((sql) =>
       sql.query<{ summary: string; covered_until: string }>(
-        "select summary, to_json(covered_until) #>> '{}' as covered_until from public.conversation_summaries where conversation_id = $1",
-        [conversationId],
+        // La organización explícita, además de RLS (CLAUDE.md: ninguna consulta del worker sin ella).
+        `select summary, to_json(covered_until) #>> '{}' as covered_until from public.conversation_summaries
+         where organization_id = $2 and conversation_id = $1`,
+        [conversationId, db.organizationId],
       ),
     );
     return { summary: row ? { summary: row.summary, coveredUntil: row.covered_until } : null, error: null };

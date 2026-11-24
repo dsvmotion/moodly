@@ -755,7 +755,7 @@
       "services": "Services they do"
     },
     "pricePlaceholder": "No price",
-    "priceHelp": "Leave it empty if you don't want to publish a price. The agents don't quote prices yet: coming soon.",
+    "priceHelp": "The agents that book appointments quote this price to whoever asks. Leave it empty if you don't want to publish it: without a price, they quote none and pass the question to the team.",
     "allLocations": "All locations",
     "create": "Create",
     "save": "Save",
