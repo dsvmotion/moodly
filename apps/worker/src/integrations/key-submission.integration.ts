@@ -330,6 +330,40 @@ describe("KMS caído un rato (M1 de V10 en #337)", () => {
   });
 });
 
+describe("la caducidad cuenta desde el envío (ADR 0055 §2; nit de V1 en #337)", () => {
+  const TTL = 15 * 60_000;
+
+  it("un envío de hace 14 min con KMS caído: se acaba el plazo (created_at + 15 min) y no se aplica", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const createdAt = new Date(Date.now() - 14 * 60_000);
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt });
+    const down: IngressKeyring = { accepts: () => true, unwrap: () => Promise.reject(new IngressKeyUnavailableError("KMS no respondió")) };
+    let now = Date.now();
+    const clock = { now: () => Promise.resolve(now), sleep: (ms: number) => ((now += ms), Promise.resolve()) };
+    const result = await attemptUntil(() => applySubmission({ ...deps, keyring: down }, input(ORG_A, id, sub)), clock, createdAt.getTime() + TTL, () => undefined);
+    expect(result).toBeNull();
+    // Ni un intento más allá del minuto 15 del envío.
+    expect(now).toBeLessThan(createdAt.getTime() + TTL);
+    expect(await integration(id)).toMatchObject({ status: "pending", secret_id: null, last_submission_id: null });
+  });
+
+  it("y si un último intento llega tarde (minuto 16), la transacción no lo aplica: «expired», y el envío se borra", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - 16 * 60_000) });
+    await expect(applySubmission({ ...deps, ttlMs: TTL }, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "expired" });
+    expect(await integration(id)).toMatchObject({ status: "pending", secret_id: null, last_submission_id: null, last_submission_result: null });
+    expect(await submissionExists(sub)).toBe(false);
+    const { rows } = await admin.query("select 1 from public.integration_secrets where organization_id = $1 and name like 'koibox.%'", [ORG_A]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("uno de hace 14 min que sí se puede abrir todavía se aplica", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - 14 * 60_000) });
+    await expect(applySubmission({ ...deps, ttlMs: TTL }, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "applied" });
+  });
+});
+
 describe("desconectar y reconectar", () => {
   it("al desconectar, el worker quita el secret_id y borra el secreto del evento", async () => {
     const { id, secretId } = await koibox(ORG_A, "active", GOOD_1);

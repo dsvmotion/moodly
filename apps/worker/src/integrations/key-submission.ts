@@ -87,7 +87,8 @@ export type SubmissionOutcome =
   | "stale" // había uno posterior ya aplicado o rechazado
   | "disconnected" // la persona desconectó mientras tanto
   | "unopenable" // no se pudo abrir (otra clave, otro contexto, sin claves): se borra al caducar
-  | "refused"; // una guarda lo rechazó (42501): definitivo, sin reintentos
+  | "refused" // una guarda lo rechazó (42501): definitivo, sin reintentos
+  | "expired"; // llegó después de la caducidad (ADR 0055: 15 min desde el envío): se borra sin aplicarlo
 
 export interface KeySubmissionInput {
   organizationId: string;
@@ -139,6 +140,7 @@ async function applyInTransaction(
   input: KeySubmissionInput,
   sealedSecret: { keyRef: string; encryptedDataKey: string; ciphertext: string } | null,
   check: KeyCheck,
+  ttlMs: number,
 ): Promise<SubmissionOutcome> {
   const org = input.organizationId;
   const [integration] = await sql.query<IntegrationRow>(
@@ -150,17 +152,22 @@ async function applyInTransaction(
   );
   // La marca se compara y se guarda en SQL, con la precisión de Postgres (µs):
   // un Date de JS la truncaría a ms (hallazgo L1 de V10).
-  const [own] = await sql.query<{ created_at: string; newer: boolean }>(
+  // Y la caducidad, con la hora de la base de datos: un intento que llega tarde
+  // (la cola del outbox, los reintentos) no aplica nada después de los 15 min
+  // del envío (ADR 0055 §2); el envío se borra igual.
+  const [own] = await sql.query<{ created_at: string; newer: boolean; fresh: boolean }>(
     `with own as (
        delete from public.integration_secret_submissions where id = $1 and organization_id = $2 returning id, created_at, organization_id
      )
      select own.created_at::text as created_at,
-            (i.last_submission_at is null or (own.created_at, own.id) > (i.last_submission_at, i.last_submission_id)) as newer
+            (i.last_submission_at is null or (own.created_at, own.id) > (i.last_submission_at, i.last_submission_id)) as newer,
+            own.created_at > now() - make_interval(secs => $4::double precision / 1000) as fresh
        from own left join public.integrations i on i.id = $3 and i.organization_id = $2
       where own.organization_id = $2`,
-    [input.submissionId, org, input.integrationId],
+    [input.submissionId, org, input.integrationId, ttlMs],
   );
   if (!own) return "already_processed";
+  if (!own.fresh) return "expired";
   if (!integration || integration.status === "disconnected") return "disconnected";
   if (!own.newer) return "stale";
 
@@ -218,7 +225,7 @@ async function applyInTransaction(
 
 /** Un envío, de principio a fin (sin DBOS: lo usa el paso «apply» y los tests). */
 export async function applySubmission(
-  options: Pick<KeySubmissionOptions, "db" | "keyring" | "vault" | "verify">,
+  options: Pick<KeySubmissionOptions, "db" | "keyring" | "vault" | "verify" | "ttlMs">,
   input: KeySubmissionInput,
 ): Promise<{ outcome: SubmissionOutcome; createdAt: string | null }> {
   const tenant = options.db.forOrganization(input.organizationId);
@@ -249,7 +256,7 @@ export async function applySubmission(
   const check = await options.verify(input.provider, apiKey);
   const sealed = check === "valid" ? await options.vault.seal(input.organizationId, apiKey) : null;
   try {
-    const outcome = await tenant.transaction((sql) => applyInTransaction(sql, input, sealed, check));
+    const outcome = await tenant.transaction((sql) => applyInTransaction(sql, input, sealed, check, options.ttlMs ?? SUBMISSION_TTL_MS));
     return { outcome, createdAt };
   } catch (err) {
     if (isGuardRefusal(err)) return { outcome: "refused", createdAt };
@@ -332,13 +339,32 @@ export function registerKeySubmissions(options: KeySubmissionOptions): EventHand
 
   async function processSubmission(input: KeySubmissionInput): Promise<void> {
     const fields = { organizationId: input.organizationId, integrationId: input.integrationId, submissionId: input.submissionId };
-    // Hasta la caducidad (contada desde que empieza el workflow, que llega
-    // segundos después del envío): si KMS, Koibox o la base de datos fallan un
-    // rato, se vuelve a intentar con pausas duraderas de DBOS.
-    const startedAt = await DBOS.now();
+    // La caducidad cuenta desde el envío (created_at de la fila, nunca del
+    // cliente; ADR 0055 §2: 15 min). Si el envío ya no está, otro lo procesó.
+    const [row] = await DBOS.runStep(
+      () =>
+        db
+          .forOrganization(input.organizationId)
+          .transaction((sql) =>
+            sql.query<{ created_ms: string }>(
+              `select floor(date_part('epoch', created_at) * 1000)::bigint::text as created_ms
+                 from public.integration_secret_submissions where id = $1 and organization_id = $2`,
+              [input.submissionId, input.organizationId],
+            ),
+          ),
+      { name: "created_at", retriesAllowed: true, ...DB_STEP },
+    );
+    if (!row) {
+      log.info({ ...fields, event: "integrations.key_already_processed" }, "clave de integración procesada");
+      return;
+    }
+    const createdMs = Number(row.created_ms);
+    // Hasta la caducidad: si KMS, Koibox o la base de datos fallan un rato, se
+    // vuelve a intentar con pausas duraderas de DBOS. Y aunque un último intento
+    // llegue tarde, la transacción no aplica nada caducado («expired»).
     const result = await attemptUntil(
       () =>
-        DBOS.runStep(() => applySubmission(options, input), {
+        DBOS.runStep(() => applySubmission({ ...options, ttlMs }, input), {
           name: "apply",
           retriesAllowed: true,
           maxAttempts: VERIFY_RETRY.maxAttempts,
@@ -346,7 +372,7 @@ export function registerKeySubmissions(options: KeySubmissionOptions): EventHand
           backoffRate: VERIFY_RETRY.backoffRate,
         }),
       { now: () => DBOS.now(), sleep: (ms) => DBOS.sleep(ms) },
-      startedAt + ttlMs,
+      createdMs + ttlMs,
       (err, attemptNumber) =>
         // Sin el detalle: solo el tipo de error y el intento.
         log.warn({ ...fields, attempt: attemptNumber, error: err instanceof Error ? err.name : "Error" }, "no se pudo procesar la clave enviada"),
@@ -354,14 +380,21 @@ export function registerKeySubmissions(options: KeySubmissionOptions): EventHand
     // Se acabó el tiempo: el envío se queda y lo borra la caducidad.
     const { outcome, createdAt } = result ?? { outcome: null, createdAt: null };
     if (outcome) {
-      const level = outcome === "refused" || outcome === "unopenable" ? "warn" : "info";
+      const level = outcome === "refused" || outcome === "unopenable" || outcome === "expired" ? "warn" : "info";
       log[level]({ ...fields, event: `integrations.key_${outcome}` }, "clave de integración procesada");
     }
-    if (outcome === "applied" || outcome === "rejected" || outcome === "already_processed" || outcome === "stale" || outcome === "disconnected") {
+    if (
+      outcome === "applied" ||
+      outcome === "rejected" ||
+      outcome === "already_processed" ||
+      outcome === "stale" ||
+      outcome === "disconnected" ||
+      outcome === "expired"
+    ) {
       return;
     }
     // Lo que sigue ahí caduca: a los 15 minutos del envío, se borra.
-    const expiresAt = (createdAt ? Date.parse(createdAt) : startedAt) + ttlMs;
+    const expiresAt = (createdAt ? Date.parse(createdAt) : createdMs) + ttlMs;
     const now = await DBOS.now();
     if (expiresAt > now) await DBOS.sleep(expiresAt - now);
     const removed = await DBOS.runStep(
