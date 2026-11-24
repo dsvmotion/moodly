@@ -104,7 +104,7 @@ Dos decisiones de producto mandan sobre todo el documento:
 
 - **Hoy:**
   - **Base de datos:** Supabase en Fráncfort (`eu-central-1`), según el proveedor; se ve en el proyecto de staging.
-  - **Funciones de la web:** Vercel en `fra1`. La región se elige en el panel del proyecto, no en el repositorio (`vercel.json` no la fija). Evidencia: la API de despliegues de Vercel devuelve `regions: ["fra1"]` para el último despliegue de `moodly-staging` (`dpl_BL9iS3raeZCrjj1cs9c5dk588ndx`, 2026-11-24). Producción tendrá que comprobarlo igual y, mejor, fijarlo en `vercel.json` para que no dependa del panel.
+  - **Funciones de la web:** Vercel en `fra1`. La región se elige en el panel del proyecto, no en el repositorio (`vercel.json` no la fija). Evidencia: la API de despliegues de Vercel devuelve `regions: ["fra1"]` para el despliegue de `main` que sirve `staging.moodlycrm.com` (`dpl_2UP3Lj7U9xh2gyKoK9257DzYaQUB`, commit `c674444`, 2026-11-24). Producción tendrá que comprobarlo igual y, mejor, fijarlo en `vercel.json` para que no dependa del panel.
   - **Worker:** Railway en `europe-west4` (Ámsterdam).
   - **Web pública:** Railway, **en EE. UU.** (`docs/STATUS.md`).
   - **Metadatos en EE. UU.:** todos los de Resend (registros y metadatos de los emails), y los datos de la cuenta de Sentry (usuarios, configuración, auditoría y uso; los eventos de error sí van a su región de la UE, ver §15). Railway declara EE. UU. como lugar principal de tratamiento. Fuente: el registro de subencargados de V13 (#271, `docs/legal/05`), con las páginas de cada proveedor.
