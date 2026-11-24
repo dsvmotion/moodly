@@ -31,6 +31,39 @@ describe("loadConfig", () => {
       nango: null,
       koiboxApiBase: "https://api.koibox.cloud",
       whatsapp: null,
+      localKeys: null,
+    });
+  });
+
+  describe("claves locales del alta de claves (ADR 0055)", () => {
+    const pem = "-----BEGIN PRIVATE KEY-----\nMIIBVQ==\n-----END PRIVATE KEY-----\n";
+    const vaultKey = Buffer.alloc(32, 7).toString("base64");
+    const ingressKey = Buffer.from(pem, "utf8").toString("base64");
+
+    it("las dos: la maestra de SecretVault y la privada de ingreso (en PEM)", () => {
+      expect(loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: vaultKey, INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: ingressKey }).localKeys).toEqual({
+        vaultMasterKey: vaultKey,
+        ingressPrivateKeyPem: pem,
+      });
+    });
+
+    it("vacías cuentan como ausentes", () => {
+      expect(loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: "", INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: " " }).localKeys).toBeNull();
+    });
+
+    it("a medias es un error de configuración", () => {
+      expect(() => loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: vaultKey })).toThrow(/las dos o ninguna/);
+      expect(() => loadConfig({ ...valid, INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: ingressKey })).toThrow(/las dos o ninguna/);
+    });
+
+    it("con mala forma, el error nombra la variable y no lleva el valor", () => {
+      const bad = Buffer.alloc(16, 1).toString("base64");
+      expect(() => loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: bad, INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: ingressKey })).toThrow(
+        expect.objectContaining({ message: expect.stringMatching(/SECRET_VAULT_LOCAL_KEY/) }),
+      );
+      expect(() => loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: vaultKey, INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: "bm8tZXMtcGVt" })).toThrow(
+        expect.objectContaining({ message: expect.not.stringContaining("bm8tZXMtcGVt") }),
+      );
     });
   });
 

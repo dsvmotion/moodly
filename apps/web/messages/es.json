@@ -66,6 +66,7 @@
     "coach": "Coach",
     "approvals": "Aprobaciones",
     "inbox": "Bandeja",
+    "calendar": "Agenda",
     "tasks": "Tareas",
     "activity": "Actividad",
     "analytics": "Informes",
@@ -411,6 +412,38 @@
     "noAgentsTitle": "Aún no tienes agentes",
     "noAgentsDescription": "Tus agentes aparecen cuando perteneces a una organización: acepta la invitación que te hayan enviado."
   },
+  "calendarPage": {
+    "title": "Agenda",
+    "description": "Las citas de las sedes que ves, cada una en la hora de su sede. Por ahora solo se consultan.",
+    "views": "Vista",
+    "day": "Día",
+    "week": "Semana",
+    "today": "Hoy",
+    "previousDay": "Día anterior",
+    "nextDay": "Día siguiente",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Semana siguiente",
+    "emptyTitle": "Sin citas",
+    "empty": "No hay citas en estos días en las sedes de tu alcance.",
+    "emptyDay": "Sin citas",
+    "count": "{count, plural, one {# cita} other {# citas}}",
+    "unknownContact": "Cliente",
+    "unknownService": "Servicio",
+    "unknownResource": "Sin profesional ni recurso",
+    "with": "con {resource}",
+    "status": {
+      "booked": "Reservada",
+      "cancelled": "Cancelada",
+      "completed": "Hecha",
+      "no_show": "No vino"
+    },
+    "origin": {
+      "agent": "La reservó un agente",
+      "user": "La apuntó el equipo",
+      "sync": "Sincronizada"
+    },
+    "truncated": "Solo se muestran las primeras {count} citas. Elige una sede o la vista de día para ver el resto."
+  },
   "approvalsPage": {
     "title": "Aprobaciones",
     "description": "Lo que el agente propone y espera a una persona. Aprobar envía la respuesta o hace la reserva; rechazar no hace nada.",
@@ -718,6 +751,10 @@
       "outlook-calendar": {
         "name": "Outlook / Microsoft 365",
         "description": "Los agentes consultan el calendario de tu cuenta de Microsoft 365 u Outlook. Por ahora, solo lectura."
+      },
+      "koibox": {
+        "name": "Koibox",
+        "description": "Los agentes consultan la agenda de tu centro en Koibox con la clave de API de tu cuenta. Pégala aquí: se guarda cifrada y solo la usa la plataforma."
       }
     },
     "errors": {
@@ -725,6 +762,21 @@
       "not_allowed": "No tienes permiso para cambiar esta integración.",
       "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
       "platform_failed": "No hemos podido hablar con el proveedor de la integración. No ha cambiado nada: inténtalo de nuevo en unos minutos."
+    },
+    "apiKeyLabel": "Clave de API de Koibox",
+    "saveKey": "Guardar clave",
+    "changeKey": "Cambiar clave",
+    "keyNotices": {
+      "invalid": "Esa integración no existe.",
+      "invalid_key": "Esa clave no tiene una forma válida: pégala tal cual, sin espacios.",
+      "not_allowed": "No tienes permiso para cambiar esta integración.",
+      "unavailable": "El alta de claves todavía no está disponible en este entorno.",
+      "too_many": "Demasiados intentos con esta integración: espera unos minutos y vuelve a probar.",
+      "checking": "Comprobando la clave con Koibox…",
+      "applied": "Clave comprobada: Koibox está conectado.",
+      "rejected": "Koibox no ha aceptado esa clave. Revisa que sea la de tu cuenta y vuelve a pegarla.",
+      "rejected_kept": "Koibox no ha aceptado la última clave que enviaste: sigue funcionando la anterior.",
+      "still_checking": "Seguimos comprobando la clave. Vuelve a mirar en unos minutos."
     }
   },
   "servicesPage": {
@@ -755,7 +807,7 @@
       "services": "Servicios que hace"
     },
     "pricePlaceholder": "Sin precio",
-    "priceHelp": "Déjalo vacío si no quieres publicar un precio. Los agentes todavía no dicen precios: llegará pronto.",
+    "priceHelp": "Los agentes que reservan citas dicen este precio a quien lo pregunta. Déjalo vacío si no quieres publicarlo: sin precio, no dan ninguno y lo pasan al equipo.",
     "allLocations": "Todas las sedes",
     "create": "Crear",
     "save": "Guardar",

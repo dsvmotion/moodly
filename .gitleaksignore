@@ -3,3 +3,7 @@
 b4c26d38243ce2ee7a47fa2e64cbd9b2c1847226:apps/web/e2e/security.e2e.ts:generic-api-key:67
 # Secreto de la app de WhatsApp de mentira en el test de la config del worker (#288). En el commit siguiente ya se arma sin literal con forma de clave.
 8f365678891a388a9d2d0ca139810af6ca00defa:apps/worker/src/config.test.ts:generic-api-key:69
+# Claves de Koibox de mentira en los tests del alta de claves (int-koibox, ADR 0055; #335). En el commit siguiente ya se arman sin literal con forma de clave.
+c5d7efc4f2bf43679b45a2dbb44eacc82fa5c337:packages/integrations/src/key-ingress/sealed-key.test.ts:generic-api-key:23
+de105ad1b65b7e68d7b8ac624c670cb734ed9f30:apps/web/e2e/integrations-koibox.e2e.ts:generic-api-key:23
+de105ad1b65b7e68d7b8ac624c670cb734ed9f30:apps/web/e2e/integrations-koibox.e2e.ts:generic-api-key:24

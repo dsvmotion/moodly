@@ -52,7 +52,8 @@ export type SendOutcome =
   | { outcome: "unknown"; code: string }
   | { outcome: "not_pending" };
 
-async function loadOutgoing(db: TenantDb, messageId: string, conversationId: string): Promise<Outgoing | null> {
+/** El mensaje que sale y a quién: todo, subconsultas incluidas, con la organización explícita (3.2). */
+export async function loadOutgoing(db: Pick<TenantDb, "organizationId" | "transaction">, messageId: string, conversationId: string): Promise<Outgoing | null> {
   const [row] = await db.transaction((sql) =>
     sql.query<Record<string, unknown>>(
       `select m.id, m.conversation_id, m.status, m.content, m.idempotency_key, c.channel,
@@ -61,15 +62,15 @@ async function loadOutgoing(db: TenantDb, messageId: string, conversationId: str
                 -- El número desde el que escribió el cliente en esta conversación (su último
                 -- mensaje que entró), si sigue siendo una identidad suya.
                 (select ev.payload->'from'->>'value' from public.inbound_events ev
-                 where ev.conversation_id = c.id and ev.status = 'processed'
+                 where ev.organization_id = $1 and ev.conversation_id = c.id and ev.status = 'processed'
                    and ev.payload->'from'->>'kind' = 'phone'
                    and exists (select 1 from public.contact_identities i
-                               where i.contact_id = c.contact_id and i.kind = 'phone'
+                               where i.organization_id = $1 and i.contact_id = c.contact_id and i.kind = 'phone'
                                  and i.external_id = ev.payload->'from'->>'value')
                  order by ev.received_at desc limit 1),
                 -- Si no (una conversación que no empezó por el canal), su teléfono, el de siempre.
                 (select i.external_id from public.contact_identities i
-                 where i.contact_id = c.contact_id and i.kind = 'phone' order by i.external_id limit 1)
+                 where i.organization_id = $1 and i.contact_id = c.contact_id and i.kind = 'phone' order by i.external_id limit 1)
               ) as phone
        from public.messages m
        join public.conversations c on c.id = m.conversation_id and c.organization_id = m.organization_id

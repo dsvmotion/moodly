@@ -159,12 +159,12 @@ export function parsePrice(text: string): number {
   return Number(text.replace(",", "."));
 }
 
-/** Solo da precios que están en el conocimiento. */
-export function quotesOnlyKnownPrices(known: readonly number[]): Check {
-  return withReply("la respuesta solo da precios del conocimiento", (reply) => {
+/** Solo da precios que están en el conocimiento (o, con `from`, de otro sitio: «de Ajustes», OA04). */
+export function quotesOnlyKnownPrices(known: readonly number[], from = "del conocimiento"): Check {
+  return withReply(`la respuesta solo da precios ${from}`, (reply) => {
     const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)*)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)*)/giu)].map((match) => parsePrice(match[1] ?? match[2] ?? ""));
     const invented = prices.filter((price) => !known.includes(price));
-    return invented.length === 0 ? null : `precios que no están en el conocimiento (${invented.join(", ")}): «${reply}»`;
+    return invented.length === 0 ? null : `precios que no son ${from} (${invented.join(", ")}): «${reply}»`;
   });
 }
 

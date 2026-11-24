@@ -915,7 +915,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app` | P1 | Inicio y bandeja del día |
 | `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo. **Construida (2026-11-10):** lista y conversación, tomar el control y devolverlo (`conversations.mode`) y responder como persona; sin tiempo real todavía (decisión de producto pendiente) |
 | `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
-| `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`) |
+| `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`). **Construida la consulta (OA03, primer incremento):** vista de día y de semana, por sede, cada cita en la hora de su sede; servicio, profesional o recurso, cliente (si RLS deja verlo), estado y origen (agente, equipo o sincronizada); solo lectura, con la sesión de quien mira. Reservar, mover y cancelar desde aquí, después |
 | `/app/contacts` · `/[id]` | P2 · P3 | Clientes finales |
 | `/app/leads` | P2 (kanban) | Leads y oportunidades por etapa |
 | `/app/invoices` | P2 | Borradores de facturas e inventario |
@@ -932,7 +932,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app/memory` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
 | `/app/rules` · `/app/flows` · `/app/schedules` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
 | `/app/network` | P7 | Red de franquicias (vista del franquiciador) |
-| `/app/settings/*` | P6 | Ajustes: `general`, `profile`, `preferences`, `privacy`, `team`, `roles`, `models`, `integrations`, `locations`, `services`, `plan`, `billing`, `security` y `audit`. **`services` (OA04, 2026-11-13):** servicios con duración y precio, y equipo y recursos con los servicios que hace cada uno; el horario de cada sede se cambia desde `locations`. Los cambia el org_admin con MFA (decisión de producto n.º 13); lo sincronizado desde una integración solo se ve |
+| `/app/settings/*` | P6 | Ajustes: `general`, `profile`, `preferences`, `privacy`, `team`, `roles`, `models`, `integrations`, `locations`, `services`, `plan`, `billing`, `security` y `audit`. **`services` (OA04, 2026-11-13):** servicios con duración y precio, y equipo y recursos con los servicios que hace cada uno; el horario de cada sede se cambia desde `locations`. Los cambia el org_admin con MFA (decisión de producto n.º 13); lo sincronizado desde una integración solo se ve. El agente que reserva dice el precio de Ajustes, con el formato del idioma de la organización; de un servicio sin precio no da ninguno |
 | `/app/onboarding` | Asistente de alta | §9.6 |
 | `/ops/*` | Mismos patrones | Panel interno (§9.7) |
 
@@ -1441,6 +1441,8 @@ Estado del registro (ADR 0023). Los 0001–0017 recogen lo decidido y propuesto 
 | 0051 | Todos los proveedores de modelos detrás del enrutador, con inferencia global bajo DPA con cada proveedor (T6) | aceptado (producto, 2026-11-12) |
 | 0052 | Una capa de canales: mensaje normalizado, entrada firmada y sin duplicados, estados de entrega y plantillas (T10) | aceptado (producto, 2026-11-12) |
 | 0053 | Hub de integraciones: gobierno propio para todas las conexiones y una plataforma de conectores para la amplitud (Nango autoalojado en la UE; modifica el 0034 y el 0036) | aceptado (producto, 2026-11-11) |
+| 0054 | La bandeja en vivo: un relé de Server-Sent Events del mismo origen | aceptado (V1, 2026-11-12: «opción B») |
+| 0055 | Alta de las claves de una integración: la web las cifra hacia el worker (sobre con una clave asimétrica de ingreso en KMS) y las deja en una tabla de solo inserción | aceptado (producto, 2026-11-14) |
 
 ---
 
