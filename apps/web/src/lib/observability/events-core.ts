@@ -34,6 +34,8 @@ export type SecurityEvent =
   | "integration.connect_started"
   | "integration.disconnected"
   | "integration.disconnect_failed"
+  | "integration.key_submitted"
+  | "integration.key_throttled"
   | "business.service_created"
   | "business.service_updated"
   | "business.resource_created"

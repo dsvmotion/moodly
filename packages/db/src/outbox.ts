@@ -12,6 +12,17 @@ export interface PendingDomainEvent {
   type: string;
 }
 
+/** Un evento ya publicado, para rellenar a un consumidor nuevo: los mismos metadatos y la hora, que sirve de cursor. */
+export interface PublishedDomainEvent extends PendingDomainEvent {
+  createdAt: string;
+}
+
+/** Dónde siguió la página anterior: el último (created_at, id) leído, tal como lo devolvió la base de datos. */
+export interface PublishedCursor {
+  createdAt: string;
+  id: string;
+}
+
 export interface Outbox {
   /** Los pendientes de publicar, los más antiguos primero (entre 1 y 500). */
   pending(limit: number): Promise<PendingDomainEvent[]>;
@@ -19,6 +30,12 @@ export interface Outbox {
   oldestPendingAt(): Promise<Date | null>;
   /** Marca como publicados los que sigan pendientes; devuelve cuántos ha marcado. */
   markPublished(ids: readonly string[]): Promise<number>;
+  /**
+   * Los ya publicados de un tipo creados desde `since`, en orden y por páginas
+   * (entre 1 y 500), después de `after`: el relleno de un consumidor que llegó
+   * después que sus eventos. Solo metadatos, como pending().
+   */
+  published(type: string, since: Date, after: PublishedCursor | null, limit: number): Promise<PublishedDomainEvent[]>;
 }
 
 export class OutboxError extends Error {
@@ -27,6 +44,9 @@ export class OutboxError extends Error {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BATCH = 500;
+const EVENT_TYPE = /^[a-z][a-z_]*\.[a-z][a-z_]*$/;
+/** Una hora como la devuelve PostgREST: nada que pueda cerrar las comillas del filtro. */
+const TIMESTAMP = /^[0-9][0-9T:.+\- Z]{9,39}$/;
 
 export function outbox(client: SupabaseClient<Database>): Outbox {
   return {
@@ -72,6 +92,29 @@ export function outbox(client: SupabaseClient<Database>): Outbox {
         .select("id");
       if (error) throw new OutboxError(`outbox: no se pudieron marcar como publicados (${error.code})`);
       return data.length;
+    },
+
+    async published(type, since, after, limit) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_BATCH) {
+        throw new OutboxError(`outbox: el lote va de 1 a ${MAX_BATCH} eventos`);
+      }
+      if (!EVENT_TYPE.test(type)) throw new OutboxError("outbox: tipo de evento no válido");
+      if (Number.isNaN(since.getTime())) throw new OutboxError("outbox: fecha de inicio no válida");
+      if (after && (!UUID.test(after.id) || !TIMESTAMP.test(after.createdAt) || Number.isNaN(Date.parse(after.createdAt)))) {
+        throw new OutboxError("outbox: cursor no válido");
+      }
+      let query = client
+        .from("domain_events")
+        .select("id, organization_id, type, created_at")
+        .eq("type", type)
+        .not("published_at", "is", null)
+        .gte("created_at", since.toISOString());
+      // Después del cursor: más nuevo, o a la misma hora con un id mayor. La
+      // hora va entre comillas: lleva «:» y «+», que PostgREST separa en or().
+      if (after) query = query.or(`created_at.gt."${after.createdAt}",and(created_at.eq."${after.createdAt}",id.gt.${after.id})`);
+      const { data, error } = await query.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(limit);
+      if (error) throw new OutboxError(`outbox: no se pudieron leer los publicados (${error.code})`);
+      return data.map((row) => ({ id: row.id, organizationId: row.organization_id, type: row.type, createdAt: row.created_at }));
     },
   };
 }

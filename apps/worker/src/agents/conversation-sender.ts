@@ -82,9 +82,11 @@ export function createConversationSender(db: TenantDb, options: ConversationSend
     async send({ conversationId, text, idempotencyKey }) {
       try {
         return await db.transaction(async (sql) => {
-          const [existing] = await sql.query<{ id: string }>("select id from public.messages where idempotency_key = $1 limit 1", [
-            idempotencyKey,
-          ]);
+          // Con la organización explícita, además de RLS (control 3.2).
+          const [existing] = await sql.query<{ id: string }>(
+            "select id from public.messages where organization_id = $2 and idempotency_key = $1 limit 1",
+            [idempotencyKey, db.organizationId],
+          );
           if (existing) return { messageId: existing.id };
           if (options.inReplyTo && (await supersededBy(sql, db.organizationId, conversationId, options.inReplyTo))) {
             throw new ConversationSupersededError("el cliente escribió otra vez: contesta el turno de su último mensaje");
