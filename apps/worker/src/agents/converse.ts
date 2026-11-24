@@ -124,6 +124,9 @@ interface ServiceRow {
   name: string;
   duration_minutes: number;
   location_id: string | null;
+  /** El precio de Ajustes (OA04); null = sin precio publicado. */
+  price_cents: number | null;
+  currency: string;
 }
 
 /**
@@ -141,7 +144,12 @@ export function bookableServices(
     .filter((row) => row.location_id === null || row.location_id === locationId)
     .sort((a, b) => a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id));
   return {
-    services: here.slice(0, max).map((row) => ({ id: row.id, name: row.name, durationMinutes: row.duration_minutes })),
+    services: here.slice(0, max).map((row) => ({
+      id: row.id,
+      name: row.name,
+      durationMinutes: row.duration_minutes,
+      price: row.price_cents === null ? null : { cents: row.price_cents, currency: row.currency },
+    })),
     truncated: here.length > max,
   };
 }
@@ -279,16 +287,20 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
   // sigue sin resumen y con la historia entera (nunca un turno sin contestar), y
   // un error dentro de la transacción del turno la abortaría entera.
   const { summary, error: summaryError } = await loadSummary(db, conversationId);
+  // Cada consulta lleva la organización explícita (org), además de RLS como
+  // moodly_worker: CLAUDE.md no deja ninguna consulta del worker sin ella, y
+  // así una política mal escrita no abre nada (revisión de V10 sobre #309).
+  const org = db.organizationId;
   const loaded = await db.transaction(async (sql): Promise<Loaded> => {
     const [conversation] = await sql.query<ConversationRow>(
-      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
-      [conversationId],
+      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where organization_id = $2 and id = $1",
+      [conversationId, org],
     );
     if (!conversation) return { kind: "skip", reason: "conversation_missing" };
     if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
     const [latest] = await sql.query<{ id: string }>(
-      "select id from public.messages where conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
-      [conversationId],
+      "select id from public.messages where organization_id = $2 and conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
+      [conversationId, org],
     );
     if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
 
@@ -296,39 +308,42 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     if (!turn?.context) return { kind: "skip", reason: "agent_missing" };
     const context = contextSchema.parse(turn.context);
     if (!ANSWERING.has(context.agent.status)) {
-      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
+      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where organization_id = $2 and id = $1", [
         conversation.channel_account_id,
+        org,
       ]);
       if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
     }
 
     const messages = await sql.query<{ author: string; content: string }>(
       `select author, content from public.messages
-       where conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
+       where organization_id = $4 and conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
        order by created_at desc limit $2`,
-      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null],
+      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null, org],
     );
     const [location] = conversation.location_id
-      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where id = $1", [
+      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where organization_id = $2 and id = $1", [
           conversation.location_id,
+          org,
         ])
       : [];
     const [modelSettings] = await sql.query(
       `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur
-       from public.org_model_settings limit 1`,
+       from public.org_model_settings where organization_id = $1 limit 1`,
+      [org],
     );
     // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
     const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
     const serviceRows =
       books && conversation.location_id
         ? await sql.query<ServiceRow>(
-            `select id, name, duration_minutes, location_id from public.services
-             where active and (location_id is null or location_id = $1)
+            `select id, name, duration_minutes, location_id, price_cents, currency from public.services
+             where organization_id = $3 and active and (location_id is null or location_id = $1)
              order by name limit $2`,
-            [conversation.location_id, MAX_PROMPT_SERVICES + 1],
+            [conversation.location_id, MAX_PROMPT_SERVICES + 1, org],
           )
         : [];
-    const pending = await loadPendingRequests(sql, db.organizationId, conversationId);
+    const pending = await loadPendingRequests(sql, org, conversationId);
     // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
     // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
     // organización, usage_records_worker, 20261112120000).
@@ -336,8 +351,8 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
       `select coalesce(sum(cost_eur) filter (where occurred_at >= $1), 0)::float8 as day_eur,
               coalesce(sum(cost_eur) filter (where occurred_at >= $2), 0)::float8 as month_eur
        from public.usage_records
-       where occurred_at >= least($1::timestamptz, $2::timestamptz)`,
-      [dayStart.toISOString(), monthStart.toISOString()],
+       where organization_id = $3 and occurred_at >= least($1::timestamptz, $2::timestamptz)`,
+      [dayStart.toISOString(), monthStart.toISOString(), org],
     );
     return {
       kind: "turn",
@@ -545,20 +560,25 @@ async function recordExecution(
     // los borradores de respuesta de turnos anteriores (gate M1, más abajo).
     if (!AWAITING_PERSON.has(execution.status)) return { executionId: null, held: false, superseded: false };
     // Lo que espera a una persona nace con su aprobación (paso 4d-3d).
-    const [row] = await sql.query<{ id: string }>("select id from public.executions where idempotency_key = $1", [execution.idempotencyKey]);
+    // Con la organización explícita, además de RLS (control 3.2).
+    const [row] = await sql.query<{ id: string }>("select id from public.executions where organization_id = $2 and idempotency_key = $1", [
+      execution.idempotencyKey,
+      db.organizationId,
+    ]);
     if (!row) throw new Error("no se encontró la ejecución guardada");
     // Si la conversación ya la lleva una persona, el mensaje del agente no pide
     // aprobación: se cierra sin enviarse. Si la toma llega justo después, el
     // mensaje aprobado tampoco saldría (lo rechaza la base de datos al enviarlo).
     if (target?.kind === "conversation") {
-      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where id = $1", [
+      const [conversation] = await sql.query<{ mode: string }>("select mode from public.conversations where organization_id = $2 and id = $1", [
         target.conversationId,
+        db.organizationId,
       ]);
       if (holdsForPerson(skill.effectClass, target, conversation?.mode ?? null)) {
         await sql.query(
           `update public.executions set status = 'failed', output = $2
-           where id = $1 and status = any($3::text[])`,
-          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON]],
+           where organization_id = $4 and id = $1 and status = any($3::text[])`,
+          [row.id, JSON.stringify({ held: HELD_NOT_AGENT_MODE }), [...AWAITING_PERSON], db.organizationId],
         );
         return { executionId: row.id, held: true, superseded: false };
       }
@@ -659,14 +679,23 @@ export function finalRunStatus(
   superseded = false,
 ): ReturnType<typeof runStatusFor> {
   // El cliente escribió otra vez y contesta el turno de su último mensaje: este
-  // run acabó su parte (no pasa la conversación a nadie).
-  if (superseded && !stillAwaiting) return "completed";
+  // run acabó su parte. El relevo nunca pasa la conversación a una persona (si
+  // lo hiciera, el turno del mensaje nuevo ya no contestaría), pero un
+  // request_human que este turno ya ejecutó se mantiene: el cliente pidió una
+  // persona, o el agente decidió pasarla, y la persona ve los dos mensajes. Si
+  // no, espera lo suyo pendiente (una reserva en borrador) o se cierra.
+  if (superseded) {
+    const askedForPerson = result.executions.some((execution) => execution.skillKey === REQUEST_HUMAN_SKILL_KEY && execution.status === "executed");
+    if (askedForPerson) return "handed_off";
+    return stillAwaiting ? "awaiting_approval" : "completed";
+  }
   const status = runStatusFor(result);
   if (status === "awaiting_approval" && heldAny && !stillAwaiting) return "handed_off";
   return status;
 }
 
-async function finishRun(
+/** Exportada para el test que la prueba sin RLS (org-explicit.integration.ts). */
+export async function finishRun(
   db: TenantDb,
   runId: string,
   conversationId: string,
@@ -675,13 +704,16 @@ async function finishRun(
   superseded = false,
 ): Promise<void> {
   // Como moodly_worker, bajo RLS (PL-T1 3c-3, 20261112150000): lo que queda del
-  // run, el paso a una persona y el cierre del run, en una transacción.
+  // run, el paso a una persona y el cierre del run, en una transacción. Con la
+  // organización explícita en cada consulta, además de RLS (control 3.2).
+  const org = db.organizationId;
   await db.transaction(async (sql) => {
     let stillAwaiting = false;
     if (heldAny || superseded) {
-      const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+      const pending = await sql.query("select 1 from public.executions where organization_id = $3 and run_id = $1 and status = any($2::text[]) limit 1", [
         runId,
         [...AWAITING_PERSON],
+        org,
       ]);
       stillAwaiting = pending.length > 0;
     }
@@ -691,7 +723,7 @@ async function finishRun(
       // Antes de cerrar el run: quien vea el run cerrado ve ya la conversación en manos de
       // una persona. Si el paso se repite, no cambia nada (solo de agent a human;
       // guard_worker_conversation no deja otra cosa).
-      await sql.query("update public.conversations set mode = 'human' where id = $1 and mode = 'agent'", [conversationId]);
+      await sql.query("update public.conversations set mode = 'human' where organization_id = $2 and id = $1 and mode = 'agent'", [conversationId, org]);
     }
     // Estado y modelo solo cambian si el run sigue en marcha: si el paso se repite
     // cuando otra cosa ya lo movió (una aprobación), no los pisa. Tokens y coste,
@@ -703,8 +735,8 @@ async function finishRun(
            tokens_in = case when status = 'running' then $4 else greatest(tokens_in, $4) end,
            tokens_out = case when status = 'running' then $5 else greatest(tokens_out, $5) end,
            cost_eur = case when status = 'running' then $6 else greatest(cost_eur, $6) end
-       where id = $1`,
-      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur],
+       where organization_id = $7 and id = $1`,
+      [runId, status, result.usage.model, result.usage.tokensIn, result.usage.tokensOut, result.usage.costEur, org],
     );
   });
 }
@@ -916,6 +948,8 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
         timezone: prepared.location?.timezone ?? "UTC",
         now: new Date(prepared.now),
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+        // Los precios de los servicios, con el formato del idioma del negocio (OA04).
+        locale: context.organization.default_locale,
         knowledge: searchesKnowledge,
         handOff: handsOff,
         pendingRequests: prepared.pendingRequests,

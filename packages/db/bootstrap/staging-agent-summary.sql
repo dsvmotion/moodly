@@ -20,6 +20,9 @@ select
   (select tokens_out from run) as tokens_salida,
   (select cost_eur from run) as coste_eur,
   (select mode from public.conversations where id = 'd5a3b7c2-1f4e-4c8a-9b6d-2e7f0a1c3e41') as conversacion,
+  -- El precio de la primera visita en Ajustes (OA04): con el mensaje «precio», el
+  -- workflow solo da por bueno un paso a una persona si no tiene precio.
+  (select price_cents from public.services where id = 'd5a3b7c2-1f4e-4c8a-9b6d-2e7f0a1c3e01') as precio_primera_visita,
   (select a.status from public.agents a join public.conversations c on c.agent_id = a.id
     where c.id = 'd5a3b7c2-1f4e-4c8a-9b6d-2e7f0a1c3e41') as agente,
   (select coalesce(json_agg(json_build_object(

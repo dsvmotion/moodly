@@ -38,8 +38,10 @@ export async function loadSummary(db: TenantDb, conversationId: string): Promise
     // corte de la historia se movería.
     const [row] = await db.transaction((sql) =>
       sql.query<{ summary: string; covered_until: string }>(
-        "select summary, to_json(covered_until) #>> '{}' as covered_until from public.conversation_summaries where conversation_id = $1",
-        [conversationId],
+        // La organización explícita, además de RLS (CLAUDE.md: ninguna consulta del worker sin ella).
+        `select summary, to_json(covered_until) #>> '{}' as covered_until from public.conversation_summaries
+         where organization_id = $2 and conversation_id = $1`,
+        [conversationId, db.organizationId],
       ),
     );
     return { summary: row ? { summary: row.summary, coveredUntil: row.covered_until } : null, error: null };
@@ -122,8 +124,8 @@ export async function saveSummary(db: TenantDb, conversationId: string, step: Ex
     await db.transaction(async (sql) => {
       const updated = await sql.query(
         `update public.conversation_summaries set summary = $2, covered_until = $3, model = $4
-         where conversation_id = $1 and covered_until <= $3 returning conversation_id`,
-        [conversationId, step.summary, step.coveredUntil, step.usage.model],
+         where organization_id = $5 and conversation_id = $1 and covered_until <= $3 returning conversation_id`,
+        [conversationId, step.summary, step.coveredUntil, step.usage.model, db.organizationId],
       );
       if (updated.length > 0) return;
       // Sin fila pisada: no la había, o la que hay cubre hasta más tarde (on conflict: se queda esa).
@@ -157,8 +159,8 @@ export async function bookSummaryUsage(
       sql.query(
         `update public.agent_runs
          set tokens_in = greatest(tokens_in, $2), tokens_out = greatest(tokens_out, $3), cost_eur = greatest(cost_eur, $4)
-         where id = $1`,
-        [runId, total.tokensIn, total.tokensOut, total.costEur],
+         where organization_id = $5 and id = $1`,
+        [runId, total.tokensIn, total.tokensOut, total.costEur, db.organizationId],
       ),
     );
     return null;

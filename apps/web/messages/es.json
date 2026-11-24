@@ -66,6 +66,7 @@
     "coach": "Coach",
     "approvals": "Aprobaciones",
     "inbox": "Bandeja",
+    "calendar": "Agenda",
     "tasks": "Tareas",
     "activity": "Actividad",
     "analytics": "Informes",
@@ -410,6 +411,38 @@
     },
     "noAgentsTitle": "Aún no tienes agentes",
     "noAgentsDescription": "Tus agentes aparecen cuando perteneces a una organización: acepta la invitación que te hayan enviado."
+  },
+  "calendarPage": {
+    "title": "Agenda",
+    "description": "Las citas de las sedes que ves, cada una en la hora de su sede. Por ahora solo se consultan.",
+    "views": "Vista",
+    "day": "Día",
+    "week": "Semana",
+    "today": "Hoy",
+    "previousDay": "Día anterior",
+    "nextDay": "Día siguiente",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Semana siguiente",
+    "emptyTitle": "Sin citas",
+    "empty": "No hay citas en estos días en las sedes de tu alcance.",
+    "emptyDay": "Sin citas",
+    "count": "{count, plural, one {# cita} other {# citas}}",
+    "unknownContact": "Cliente",
+    "unknownService": "Servicio",
+    "unknownResource": "Sin profesional ni recurso",
+    "with": "con {resource}",
+    "status": {
+      "booked": "Reservada",
+      "cancelled": "Cancelada",
+      "completed": "Hecha",
+      "no_show": "No vino"
+    },
+    "origin": {
+      "agent": "La reservó un agente",
+      "user": "La apuntó el equipo",
+      "sync": "Sincronizada"
+    },
+    "truncated": "Solo se muestran las primeras {count} citas. Elige una sede o la vista de día para ver el resto."
   },
   "approvalsPage": {
     "title": "Aprobaciones",
@@ -801,7 +834,7 @@
       "services": "Servicios que hace"
     },
     "pricePlaceholder": "Sin precio",
-    "priceHelp": "Déjalo vacío si no quieres publicar un precio. Los agentes todavía no dicen precios: llegará pronto.",
+    "priceHelp": "Los agentes que reservan citas dicen este precio a quien lo pregunta. Déjalo vacío si no quieres publicarlo: sin precio, no dan ninguno y lo pasan al equipo.",
     "allLocations": "Todas las sedes",
     "create": "Crear",
     "save": "Guardar",
