@@ -110,15 +110,20 @@ verify() {
   else
     ok "roles y esquema restaurados sin errores"
   fi
-  # Datos: solo el SQLSTATE de cada error de SQL y, de la conexión, cuántos
-  # (su texto no se enseña: el de un error de datos puede llevar el valor de una fila).
-  errors=$(grep -h '^ERROR' "$WORK/data.out" | sed 's/.*ERROR: *//' | sort | uniq -c | sort -rn || true)
-  local conn_errors
+  # Datos: solo el SQLSTATE de cada error de SQL y, de la conexión, cuántos (su
+  # texto no se enseña: el de un error de datos puede llevar el valor de una fila).
+  # Con `psql -f` cada error sale como «psql:<fichero>:<línea>: ERROR:  <código>»,
+  # con el prefijo delante: se busca `ERROR:` en cualquier sitio de la línea.
+  local codes sql_errors unknown conn_errors
+  sql_errors=$(grep -c 'ERROR:' "$WORK/data.out" || true)
+  codes=$(sed -n 's/.*ERROR:  *\([0-9A-Z]\{5\}\)$/\1/p' "$WORK/data.out" | sort | uniq -c | sort -rn)
+  unknown=$(( sql_errors - $(grep -cE 'ERROR:  *[0-9A-Z]{5}$' "$WORK/data.out" || true) ))
   conn_errors=$(grep -cE 'FATAL|psql: error' "$WORK/data.out" || true)
-  if [ -n "$errors" ] || [ "$conn_errors" -gt 0 ]; then
+  if [ "$sql_errors" -gt 0 ] || [ "$conn_errors" -gt 0 ]; then
     problem "errores al restaurar datos:"
-    [ -n "$errors" ] && { echo "    por SQLSTATE:"; printf '%s\n' "$errors" | sed 's/^/      /' | head -20; }
-    [ "$conn_errors" -gt 0 ] && echo "    de conexión o de psql: $conn_errors"
+    if [ -n "$codes" ]; then echo "    por SQLSTATE:"; printf '%s\n' "$codes" | sed 's/^/      /' | head -20; fi
+    if [ "$unknown" -gt 0 ]; then echo "    sin código reconocible (no se enseña su texto): $unknown"; fi
+    if [ "$conn_errors" -gt 0 ]; then echo "    de conexión o de psql: $conn_errors"; fi
   else
     ok "datos restaurados sin errores"
   fi

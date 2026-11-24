@@ -124,6 +124,16 @@ cp "$WORK/data.out" "$WORK/data.out.orig"
 echo 'FATAL:  terminating connection due to administrator command' >> "$WORK/data.out"
 expect_detected "FATAL en la salida de la restauración de datos" "$(run_verify)"
 cp "$WORK/data.out.orig" "$WORK/data.out"
+# Un error de SQL de verdad en la restauración de datos. Con `psql -f` sale con el
+# prefijo «psql:<fichero>:<línea>: », no al principio de la línea (con VERBOSITY=sqlstate
+# solo trae el código, sin el mensaje, que podría llevar el valor de una fila).
+echo 'psql:/runner/work/data.sql:812: ERROR:  23505' >> "$WORK/data.out"
+expect_detected "un error de SQL de la restauración de datos (psql:…/data.sql:N: ERROR:  23505)" "$(run_verify)"
+if grep -q 'psql:' "$WORK/verify.log"; then
+  echo "  ✗ el informe repite la línea de psql (con su fichero y línea) en lugar del código"
+  undetected=$((undetected + 1))
+fi
+cp "$WORK/data.out.orig" "$WORK/data.out"
 
 # 4. Un volcado que falla a medias: la CLI devuelve error en el primer volcado
 #    (roles), deja un fichero válido y los demás salen bien. `set -e` no actúa
