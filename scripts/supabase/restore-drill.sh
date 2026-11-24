@@ -36,10 +36,10 @@ case "$SOURCE" in
   *) echo "::error::DRILL_SOURCE debe ser linked o local" >&2; exit 2 ;;
 esac
 
-WORK="$(mktemp -d)"
-chmod 700 "$WORK"
-cleanup() { rm -rf "$WORK"; }
-trap cleanup EXIT
+# Directorio de trabajo 0700 (lo crea main; las pruebas de scripts/supabase/tests
+# lo fijan ellas al cargar las funciones con `source`).
+WORK=""
+cleanup() { if [ -n "$WORK" ]; then rm -rf "$WORK"; fi; }
 
 fail=0
 problem() { echo "✗ $1"; fail=1; }
@@ -67,6 +67,7 @@ dump() {
 # Supabase al restaurar un proyecto. Y las extensiones que crean nuestras
 # migraciones (el volcado no las incluye).
 prepare_target() {
+  export PGOPTIONS='-c client_min_messages=warning'
   psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -c 'drop schema if exists auth cascade' -c 'drop schema if exists storage cascade' -c 'create schema if not exists extensions'
   local ext
   for ext in $(grep -rhoiE 'create extension( if not exists)? +"?[a-z_0-9-]+"?' "$MIGRATIONS_DIR" | awk '{print $NF}' | tr -d '"' | sort -u); do
@@ -154,34 +155,43 @@ verify() {
   fi
 }
 
-START=$(now)
-echo "Simulacro de restauración · origen: $SOURCE · esquemas: $SCHEMAS"
-timed volcado dump
-echo "Volcado: roles $(stat -c %s "$WORK/roles.sql") B, esquema $(stat -c %s "$WORK/schema.sql") B, datos $(stat -c %s "$WORK/data.sql") B (no se imprime ni se sube su contenido)"
-timed preparar prepare_target
-timed restaurar restore
-timed comprobar verify
-TOTAL=$(( $(now) - START ))
+main() {
+  WORK="$(mktemp -d)"
+  chmod 700 "$WORK"
+  trap cleanup EXIT
 
-echo
-echo "Tiempos: volcado ${PHASE[volcado]} s · preparar el destino ${PHASE[preparar]} s · restaurar ${PHASE[restaurar]} s · comprobar ${PHASE[comprobar]} s · total ${TOTAL} s"
-if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  {
-    echo "### Simulacro de restauración ($SOURCE)"
-    echo "| Fase | Segundos |"
-    echo "|---|---|"
-    echo "| Volcado | ${PHASE[volcado]} |"
-    echo "| Preparar el destino | ${PHASE[preparar]} |"
-    echo "| Restaurar | ${PHASE[restaurar]} |"
-    echo "| Comprobar | ${PHASE[comprobar]} |"
-    echo "| **Total (RTO del simulacro lógico)** | **${TOTAL}** |"
-    echo
-    [ "$fail" -eq 0 ] && echo "Resultado: **todo cuadra**." || echo "Resultado: **hay diferencias** (ver el log)."
-  } >> "$GITHUB_STEP_SUMMARY"
-fi
+  START=$(now)
+  echo "Simulacro de restauración · origen: $SOURCE · esquemas: $SCHEMAS"
+  timed volcado dump
+  echo "Volcado: roles $(stat -c %s "$WORK/roles.sql") B, esquema $(stat -c %s "$WORK/schema.sql") B, datos $(stat -c %s "$WORK/data.sql") B (no se imprime ni se sube su contenido)"
+  timed preparar prepare_target
+  timed restaurar restore
+  timed comprobar verify
+  TOTAL=$(( $(now) - START ))
+  
+  echo
+  echo "Tiempos: volcado ${PHASE[volcado]} s · preparar el destino ${PHASE[preparar]} s · restaurar ${PHASE[restaurar]} s · comprobar ${PHASE[comprobar]} s · total ${TOTAL} s"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "### Simulacro de restauración ($SOURCE)"
+      echo "| Fase | Segundos |"
+      echo "|---|---|"
+      echo "| Volcado | ${PHASE[volcado]} |"
+      echo "| Preparar el destino | ${PHASE[preparar]} |"
+      echo "| Restaurar | ${PHASE[restaurar]} |"
+      echo "| Comprobar | ${PHASE[comprobar]} |"
+      echo "| **Total (RTO del simulacro lógico)** | **${TOTAL}** |"
+      echo
+      [ "$fail" -eq 0 ] && echo "Resultado: **todo cuadra**." || echo "Resultado: **hay diferencias** (ver el log)."
+    } >> "$GITHUB_STEP_SUMMARY"
+  fi
+  
+  if [ "$fail" -ne 0 ]; then
+    echo "RESULTADO: FALLA"
+    exit 1
+  fi
+  echo "RESULTADO: OK"
+}
 
-if [ "$fail" -ne 0 ]; then
-  echo "RESULTADO: FALLA"
-  exit 1
-fi
-echo "RESULTADO: OK"
+# Se ejecuta solo si se lanza el script; con `source` (las pruebas) solo se cargan las funciones.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi
