@@ -84,8 +84,33 @@ describe("el turno del agente en el worker", () => {
     expect(finalRunStatus(drafted, false, false, true)).toBe("completed");
     // Si otra cosa del turno sigue esperando a una persona (una reserva en borrador), espera.
     expect(finalRunStatus(drafted, false, true, true)).toBe("awaiting_approval");
+    // También si la respuesta autónoma falló por el relevo: espera esa reserva, sin pasar la
+    // conversación a una persona (si no, el turno del mensaje nuevo ya no contestaría).
+    expect(finalRunStatus(failed, false, true, true)).toBe("awaiting_approval");
     // Sin superseded, lo de siempre.
     expect(finalRunStatus(failed, false, false)).toBe("handed_off");
+  });
+
+  it("un request_human que el turno relevado ya ejecutó se mantiene: pasa la conversación a una persona (gate M1)", () => {
+    // El cliente pidió una persona (o el agente decidió pasarla): eso no lo deshace el relevo.
+    const asked = {
+      status: "handed_off",
+      reason: "customer_asked",
+      executions: [{ skillKey: "request_human", status: "executed", output: { reason: "customer_asked" } }],
+      usage,
+    } as unknown as TurnResult;
+    expect(finalRunStatus(asked, false, false, true)).toBe("handed_off");
+    // También con algo suyo pendiente (una reserva en borrador): la persona ve la conversación y lo pendiente.
+    expect(finalRunStatus(asked, false, true, true)).toBe("handed_off");
+    // Un request_human que no llegó a ejecutarse (rechazado o en borrador) no cuenta.
+    const notRun = {
+      status: "handed_off",
+      reason: "reply_failed",
+      executions: [{ skillKey: "request_human", status: "failed" }],
+      usage,
+    } as unknown as TurnResult;
+    expect(finalRunStatus(notRun, false, false, true)).toBe("completed");
+    expect(finalRunStatus(notRun, false, true, true)).toBe("awaiting_approval");
   });
 
   it("consume solo message.received, con una clave estable", () => {
@@ -118,7 +143,14 @@ describe("cuándo contesta el agente", () => {
 describe("lo que se puede reservar en el prompt", () => {
   const CENTRO = "a2000000-0000-4000-8000-000000000001";
   const NORTE = "a2000000-0000-4000-8000-000000000002";
-  const row = (id: string, name: string, location_id: string | null) => ({ id, name, duration_minutes: 30, location_id });
+  const row = (id: string, name: string, location_id: string | null, price_cents: number | null = null, currency = "EUR") => ({
+    id,
+    name,
+    duration_minutes: 30,
+    location_id,
+    price_cents,
+    currency,
+  });
 
   it("los de toda la organización y los de su local, por nombre; nunca los de otro local", () => {
     const { services, truncated } = bookableServices(
@@ -126,8 +158,18 @@ describe("lo que se puede reservar en el prompt", () => {
       CENTRO,
     );
     expect(services.map((service) => service.name)).toEqual(["Depilación", "Láser", "Uñas"]);
-    expect(services[0]).toEqual({ id: "s4", name: "Depilación", durationMinutes: 30 });
+    expect(services[0]).toEqual({ id: "s4", name: "Depilación", durationMinutes: 30, price: null });
     expect(truncated).toBe(false);
+  });
+
+  it("con su precio de Ajustes (OA04), en céntimos y su moneda; sin precio, null (no 0)", () => {
+    const { services } = bookableServices([row("s1", "Láser", null, 4500), row("s2", "Corte", null, 2000, "GBP"), row("s3", "Tinte", null, null), row("s4", "Gratis", null, 0)], CENTRO);
+    expect(Object.fromEntries(services.map((service) => [service.name, service.price]))).toEqual({
+      Corte: { cents: 2000, currency: "GBP" },
+      Gratis: { cents: 0, currency: "EUR" },
+      Láser: { cents: 4500, currency: "EUR" },
+      Tinte: null,
+    });
   });
 
   it("sin local no hay nada que reservar (find_slots lo exige)", () => {
