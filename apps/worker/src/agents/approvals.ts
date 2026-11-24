@@ -106,35 +106,41 @@ type Loaded =
       conversationId: string | null;
     };
 
-async function load(db: TenantDb, approvalId: string, executionId: string): Promise<Loaded> {
-  // Como moodly_worker, bajo RLS (PL-T1 3c-4): todo lo que se lee, en una transacción.
+/** Exportada para el test que la prueba sin RLS (org-explicit.integration.ts). */
+export async function load(db: TenantDb, approvalId: string, executionId: string): Promise<Loaded> {
+  // Como moodly_worker, bajo RLS (PL-T1 3c-4): todo lo que se lee, en una
+  // transacción. Y con la organización explícita en cada tabla, además de RLS
+  // (CLAUDE.md, control 3.2): una política mal escrita no abre nada.
+  const org = db.organizationId;
   return db.transaction(async (sql): Promise<Loaded> => {
     const [approval] = await sql.query<Extract<Loaded, { kind: "decided" }>["approval"]>(
       `select execution_id, organization_id, location_id, input_hash, status,
               to_json(expires_at) #>> '{}' as expires_at, to_json(decided_at) #>> '{}' as decided_at
-       from public.approvals where id = $1`,
-      [approvalId],
+       from public.approvals where organization_id = $2 and id = $1`,
+      [approvalId, org],
     );
     if (!approval || approval.execution_id !== executionId) return { kind: "skip", reason: "approval_missing" };
     const [execution] = await sql.query<ExecutionRow>(
       `select id, run_id, organization_id, location_id, skill_key, skill_version, input, target, input_hash, status, idempotency_key, output
-       from public.executions where id = $1`,
-      [executionId],
+       from public.executions where organization_id = $2 and id = $1`,
+      [executionId, org],
     );
     if (!execution) return { kind: "skip", reason: "execution_missing" };
     // Ya decidida antes (la entrega se reanudó): no se vuelve a tocar.
     if (!AWAITING_PERSON.has(execution.status)) return { kind: "skip", reason: settledReason(execution.status, execution.output) };
 
     // El contacto y la conversación del run: los del mensaje que lo despertó.
-    const [run] = await sql.query<{ trigger: string; trigger_ref: string | null }>("select trigger, trigger_ref from public.agent_runs where id = $1", [
-      execution.run_id,
-    ]);
+    const [run] = await sql.query<{ trigger: string; trigger_ref: string | null }>(
+      "select trigger, trigger_ref from public.agent_runs where organization_id = $2 and id = $1",
+      [execution.run_id, org],
+    );
     let contactId: string | null = null;
     let conversationId: string | null = null;
     if (run?.trigger === "inbound_message" && run.trigger_ref) {
       const [conversation] = await sql.query<{ id: string; contact_id: string | null }>(
-        `select c.id, c.contact_id from public.messages m join public.conversations c on c.id = m.conversation_id where m.id = $1`,
-        [run.trigger_ref],
+        `select c.id, c.contact_id from public.messages m join public.conversations c on c.id = m.conversation_id
+         where m.organization_id = $2 and c.organization_id = $2 and m.id = $1`,
+        [run.trigger_ref, org],
       );
       contactId = conversation?.contact_id ?? null;
       conversationId = conversation?.id ?? null;
@@ -143,28 +149,34 @@ async function load(db: TenantDb, approvalId: string, executionId: string): Prom
   });
 }
 
-async function settleExecution(db: TenantDb, executionId: string, status: "executed" | "failed" | "rejected", output?: unknown): Promise<void> {
+/** Exportada para el test que la prueba sin RLS. */
+export async function settleExecution(db: TenantDb, executionId: string, status: "executed" | "failed" | "rejected", output?: unknown): Promise<void> {
   // «rejected» solo copia la decisión de una persona: guard_worker_execution
   // (20261112160000) lo deja solo si la aprobación de la ejecución está rechazada.
   await db.transaction((sql) =>
     sql.query(
       `update public.executions set status = $2, output = coalesce($3::jsonb, output)
-       where id = $1 and status = any($4::text[])`,
-      [executionId, status, output === undefined ? null : JSON.stringify(output), [...AWAITING_PERSON]],
+       where organization_id = $5 and id = $1 and status = any($4::text[])`,
+      [executionId, status, output === undefined ? null : JSON.stringify(output), [...AWAITING_PERSON], db.organizationId],
     ),
   );
 }
 
 /** Cuando ya no queda nada esperando a una persona, el run que esperaba se cierra. */
-async function settleRun(db: TenantDb, runId: string): Promise<void> {
+/** Exportada para el test que la prueba sin RLS. */
+export async function settleRun(db: TenantDb, runId: string): Promise<void> {
   // De awaiting_approval a completed, solo el estado (guard_worker_agent_run, 20261112130000).
   await db.transaction(async (sql) => {
-    const pending = await sql.query("select 1 from public.executions where run_id = $1 and status = any($2::text[]) limit 1", [
+    const pending = await sql.query("select 1 from public.executions where organization_id = $3 and run_id = $1 and status = any($2::text[]) limit 1", [
       runId,
       [...AWAITING_PERSON],
+      db.organizationId,
     ]);
     if (pending.length > 0) return;
-    await sql.query("update public.agent_runs set status = 'completed' where id = $1 and status = 'awaiting_approval'", [runId]);
+    await sql.query("update public.agent_runs set status = 'completed' where organization_id = $2 and id = $1 and status = 'awaiting_approval'", [
+      runId,
+      db.organizationId,
+    ]);
   });
 }
 
