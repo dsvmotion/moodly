@@ -37,7 +37,7 @@ Dos decisiones de producto mandan sobre todo el documento:
 | App en la UE | Casi: base de datos, web y worker en la UE; la web pública en EE. UU. | PL-prod, F10 |
 | Modelos en la UE, configurable | No existe; global por decisión de producto | SE02, OA24 |
 | Cifrado AES-256 y TLS 1.2+ | Del proveedor; por organización, planificado | SE13, PL-T4 |
-| Mínimo privilegio | Verificado | — (hecho por partes) |
+| Mínimo privilegio | Verificado en parte: falta que el worker escriba con su rol | PL-T1, OA29 |
 | Defensa en profundidad | Verificado por capas | — (hecho por partes) |
 | Pentest independiente | No existe | SE07, F12 |
 | Revisión y lista pública de subencargados | Registro interno en borrador; sin lista pública | F10, **SE15** (nueva) |
@@ -93,7 +93,7 @@ Dos decisiones de producto mandan sobre todo el documento:
 
 | Opción de Langdock | Hoy | Falta | Unidad |
 |---|---|---|---|
-| SaaS multi-tenant en la UE | **Verificado el aislamiento:** RLS en todas las tablas de tenants (pgTAP `00_rls_enabled`, `01_org_isolation`, `02_location_scope`), worker con un rol ligado a la organización (ADR 0049, PL-T1, `42_worker_role`). Staging en la UE: Supabase en Fráncfort, web en `fra1` y worker en Ámsterdam. | Producción, con copias y simulacro de restauración | PL-prod (M1), F09 |
+| SaaS multi-tenant en la UE | **Verificado el aislamiento:** RLS en todas las tablas de tenants (pgTAP `00_rls_enabled`, `01_org_isolation`, `02_location_scope`), worker con un rol ligado a la organización (ADR 0049, PL-T1, `42_worker_role`). Staging en la UE: Supabase en Fráncfort, web en `fra1` (ver §5) y worker en Ámsterdam. | Producción, con copias y simulacro de restauración | PL-prod (M1), F09 |
 | Single-tenant (instancia dedicada) | No existe. ADR 0026 (propuesto) describe las celdas | Construirlas | PL-cells (after) |
 | En la nube del cliente | No existe. ADR 0028 (propuesto) describe la portabilidad y BYOC; PL-T12 prueba una imagen de la web | Imagen del worker y de la web, plantilla de despliegue y documentación | **SE14** (nueva) |
 | On-premise con Helm | No existe | Chart de Helm, dependencias (Postgres, colas) y actualizaciones | **SE14** (nueva) |
@@ -104,10 +104,10 @@ Dos decisiones de producto mandan sobre todo el documento:
 
 - **Hoy:**
   - **Base de datos:** Supabase en Fráncfort (`eu-central-1`), según el proveedor; se ve en el proyecto de staging.
-  - **Funciones de la web:** Vercel en `fra1`, por configuración.
+  - **Funciones de la web:** Vercel en `fra1`. La región se elige en el panel del proyecto, no en el repositorio (`vercel.json` no la fija). Evidencia: la API de despliegues de Vercel devuelve `regions: ["fra1"]` para el último despliegue de `moodly-staging` (`dpl_BL9iS3raeZCrjj1cs9c5dk588ndx`, 2026-11-24). Producción tendrá que comprobarlo igual y, mejor, fijarlo en `vercel.json` para que no dependa del panel.
   - **Worker:** Railway en `europe-west4` (Ámsterdam).
   - **Web pública:** Railway, **en EE. UU.** (`docs/STATUS.md`).
-  - **Metadatos en EE. UU.:** los de Resend; la cuenta de Sentry. Railway declara EE. UU. como lugar principal de tratamiento.
+  - **Metadatos en EE. UU.:** todos los de Resend (registros y metadatos de los emails), y los datos de la cuenta de Sentry (usuarios, configuración, auditoría y uso; los eventos de error sí van a su región de la UE, ver §15). Railway declara EE. UU. como lugar principal de tratamiento. Fuente: el registro de subencargados de V13 (#271, `docs/legal/05`), con las páginas de cada proveedor.
   - **Modelos:** inferencia global (ADR 0051). La web lo dice así desde #272.
 - **Falta:**
   - mover el servicio `site` de Railway a la UE;
@@ -130,7 +130,7 @@ Dos decisiones de producto mandan sobre todo el documento:
 ### 7. Mínimo privilegio
 
 - **Hoy:** verificado por partes:
-  - **Roles y alcance:** cuatro roles (`org_admin`, `region_manager`, `location_manager`, `staff`) y alcance por región y sede en RLS (pgTAP `02_location_scope`, `03_org_admin`, `15_least_privilege`; e2e `roles`, `scope` y ahora `calendar`).
+  - **Roles y alcance:** cuatro roles (`org_admin`, `region_manager`, `location_manager`, `staff`) y alcance por región y sede en RLS (pgTAP `02_location_scope`, `03_org_admin`, `15_least_privilege`; e2e `roles` y `scope`; también `calendar`, cuando entre #315).
   - **Guardas por columna:** triggers `guard_*` (ADR 0003, `05_review_guards`).
   - **Worker:** un rol de base de datos propio ligado a una organización por transacción (ADR 0049, `42_worker_role`), sin service role para leer datos de un tenant.
   - **Equipo interno:** accede con permisos de soporte con caducidad (ADR 0021, `07_platform_staff`, `12_support_grants`).
@@ -226,7 +226,7 @@ Dos decisiones de producto mandan sobre todo el documento:
 ### 15. Monitorización
 
 - **Hoy:**
-  - **Errores de la web:** van a Sentry en su región de la UE, sin datos de usuario (ADR 0032).
+  - **Errores de la web:** los eventos van a Sentry en su región de la UE (Fráncfort), sin datos de usuario (ADR 0032). Los datos de la cuenta de Sentry (usuarios, configuración, auditoría) se quedan en EE. UU., según el proveedor (§5).
   - **Logs:** estructurados, con seudónimos y censura (ADR 0032, `logger` y `securityEvent()`).
   - **Salud de staging:** `/health` de la web y del worker y la alerta «Staging · salud», que abre un issue (PL-health, #308; verificado en staging, #310).
   - **Main en rojo:** el aviso «alerta-main».
