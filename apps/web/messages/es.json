@@ -718,6 +718,10 @@
       "outlook-calendar": {
         "name": "Outlook / Microsoft 365",
         "description": "Los agentes consultan el calendario de tu cuenta de Microsoft 365 u Outlook. Por ahora, solo lectura."
+      },
+      "koibox": {
+        "name": "Koibox",
+        "description": "Los agentes consultan la agenda de tu centro en Koibox con la clave de API de tu cuenta. Pégala aquí: se guarda cifrada y solo la usa la plataforma."
       }
     },
     "errors": {
@@ -725,6 +729,21 @@
       "not_allowed": "No tienes permiso para cambiar esta integración.",
       "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
       "platform_failed": "No hemos podido hablar con el proveedor de la integración. No ha cambiado nada: inténtalo de nuevo en unos minutos."
+    },
+    "apiKeyLabel": "Clave de API de Koibox",
+    "saveKey": "Guardar clave",
+    "changeKey": "Cambiar clave",
+    "keyNotices": {
+      "invalid": "Esa integración no existe.",
+      "invalid_key": "Esa clave no tiene una forma válida: pégala tal cual, sin espacios.",
+      "not_allowed": "No tienes permiso para cambiar esta integración.",
+      "unavailable": "El alta de claves todavía no está disponible en este entorno.",
+      "too_many": "Demasiados intentos con esta integración: espera unos minutos y vuelve a probar.",
+      "checking": "Comprobando la clave con Koibox…",
+      "applied": "Clave comprobada: Koibox está conectado.",
+      "rejected": "Koibox no ha aceptado esa clave. Revisa que sea la de tu cuenta y vuelve a pegarla.",
+      "rejected_kept": "Koibox no ha aceptado la última clave que enviaste: sigue funcionando la anterior.",
+      "still_checking": "Seguimos comprobando la clave. Vuelve a mirar en unos minutos."
     }
   },
   "servicesPage": {

@@ -5,7 +5,7 @@
 **Cuánto se tarda:** unos 30 minutos.
 **Qué no hacer:** no pegues en el chat, en GitHub ni en el repositorio ninguna clave de acceso de AWS. Las claves de acceso solo van en las variables del servicio `worker` de Railway.
 
-> Estado del código (2026-11-14): el worker todavía no lee estas variables. Las lee el incremento 2 de Koibox (ADR 0055), que está en construcción. Hasta entonces, crear todo esto no cambia nada en staging. Los nombres de las variables de abajo son los que leerá ese código.
+> Estado del código (2026-11-24): la web ya lee sus dos variables (paso 5) y cifra con ellas; el worker abre los envíos con un par local en desarrollo y en los tests, pero todavía no lee las variables de KMS del paso 4. Hasta que lo haga, crear todo esto no cambia nada en staging. Los nombres de las variables del paso 4 son los que leerá ese código.
 
 ## 0. La cuenta de AWS
 
@@ -93,7 +93,7 @@ Proyecto `moodly-staging` → servicio `worker` → **Variables**, en el entorno
 | `AWS_ACCESS_KEY_ID` | la del paso 3 | Sí |
 | `AWS_SECRET_ACCESS_KEY` | la del paso 3 | **Sí** |
 | `SECRET_VAULT_KMS_KEY_ID` | ARN de `moodly-staging-secret-vault` | No |
-| `INTEGRATION_INGRESS_KMS_KEY_ID` | ARN de `moodly-staging-integration-ingress` | No |
+| `INTEGRATION_INGRESS_KMS_KEY_IDS` | ARN de `moodly-staging-integration-ingress`: la lista de claves de ingreso que acepta el worker, separadas por comas. Normalmente una; dos solo durante una rotación | No |
 
 - Si Railway ofrece sellar la variable (que no se vuelva a ver su valor), séllala para las dos claves de acceso.
 - No las pongas en GitHub (ni en secretos de Actions), en Vercel ni en el `.env` de nadie: el único que las usa es el worker.
@@ -126,9 +126,9 @@ La web **no** recibe ninguna clave de acceso de AWS ni permiso de KMS (ADR 0050 
 - **Clave de ingreso:**
   1. crea otra igual (paso 2);
   2. en la política del paso 3, la declaración `IngresoSoloDescifrar` pasa a tener las dos claves: `"Resource": ["<ARN de la clave vieja>", "<ARN de la nueva>"]`. Así el worker puede abrir los envíos cifrados con cualquiera de las dos mientras dura el cambio;
-  3. cambia en Vercel `INTEGRATION_INGRESS_PUBLIC_KEY` y `INTEGRATION_INGRESS_KEY_REF` a los de la nueva, y en Railway `INTEGRATION_INGRESS_KMS_KEY_ID`;
+  3. en Railway, añade el ARN nuevo a `INTEGRATION_INGRESS_KMS_KEY_IDS` (`<ARN viejo>,<ARN nuevo>`) y vuelve a desplegar el worker. **Después**, cambia en Vercel `INTEGRATION_INGRESS_PUBLIC_KEY` y `INTEGRATION_INGRESS_KEY_REF` a los de la nueva. El worker abre cada envío con la clave que dice el envío (`key_ref`), solo si está en esa lista: así, durante el cambio, los envíos con la clave vieja y los de la nueva se abren los dos, y uno con una clave que no está en la lista se rechaza;
   4. espera al menos 15 minutos: los envíos viejos caducan (ADR 0055 §2);
-  5. deja en `Resource` solo el ARN nuevo (vuelve a ser una cadena, no una lista) y programa el borrado de la vieja en KMS (el mínimo son 7 días).
+  5. deja en `INTEGRATION_INGRESS_KMS_KEY_IDS` solo el ARN nuevo y en `Resource` también (vuelve a ser una cadena, no una lista), vuelve a desplegar el worker y programa el borrado de la vieja en KMS (el mínimo son 7 días).
 
 ## Si se filtra una clave de acceso
 
