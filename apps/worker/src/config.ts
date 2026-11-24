@@ -66,6 +66,15 @@ export interface WorkerConfig {
    * Nunca van a los logs.
    */
   whatsapp: { appSecret: string; verifyToken: string; accessToken: string } | null;
+  /**
+   * Claves locales del alta de claves de integraciones (ADR 0034 y 0055), solo
+   * para desarrollo y tests: la maestra de SecretVault (SECRET_VAULT_LOCAL_KEY,
+   * 32 bytes en base64) y la privada de ingreso (INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY,
+   * PEM PKCS#8 en base64, key_ref «local:v1»). Las dos o ninguna. En staging y
+   * producción no se ponen: allí irán las de AWS KMS (sin construir todavía), y
+   * mientras tanto los envíos de claves solo caducan. Nunca van a los logs.
+   */
+  localKeys: { vaultMasterKey: string; ingressPrivateKeyPem: string } | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -205,6 +214,20 @@ const schema = z.object({
   WHATSAPP_APP_SECRET: visibleSecret("WHATSAPP_APP_SECRET", 16, 512),
   WHATSAPP_VERIFY_TOKEN: visibleSecret("WHATSAPP_VERIFY_TOKEN", 16, 512),
   WHATSAPP_ACCESS_TOKEN: visibleSecret("WHATSAPP_ACCESS_TOKEN", 16, 2048),
+  // Claves locales (desarrollo y tests). Vacías cuentan como ausentes; las dos o ninguna.
+  SECRET_VAULT_LOCAL_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || Buffer.from(value, "base64").length === 32, "SECRET_VAULT_LOCAL_KEY: 32 bytes en base64")
+    .optional(),
+  INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .refine(
+      (value) => value === "" || Buffer.from(value, "base64").toString("utf8").startsWith("-----BEGIN PRIVATE KEY-----"),
+      "INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: una clave privada PEM (PKCS#8) en base64",
+    )
+    .optional(),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -248,7 +271,18 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
         : null,
     koiboxApiBase: parseKoiboxApiBase(parsed.data.KOIBOX_API_BASE),
     whatsapp: whatsappConfig(parsed.data),
+    localKeys: localKeysConfig(parsed.data),
   };
+}
+
+function localKeysConfig(data: { SECRET_VAULT_LOCAL_KEY?: string | undefined; INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY?: string | undefined }): WorkerConfig["localKeys"] {
+  const vault = data.SECRET_VAULT_LOCAL_KEY || "";
+  const ingress = data.INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY || "";
+  if (!vault && !ingress) return null;
+  if (!vault || !ingress) {
+    throw new WorkerConfigError("Configuración del worker no válida: SECRET_VAULT_LOCAL_KEY e INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY, las dos o ninguna");
+  }
+  return { vaultMasterKey: vault, ingressPrivateKeyPem: Buffer.from(ingress, "base64").toString("utf8") };
 }
 
 function whatsappConfig(data: { WHATSAPP_APP_SECRET?: string | undefined; WHATSAPP_VERIFY_TOKEN?: string | undefined; WHATSAPP_ACCESS_TOKEN?: string | undefined }): WorkerConfig["whatsapp"] {
