@@ -296,6 +296,35 @@ function submissionInput(event: DomainEvent): KeySubmissionInput {
   };
 }
 
+/** Las pausas entre intentos del paso «apply» mientras el envío no caduca (cada intento ya reintenta 4 veces en ~14 s). */
+export const APPLY_RETRY_DELAYS_MS = [15_000, 30_000, 60_000, 120_000] as const;
+
+/**
+ * Repite `attempt` con pausas crecientes mientras quede tiempo antes de
+ * `deadline` (la caducidad del envío). Una caída de KMS, de Koibox o de la base
+ * de datos de unos minutos no descarta un envío bueno (hallazgo M1 de V10 en
+ * #337). null si se acaba el tiempo. El reloj y la espera son los de DBOS en el
+ * workflow (duraderos), y falsos en los tests.
+ */
+export async function attemptUntil<T>(
+  attempt: () => Promise<T>,
+  clock: { now(): Promise<number>; sleep(ms: number): Promise<void> },
+  deadline: number,
+  onError: (err: unknown, attemptNumber: number) => void,
+  delaysMs: readonly number[] = APPLY_RETRY_DELAYS_MS,
+): Promise<T | null> {
+  for (let n = 0; ; n++) {
+    try {
+      return await attempt();
+    } catch (err) {
+      onError(err, n + 1);
+      const delay = delaysMs[Math.min(n, delaysMs.length - 1)] ?? 0;
+      if ((await clock.now()) + delay >= deadline) return null;
+      await clock.sleep(delay);
+    }
+  }
+}
+
 export function registerKeySubmissions(options: KeySubmissionOptions): EventHandler {
   const { db, logger } = options;
   const ttlMs = options.ttlMs ?? SUBMISSION_TTL_MS;
@@ -303,18 +332,27 @@ export function registerKeySubmissions(options: KeySubmissionOptions): EventHand
 
   async function processSubmission(input: KeySubmissionInput): Promise<void> {
     const fields = { organizationId: input.organizationId, integrationId: input.integrationId, submissionId: input.submissionId };
-    const { outcome, createdAt } = await DBOS.runStep(() => applySubmission(options, input), {
-      name: "apply",
-      retriesAllowed: true,
-      maxAttempts: VERIFY_RETRY.maxAttempts,
-      intervalSeconds: VERIFY_RETRY.intervalSeconds,
-      backoffRate: VERIFY_RETRY.backoffRate,
-    }).catch((err: unknown) => {
-      // Agotó los reintentos (el proveedor no contesta, la base de datos falla):
-      // el envío se queda y lo borra la caducidad. Sin el detalle.
-      log.warn({ ...fields, error: err instanceof Error ? err.name : "Error" }, "no se pudo procesar la clave enviada");
-      return { outcome: null, createdAt: null } as const;
-    });
+    // Hasta la caducidad (contada desde que empieza el workflow, que llega
+    // segundos después del envío): si KMS, Koibox o la base de datos fallan un
+    // rato, se vuelve a intentar con pausas duraderas de DBOS.
+    const startedAt = await DBOS.now();
+    const result = await attemptUntil(
+      () =>
+        DBOS.runStep(() => applySubmission(options, input), {
+          name: "apply",
+          retriesAllowed: true,
+          maxAttempts: VERIFY_RETRY.maxAttempts,
+          intervalSeconds: VERIFY_RETRY.intervalSeconds,
+          backoffRate: VERIFY_RETRY.backoffRate,
+        }),
+      { now: () => DBOS.now(), sleep: (ms) => DBOS.sleep(ms) },
+      startedAt + ttlMs,
+      (err, attemptNumber) =>
+        // Sin el detalle: solo el tipo de error y el intento.
+        log.warn({ ...fields, attempt: attemptNumber, error: err instanceof Error ? err.name : "Error" }, "no se pudo procesar la clave enviada"),
+    );
+    // Se acabó el tiempo: el envío se queda y lo borra la caducidad.
+    const { outcome, createdAt } = result ?? { outcome: null, createdAt: null };
     if (outcome) {
       const level = outcome === "refused" || outcome === "unopenable" ? "warn" : "info";
       log[level]({ ...fields, event: `integrations.key_${outcome}` }, "clave de integración procesada");
@@ -323,7 +361,7 @@ export function registerKeySubmissions(options: KeySubmissionOptions): EventHand
       return;
     }
     // Lo que sigue ahí caduca: a los 15 minutos del envío, se borra.
-    const expiresAt = (createdAt ? Date.parse(createdAt) : await DBOS.now()) + ttlMs;
+    const expiresAt = (createdAt ? Date.parse(createdAt) : startedAt) + ttlMs;
     const now = await DBOS.now();
     if (expiresAt > now) await DBOS.sleep(expiresAt - now);
     const removed = await DBOS.runStep(

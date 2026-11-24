@@ -1,11 +1,11 @@
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import { createServiceDb } from "@repo/db/service";
-import { createLocalIngressKeyring, sealSubmission, type IngressPublicKey } from "@repo/integrations/key-ingress";
+import { IngressKeyUnavailableError, createLocalIngressKeyring, sealSubmission, type IngressKeyring, type IngressPublicKey } from "@repo/integrations/key-ingress";
 import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createLocalKeyProvider, createSecretVault } from "../secrets/vault.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
-import { applySubmission, cleanupDisconnected, type KeyVerifier } from "./key-submission.ts";
+import { applySubmission, attemptUntil, cleanupDisconnected, type KeyVerifier } from "./key-submission.ts";
 import { koiboxSecretName } from "./koibox.ts";
 
 // El alta de la clave de Koibox (ADR 0055 §4 y §5) contra Supabase local con el
@@ -304,6 +304,29 @@ describe("dos envíos seguidos (K2, K3) y los reintentos", () => {
     await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "disconnected" });
     expect(await integration(id)).toMatchObject({ status: "disconnected", secret_id: secretId, last_submission_id: null });
     await expect(openSecret(ORG_A, secretId ?? "")).resolves.toBe(GOOD_1);
+  });
+});
+
+describe("KMS caído un rato (M1 de V10 en #337)", () => {
+  it("la clave de ingreso falla 3 veces (IngressKeyUnavailableError) y el envío acaba aplicado, sin caducar", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1);
+    let failures = 3;
+    const flaky: IngressKeyring = {
+      accepts: (ref) => keyring.accepts(ref),
+      unwrap: (ref, edk) => (failures-- > 0 ? Promise.reject(new IngressKeyUnavailableError("KMS no respondió")) : keyring.unwrap(ref, edk)),
+    };
+    let now = 0;
+    const clock = { now: () => Promise.resolve(now), sleep: (ms: number) => ((now += ms), Promise.resolve()) };
+    const errors: string[] = [];
+    const result = await attemptUntil(() => applySubmission({ ...deps, keyring: flaky }, input(ORG_A, id, sub)), clock, 15 * 60_000, (err) =>
+      errors.push(err instanceof Error ? err.name : "?"),
+    );
+    expect(errors).toEqual(["IngressKeyUnavailableError", "IngressKeyUnavailableError", "IngressKeyUnavailableError"]);
+    expect(result).toMatchObject({ outcome: "applied" });
+    expect(await integration(id)).toMatchObject({ status: "active", last_submission_id: sub, last_submission_result: "applied" });
+    await expect(openSecret(ORG_A, (await integration(id)).secret_id ?? "")).resolves.toBe(GOOD_1);
+    expect(await submissionExists(sub)).toBe(false);
   });
 });
 
