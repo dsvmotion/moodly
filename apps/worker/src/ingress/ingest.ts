@@ -56,21 +56,15 @@ export function rewindStartStep(steps: readonly { functionID: number; error: unk
   if (!last) return 0;
   return last.error !== null && last.error !== undefined ? last.functionID : last.functionID + 1;
 }
-/**
- * Los estados de DBOS de un workflow que se vuelve a intentar solo: ERROR, que
- * aquí solo sale si no se pudo apuntar un intento en la base de datos (los
- * fallos del mensaje se cuentan dentro, hasta el dead_letter). DBOS 5.3 no
- * reanuda un ERROR (resumeWorkflow no lo toca): se rebobina con el mismo id
- * desde el primer paso que falló (rewindWorkflow), con los pasos buenos y los
- * intentos ya contados intactos: el tope se mantiene.
- */
-export const RESUMABLE_STATUSES: readonly WorkflowStatusString[] = ["ERROR"];
-/**
- * Los que no se tocan y miran las personas: CANCELLED (lo paró alguien) y
- * MAX_RECOVERY_ATTEMPTS_EXCEEDED (el proceso cayó con él demasiadas veces:
- * reanudarlo lo volvería a tirar).
- */
-export const PARKED_STATUSES: readonly WorkflowStatusString[] = ["CANCELLED", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"];
+// Los estados que se reintentan y los que se aparcan: el mismo criterio que el
+// relleno del outbox (workflow-status.ts). Un ERROR aquí solo sale si no se
+// pudo apuntar un intento en la base de datos (los fallos del mensaje se
+// cuentan dentro, hasta el dead_letter): se rebobina con el mismo id desde el
+// primer paso que falló, con los pasos buenos y los intentos ya contados
+// intactos, así que el tope se mantiene.
+import { PARKED_STATUSES, RESUMABLE_STATUSES } from "../workflow-status.ts";
+
+export { PARKED_STATUSES, RESUMABLE_STATUSES };
 
 export function ingestWorkflowId(inboundEventId: string): string {
   return `inbound:${inboundEventId}`;

@@ -121,6 +121,13 @@ async function workflowStatus(workflowId: string): Promise<string | null> {
   return rows[0]?.status ?? null;
 }
 
+/** El since con el que se lanzó un relleno, tal como lo guardó DBOS. */
+async function sinceOf(workflowId: string): Promise<string | null> {
+  const { rows } = await admin.query<{ inputs: string | null }>("select inputs from dbos.workflow_status where workflow_uuid = $1", [workflowId]);
+  const match = /"since"\s*:\s*"([^"]+)"/.exec(rows[0]?.inputs ?? "");
+  return match?.[1] ?? null;
+}
+
 async function published(eventId: string): Promise<boolean> {
   const { rows } = await admin.query<{ published_at: Date | null }>("select published_at from public.domain_events where id = $1", [eventId]);
   return rows[0]?.published_at != null;
@@ -260,6 +267,8 @@ describe("outbox: relleno de un consumidor que llega después que sus eventos (W
     await waitFor(() => /backfill: \d+ eventos encolados/.test(retried.output()), "el segundo intento termina y lo dice", retried.output);
     expect(retried.output()).toContain("backfill: el anterior terminó en error, se vuelve a lanzar");
     expect(await workflowStatus(BACKFILL_RETRY_ID)).toBe("SUCCESS");
+    // La misma ventana que el primero: el since del segundo intento es el suyo, no uno calculado ahora.
+    expect(await sinceOf(BACKFILL_RETRY_ID)).toBe(await sinceOf(BACKFILL_ID));
     await new Promise((resolve) => setTimeout(resolve, 3_000));
     await stop(retried);
     const settledAgain = startWorker(file, "after");
@@ -272,5 +281,15 @@ describe("outbox: relleno de un consumidor que llega después que sus eventos (W
     expect(afterRetry.filter((key) => key === waiting.idempotencyKey)).toHaveLength(1);
     expect(afterRetry.filter((key) => key === fresh.idempotencyKey)).toHaveLength(1);
     expect(effects(file).filter((e) => e.step === "late")).toHaveLength(1);
+
+    // Aparcado (MAX_RECOVERY_ATTEMPTS_EXCEEDED: tiró el proceso demasiadas
+    // veces), como en la entrada de canales: no se relanza; queda en el log.
+    await admin.query("update dbos.workflow_status set status = 'MAX_RECOVERY_ATTEMPTS_EXCEEDED' where workflow_uuid = $1", [BACKFILL_RETRY_ID]);
+    const parked = startWorker(file, "after");
+    await waitFor(() => parked.output().includes("backfill: aparcado, no se reintenta"), "el aparcado queda en el log", parked.output);
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    expect(parked.output()).not.toMatch(/backfill: \d+ eventos encolados/);
+    await stop(parked);
+    expect(await workflowStatus(BACKFILL_ATTEMPTS[2] as string)).toBeNull();
   });
 });
