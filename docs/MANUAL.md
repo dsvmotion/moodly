@@ -932,7 +932,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app/memory` | P2 · P3 | «Qué sabe el agente»: memorias activas, propuestas y su origen |
 | `/app/rules` · `/app/flows` · `/app/schedules` | P6 | Reglas y aprobaciones, flujos automáticos y horarios |
 | `/app/network` | P7 | Red de franquicias (vista del franquiciador) |
-| `/app/settings/*` | P6 | Ajustes: `general`, `profile`, `preferences`, `privacy`, `team`, `roles`, `models`, `integrations`, `locations`, `services`, `plan`, `billing`, `security` y `audit`. **`services` (OA04, 2026-11-13):** servicios con duración y precio, y equipo y recursos con los servicios que hace cada uno; el horario de cada sede se cambia desde `locations`. Los cambia el org_admin con MFA (decisión de producto n.º 13); lo sincronizado desde una integración solo se ve |
+| `/app/settings/*` | P6 | Ajustes: `general`, `profile`, `preferences`, `privacy`, `team`, `roles`, `models`, `integrations`, `locations`, `services`, `plan`, `billing`, `security` y `audit`. **`services` (OA04, 2026-11-13):** servicios con duración y precio, y equipo y recursos con los servicios que hace cada uno; el horario de cada sede se cambia desde `locations`. Los cambia el org_admin con MFA (decisión de producto n.º 13); lo sincronizado desde una integración solo se ve. El agente que reserva dice el precio de Ajustes, con el formato del idioma de la organización; de un servicio sin precio no da ninguno |
 | `/app/onboarding` | Asistente de alta | §9.6 |
 | `/ops/*` | Mismos patrones | Panel interno (§9.7) |
 

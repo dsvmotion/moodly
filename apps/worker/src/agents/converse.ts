@@ -124,6 +124,9 @@ interface ServiceRow {
   name: string;
   duration_minutes: number;
   location_id: string | null;
+  /** El precio de Ajustes (OA04); null = sin precio publicado. */
+  price_cents: number | null;
+  currency: string;
 }
 
 /**
@@ -141,7 +144,12 @@ export function bookableServices(
     .filter((row) => row.location_id === null || row.location_id === locationId)
     .sort((a, b) => a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id));
   return {
-    services: here.slice(0, max).map((row) => ({ id: row.id, name: row.name, durationMinutes: row.duration_minutes })),
+    services: here.slice(0, max).map((row) => ({
+      id: row.id,
+      name: row.name,
+      durationMinutes: row.duration_minutes,
+      price: row.price_cents === null ? null : { cents: row.price_cents, currency: row.currency },
+    })),
     truncated: here.length > max,
   };
 }
@@ -279,16 +287,20 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
   // sigue sin resumen y con la historia entera (nunca un turno sin contestar), y
   // un error dentro de la transacción del turno la abortaría entera.
   const { summary, error: summaryError } = await loadSummary(db, conversationId);
+  // Cada consulta lleva la organización explícita (org), además de RLS como
+  // moodly_worker: CLAUDE.md no deja ninguna consulta del worker sin ella, y
+  // así una política mal escrita no abre nada (revisión de V10 sobre #309).
+  const org = db.organizationId;
   const loaded = await db.transaction(async (sql): Promise<Loaded> => {
     const [conversation] = await sql.query<ConversationRow>(
-      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where id = $1",
-      [conversationId],
+      "select id, location_id, contact_id, agent_id, mode, channel_account_id from public.conversations where organization_id = $2 and id = $1",
+      [conversationId, org],
     );
     if (!conversation) return { kind: "skip", reason: "conversation_missing" };
     if (conversation.mode !== "agent") return { kind: "skip", reason: "not_agent_mode" };
     const [latest] = await sql.query<{ id: string }>(
-      "select id from public.messages where conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
-      [conversationId],
+      "select id from public.messages where organization_id = $2 and conversation_id = $1 and author = 'contact' order by created_at desc limit 1",
+      [conversationId, org],
     );
     if (latest?.id !== messageId) return { kind: "skip", reason: "newer_message" };
 
@@ -296,39 +308,42 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
     if (!turn?.context) return { kind: "skip", reason: "agent_missing" };
     const context = contextSchema.parse(turn.context);
     if (!ANSWERING.has(context.agent.status)) {
-      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where id = $1", [
+      const [account] = await sql.query<{ channel: string }>("select channel from public.channel_accounts where organization_id = $2 and id = $1", [
         conversation.channel_account_id,
+        org,
       ]);
       if (!agentAnswers(context.agent.status, account?.channel ?? null)) return { kind: "skip", reason: "agent_not_answering" };
     }
 
     const messages = await sql.query<{ author: string; content: string }>(
       `select author, content from public.messages
-       where conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
+       where organization_id = $4 and conversation_id = $1 and ($3::timestamptz is null or created_at > $3)
        order by created_at desc limit $2`,
-      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null],
+      [conversationId, HISTORY_LIMIT, summary?.coveredUntil ?? null, org],
     );
     const [location] = conversation.location_id
-      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where id = $1", [
+      ? await sql.query<{ name: string; timezone: string }>("select name, timezone from public.locations where organization_id = $2 and id = $1", [
           conversation.location_id,
+          org,
         ])
       : [];
     const [modelSettings] = await sql.query(
       `select residency, allowed_providers, model_by_task, connection, budget_per_run_eur, budget_per_day_eur, budget_per_month_eur
-       from public.org_model_settings limit 1`,
+       from public.org_model_settings where organization_id = $1 limit 1`,
+      [org],
     );
     // Un modelo real no sabe el service_id que pide find_slots: va en el prompt.
     const books = context.skills.some((skill) => skill.key === FIND_SLOTS_SKILL_KEY && skill.enabled);
     const serviceRows =
       books && conversation.location_id
         ? await sql.query<ServiceRow>(
-            `select id, name, duration_minutes, location_id from public.services
-             where active and (location_id is null or location_id = $1)
+            `select id, name, duration_minutes, location_id, price_cents, currency from public.services
+             where organization_id = $3 and active and (location_id is null or location_id = $1)
              order by name limit $2`,
-            [conversation.location_id, MAX_PROMPT_SERVICES + 1],
+            [conversation.location_id, MAX_PROMPT_SERVICES + 1, org],
           )
         : [];
-    const pending = await loadPendingRequests(sql, db.organizationId, conversationId);
+    const pending = await loadPendingRequests(sql, org, conversationId);
     // El gasto del día y del mes, del libro de consumo (PL-ledger): la misma
     // suma que public.usage_spend, aquí bajo RLS (solo las filas de esta
     // organización, usage_records_worker, 20261112120000).
@@ -336,8 +351,8 @@ export async function prepare(db: TenantDb, conversationId: string, messageId: s
       `select coalesce(sum(cost_eur) filter (where occurred_at >= $1), 0)::float8 as day_eur,
               coalesce(sum(cost_eur) filter (where occurred_at >= $2), 0)::float8 as month_eur
        from public.usage_records
-       where occurred_at >= least($1::timestamptz, $2::timestamptz)`,
-      [dayStart.toISOString(), monthStart.toISOString()],
+       where organization_id = $3 and occurred_at >= least($1::timestamptz, $2::timestamptz)`,
+      [dayStart.toISOString(), monthStart.toISOString(), org],
     );
     return {
       kind: "turn",
@@ -924,6 +939,8 @@ export function createConverseHandler({ router, knowledge, platform, intentRouti
         timezone: prepared.location?.timezone ?? "UTC",
         now: new Date(prepared.now),
         ...(prepared.services ? { services: prepared.services, servicesTruncated: prepared.servicesTruncated } : {}),
+        // Los precios de los servicios, con el formato del idioma del negocio (OA04).
+        locale: context.organization.default_locale,
         knowledge: searchesKnowledge,
         handOff: handsOff,
         pendingRequests: prepared.pendingRequests,

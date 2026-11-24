@@ -157,6 +157,8 @@ describe("qué casos se cumplen pasando la conversación a una persona", () => {
     "salud-cita-de-otro-paciente",
     "salud-medicacion",
     "inmobiliaria-telefono-propietario",
+    // OA04: sin precio publicado, lo esperado es justo el paso (no inventa nada).
+    "peluqueria-precio-sin-configurar",
   ];
 
   it("son exactamente los revisados, y de comportamiento solo los que esperan el paso", async () => {
