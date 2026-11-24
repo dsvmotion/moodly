@@ -15,30 +15,39 @@
 --
 -- 2. El freno de envíos: como mucho 5 envíos por integración en 15 minutos,
 --    en la propia base de datos, al insertar.
---    - limit_secret_submissions: BEFORE INSERT en integration_secret_submissions,
---      solo con authenticated (como las guardas, ADR 0003). Se ejecuta después de
---      guard_secret_submission (los triggers BEFORE van por orden alfabético),
---      que ya ha comprobado la integración y fijado created_at = now().
+--    - limit_secret_submissions: AFTER INSERT FOR EACH ROW en
+--      integration_secret_submissions, solo con authenticated (como las
+--      guardas, ADR 0003). Es AFTER y no BEFORE porque el evento lo escribe
+--      emit_integration_key_submitted, que también es AFTER ROW: los AFTER de una
+--      sentencia corren al acabarla, fila a fila y, en cada fila, por orden
+--      alfabético (emit_… antes que limit_…). Así, en un INSERT de varias filas
+--      (la API acepta un array), cada fila cuenta los eventos de las anteriores
+--      y el suyo; con un BEFORE, todas verían 0 y entrarían todas.
 --    - Cuenta los eventos integration.key_submitted de la misma organización e
---      integración de los últimos 15 minutos, no las filas de envíos: el worker
---      borra cada envío en cuanto lo procesa (ADR 0055 §3, el texto cifrado vive
---      lo mínimo), y nadie borra domain_events fuera de los tests. El evento lo
---      escribe la base de datos con la hora del servidor, en la misma
---      transacción que el envío.
---    - Con 5 o más, falla con SQLSTATE 54000 (el mismo que el freno del chat de
---      prueba, 20261104090000); la web lo traduce a «demasiados intentos».
---    - Un cerrojo de transacción por integración (pg_advisory_xact_lock): dos
---      envíos a la vez no pasan los dos como el quinto.
+--      integración de los últimos 15 minutos (now(), la hora del servidor), no
+--      las filas de envíos: el worker borra cada envío en cuanto lo procesa
+--      (ADR 0055 §3, el texto cifrado vive lo mínimo), y nadie borra
+--      domain_events fuera de los tests. El evento lo escribe la base de datos,
+--      con la organización y la integración de la fila (NEW), nunca del cliente.
+--    - Con más de 5 (el suyo incluido), falla con SQLSTATE 54000 (el mismo que
+--      el freno del chat de prueba, 20261104090000) y la sentencia entera se
+--      deshace: ni envíos ni eventos. La web lo traduce a «demasiados intentos».
+--    - Un cerrojo de transacción por integración (pg_advisory_xact_lock, con el
+--      uuid de la integración, único entre organizaciones; una colisión del
+--      hash de 64 bits solo haría esperar, nunca contar mal): dos envíos a la vez
+--      no pasan los dos como el quinto. El segundo espera al commit del primero
+--      y cuenta con una instantánea nueva, que ya ve su evento.
 --    - Índice parcial de domain_events para esa cuenta.
 --
 -- Funciones:
 -- - limit_secret_submissions, el trigger: invoker, como las guardas (dentro de
 --   una security definer, current_user sería su dueño y la comprobación de
 --   authenticated no serviría). Toma el cerrojo y llama a la cuenta.
+--   (También AFTER ROW, ver arriba.)
 -- - recent_key_submissions, la cuenta: security definer porque la app no tiene
 --   SELECT en domain_events. Solo lee: una cuenta filtrada por la organización
---   y la integración de la fila (nunca del cliente), y solo para quien
---   administra esa organización. No escribe en ninguna tabla. search_path
+--   y la integración de la fila (nunca del cliente), y solo para una sesión
+--   activa de quien administra esa organización. No escribe en ninguna tabla. search_path
 --   vacío. Ejecutable solo por authenticated (private no lo expone la API).
 -- Tests en negativo en 61_integration_submission_limit.
 --
@@ -199,9 +208,9 @@ create index domain_events_key_submitted_idx
   where type = 'integration.key_submitted';
 
 -- La cuenta: security definer porque la app no lee domain_events. Solo lee, y
--- solo para quien administra esa organización (la llama el trigger de abajo,
--- antes de que actúe la política de INSERT).
-create function private.recent_key_submissions(p_organization_id uuid, p_integration_id uuid, p_at timestamptz)
+-- solo para una sesión activa de quien administra esa organización (la llama
+-- el trigger de abajo, en la misma sentencia que el INSERT).
+create function private.recent_key_submissions(p_organization_id uuid, p_integration_id uuid)
 returns integer
 language plpgsql
 stable
@@ -209,7 +218,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if not private.has_org_role(p_organization_id, array['org_admin']) then
+  if not ((select private.session_is_active()) and private.has_org_role(p_organization_id, array['org_admin'])) then
     raise exception 'solo quien administra la organización' using errcode = '42501';
   end if;
   return (select count(*)::int
@@ -217,13 +226,16 @@ begin
            where e.organization_id = p_organization_id
              and e.type = 'integration.key_submitted'
              and e.payload ->> 'integration_id' = p_integration_id::text
-             and e.created_at > p_at - interval '15 minutes');
+             and e.created_at > now() - interval '15 minutes');
 end;
 $$;
-revoke all on function private.recent_key_submissions(uuid, uuid, timestamptz) from public, anon, service_role, moodly_worker;
-grant execute on function private.recent_key_submissions(uuid, uuid, timestamptz) to authenticated;
+revoke all on function private.recent_key_submissions(uuid, uuid) from public, anon, service_role, moodly_worker;
+grant execute on function private.recent_key_submissions(uuid, uuid) to authenticated;
 
--- El freno. Invoker (como las guardas): solo actúa con authenticated.
+-- El freno. Invoker (como las guardas): solo actúa con authenticated. AFTER
+-- ROW, después de emit_integration_key_submitted (orden alfabético): la cuenta
+-- ya incluye el evento de esta fila y los de las filas anteriores de la misma
+-- sentencia.
 create function private.limit_secret_submissions()
 returns trigger
 language plpgsql
@@ -231,15 +243,15 @@ set search_path = ''
 as $$
 begin
   if current_user <> 'authenticated' then
-    return new;
+    return null;
   end if;
   perform pg_advisory_xact_lock(hashtextextended('integration_secret_submissions:' || new.integration_id::text, 0));
-  if private.recent_key_submissions(new.organization_id, new.integration_id, new.created_at) >= 5 then
+  if private.recent_key_submissions(new.organization_id, new.integration_id) > 5 then
     raise exception 'demasiados envíos de clave para esta integración: espera unos minutos' using errcode = '54000';
   end if;
-  return new;
+  return null;
 end;
 $$;
 revoke all on function private.limit_secret_submissions() from public;
-create trigger limit_secret_submissions before insert on public.integration_secret_submissions
+create trigger limit_secret_submissions after insert on public.integration_secret_submissions
   for each row execute function private.limit_secret_submissions();

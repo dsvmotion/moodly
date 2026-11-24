@@ -3,7 +3,7 @@
 -- blancas como en 20261114110000.
 drop trigger if exists limit_secret_submissions on public.integration_secret_submissions;
 drop function if exists private.limit_secret_submissions();
-drop function if exists private.recent_key_submissions(uuid, uuid, timestamptz);
+drop function if exists private.recent_key_submissions(uuid, uuid);
 drop index if exists public.domain_events_key_submitted_idx;
 
 create or replace function private.guard_integration_write()

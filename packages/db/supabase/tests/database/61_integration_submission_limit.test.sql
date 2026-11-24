@@ -5,7 +5,7 @@
 -- contados en la organización de la fila, nunca en las de otras.
 begin;
 \ir _fixtures/tenants.psql
-select plan(37);
+select plan(41);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (como postgres: las guardas no actúan)
@@ -23,6 +23,9 @@ insert into public.integrations (organization_id, provider, kind, status)
 values (:org_b, 'koibox', 'native', 'pending') returning id as int_b \gset
 insert into public.integrations (organization_id, provider, kind, status, external_connection_id)
 values (:org_a, 'google-calendar', 'platform', 'active', 'conn-61-a') returning id as plat_a \gset
+-- M: de B, en un local, para el INSERT de varias filas.
+insert into public.integrations (organization_id, location_id, provider, kind, status)
+values (:org_b, :loc_b1, 'koibox', 'native', 'pending') returning id as int_m \gset
 
 -- ===========================================================================
 -- 1. Estructura y privilegios
@@ -44,20 +47,26 @@ select ok(has_column_privilege('authenticated', 'public.integrations', 'last_sub
 select is(
   (select array_agg(format('%s:%s:%s', p.proname, p.prosecdef, p.proconfig::text) order by p.proname::text collate "C") from pg_proc p
    where p.oid in ('private.limit_secret_submissions()'::regprocedure,
-                   'private.recent_key_submissions(uuid, uuid, timestamptz)'::regprocedure)),
+                   'private.recent_key_submissions(uuid, uuid)'::regprocedure)),
   array['limit_secret_submissions:f:{"search_path=\"\""}', 'recent_key_submissions:t:{"search_path=\"\""}'],
   'el trigger del freno es invoker (como las guardas) y la cuenta, security definer (la app no lee domain_events); las dos con search_path vacío');
 select is(
   (select array_agg(r order by r)
    from unnest(array['anon', 'authenticated', 'service_role', 'moodly_worker']) as r
-   where has_function_privilege(r, 'private.recent_key_submissions(uuid, uuid, timestamptz)', 'execute')),
+   where has_function_privilege(r, 'private.recent_key_submissions(uuid, uuid)', 'execute')),
   array['authenticated'], 'la cuenta solo la ejecuta authenticated (el trigger corre como quien inserta)');
 select is(
   (select array_agg(t.tgname::text order by t.tgname::text collate "C") from pg_trigger t
    where t.tgrelid = 'public.integration_secret_submissions'::regclass and not t.tgisinternal
      and (t.tgtype & 2) = 2 and (t.tgtype & 4) = 4),
-  array['guard_secret_submission', 'limit_secret_submissions'],
-  'el freno va después de la guarda (orden alfabético de los BEFORE INSERT): created_at ya es la hora del servidor');
+  array['guard_secret_submission'],
+  'antes de insertar solo actúa la guarda');
+select is(
+  (select array_agg(t.tgname::text order by t.tgname::text collate "C") from pg_trigger t
+   where t.tgrelid = 'public.integration_secret_submissions'::regclass and not t.tgisinternal
+     and (t.tgtype & 2) = 0 and (t.tgtype & 4) = 4 and (t.tgtype & 1) = 1),
+  array['emit_integration_key_submitted', 'limit_secret_submissions'],
+  'el freno es AFTER ROW y va después del evento (orden alfabético): cada fila cuenta su evento y los de las filas anteriores de la sentencia');
 
 -- ===========================================================================
 -- 2. Una persona no toca el resultado (guard_integration_write)
@@ -68,9 +77,9 @@ select throws_ok(format($$update public.integrations set last_submission_result 
 select throws_ok(format($$insert into public.integrations (organization_id, location_id, provider, kind, status, last_submission_result)
   values (%L, %L, 'koibox', 'native', 'pending', 'applied')$$, :org_b, :loc_b1),
   '42501', null, 'ni crea una integración con resultado');
-select throws_ok(format($$select private.recent_key_submissions(%L, %L, now())$$, :org_b, :'int_b'),
+select throws_ok(format($$select private.recent_key_submissions(%L, %L)$$, :org_b, :'int_b'),
   '42501', null, 'la cuenta no responde por otra organización (no deja saber cuántos envíos tiene)');
-select is(private.recent_key_submissions(:org_a, :'int_x', now()), 0, 'y por la suya, sí');
+select is(private.recent_key_submissions(:org_a, :'int_x'), 0, 'y por la suya, sí');
 reset role;
 
 -- La guarda también, por si un día la app tuviera el privilegio de la columna.
@@ -135,6 +144,12 @@ create function pg_temp.submit(p_org uuid, p_integration uuid) returns void lang
   values (gen_random_uuid(), p_org, p_integration, 'koibox', 'local:v1', 'ZGVr', 'Y2lw');
 $$;
 grant execute on function pg_temp.submit(uuid, uuid) to authenticated;
+-- Varias filas en una sola sentencia (la API de datos acepta un array).
+create function pg_temp.submit_n(p_org uuid, p_integration uuid, p_n int) returns void language sql as $$
+  insert into public.integration_secret_submissions (id, organization_id, integration_id, provider, key_ref, encrypted_data_key, ciphertext)
+  select gen_random_uuid(), p_org, p_integration, 'koibox', 'local:v1', 'ZGVr', 'Y2lw' from generate_series(1, p_n);
+$$;
+grant execute on function pg_temp.submit_n(uuid, uuid, int) to authenticated;
 
 select pg_temp.login_mfa(:a_admin) as s_a3 \gset
 select lives_ok(format($$select pg_temp.submit(%L, %L)$$, :org_a, :'int_x'), 'X: 1.º envío');
@@ -153,9 +168,17 @@ select lives_ok(format($$select pg_temp.submit(%L, %L)$$, :org_a, :'int_z'),
 reset role;
 
 select pg_temp.login_mfa(:b_admin) as s_b \gset
-select lives_ok(format($$select pg_temp.submit(%L, %L)$$, :org_b, :'int_b'),
-  'otra organización no se ve afectada');
+select throws_ok(format($$select pg_temp.submit_n(%L, %L, 6)$$, :org_b, :'int_m'),
+  '54000', null, '6 envíos en una sola sentencia: la sentencia falla entera');
+select lives_ok(format($$select pg_temp.submit_n(%L, %L, 5)$$, :org_b, :'int_b'),
+  '5 en una sola sentencia pasan (y otra organización no se ve afectada por A)');
+select throws_ok(format($$select pg_temp.submit(%L, %L)$$, :org_b, :'int_b'),
+  '54000', null, 'y el siguiente, en otra sentencia, ya no');
 reset role;
+select is(
+  (select count(*)::int from public.integration_secret_submissions where integration_id = :'int_m')
+  + (select count(*)::int from public.domain_events where type = 'integration.key_submitted' and payload->>'integration_id' = :'int_m'),
+  0, 'de los 6 de una sentencia no queda ni un envío ni un evento');
 
 select is(
   (select count(*)::int from public.integration_secret_submissions where integration_id = :'int_x'),
