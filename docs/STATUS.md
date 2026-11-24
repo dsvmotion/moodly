@@ -46,6 +46,7 @@
 **Staging en `c290ee3`:** sin comprobar todavía (paso 4 de la auditoría, en pausa con los mergeos).
 
 ### En curso
+- **`[M1][PL-prod]` Simulacro de restauración (2026-11-24):** `scripts/supabase/restore-drill.sh` y el workflow «Staging · simulacro de restauración» (`staging-restore-drill.yml`, solo desde `main`, solo lee staging, sin subir el volcado) vuelcan la base de datos, la restauran en un Postgres desechable y comprueban filas por tabla, RLS, políticas, roles y migraciones. **Ensayado en local** (Supabase local con el seed, contra un destino nuevo): OK, 18 s, y con dos pruebas en negativo que lo hacen fallar. **Falta la corrida real contra staging desde `main`**; hasta entonces la puerta de M1 «un simulacro de restauración» **no** está cumplida. Tampoco está probada la restauración de un proyecto entero desde las copias de Supabase (la hace una persona, pasos en `docs/runbooks/simulacro-de-restauracion.md`).
 - **[M0][R-08]** (hecho, PR #198 mergeado en `4a4ef82`): la hora de una cita de un agente se valida en SQL (futuro, horario, cuadrícula, recurso libre); pgTAP 40 y tests de skills en verde.
 - **`[M1][B-01]` Modelo por agente (producto, 2026-11-11; rama `claude/modelo-por-agente`):** cada agente conversa con la clave más barata que pasa sus evals (MANUAL §5.11): Atención al cliente pasa a `fast` y Recepción sigue en `smart`; manda lo que elija la organización en `org_model_settings`. Verificado con tests unitarios (`pnpm test`); falta una corrida de las evals con el modelo real sobre la rama y la prueba de extremo a extremo en staging, que hoy solo prueba Recepción.
 - **El plan nuevo:** la auditoría de preproducción y `docs/scope.yaml`, mergeados en #161 (`38f4afa`); #162 lo pasa a MANUAL, STATUS, WORKSTREAMS, CLAUDE.md y AGENTS.md.
@@ -149,7 +150,7 @@ Detalle en MANUAL §17.0, el reparto en `docs/WORKSTREAMS.md` y las unidades y h
 ### Condiciones de salida a producción (todas antes del primer dato real de un cliente)
 La lista completa es la de la auditoría §13 (puerta de M3). Además de ella, y ya anotadas aquí:
 1. Reactivar la revisión humana al menos para migraciones, RLS, funciones `SECURITY DEFINER`, auth, secretos y la propia guarda (`sensitive-paths.txt`), y que el job `sensitive-paths` lea la lista de la rama base.
-2. Supabase Pro en la UE, con una restauración de copia probada y la caducidad de sesiones de `config.toml` aplicada.
+2. Supabase Pro en la UE, con una restauración de copia probada y la caducidad de sesiones de `config.toml` aplicada (el simulacro automático de la base de datos de staging está listo y falta su corrida real; la restauración de un proyecto entero desde las copias de Supabase la ensaya una persona: `docs/runbooks/simulacro-de-restauracion.md`).
 3. DPAs firmados con cada proveedor que trate datos (F10), también cada proveedor de modelos, y confirmar que el AI Gateway fija proveedor y modelo o que su DPA es válido. La inferencia ya no se fija a la UE (decisión del 2026-11-12, ADR 0051).
 4. El `KeyProvider` de AWS KMS (`eu-central-1`) y una clave por entorno antes del primer secreto real.
 5. Claves de servidor de staging rotadas; las de producción las genera una persona en Vercel.
