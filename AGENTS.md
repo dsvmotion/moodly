@@ -152,3 +152,14 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 
 ## Trabajo en paralelo (Claude Code + Codex)
 Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
+
+## How we work (flujo lead + workers, 2026-11-24)
+
+@docs/CLAUDE-WORKFLOW-RULES.md
+@docs/WORKFLOW.md
+
+- Source of truth: docs/PLAN.md (what), docs/STATUS.md (where we are),
+  docs/specs/ (task details), docs/ARCHITECTURE.md (where code lives).
+- Read ARCHITECTURE.md before exploring; use the `explore` agent for searches.
+- Worker sessions do one spec and stop. Lead sessions plan and review; they don't implement.
+- Every task ends with its verify commands run and a report in docs/reports/.
