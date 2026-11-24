@@ -12,7 +12,7 @@ import { tenantDb, type TenantDb } from "./tenant-db.ts";
 import { WorkerSqlError, createWorkerSql } from "./worker-sql.ts";
 
 export { ChannelAccountError, type ChannelAccounts, type ResolvedChannelAccount } from "./channel-accounts.ts";
-export { OutboxError, type Outbox, type PendingDomainEvent } from "./outbox.ts";
+export { OutboxError, type Outbox, type PendingDomainEvent, type PublishedCursor, type PublishedDomainEvent } from "./outbox.ts";
 export { WorkerSqlError, type TenantSql } from "./worker-sql.ts";
 export {
   TenantScopeError,
