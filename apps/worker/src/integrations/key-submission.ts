@@ -152,11 +152,12 @@ async function applyInTransaction(
   // un Date de JS la truncaría a ms (hallazgo L1 de V10).
   const [own] = await sql.query<{ created_at: string; newer: boolean }>(
     `with own as (
-       delete from public.integration_secret_submissions where id = $1 and organization_id = $2 returning id, created_at
+       delete from public.integration_secret_submissions where id = $1 and organization_id = $2 returning id, created_at, organization_id
      )
      select own.created_at::text as created_at,
             (i.last_submission_at is null or (own.created_at, own.id) > (i.last_submission_at, i.last_submission_id)) as newer
-       from own left join public.integrations i on i.id = $3 and i.organization_id = $2`,
+       from own left join public.integrations i on i.id = $3 and i.organization_id = $2
+      where own.organization_id = $2`,
     [input.submissionId, org, input.integrationId],
   );
   if (!own) return "already_processed";
