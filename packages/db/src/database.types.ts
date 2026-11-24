@@ -647,13 +647,13 @@ isOneToOne: false
                   ]
                 },"integrations": {
                   Row: {
-                    "connected_by": string | null,"created_at": string,"external_connection_id": string | null,"id": string,"kind": string,"last_health_check": string | null,"last_submission_at": string | null,"last_submission_id": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
+                    "connected_by": string | null,"created_at": string,"external_connection_id": string | null,"id": string,"kind": string,"last_health_check": string | null,"last_submission_at": string | null,"last_submission_id": string | null,"last_submission_result": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
                   }
                   Insert: {
-                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind": string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind": string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"last_submission_result"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"last_submission_result"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {

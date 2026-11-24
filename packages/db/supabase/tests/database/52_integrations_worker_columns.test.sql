@@ -14,13 +14,13 @@ values (:org_a, 'google-calendar', 'platform', 'active', 'conn-52-a') returning 
 select is(
   (select string_agg(column_name::text, ', ' order by column_name) from information_schema.column_privileges
    where grantee = 'moodly_worker' and table_name = 'integrations' and privilege_type = 'SELECT'),
-  'external_connection_id, id, kind, last_health_check, last_submission_at, last_submission_id, location_id, organization_id, provider, secret_id, status',
-  'lee de integrations solo las columnas que usa el worker (secret_id, desde 20261113100000: la clave de Koibox; la marca del último envío, desde 20261114110000)');
+  'external_connection_id, id, kind, last_health_check, last_submission_at, last_submission_id, last_submission_result, location_id, organization_id, provider, secret_id, status',
+  'lee de integrations solo las columnas que usa el worker (secret_id, desde 20261113100000: la clave de Koibox; la marca del último envío, desde 20261114110000, y su resultado, desde 20261124100000)');
 select is(
   (select string_agg(column_name::text, ', ' order by column_name) from information_schema.column_privileges
    where grantee = 'moodly_worker' and table_name = 'integrations' and privilege_type = 'UPDATE'),
-  'external_connection_id, last_health_check, last_submission_at, last_submission_id, secret_id, status',
-  'y cambia solo estas (las de 20261112210000; secret_id y la marca del último envío, desde 20261114110000: el alta de la clave, ADR 0055)');
+  'external_connection_id, last_health_check, last_submission_at, last_submission_id, last_submission_result, secret_id, status',
+  'y cambia solo estas (las de 20261112210000; secret_id y la marca del último envío, desde 20261114110000: el alta de la clave, ADR 0055; su resultado, desde 20261124100000)');
 select is(
   (select count(*)::int from information_schema.role_table_grants
    where grantee = 'moodly_worker' and table_name = 'integrations'),
