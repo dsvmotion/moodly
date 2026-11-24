@@ -1,0 +1,24 @@
+{
+  "v": 4,
+  "createdOnFiles": { "v": 1, "at": "2026-11-11T16:10:00Z" },
+  "lists": "css",
+  "title": "Moodly: presentación para empresas piloto",
+  "cover": "cover",
+  "order": ["cover", "tesis", "problema", "agentes", "amedida", "anatomia", "ejemplo", "sectores1", "sectores2", "adaptacion", "diferencia", "confianza", "estado", "calendario", "piloto", "buscamos", "cierre"],
+  "sections": {
+    "producto": { "description": "Qué es Moodly: un equipo de agentes de IA que hace el trabajo diario de una empresa, y cómo trabaja cada agente.", "start": "cover" },
+    "sectores": { "description": "El mismo equipo configurado para sectores distintos, y las capas con las que se adapta a cada empresa.", "start": "sectores1" },
+    "plataforma": { "description": "Qué lo diferencia, cómo está construido por dentro y cómo se protege.", "start": "diferencia" },
+    "plan": { "description": "Dónde está el producto hoy y cuándo llega el piloto con el primer cliente real.", "start": "estado" },
+    "propuesta": { "description": "Qué ofrece el piloto a una empresa, qué le pedimos y a quién buscamos.", "start": "piloto" }
+  },
+  "faces": {
+    "labil-grotesk": { "family": "Labil Grotesk", "src": "project/ds/moodly/fonts/LabilGrotesk-Regular.woff2" },
+    "labil-grotesk-thin": { "family": "Labil Grotesk Thin", "src": "project/ds/moodly/fonts/LabilGrotesk-Thin.woff2" },
+    "plus-jakarta-sans": { "family": "Plus Jakarta Sans", "href": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500&display=swap" },
+    "jetbrains-mono": { "family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" }
+  },
+  "designSystems": [
+    { "title": "Moodly AI", "namespace": "moodly", "artifact": "https://claude.ai/artifact/QJ3fALw4PVmWUqiyJqFc5P", "version": "1792361541-e3bd", "copiedAt": "2026-11-11T16:10:00Z" }
+  ]
+}

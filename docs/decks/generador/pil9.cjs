@@ -1,0 +1,22 @@
+// Pilot deck: five first sectors, founding-partner programme of eight weeks, no contact email yet.
+module.exports = function (k, S, N) {
+  const { C, AG } = k;
+  const rep = (id, a, b) => { if (!S[id].includes(a)) throw new Error(`${id}: missing "${a.slice(0, 50)}"`); S[id] = S[id].split(a).join(b); };
+  const n = S.cierre.replace(/\n?<p[^>]*>contact@moodly\.com<\/p>/, ''); if (n === S.cierre) throw new Error('cierre: email not found'); S.cierre = n;
+  const sector = (name, lines) => k.tile(C.white, k.h3(name, 38) + '\n' + [[AG.green, C.white, 'Recepción'], [AG.rock, C.ink, 'Atención'], [AG.wine, C.white, 'Comercial'], [AG.cin, C.white, 'Admin.']].map((a, i) =>
+    k.row(`<p style="font-family:${k.FD};font-size:26px;line-height:1.2;background:${a[0]};color:${a[1]};border-radius:800px;padding:8px 18px;width:172px">${a[2]}</p>\n` + k.p(lines[i], 26, '', ';flex:1'), 16, ';align-items:center')).join('\n<div style="flex:1"></div>\n'), { pad: '28px 32px', gap: 8 });
+  S.sectores1 = k.slide('sectores1', { foot: 'Ejemplos de configuración por sector, no funciones ya entregadas · 1 de 2', body: k.pill('Sectores') + '\n' + k.h2('Empezamos por cinco sectores') + '\n' + k.row(
+    sector('Belleza y bienestar', ['Citas, cambios y lista de espera', 'Precios, servicios y horarios', 'Bonos y clientes que no vuelven', 'Señales y recordatorios']) + '\n' + sector('Hostelería y restauración', ['Reservas, grupos y lista de espera', 'Alérgenos, horarios y pedidos', 'Eventos y empresas', 'Señales y facturas de eventos']) + '\n' + sector('Automoción y talleres', ['Citas de taller y recogidas', 'Estado de la reparación', 'Presupuestos y seguimiento', 'Facturas y avisos de revisión']), 16, ';align-items:stretch;flex:1')
+    + '\n' + k.p('El piloto arranca con citas, reservas y atención. El resto se activa con skills e integraciones a medida.', 28) });
+  S.sectores2 = k.slide('sectores2', { foot: 'Ejemplos de configuración por sector, no funciones ya entregadas · 2 de 2', body: k.pill('Sectores') + '\n' + k.h2('Salud, vivienda y cualquier negocio con cita') + '\n' + k.row(
+    sector('Salud y bienestar', ['Citas, cambios y recordatorios', 'Horarios, precios y preparación', 'Revisiones pendientes', 'Señales y facturas']) + '\n' + sector('Viviendas e inmuebles', ['Visitas y entrega de llaves', 'Dudas sobre cada vivienda', 'Cualifica y hace seguimiento', 'Documentos y señales de reserva']) + '\n' + sector('Tu sector', ['Lo que hoy entra por mensaje', 'Lo que tu equipo ya sabe contestar', 'Los contactos que se enfrían', 'Cobros, facturas y avisos']), 16, ';align-items:stretch;flex:1')
+    + '\n' + k.p('En salud, el agente gestiona citas y precios: no trata datos clínicos.', 28) });
+  rep('buscamos', 'Restauración, comercio, moda, agencias, servicios con cita.', 'Belleza, hostelería, talleres, salud y vivienda.');
+  rep('piloto', 'Qué recibe una empresa piloto.', 'Programa de empresas fundadoras.');
+  const wk = (w, name, text, dark) => k.tile(dark ? C.ink : C.white, k.lab(w, dark ? C.onDark : C.soft, 28) + '\n<div style="flex:1"></div>\n' + k.h3(name, 40) + '\n' + k.p(text, 26, dark ? C.onDark : C.muted, ';height:104px'), { pad: '28px', gap: 8 });
+  S.programa = k.slide('programa', { foot: 'Se firma ahora una carta de intención · arranque previsto: marzo de 2027', gap: 32, body: k.pill('El programa') + '\n' + k.h2('Ocho semanas, con el éxito acordado de antemano') + '\n' + k.row(
+    wk('Semana 1', 'Medir', 'Cómo trabajas hoy y qué se repite.') + '\n' + wk('Semanas 2–3', 'Configurar', 'Agentes, reglas y conexión con tus sistemas.') + '\n' + wk('Semanas 4–5', 'Arrancar', 'El agente trabaja con tu aprobación.') + '\n' + wk('Semanas 6–7', 'Ajustar', 'Corregimos con lo que diga tu equipo.') + '\n' + wk('Semana 8', 'Resultados', 'Cifras y decisión de seguir.', true), 16, ';align-items:stretch;flex:1')
+    + '\n' + k.p('Qué medimos juntos: tareas resueltas sin intervención, horas recuperadas y coste por tarea.', 30) });
+  N.programa = 'Empieza por un solo flujo medible, por ejemplo citas por WhatsApp con recordatorio y señal, en un local. La primera semana se mide cómo trabajan hoy para tener con qué comparar. Los criterios de éxito se acuerdan antes de empezar y se escriben en la carta de intención. Lo que se firma ahora es esa carta, de una página, y más adelante el contrato de tratamiento de datos; el arranque real es en marzo de 2027. Si se cumplen los criterios, pasan al precio de fundador.';
+  S.__after.push(['piloto', ['programa']]);
+};
