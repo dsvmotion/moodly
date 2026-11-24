@@ -12,7 +12,7 @@ export const NOTIFICATION_EMAIL_FROM = "notificaciones@moodlycrm.com";
  * Lo más largo que puede ser una respuesta a un cliente, la del agente o la
  * que corrige una persona al aprobarla (OA02): por debajo del límite de
  * WhatsApp (4.096), para que quepa en cualquier canal. La base de datos lo
- * repite en private.valid_reply_edit (20261113150000): si cambia aquí, cambia
+ * repite en private.valid_reply_edit (20261124120000): si cambia aquí, cambia
  * allí, en una migración.
  */
 export const MAX_REPLY_LENGTH = 4000;

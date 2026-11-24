@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts, escapeHeadings } from "./prompt.js";
+import { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts, escapeHeadings, formatPrice } from "./prompt.js";
 import { CUSTOMER_MESSAGE_MARK } from "./turn.js";
 
 const base = {
@@ -69,6 +69,45 @@ describe("composeSystemPrompt", () => {
     expect(composeSystemPrompt({ ...base, services: [] })).toContain("Nothing can be booked here yet");
     const cut = composeSystemPrompt({ ...base, services: [{ id: "x", name: "Láser", durationMinutes: 30 }], servicesTruncated: true });
     expect(cut).toContain("This list is incomplete");
+  });
+
+  it("con los precios del negocio (OA04): cada servicio con el suyo, en su moneda y con el formato del negocio", () => {
+    const services = [
+      { id: "s1", name: "Corte", durationMinutes: 30, price: { cents: 1850, currency: "EUR" } },
+      { id: "s2", name: "Tinte", durationMinutes: 90, price: null },
+      { id: "s3", name: "Peinado", durationMinutes: 45, price: { cents: 2000, currency: "GBP" } },
+    ];
+    const prompt = composeSystemPrompt({ ...base, services, locale: "es-ES" });
+    expect(prompt).toContain(
+      [
+        `- Corte (30 min, ${formatPrice({ cents: 1850, currency: "EUR" }, "es-ES")}): service_id s1`,
+        "- Tinte (90 min, no published price): service_id s2",
+        `- Peinado (45 min, ${formatPrice({ cents: 2000, currency: "GBP" }, "es-ES")}): service_id s3`,
+      ].join("\n"),
+    );
+    expect(prompt).toContain("quote them exactly as written, in that currency, without searching for them");
+    expect(prompt).toContain('A service with "no published price" has no price you can give: never make one up');
+    // Las reglas de los precios, antes de la lista.
+    expect(prompt.indexOf("quote them exactly as written")).toBeLessThan(prompt.indexOf("- Corte"));
+    // Van en la parte estable: cambian con los ajustes del negocio, no en cada turno.
+    expect(composeSystemPromptParts({ ...base, services, locale: "es-ES" }).stable).toContain("no published price");
+  });
+
+  it("sin saber los precios (la propiedad no está), la capa no habla de ellos", () => {
+    const prompt = composeSystemPrompt({ ...base, services: [{ id: "s1", name: "Corte", durationMinutes: 30 }] });
+    expect(prompt).toContain("- Corte (30 min): service_id s1");
+    expect(prompt).not.toContain("published price");
+    expect(prompt).not.toContain("quote them exactly");
+  });
+
+  it("formatPrice: con el formato del locale, y con uno que Intl no conoce, el de es-ES", () => {
+    const nbsp = /[\u00a0\u202f]/g;
+    expect(formatPrice({ cents: 1850, currency: "EUR" }, "es-ES").replace(nbsp, " ")).toBe("18,50 €");
+    expect(formatPrice({ cents: 1850, currency: "EUR" }).replace(nbsp, " ")).toBe("18,50 €");
+    expect(formatPrice({ cents: 2000, currency: "GBP" }, "en-GB")).toBe("£20.00");
+    expect(formatPrice({ cents: 123456, currency: "USD" }, "en-US")).toBe("$1,234.56");
+    expect(formatPrice({ cents: 0, currency: "EUR" }, "es-ES").replace(nbsp, " ")).toBe("0,00 €");
+    expect(formatPrice({ cents: 1850, currency: "EUR" }, "not a locale!").replace(nbsp, " ")).toBe("18,50 €");
   });
 
   it("un agente que no reserva no lleva esa capa", () => {

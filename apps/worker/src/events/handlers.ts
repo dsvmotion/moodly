@@ -67,6 +67,14 @@ export interface EventHandler {
   /** La cola de sus entregas; "domain-events" si no se dice. */
   queue?: DeliveryQueue;
   /**
+   * Relleno (W3): los eventos de sus tipos ya publicados antes de que este
+   * consumidor existiera, de como mucho estas horas, se le entregan una vez
+   * (outbox.backfill). Sin esto, lo publicado antes de su llegada no le llega
+   * nunca. Solo si volver a mirar algo de hace horas no hace daño: por defecto,
+   * nada.
+   */
+  backfill?: { maxAgeHours: number };
+  /**
    * Corre dentro del workflow de entrega: entre paso y paso, solo lógica
    * determinista (lo mismo con las mismas entradas). Los efectos van en ctx.step.
    */
@@ -76,7 +84,12 @@ export interface EventHandler {
 export interface EventRegistry {
   handlersFor(type: string): EventHandler[];
   get(key: string): EventHandler | undefined;
+  /** Todos, en el orden en que se registraron. */
+  all(): EventHandler[];
 }
+
+/** Hasta una semana: más atrás, lo que se rellenaría ya no tiene sentido para nadie. */
+export const MAX_BACKFILL_HOURS = 168;
 
 const HANDLER_KEY = /^[a-z][a-z0-9_.-]{0,62}$/;
 
@@ -91,11 +104,19 @@ export function createEventRegistry(handlers: readonly EventHandler[]): EventReg
     if (handler.eventTypes !== "*" && !handler.eventTypes.every(isEventType)) {
       throw new Error(`el consumidor ${handler.key} se suscribe a un tipo de evento que no está en el catálogo`);
     }
+    if (handler.backfill !== undefined) {
+      const hours = handler.backfill.maxAgeHours;
+      if (handler.eventTypes === "*") throw new Error(`el consumidor ${handler.key} pide relleno de todos los tipos: solo de los suyos`);
+      if (!Number.isInteger(hours) || hours < 1 || hours > MAX_BACKFILL_HOURS) {
+        throw new Error(`el consumidor ${handler.key} pide un relleno de 1 a ${MAX_BACKFILL_HOURS} horas`);
+      }
+    }
     byKey.set(handler.key, handler);
   }
   return {
     handlersFor: (type) =>
       [...byKey.values()].filter((handler) => handler.eventTypes === "*" || (handler.eventTypes as readonly string[]).includes(type)),
     get: (key) => byKey.get(key),
+    all: () => [...byKey.values()],
   };
 }

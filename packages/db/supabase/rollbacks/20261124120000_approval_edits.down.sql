@@ -1,4 +1,4 @@
--- Vuelta atrás de 20261113150000_approval_edits.sql: quien aprueba ya no puede
+-- Vuelta atrás de 20261124120000_approval_edits.sql: quien aprueba ya no puede
 -- editar el texto de una respuesta, y aprobar una reserva con la hora pasada
 -- vuelve a no comprobarse en la base de datos (lo sigue parando la Server
 -- Action, y al ejecutarla falla). Antes, desplegar una web y un worker sin la

@@ -21,7 +21,13 @@
 -- quien decide, que la ve porque ve la aprobación (mismo alcance). Si no la
 -- viera, la edición se rechaza (no es una respuesta que pueda ver).
 --
--- Vuelta atrás: rollbacks/20261113150000_approval_edits.down.sql (devuelve
+-- Hueco 20261124120000 (antes 20261113150000, V1, 2026-11-24): main ya tiene
+-- migraciones posteriores a 20261113150000 (20261114100000, 20261114110000 y
+-- 20261124100000), que staging aplica al desplegar main, y supabase db push
+-- no aplica una más antigua que la última aplicada. Ninguna de ellas toca approvals ni
+-- guard_approval, así que el orden nuevo no cambia lo que hace.
+--
+-- Vuelta atrás: rollbacks/20261124120000_approval_edits.down.sql (devuelve
 -- guard_approval a la versión de 20261111200000 y quita la columna; las
 -- ediciones guardadas se pierden). No hay datos de clientes todavía.
 

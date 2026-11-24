@@ -1,4 +1,4 @@
--- OA02, PR 2 (20261113150000): quien aprueba una respuesta del agente puede
+-- OA02, PR 2 (20261124120000): quien aprueba una respuesta del agente puede
 -- corregir su texto al aprobarla, y solo entonces; nadie más, nunca después,
 -- nunca al rechazar y solo en respuestas. Y una reserva o un cambio de cita
 -- cuya hora ya pasó no se aprueba.

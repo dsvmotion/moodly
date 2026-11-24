@@ -13,7 +13,7 @@ import { idSchema } from "@/lib/validation";
 // alcance que pide, aal2 cuando toca y que siga pendiente y sin caducar;
 // guard_approval pone quién decidió y cuándo, solo deja corregir el texto de
 // una respuesta al aprobarla y no deja aprobar una reserva cuya hora pasó
-// (20261113150000); y emite approval.decided, que el worker ejecuta
+// (20261124120000); y emite approval.decided, que el worker ejecuta
 // (agent.approval). Aquí se valida la forma, con las mismas reglas, para que
 // la persona vea por qué antes de decidir. Los eventos llevan ids y si hubo
 // corrección, nunca el texto.

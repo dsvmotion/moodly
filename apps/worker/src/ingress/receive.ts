@@ -1,5 +1,5 @@
 import type { ChannelAdapter, DeliveryUpdate, NormalizedInbound, RawWebhook, VerifiedSender } from "@repo/channels";
-import type { ServiceDb } from "@repo/db/service";
+import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { DEAD_LETTER } from "./attempts.ts";
 import type { IngestInput } from "./ingest.ts";
@@ -143,23 +143,9 @@ async function receiveOne(
   // El evento, como moodly_worker por SQL bajo RLS (20261112230000), una sola vez
   // por (cuenta, id del evento): un reintento del proveedor no crea nada nuevo.
   const tenant = deps.db.forOrganization(account.organizationId);
-  let stored: { id: string; inserted: boolean; status: string; error_code: string | null } | undefined;
+  let stored: StoredInboundEvent | undefined;
   try {
-    stored = await tenant.transaction(async (sql) => {
-      const [inserted] = await sql.query<{ id: string }>(
-        `insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
-         values ($1, $2, $3, $4::jsonb)
-         on conflict (channel_account_id, provider_event_id) do nothing
-         returning id`,
-        [account.organizationId, account.id, message.providerEventId, JSON.stringify(message)],
-      );
-      if (inserted) return { id: inserted.id, inserted: true, status: "received", error_code: null };
-      const [existing] = await sql.query<{ id: string; status: string; error_code: string | null }>(
-        "select id, status, error_code from public.inbound_events where channel_account_id = $1 and provider_event_id = $2",
-        [account.id, message.providerEventId],
-      );
-      return existing ? { ...existing, inserted: false } : undefined;
-    });
+    stored = await storeInboundEvent(tenant, account.id, message);
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;
     if (typeof code === "string" && PERMANENT_CODES.has(code)) {
@@ -183,6 +169,41 @@ async function receiveOne(
   }
   await deps.startIngest({ organizationId: account.organizationId, inboundEventId });
   return outcome;
+}
+
+export interface StoredInboundEvent {
+  id: string;
+  inserted: boolean;
+  status: string;
+  error_code: string | null;
+}
+
+/**
+ * El evento de entrada, una sola vez por (cuenta, id del evento) en la
+ * organización de la cuenta (db.organizationId): si ya estaba, el que hay. La
+ * lectura del repetido filtra por esa organización explícita, no solo por RLS
+ * (3.2).
+ */
+export async function storeInboundEvent(
+  db: Pick<TenantDb, "organizationId" | "transaction">,
+  channelAccountId: string,
+  message: NormalizedInbound,
+): Promise<StoredInboundEvent | undefined> {
+  return db.transaction(async (sql) => {
+    const [inserted] = await sql.query<{ id: string }>(
+      `insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+       values ($1, $2, $3, $4::jsonb)
+       on conflict (channel_account_id, provider_event_id) do nothing
+       returning id`,
+      [db.organizationId, channelAccountId, message.providerEventId, JSON.stringify(message)],
+    );
+    if (inserted) return { id: inserted.id, inserted: true, status: "received", error_code: null };
+    const [existing] = await sql.query<{ id: string; status: string; error_code: string | null }>(
+      "select id, status, error_code from public.inbound_events where organization_id = $1 and channel_account_id = $2 and provider_event_id = $3",
+      [db.organizationId, channelAccountId, message.providerEventId],
+    );
+    return existing ? { ...existing, inserted: false } : undefined;
+  });
 }
 
 type StatusOutcome = "applied" | "unmatched" | "ignored";
