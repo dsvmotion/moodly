@@ -46,6 +46,7 @@ const SCREENS = [
   "/app/settings/general",
   "/app/settings/security",
   "/app/inbox",
+  "/app/calendar",
   "/app/settings/locations",
   "/app/settings/team",
   "/app/agents",

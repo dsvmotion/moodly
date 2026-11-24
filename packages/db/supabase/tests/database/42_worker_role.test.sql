@@ -19,7 +19,7 @@ select results_eq(
 -- (En el paso 2, cuando el seed y staging le den login, rolcanlogin de esta
 -- aserción deja de ser false en esos entornos: hay que cambiarla allí.)
 select is(
-  (select array_agg(r.rolname::text order by r.rolname) from pg_auth_members m join pg_roles r on r.oid = m.roleid
+  (select array_agg(r.rolname::text order by r.rolname::text collate "C") from pg_auth_members m join pg_roles r on r.oid = m.roleid
    where m.member = 'moodly_worker'::regrole),
   null, 'no es miembro de ningún rol (ni authenticated, ni service_role, ni postgres)');
 select results_eq(
@@ -30,17 +30,18 @@ select results_eq(
 select ok(not has_schema_privilege('moodly_worker', 'auth', 'usage'), 'no tiene acceso al esquema auth');
 select ok(not has_schema_privilege('moodly_worker', 'public', 'create'), 'no puede crear tablas en public (sin DDL)');
 select is(
-  (select array_agg(distinct table_name::text order by table_name::text) from information_schema.role_table_grants
+  (select array_agg(distinct table_name::text collate "C" order by table_name::text collate "C") from information_schema.role_table_grants
    where grantee = 'moodly_worker'),
   array['agent_runs', 'agents', 'approvals', 'channel_accounts', 'conversation_summaries', 'conversations', 'executions', 'inbound_events', 'integration_secret_submissions', 'integration_secrets', 'locations', 'messages', 'org_model_settings', 'services', 'usage_records'],
   'solo tiene privilegios sobre las tablas que lee el turno de conversación al prepararse (con su resumen, 20261112110000, y el gasto, 20261112120000), y sobre los eventos de entrada (20261112230000); de las demás tablas de la entrada y de integrations solo tiene privilegios de columna, los fijan 51_worker_ingress y 52_integrations_worker_columns); y DELETE de los envíos y los secretos de integración (20261114110000, ADR 0055: DELETE no se da por columna)');
 select is(
-  (select array_agg(format('%s:%s', table_name, privilege_type) order by 1) from information_schema.role_table_grants
+  (select array_agg(format('%s:%s', table_name, privilege_type) order by format('%s:%s', table_name, privilege_type) collate "C")
+     from information_schema.role_table_grants
     where grantee = 'moodly_worker' and privilege_type <> 'SELECT'),
-  array['integration_secrets:DELETE', 'integration_secret_submissions:DELETE'],
+  array['integration_secret_submissions:DELETE', 'integration_secrets:DELETE'],
   'y de tabla entera, solo de lectura, salvo DELETE de los envíos y los secretos de integración (20261114110000; los privilegios por columnas de integrations los fija 52_integrations_worker_columns, y los de los envíos y los secretos, 60_integration_key_submissions)');
 select is(
-  (select array_agg(p.proname::text order by p.proname) from pg_proc p
+  (select array_agg(p.proname::text order by p.proname::text collate "C") from pg_proc p
    where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
      and has_function_privilege('moodly_worker', p.oid, 'execute')),
   array['next_delivery_status', 'worker_agent_turn_context', 'worker_organization_id'],
