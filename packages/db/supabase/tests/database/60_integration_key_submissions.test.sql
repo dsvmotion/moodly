@@ -288,7 +288,7 @@ select throws_ok(format($$update public.integrations set status = 'active', secr
   '42501', null, 'ni con un secreto de otra organización');
 select throws_ok(format($$update public.integrations set external_connection_id = 'conn-x' where id = %L$$, :'int_pend'),
   '42501', null, 'no pone un id de conexión externa en una nativa');
-select lives_ok(format($$update public.integrations set status = 'active', secret_id = %L, last_submission_at = now(), last_submission_id = %L where id = %L$$,
+select lives_ok(format($$update public.integrations set status = 'active', secret_id = %L, last_submission_at = now(), last_submission_id = %L, last_submission_result = 'applied' where id = %L$$,
   :'sec_new', :'sub1', :'int_pend'),
   'activa una pendiente con su secreto y apunta la marca del envío');
 select throws_ok(format($$update public.integrations set last_submission_at = last_submission_at - interval '1 second', last_submission_id = %L where id = %L$$, :'sub2', :'int_pend'),
@@ -297,7 +297,7 @@ select throws_ok(format($$update public.integrations set last_submission_id = '0
   '42501', null, 'ni con la misma hora y un id menor');
 select throws_ok(format($$update public.integrations set last_submission_at = null, last_submission_id = null where id = %L$$, :'int_pend'),
   '42501', null, 'ni se borra');
-select lives_ok(format($$update public.integrations set last_submission_id = 'ffffffff-ffff-4fff-bfff-ffffffffffff' where id = %L$$, :'int_pend'),
+select lives_ok(format($$update public.integrations set last_submission_id = 'ffffffff-ffff-4fff-bfff-ffffffffffff', last_submission_result = 'rejected' where id = %L$$, :'int_pend'),
   'con la misma hora, avanza con un id mayor (desempate)');
 select throws_ok(format($$update public.integrations set secret_id = null where id = %L$$, :'int_act'),
   '42501', null, 'no quita el secreto de una activa');
