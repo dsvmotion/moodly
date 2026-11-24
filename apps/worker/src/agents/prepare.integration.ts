@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { createServiceDb } from "@repo/db/service";
-import type { TenantDb } from "@repo/db/service";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { adminTenant } from "../testing/admin-tenant.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
 import { prepare } from "./converse.ts";
 
@@ -49,27 +49,6 @@ describe("prepare bajo RLS (moodly_worker)", () => {
 });
 
 describe("prepare con la organización explícita, también sin RLS (revisión de V10 sobre #309)", () => {
-  // Con el cliente de administración (postgres, sin RLS) lo único que separa
-  // las organizaciones es el filtro explícito de cada consulta. La organización
-  // de la transacción se fija igual que el worker, para la función del contexto.
-  function adminTenant(organizationId: string): TenantDb {
-    return {
-      organizationId,
-      transaction: async <T,>(fn: (sql: { query: <R>(text: string, params?: readonly unknown[]) => Promise<R[]> }) => Promise<T>): Promise<T> => {
-        await admin.query("begin");
-        try {
-          await admin.query("select set_config('moodly.organization_id', $1, true)", [organizationId]);
-          const result = await fn({ query: async <R,>(text: string, params?: readonly unknown[]) => (await admin.query(text, params as unknown[])).rows as R[] });
-          await admin.query("commit");
-          return result;
-        } catch (error) {
-          await admin.query("rollback");
-          throw error;
-        }
-      },
-    } as unknown as TenantDb;
-  }
-
   it("un servicio de otra organización (sin local, que valdría para cualquiera) no llega al prompt", async () => {
     // La del chat de pruebas de A (el agente del seed está en borrador: solo
     // contesta ahí), en modo agente y con local, y su último mensaje del cliente.
@@ -100,7 +79,7 @@ describe("prepare con la organización explícita, también sin RLS (revisión d
     );
     await admin.query("update public.agent_skills set enabled = true where agent_id = $1 and skill_id = $2", [conversation.agent_id, findSlots.skill_id]);
     try {
-      const result = await prepare(adminTenant(orgA), conversation.id, conversation.message_id);
+      const result = await prepare(adminTenant(admin, orgA), conversation.id, conversation.message_id);
       if (result.kind !== "turn") throw new Error(`prepare no llegó al turno: ${JSON.stringify(result)}`);
       const names = (result.services ?? []).map((row) => row.name);
       // El de A sí está (el test no pasa por no leer servicios), el de B no.
