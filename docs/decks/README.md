@@ -1,6 +1,6 @@
 # Decks de presentación
 
-Fuentes de las dos presentaciones (noviembre de 2026). Son material comercial, no documentación del producto: si discrepan con `docs/MANUAL.md` o con un ADR, mandan estos.
+Fuentes de las dos presentaciones (noviembre de 2026). Son material comercial, no documentación del producto: si discrepan con `docs/MANUAL.md` o con un ADR, mandan el manual y el ADR, no el deck.
 
 | Deck | Diapositivas generadas | Publicado en |
 |---|---|---|
