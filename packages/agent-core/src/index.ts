@@ -68,7 +68,7 @@ export type {
   TurnStatus,
   TurnUsage,
 } from "./runtime/turn.js";
-export { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts } from "./runtime/prompt.js";
+export { MAX_PROMPT_PENDING, PLATFORM_RULES, composeSystemPrompt, composeSystemPromptParts, formatPrice } from "./runtime/prompt.js";
 export { LANGUAGES, detectLanguage, handOffTextForConversation, languageScores } from "./runtime/language.js";
 export type { Language } from "./runtime/language.js";
 export { INTENT_ROUTING_DEFAULT_ENABLED } from "@repo/config";
@@ -76,4 +76,4 @@ export { INTENTS, INTENT_CALL_INDEX, INTENT_INSTRUCTIONS, classifyIntent, determ
 export type { Classification, ClassifyParams, Intent } from "./runtime/intent.js";
 export { RECENT_MESSAGES, SUMMARY_CALL_INDEX, SUMMARY_INSTRUCTIONS, SUMMARY_MARK, SUMMARY_MAX_CHARS, planSummary, summarizeConversation, summaryInput } from "./runtime/summary.js";
 export type { SummarizeParams, SummarizeResult, SummaryMessage, SummaryPlan } from "./runtime/summary.js";
-export type { BookableService, PendingRequest, PromptContext, SystemPromptParts } from "./runtime/prompt.js";
+export type { BookableService, PendingRequest, PromptContext, ServicePrice, SystemPromptParts } from "./runtime/prompt.js";

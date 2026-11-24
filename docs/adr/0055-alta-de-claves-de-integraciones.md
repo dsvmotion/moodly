@@ -1,6 +1,6 @@
 # 0055 — Alta de las claves de una integración: cifrada hacia el worker y una tabla de solo inserción
 
-- **Estado:** propuesto (V15, 2026-11-13; revisión de V10 incorporada). Lo decide producto (V1 lo lleva).
+- **Estado:** aceptado (producto, 2026-11-14: opción A, «la más segura»). Propuesto por V15 el 2026-11-13, con la revisión de V10 incorporada.
 - **Fecha:** 2026-11-13
 - **Secciones del MANUAL afectadas:** §4.4 (secretos), §7 (integraciones), §10.4
 - **Relación:**
@@ -40,7 +40,7 @@
 
 C y D quedan descartadas por romper el ADR 0034.
 
-## Decisión recomendada
+## Decisión
 
 **A.** No añade superficie al worker, no le da a la web nada que descifre, y el envío sobrevive a un worker caído o a un despliegue. B es razonable, pero es un endpoint público más que proteger y una dependencia síncrona entre la web y el worker.
 
