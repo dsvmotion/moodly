@@ -31,20 +31,6 @@ const ALLOWED: readonly { file: string; contains: string; why: string }[] = [
     contains: "client.query(`SET idle_in_transaction_session_timeout",
     why: "ajuste de la sesión de la base de datos de sistema de DBOS: no toca datos de ninguna organización",
   },
-  // ingress/ (O-01): las pone al día V8 en su PR (reparto de V1, 2026-11-14). Al entrar, se quitan de aquí.
-  { file: "ingress/ingest.ts", contains: "from public.inbound_events where id = $1", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "update public.inbound_events set status = $2, error_code = $3", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "from public.contact_identities where kind = $1", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "from public.conversations where contact_id = $1", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "from public.channel_accounts where id = $1", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "select id from public.agents order by created_at", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "from public.messages where conversation_id = $1 and external_message_id", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "update public.inbound_events set status = 'processed'", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "from public.domain_events where type = 'message.received'", why: "O-01, V8: pendiente" },
-  { file: "ingress/ingest.ts", contains: "update public.inbound_events set status = 'failed'", why: "O-01, V8: pendiente" },
-  { file: "ingress/receive.ts", contains: "from public.inbound_events where channel_account_id = $1", why: "O-01, V8: pendiente" },
-  // channels/send.ts (O-01): las subconsultas de inbound_events y contact_identities no llevan la suya. Las pone V8.
-  { file: "channels/send.ts", contains: "from public.inbound_events ev", why: "O-01, V8: pendiente (subconsultas sin organization_id)" },
   {
     file: "integrations/koibox.ts",
     contains: "sql.query<{ timezone: string }>( zoneLocation ?",
