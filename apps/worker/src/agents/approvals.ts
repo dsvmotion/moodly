@@ -195,6 +195,12 @@ export function createApprovalHandler({ skills, platform }: ApprovalHandlerOptio
   return {
     key: APPROVAL_HANDLER_KEY,
     eventTypes: ["approval.decided"],
+    // Las decisiones publicadas antes de que este consumidor existiera, de
+    // como mucho lo que dura una aprobación (APPROVAL_TTL_MS): más viejas, lo
+    // que se ejecutara ahora sería un efecto fuera de tiempo (W3, producto vía
+    // V1, 2026-11-13). load() relee la ejecución: si ya no espera a una
+    // persona, no se toca.
+    backfill: { maxAgeHours: APPROVAL_TTL_MS / 3_600_000 },
     async handle(event: DomainEvent, ctx: EventContext) {
       const approvalId = String(event.payload["approval_id"]);
       const executionId = String(event.payload["execution_id"]);

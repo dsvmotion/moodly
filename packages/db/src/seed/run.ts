@@ -17,7 +17,9 @@ import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
   SEED_VOLUME,
+  seedAppointments,
   seedApprovals,
+  seedCalendarContacts,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
@@ -26,6 +28,8 @@ import {
   seedOrganizations,
   seedPlatformStaff,
   seedRegions,
+  seedResources,
+  seedServices,
   seedUsers,
   type PlatformStaffRole,
   type SeedUser,
@@ -165,6 +169,77 @@ async function deleteAgentRuns(dbUrl: string, column: "id" | "organization_id", 
   await client.connect();
   try {
     await client.query(`delete from public.agent_runs where ${column} = any($1::uuid[])`, [values]);
+  } finally {
+    await client.end();
+  }
+}
+
+// La agenda (OA03): servicios, recursos y citas, borrados y vueltos a crear en
+// cada ejecución con la conexión del dueño (role none): las citas de un agente
+// no pasan por la validación de huecos de R-08, que es para las de la API, y
+// sus domain_events (appointment.created) salen ya publicados para que un worker
+// en marcha no programe recordatorios. La hora de cada cita, la de su sede.
+async function seedCalendar(dbUrl: string): Promise<void> {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query("begin");
+    const appointmentIds = seedAppointments.map((a) => a.id);
+    // También las citas que otros (un e2e, el worker en local) hayan creado con los
+    // servicios o recursos del seed: si no, borrarlos chocaría con su clave ajena.
+    await client.query(
+      `delete from public.appointments
+       where id = any($1::uuid[]) or service_id = any($2::uuid[]) or resource_id = any($3::uuid[])`,
+      [appointmentIds, seedServices.map((s) => s.id), seedResources.map((r) => r.id)],
+    );
+    await client.query("delete from public.booking_resources where id = any($1::uuid[])", [seedResources.map((r) => r.id)]);
+    await client.query("delete from public.services where id = any($1::uuid[])", [seedServices.map((s) => s.id)]);
+    for (const contact of seedCalendarContacts) {
+      await client.query(
+        `insert into public.contacts (id, organization_id, display_name, preferred_location_id) values ($1, $2, $3, $4)
+         on conflict (id) do update set display_name = excluded.display_name, preferred_location_id = excluded.preferred_location_id`,
+        [contact.id, contact.organizationId, contact.name, contact.preferredLocationId],
+      );
+    }
+    for (const service of seedServices) {
+      await client.query(
+        "insert into public.services (id, organization_id, location_id, name, duration_minutes) values ($1, $2, $3, $4, $5)",
+        [service.id, service.organizationId, service.locationId, service.name, service.durationMinutes],
+      );
+    }
+    for (const resource of seedResources) {
+      await client.query(
+        "insert into public.booking_resources (id, organization_id, location_id, name, kind) values ($1, $2, $3, $4, $5)",
+        [resource.id, resource.organizationId, resource.locationId, resource.name, resource.kind],
+      );
+      for (const serviceId of resource.serviceIds) {
+        await client.query("insert into public.resource_services (organization_id, resource_id, service_id) values ($1, $2, $3)", [
+          resource.organizationId,
+          resource.id,
+          serviceId,
+        ]);
+      }
+    }
+    for (const a of seedAppointments) {
+      // Hoy en la zona de la sede, más dayOffset días, a localTime, y de vuelta a un instante.
+      await client.query(
+        `insert into public.appointments (id, organization_id, location_id, service_id, resource_id, contact_id, starts_at, status, idempotency_key, booked_by)
+         select $1, $2, $3, $4, $5, $6,
+                ((date_trunc('day', now() at time zone l.timezone) + make_interval(days => $7) + $8::time) at time zone l.timezone),
+                $9, $10, $11
+         from public.locations l where l.id = $3 and l.organization_id = $2`,
+        [a.id, a.organizationId, a.locationId, a.serviceId, a.resourceId, a.contactId, a.dayOffset, a.localTime, a.status, `seed:${a.key}`, a.bookedBy],
+      );
+    }
+    await client.query(
+      `update public.domain_events set published_at = now()
+       where type like 'appointment.%' and published_at is null and payload->>'appointment_id' = any($1::text[])`,
+      [appointmentIds],
+    );
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
   } finally {
     await client.end();
   }
@@ -654,6 +729,8 @@ async function main(): Promise<void> {
     );
     await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
   }
+
+  await seedCalendar(local.dbUrl);
 
   // Cada aprobación nueva deja un approval.created para el aviso por email (M-02).
   // Las del seed son datos de demo, no aprobaciones nuevas: se marcan como
