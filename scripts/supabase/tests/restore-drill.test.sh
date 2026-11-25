@@ -134,6 +134,25 @@ if grep -q 'psql:' "$WORK/verify.log"; then
   undetected=$((undetected + 1))
 fi
 cp "$WORK/data.out.orig" "$WORK/data.out"
+# Errores del propio psql al leer el fichero: «psql:<fichero>:<línea>: error: …»,
+# en minúsculas, ni «ERROR:» ni «psql: error» (p. ej. un metacomando que no conoce).
+echo 'psql:/runner/work/schema.sql:5: error: invalid command \foo' >> "$WORK/schema.out"
+expect_detected "un error de psql al leer el esquema (psql:…/schema.sql:N: error: invalid command)" "$(run_verify)"
+cp "$WORK/schema.out.orig" "$WORK/schema.out"
+echo 'psql:/runner/work/data.sql:900: error: invalid command \N' >> "$WORK/data.out"
+expect_detected "un error de psql al leer los datos (psql:…/data.sql:N: error: invalid command)" "$(run_verify)"
+if grep -q 'invalid command' "$WORK/verify.log"; then
+  echo "  ✗ el informe repite el texto de un error de psql de la restauración de datos"
+  undetected=$((undetected + 1))
+fi
+cp "$WORK/data.out.orig" "$WORK/data.out"
+
+# Un rol propio sin su «ALTER ROLE … WITH» en el volcado del origen: sin
+# atributos con qué comparar, no puede darse por bueno.
+cp "$WORK/roles.sql" "$WORK/roles.sql.orig"
+grep -v '^ALTER ROLE "moodly_worker" WITH ' "$WORK/roles.sql.orig" > "$WORK/roles.sql"
+expect_detected "moodly_worker sin «ALTER ROLE … WITH» en el volcado de roles del origen" "$(run_verify)"
+cp "$WORK/roles.sql.orig" "$WORK/roles.sql"
 
 # 4. Un volcado que falla a medias: la CLI devuelve error en el primer volcado
 #    (roles), deja un fichero válido y los demás salen bien. `set -e` no actúa

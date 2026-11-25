@@ -101,9 +101,11 @@ verify() {
   local errors
   # Roles y esquema: sus mensajes no llevan datos de clientes. Solo se tolera lo
   # propio de la plataforma que no existe en un Postgres desechable.
-  # Además de «ERROR», un FATAL o un «psql: error:» (la conexión que se cae a
-  # mitad de la restauración) también son errores.
-  errors=$(grep -hE 'ERROR|FATAL|psql: error' "$WORK/roles.out" "$WORK/schema.out" | grep -v 'supabase_realtime_admin' || true)
+  # Además de «ERROR», un FATAL, un «psql: error:» (la conexión que se cae a
+  # mitad de la restauración) o un error del propio psql al leer el fichero
+  # («psql:<fichero>:<línea>: error: invalid command …», en minúsculas) también
+  # son errores.
+  errors=$(grep -hE 'ERROR|FATAL|psql: error|: error:' "$WORK/roles.out" "$WORK/schema.out" | grep -v 'supabase_realtime_admin' || true)
   if [ -n "$errors" ]; then
     problem "errores al restaurar roles o esquema ($(printf '%s\n' "$errors" | wc -l)):"
     printf '%s\n' "$errors" | sed 's/^/    /' | head -20
@@ -118,7 +120,9 @@ verify() {
   sql_errors=$(grep -c 'ERROR:' "$WORK/data.out" || true)
   codes=$(sed -n 's/.*ERROR:  *\([0-9A-Z]\{5\}\)$/\1/p' "$WORK/data.out" | sort | uniq -c | sort -rn)
   unknown=$(( sql_errors - $(grep -cE 'ERROR:  *[0-9A-Z]{5}$' "$WORK/data.out" || true) ))
-  conn_errors=$(grep -cE 'FATAL|psql: error' "$WORK/data.out" || true)
+  # Los de psql al leer el fichero (« : error: ») pueden citar una línea de datos:
+  # solo se cuentan.
+  conn_errors=$(grep -cE 'FATAL|psql: error|: error:' "$WORK/data.out" || true)
   if [ "$sql_errors" -gt 0 ] || [ "$conn_errors" -gt 0 ]; then
     problem "errores al restaurar datos:"
     if [ -n "$codes" ]; then echo "    por SQLSTATE:"; printf '%s\n' "$codes" | sed 's/^/      /' | head -20; fi
@@ -179,6 +183,11 @@ verify() {
   for role in $own_roles; do
     checked=$((checked + 1))
     line=$(grep -m1 "^ALTER ROLE \"$role\" WITH " "$WORK/roles.sql" || true)
+    if [ -z "$line" ]; then
+      # Sin sus atributos en el origen no hay nada con qué comparar: falla cerrado.
+      mismatches="$mismatches $role(sin ALTER ROLE … WITH en el origen)"
+      continue
+    fi
     have=$(psql "$TARGET_URL" -X -At -c "select concat_ws(' ', case when rolsuper then 'SUPERUSER' else 'NOSUPERUSER' end, case when rolinherit then 'INHERIT' else 'NOINHERIT' end, case when rolcreaterole then 'CREATEROLE' else 'NOCREATEROLE' end, case when rolcreatedb then 'CREATEDB' else 'NOCREATEDB' end, case when rolcanlogin then 'LOGIN' else 'NOLOGIN' end, case when rolreplication then 'REPLICATION' else 'NOREPLICATION' end, case when rolbypassrls then 'BYPASSRLS' else 'NOBYPASSRLS' end) from pg_roles where rolname = '$role'")
     if [ -z "$have" ]; then
       mismatches="$mismatches $role(no existe)"
