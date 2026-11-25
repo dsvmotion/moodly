@@ -43,8 +43,14 @@ export async function decideApproval(_prev: DecideState, formData: FormData): Pr
   const supabase = await createClient();
   let edited: { text: string } | null = null;
   if (decision === "approved") {
-    const { data: pending } = await supabase.from("approvals").select("execution:executions(skill_key, input)").eq("id", id).maybeSingle();
-    const execution = pending?.execution;
+    const { data: pending, error: readError } = await supabase
+      .from("approvals")
+      .select("execution:executions(skill_key, input)")
+      .eq("id", id)
+      .maybeSingle();
+    // Sin poder leerla no se comprueba la hora ni la corrección: no se aprueba (falla cerrada).
+    if (readError || !pending) return { error: "invalid" };
+    const execution = pending.execution;
     const input = execution ? parseApprovalInput(execution.skill_key, execution.input) : { kind: "other" as const };
     if (slotHasPassed(input, new Date())) {
       securityEvent("agent.approval_refused", { userId: user.id, approvalId: id, reason: "slot_passed" });
