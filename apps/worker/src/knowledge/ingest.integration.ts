@@ -273,16 +273,22 @@ describe("la ingesta del conocimiento (paso B20-1)", () => {
     await admin.query("insert into public.org_model_settings (organization_id, residency) values ($1, 'eu')", [ids.org]);
     policySet = true;
     const id = await source("Tarifas", "La depilación de axilas cuesta 39 euros. FALLA-EMBEDDING");
-    await waitFor(async () => (await status(id)) === "error", "la fuente queda en error");
-    expect(await chunks(id)).toEqual([]);
-    const lines = (worker?.output() ?? "").split("\n").filter((line) => line.includes(`"sourceId":"${id}"`));
-    // Si hubiera llamado al proveedor, el embedder de prueba habría fallado (FALLA-EMBEDDING): no llegó a llamarlo.
-    expect(lines.some((line) => line.includes("la política de modelos de la organización no deja indexar la fuente"))).toBe(true);
-    expect(lines.some((line) => line.includes("no se pudo indexar"))).toBe(false);
+    try {
+      // error se pone dentro del paso y el aviso se escribe después, al volver de él; el workflow
+      // termina justo detrás del aviso: se esperan las dos cosas antes de leer la salida.
+      await waitFor(async () => (await status(id)) === "error" && (await deliveries(id)).join() === "SUCCESS", "la fuente queda en error y la entrega termina");
+      expect(await chunks(id)).toEqual([]);
+      const lines = (worker?.output() ?? "").split("\n").filter((line) => line.includes(`"sourceId":"${id}"`));
+      // Si hubiera llamado al proveedor, el embedder de prueba habría fallado (FALLA-EMBEDDING): no llegó a llamarlo.
+      expect(lines.some((line) => line.includes("la política de modelos de la organización no deja indexar la fuente"))).toBe(true);
+      expect(lines.some((line) => line.includes("no se pudo indexar"))).toBe(false);
+    } finally {
+      // Aunque falle lo de arriba, «Solo UE» no se queda puesta para los tests siguientes.
+      await admin.query("delete from public.org_model_settings where organization_id = $1", [ids.org]);
+      policySet = false;
+    }
 
     // Con la política de plataforma, la misma fuente corregida se indexa.
-    await admin.query("delete from public.org_model_settings where organization_id = $1", [ids.org]);
-    policySet = false;
     await rewrite(id, "La depilación de axilas cuesta 39 euros.");
     await waitFor(async () => (await status(id)) === "ready", "la fuente queda ready");
   });
