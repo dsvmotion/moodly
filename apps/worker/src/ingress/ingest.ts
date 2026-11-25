@@ -127,6 +127,12 @@ const DB_STEP = { retriesAllowed: true, maxAttempts: 4, intervalSeconds: 1, back
 // Todo lo de la entrada, como moodly_worker por SQL bajo RLS (20261112230000):
 // cada función es una transacción de forOrganization(org), y solo puede leer y
 // escribir en esa organización y las columnas que la migración le concede.
+// Además, cada consulta filtra por la organización explícita (db.organizationId,
+// la de la fila del evento de entrada): RLS es la segunda barrera, no la única
+// (3.2). Se exportan para probarlo sin RLS (ingest.integration.ts).
+
+/** Lo que usa la entrada de un TenantDb: su organización y sus transacciones. */
+export type IngressDb = Pick<TenantDb, "organizationId" | "transaction">;
 
 /** El código de Postgres de un error (sin el mensaje: puede llevar datos). */
 function pgCode(error: unknown): string {
@@ -135,7 +141,7 @@ function pgCode(error: unknown): string {
 }
 
 /** Lo mismo que lanza la transacción, con solo el código: el mensaje de Postgres puede llevar datos. */
-async function tx<T>(db: TenantDb, what: string, fn: (sql: TenantSql) => Promise<T>): Promise<T> {
+async function tx<T>(db: IngressDb, what: string, fn: (sql: TenantSql) => Promise<T>): Promise<T> {
   try {
     return await db.transaction(fn);
   } catch (error) {
@@ -149,24 +155,23 @@ interface Loaded {
   message: NormalizedInbound;
 }
 
-async function load(db: TenantDb, inboundEventId: string): Promise<Loaded | null> {
+export async function load(db: IngressDb, inboundEventId: string): Promise<Loaded | null> {
   const [row] = await tx(db, "no se pudo leer el evento de entrada", (sql) =>
     sql.query<{ status: string; channel_account_id: string; payload: unknown }>(
-      "select status, channel_account_id, payload from public.inbound_events where id = $1",
-      [inboundEventId],
+      "select status, channel_account_id, payload from public.inbound_events where id = $1 and organization_id = $2",
+      [inboundEventId, db.organizationId],
     ),
   );
   if (!row) return null;
   return { status: row.status, channelAccountId: row.channel_account_id, message: normalizedInboundSchema.parse(row.payload) };
 }
 
-async function settle(db: TenantDb, inboundEventId: string, status: "ignored" | "failed", errorCode: string): Promise<void> {
+export async function settle(db: IngressDb, inboundEventId: string, status: "ignored" | "failed", errorCode: string): Promise<void> {
   await tx(db, "no se pudo cerrar el evento de entrada", (sql) =>
-    sql.query("update public.inbound_events set status = $2, error_code = $3 where id = $1 and status in ('received', 'failed')", [
-      inboundEventId,
-      status,
-      errorCode,
-    ]),
+    sql.query(
+      "update public.inbound_events set status = $2, error_code = $3 where id = $1 and organization_id = $4 and status in ('received', 'failed')",
+      [inboundEventId, status, errorCode, db.organizationId],
+    ),
   );
 }
 
@@ -176,13 +181,13 @@ async function settle(db: TenantDb, inboundEventId: string, status: "ignored" | 
  * a la vez, la identidad choca (23505), esta transacción se deshace entera (y
  * con ella su contacto: el worker nunca borra contactos) y vale el del otro.
  */
-async function ensureContact(db: TenantDb, message: NormalizedInbound): Promise<string> {
+export async function ensureContact(db: IngressDb, message: NormalizedInbound): Promise<string> {
   const find = (sql: TenantSql) =>
     sql
-      .query<{ contact_id: string }>("select contact_id from public.contact_identities where kind = $1 and external_id = $2 limit 1", [
-        message.from.kind,
-        message.from.value,
-      ])
+      .query<{ contact_id: string }>(
+        "select contact_id from public.contact_identities where organization_id = $1 and kind = $2 and external_id = $3 limit 1",
+        [db.organizationId, message.from.kind, message.from.value],
+      )
       .then((rows) => rows[0]?.contact_id ?? null);
   try {
     return await db.transaction(async (sql) => {
@@ -212,21 +217,23 @@ async function ensureContact(db: TenantDb, message: NormalizedInbound): Promise<
 const turnContextSchema = z.object({ agent: z.object({ type_key: z.string() }) });
 
 /** La conversación abierta del contacto en esa cuenta, o una nueva con el agente por defecto de la cuenta. */
-async function ensureConversation(db: TenantDb, channelAccountId: string, contactId: string): Promise<string | { failed: string }> {
+export async function ensureConversation(db: IngressDb, channelAccountId: string, contactId: string): Promise<string | { failed: string }> {
   return tx(db, "no se pudo abrir la conversación", async (sql) => {
     const [open] = await sql.query<{ id: string }>(
       `select id from public.conversations
-       where contact_id = $1 and channel_account_id = $2 and mode in ('agent', 'human')
+       where organization_id = $3 and contact_id = $1 and channel_account_id = $2 and mode in ('agent', 'human')
        order by created_at desc limit 1`,
-      [contactId, channelAccountId],
+      [contactId, channelAccountId, db.organizationId],
     );
     if (open) return open.id;
     const [account] = await sql.query<{ channel: string; location_id: string | null; default_agent_type: string }>(
-      "select channel, location_id, default_agent_type from public.channel_accounts where id = $1",
-      [channelAccountId],
+      "select channel, location_id, default_agent_type from public.channel_accounts where id = $1 and organization_id = $2",
+      [channelAccountId, db.organizationId],
     );
     if (!account) return { failed: "channel_account_missing" };
-    const agents = await sql.query<{ id: string }>("select id from public.agents order by created_at limit 50");
+    const agents = await sql.query<{ id: string }>("select id from public.agents where organization_id = $1 order by created_at limit 50", [
+      db.organizationId,
+    ]);
     let agentId: string | null = null;
     for (const agent of agents) {
       // El contexto del agente con la organización de la transacción (20261112110000).
@@ -250,12 +257,12 @@ async function ensureConversation(db: TenantDb, channelAccountId: string, contac
 }
 
 /** El mensaje del cliente; si ya se guardó (reintento del paso), el mismo, con o sin id del proveedor. */
-async function insertMessage(db: TenantDb, conversationId: string, message: NormalizedInbound): Promise<string> {
+export async function insertMessage(db: IngressDb, conversationId: string, message: NormalizedInbound): Promise<string> {
   const key = inboundMessageKey(message);
   return tx(db, "no se pudo guardar el mensaje", async (sql) => {
     const [existing] = await sql.query<{ id: string }>(
-      "select id from public.messages where conversation_id = $1 and external_message_id = $2 limit 1",
-      [conversationId, key],
+      "select id from public.messages where organization_id = $3 and conversation_id = $1 and external_message_id = $2 limit 1",
+      [conversationId, key, db.organizationId],
     );
     if (existing) return existing.id;
     const [inserted] = await sql.query<{ id: string }>(
@@ -268,32 +275,32 @@ async function insertMessage(db: TenantDb, conversationId: string, message: Norm
   });
 }
 
-async function markProcessed(db: TenantDb, inboundEventId: string, conversationId: string, messageId: string): Promise<void> {
+export async function markProcessed(db: IngressDb, inboundEventId: string, conversationId: string, messageId: string): Promise<void> {
   await tx(db, "no se pudo marcar el evento de entrada", (sql) =>
     sql.query(
       `update public.inbound_events set status = 'processed', conversation_id = $2, message_id = $3, error_code = null
-       where id = $1 and status in ('received', 'failed')`,
-      [inboundEventId, conversationId, messageId],
+       where id = $1 and organization_id = $4 and status in ('received', 'failed')`,
+      [inboundEventId, conversationId, messageId, db.organizationId],
     ),
   );
 }
 
 /** El message.received que emitió la base de datos al guardar el mensaje (emit_message_received). */
-async function messageReceivedEvent(db: TenantDb, messageId: string): Promise<{ id: string; type: string } | null> {
+export async function messageReceivedEvent(db: IngressDb, messageId: string): Promise<{ id: string; type: string } | null> {
   const [event] = await tx(db, "no se pudo leer el evento del mensaje", (sql) =>
     sql.query<{ id: string; type: string }>(
-      "select id, type from public.domain_events where type = 'message.received' and payload->>'message_id' = $1 limit 1",
-      [messageId],
+      "select id, type from public.domain_events where organization_id = $2 and type = 'message.received' and payload->>'message_id' = $1 limit 1",
+      [messageId, db.organizationId],
     ),
   );
   return event ?? null;
 }
 
-async function recordFailure(db: TenantDb, inboundEventId: string, attempt: number, code: string): Promise<void> {
+export async function recordFailure(db: IngressDb, inboundEventId: string, attempt: number, code: string): Promise<void> {
   await tx(db, "no se pudo apuntar el intento fallido", (sql) =>
     sql.query(
-      "update public.inbound_events set status = 'failed', attempts = $2, error_code = $3 where id = $1 and status in ('received', 'failed')",
-      [inboundEventId, attempt, code.slice(0, 100)],
+      "update public.inbound_events set status = 'failed', attempts = $2, error_code = $3 where id = $1 and organization_id = $4 and status in ('received', 'failed')",
+      [inboundEventId, attempt, code.slice(0, 100), db.organizationId],
     ),
   );
 }

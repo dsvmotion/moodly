@@ -92,4 +92,41 @@ describe("outbox: lo único que el publicador ve entre organizaciones", () => {
     await expect(box.markPublished([EVENT, "1) or (true"])).rejects.toThrow(OutboxError);
     expect(sent).toEqual([]);
   });
+  it("published pide solo metadatos de los ya publicados de un tipo desde una hora, en orden", async () => {
+    reply = [{ id: EVENT, organization_id: ORG, type: "approval.decided", created_at: "2026-11-13T10:00:00.123456+00:00" }];
+    const since = new Date("2026-11-12T10:00:00Z");
+    expect(await box.published("approval.decided", since, null, 100)).toEqual([
+      { id: EVENT, organizationId: ORG, type: "approval.decided", createdAt: "2026-11-13T10:00:00.123456+00:00" },
+    ]);
+    const { method, url } = only();
+    expect(method).toBe("GET");
+    expect(url.pathname).toBe("/rest/v1/domain_events");
+    expect(url.searchParams.get("select")).toBe("id,organization_id,type,created_at");
+    expect(url.searchParams.get("type")).toBe("eq.approval.decided");
+    expect(url.searchParams.get("published_at")).toBe("not.is.null");
+    expect(url.searchParams.get("created_at")).toBe(`gte.${since.toISOString()}`);
+    expect(url.searchParams.get("or")).toBeNull();
+    expect(url.searchParams.get("order")).toBe("created_at.asc,id.asc");
+    expect(url.searchParams.get("limit")).toBe("100");
+  });
+
+  it("published sigue después del cursor: más nuevo, o a la misma hora con un id mayor", async () => {
+    const createdAt = "2026-11-13T10:00:00.123456+00:00";
+    await box.published("approval.decided", new Date("2026-11-12T10:00:00Z"), { createdAt, id: EVENT }, 10);
+    const { url } = only();
+    expect(url.searchParams.get("or")).toBe(`(created_at.gt."${createdAt}",and(created_at.eq."${createdAt}",id.gt.${EVENT}))`);
+  });
+
+  it("published se niega con un lote, un tipo, una hora o un cursor que no valen, sin preguntar a la base de datos", async () => {
+    const since = new Date("2026-11-12T10:00:00Z");
+    for (const limit of [0, 501, 1.5]) await expect(box.published("approval.decided", since, null, limit)).rejects.toThrow(OutboxError);
+    for (const type of ["", "approval", "approval.decided,id.gt.0", "Approval.decided"]) {
+      await expect(box.published(type, since, null, 10)).rejects.toThrow(OutboxError);
+    }
+    await expect(box.published("approval.decided", new Date(Number.NaN), null, 10)).rejects.toThrow(OutboxError);
+    await expect(box.published("approval.decided", since, { createdAt: "ayer", id: EVENT }, 10)).rejects.toThrow(OutboxError);
+    await expect(box.published("approval.decided", since, { createdAt: "2026-11-13T10:00:00Z", id: "1) or (true" }, 10)).rejects.toThrow(OutboxError);
+    await expect(box.published("approval.decided", since, { createdAt: '2026-11-13T10:00:00Z",id.gt.0', id: EVENT }, 10)).rejects.toThrow(OutboxError);
+    expect(sent).toEqual([]);
+  });
 });
