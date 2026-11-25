@@ -1,15 +1,16 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `f0e2c07` (#344)
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `693d102` (#343)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
 - Contexto estable: `docs/reports/2026-11-25-panorama.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
-- Mergeado hoy: #344 (flujo de un Lead por fase). Toolkit con el parche de las skills ocultas en su `main` (`1b6cb02`).
-- En vuelo (2026-11-25 16:30 UTC): worker `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH: #313 → #317 → #336) y worker `ola0-04` (session_016SLeJSkg2HuVEnTvvzuAgK: #330). El Lead está pasando #342 → #343 → #341 (aprobados por Diego), de uno en uno.
-- Después: `ola0-02` (#338) con `ola0-10` (#293); luego `ola0-03` (#334, aserción aprobada); luego `ola0-06` con `ola0-07`; `ola0-05`; limpieza.
-- Staging: al día con `64ad5f9`; el CI de `main` sobre `f0e2c07` estaba corriendo al escribir esto.
-- Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review` (el conector falla).
+- Mergeado el 25-11: #344, #313, #342, #343. Toolkit con el parche de las skills ocultas en su `main` (`1b6cb02`). Staging desplegado con `8895fa6` (CI de `main` y despliegue en verde; `f0e2c07` no tuvo corrida propia por un fallo de GitHub y queda cubierto por esa).
+- Turno de merge (17:45 UTC): #341 con CI corriendo. Cola, por orden: #336 (listo), #330 (listo; después, corrida real contra staging), #317 (listo; **espera el visto bueno de Diego** al arreglo de «reserva pasada», comentario 7168631756 del PR). Todos necesitan ponerse al día antes de mergear.
+- Workers en vuelo: `ola0-10` (session_016SLeJNM4bB8Z5BFFay38h1, #293) y `ola0-02` (session_016SLeJRNUkf8s7cUEM71Uy8, #338). Terminados sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH) y `ola0-04` (session_016SLeJSkg2HuVEnTvvzuAgK).
+- Después: `ola0-03` (#334, aserción aprobada; tras #293 por `outbox.ts`), `ola0-06` con `ola0-07`, `ola0-05`, limpieza. #302 se cierra cuando #293 esté en `main`.
+- Follow-ups sin clasificar: `ola0-01` (report, 5) y `ola0-04` (report en la rama de #330, 3). Antes de la corrida real del simulacro, Diego comprueba que el entorno `staging` de GitHub solo admite `main`.
+- Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
 
 ## a) Ola 0 — integración (en orden)
 | # | PR | Estado | Le falta |
