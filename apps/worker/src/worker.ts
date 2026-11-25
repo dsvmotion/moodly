@@ -188,6 +188,9 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       await DBOS.setLatestApplicationVersion(config.applicationVersion);
       await registerSmokeQueue();
       await startOutbox(outbox, options.schedulesTesting?.outboxPublish);
+      // Después del publicador: lo que se publique a partir de ahora ya llega a
+      // todos; el relleno solo cubre lo de antes (W3).
+      await outbox.startBackfills();
       await startIngestQueue(ingest.sweep, options.schedulesTesting?.ingestSweep);
       if (adapters.size > 0) {
         ingress = createIngressHandler(

@@ -25,12 +25,13 @@ test("⌘K / Ctrl+K abre la paleta y Enter navega a la sección", async ({ page 
 test("ofrece todas las secciones agrupadas y filtra al escribir", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+k");
   const options = palette(page).getByRole("option");
-  await expect(options).toHaveCount(28);
+  // 28 hasta OA04, que añade Ajustes → Servicios y equipo; 30 con la Agenda (OA03).
+  await expect(options).toHaveCount(30);
   await expect(palette(page).locator("[cmdk-group-heading]")).toHaveText(["Navegación", "Agentes", "Registros", "Ajustes"]);
   // Búsqueda aproximada (cmdk): filtra la lista y pone la mejor coincidencia primero.
   await page.keyboard.type("sede");
   await expect(options.first()).toHaveText("Sedes");
-  expect(await options.count()).toBeLessThan(28);
+  expect(await options.count()).toBeLessThan(30);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/app\/settings\/locations$/);
   await page.keyboard.press("ControlOrMeta+k");

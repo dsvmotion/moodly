@@ -28,12 +28,20 @@ export type SecurityEvent =
   | "goal.deleted"
   | "agent.approval_approved"
   | "agent.approval_rejected"
+  | "agent.approval_refused"
   | "inbox.conversation_taken_over"
   | "inbox.conversation_handed_back"
   | "inbox.staff_message_sent"
   | "integration.connect_started"
   | "integration.disconnected"
-  | "integration.disconnect_failed";
+  | "integration.disconnect_failed"
+  | "integration.key_submitted"
+  | "integration.key_throttled"
+  | "business.service_created"
+  | "business.service_updated"
+  | "business.resource_created"
+  | "business.resource_updated"
+  | "business.opening_hours_updated";
 
 export interface SecurityEventFields {
   userId?: string | undefined;

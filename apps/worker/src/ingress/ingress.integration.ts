@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { createServer as createHttpServer, type Server } from "node:http";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { hmacSha256Hex } from "@repo/channels";
@@ -27,6 +28,10 @@ const ids: Record<string, string> = {};
 let child: ChildProcess | null = null;
 let output = "";
 let base = "";
+// La Graph API falsa (O-01, channels.send): apunta cada envío y contesta 200 con
+// un wamid, o 502 si el texto lleva «[502]» (Meta pudo recibirlo o no).
+const graphRequests: { path: string; body: Record<string, unknown> }[] = [];
+let graph: Server | null = null;
 
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -150,6 +155,26 @@ beforeAll(async () => {
     [ids.org, ids.location, waPhoneNumberId, ids.agentType],
   );
 
+  graph = createHttpServer((request, response) => {
+    let raw = "";
+    request.on("data", (chunk: Buffer) => (raw += chunk.toString()));
+    request.on("end", () => {
+      const body = JSON.parse(raw) as Record<string, unknown>;
+      graphRequests.push({ path: request.url ?? "", body });
+      const text = (body["text"] as { body?: string } | undefined)?.body ?? "";
+      if (text.includes("[502]")) {
+        response.writeHead(502, { "content-type": "application/json" }).end(JSON.stringify({ error: { code: 1 } }));
+        return;
+      }
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ messaging_product: "whatsapp", messages: [{ id: `wamid.out-${randomUUID()}` }] }));
+    });
+  });
+  await new Promise<void>((resolve) => graph?.listen(0, "127.0.0.1", resolve));
+  const graphAddress = graph.address();
+  const graphUrl = `http://127.0.0.1:${typeof graphAddress === "object" && graphAddress ? graphAddress.port : 0}`;
+
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   const api = localSupabaseApi();
@@ -165,6 +190,7 @@ beforeAll(async () => {
       WORKER_DATABASE_URL: localWorkerDatabaseUrl(),
       PORT: String(port),
       INGRESS_TEST_SECRET: secret,
+      WHATSAPP_TEST_GRAPH_URL: graphUrl,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -175,6 +201,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   child?.kill("SIGKILL");
+  await new Promise<void>((resolve) => (graph ? graph.close(() => resolve()) : resolve()));
   // Las conversaciones (y sus mensajes) y los contactos que creó la entrada, y las cuentas.
   await admin.query(
     "delete from public.domain_events where payload->>'conversation_id' in (select id::text from public.conversations where channel_account_id = any($1))",
@@ -510,6 +537,57 @@ describe("la entrada de WhatsApp de punta a punta (O-01)", () => {
     await expect(postMeta(metaStatuses([{ id: wamid, status: "read", timestamp: at, recipient_id: waFrom }]), "otro-secreto")).resolves.toMatchObject({ status: 401 });
     expect(await deliveryOf(wamid)).toEqual([{ status: "sent", delivery_error: null }]);
   });
+
+  // El envío (channels.send): la respuesta del agente nace pending en una conversación de WhatsApp,
+  // la base de datos emite message.outbound y el worker la envía a la Graph API (falsa).
+  async function agentReply(text: string): Promise<string> {
+    const inboundWamid = `wamid.${randomUUID()}`;
+    await postMeta(metaText(inboundWamid, "¿Abrís el lunes?"));
+    await waitFor(async () => (await eventsOf(inboundWamid))[0]?.status === "processed", "el mensaje del cliente queda procesado");
+    const [incoming] = await messagesFrom(inboundWamid);
+    return one(
+      `insert into public.messages (organization_id, conversation_id, direction, author, content, status, idempotency_key)
+       values ($1, $2, 'out', 'agent', $3, 'pending', $4) returning id`,
+      [ids.org, incoming?.conversation_id, text, `send-${randomUUID()}`],
+    );
+  }
+
+  async function sentState(messageId: string) {
+    const { rows } = await admin.query<{ status: string; external_message_id: string | null; delivery_error: string | null }>(
+      "select status, external_message_id, delivery_error from public.messages where id = $1",
+      [messageId],
+    );
+    return rows[0];
+  }
+
+  const requestsFor = (messageId: string) => graphRequests.filter((request) => request.body["biz_opaque_callback_data"] === messageId);
+
+  it("la respuesta del agente por WhatsApp sale: un POST a la Graph API con el número del cliente y nuestra referencia, y queda sent con el wamid", async () => {
+    const messageId = await agentReply("Sí, abrimos de 10 a 20 h.");
+    await waitFor(async () => (await sentState(messageId))?.status === "sent", "la respuesta queda enviada");
+    const requests = requestsFor(messageId);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.path).toBe(`/v23.0/${waPhoneNumberId}/messages`);
+    expect(requests[0]?.body).toMatchObject({ messaging_product: "whatsapp", to: waFrom, type: "text", text: { body: "Sí, abrimos de 10 a 20 h." } });
+    expect((await sentState(messageId))?.external_message_id).toMatch(/^wamid\.out-/);
+  });
+
+  it("con un 502 (Meta pudo recibirlo) se envía UNA vez y queda «unknown»; el aviso de Meta con nuestra referencia lo concilia", async () => {
+    const messageId = await agentReply("Hasta luego [502]");
+    await waitFor(async () => (await sentState(messageId))?.status === "unknown", "la respuesta queda «unknown»");
+    // Ni reintentos del paso ni del publicador: después de esperar, sigue habiendo un solo envío.
+    await new Promise((resolve) => setTimeout(resolve, 8_000));
+    expect(requestsFor(messageId)).toHaveLength(1);
+    // El código de por qué no se sabe queda apuntado, sin wamid todavía (20261113130000).
+    expect(await sentState(messageId)).toEqual({ status: "unknown", external_message_id: null, delivery_error: "whatsapp:1" });
+    // Meta sí lo había recibido: su aviso trae nuestro id en biz_opaque_callback_data.
+    const wamid = `wamid.${randomUUID()}`;
+    const at = String(Math.floor(Date.now() / 1000));
+    await expect(
+      postMeta(metaStatuses([{ id: wamid, status: "delivered", timestamp: at, recipient_id: waFrom, biz_opaque_callback_data: messageId }])),
+    ).resolves.toMatchObject({ status: 200 });
+    expect(await sentState(messageId)).toEqual({ status: "delivered", external_message_id: wamid, delivery_error: null });
+  }, 60_000);
 
   it("con la firma de otro secreto, 401 y no se guarda nada; para un número sin cuenta, 200 e ignorado", async () => {
     const forged = `wamid.${randomUUID()}`;

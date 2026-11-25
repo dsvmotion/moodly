@@ -4,6 +4,7 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { useLang } from "@/components/use-lang";
 import { COPY } from "./copy";
+import { AvailabilityBadge } from "@/components/availability";
 
 export default function Page() {
   const lang = useLang();
@@ -19,8 +20,8 @@ export default function Page() {
 
       <section style={{ padding: "0 clamp(16px, 4vw, 40px)" }}>
         <div style={{ maxWidth: "984px", margin: "0 auto", display: "flex", flexDirection: "column" }}>
-          {t.steps.map(([week, title, desc], i) => (
-            <div key={i} style={{ display: "flex", gap: "32px", padding: "32px 0", borderTop: i === 0 ? "1px solid #000000" : "1px solid #0000001a", borderBottom: i === t.steps.length - 1 ? "1px solid #0000001a" : "none", flexWrap: "wrap" }}><span style={{ width: "120px", font: "400 14px/24px var(--font-mono)", color: "#6b6b70" }}>{week}</span><div style={{ flex: "1 1 420px", display: "flex", flexDirection: "column", gap: "8px" }}><span style={{ fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>{title}</span><span style={{ fontSize: "16px", lineHeight: "24px", color: "#5f5f63" }}>{desc}</span></div></div>
+          {t.steps.map(([week, title, desc, units], i) => (
+            <div key={i} style={{ display: "flex", gap: "32px", padding: "32px 0", borderTop: i === 0 ? "1px solid #000000" : "1px solid #0000001a", borderBottom: i === t.steps.length - 1 ? "1px solid #0000001a" : "none", flexWrap: "wrap" }}><span style={{ width: "120px", font: "400 14px/24px var(--font-mono)", color: "#6b6b70" }}>{week}</span><div style={{ flex: "1 1 420px", display: "flex", flexDirection: "column", gap: "8px" }}><span style={{ fontSize: "24px", lineHeight: "26.4px", letterSpacing: "-0.48px" }}>{title}</span><span style={{ fontSize: "16px", lineHeight: "24px", color: "#5f5f63" }}>{desc}</span>{units && (<span style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: "4px" }}>{units.map(([label, id]) => (<span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "14px", lineHeight: "20px" }}>{label} <AvailabilityBadge id={id} lang={lang} /></span>))}</span>)}</div></div>
           ))}
           <span style={{ marginTop: "16px", fontSize: "12px", lineHeight: "18px", color: "#6b6b70" }}>{t.note}</span>
         </div>

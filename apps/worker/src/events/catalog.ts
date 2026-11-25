@@ -47,6 +47,13 @@ export const eventPayloads = {
     conversation_id: z.uuid(),
     message_id: z.uuid(),
   }),
+  // private.emit_message_outbound, en la misma transacción que un mensaje que
+  // sale pending por un canal que envía el worker (O-01, 20261113120000). Lo
+  // consume channels.send.
+  "message.outbound": z.object({
+    conversation_id: z.uuid(),
+    message_id: z.uuid(),
+  }),
   // private.emit_appointment_event, en la misma transacción que el cambio de la
   // cita (paso 4e-0). Los consumirán el recordatorio de 24 h y la lista de
   // espera. Solo el id y las horas: el contacto se lee de la cita.
@@ -66,6 +73,22 @@ export const eventPayloads = {
   // Paso B20-1: una fuente de conocimiento que hay que (re)indexar.
   "knowledge_source.pending": z.object({
     source_id: z.uuid(),
+  }),
+  // private.emit_integration_key_submitted, en la misma transacción que el
+  // envío cifrado de la clave de una integración nativa (ADR 0055, 20261114110000).
+  // Lo consume integrations.key_submission.
+  "integration.key_submitted": z.object({
+    submission_id: z.uuid(),
+    integration_id: z.uuid(),
+    provider: z.string().regex(/^[a-z][a-z0-9-]{1,39}$/),
+  }),
+  // private.emit_integration_disconnected, al desconectar una integración nativa
+  // que tenía secreto, con el secreto que tenía (OLD.secret_id, lo pone el
+  // disparador). Lo consume integrations.key_cleanup.
+  "integration.disconnected": z.object({
+    integration_id: z.uuid(),
+    provider: z.string().regex(/^[a-z][a-z0-9-]{1,39}$/),
+    secret_id: z.uuid(),
   }),
   // public.check_budget_thresholds, una sola vez por organización, mes (UTC) y
   // umbral (PL-ledger). Lo consume notify.budget_email: el aviso a los org_admin.

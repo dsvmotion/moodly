@@ -1,6 +1,13 @@
 import type { TenantDb } from "@repo/db/service";
 import { describe, expect, it } from "vitest";
-import { ConversationNotAgentModeError, NOT_AGENT_MODE_CODE, createConversationSender, isNotAgentMode } from "./conversation-sender.ts";
+import {
+  ConversationNotAgentModeError,
+  ConversationSupersededError,
+  NOT_AGENT_MODE_CODE,
+  createConversationSender,
+  isNotAgentMode,
+  isSuperseded,
+} from "./conversation-sender.ts";
 
 // El envío del mensaje del agente (R-02): si la base de datos lo rechaza porque
 // la conversación ya no la lleva el agente, no se guarda y se dice por qué.
@@ -10,9 +17,12 @@ import { ConversationNotAgentModeError, NOT_AGENT_MODE_CODE, createConversationS
  * búsqueda por clave no encuentra nada y el insert contesta lo que se le diga
  * (la fila, o un error de Postgres con su código).
  */
-function fakeDb(insertResult: { id: string } | { code: string }) {
+function fakeDb(insertResult: { id: string } | { code: string }, channel?: string, latestContactMessage?: string) {
   const inserted: { text: string; values: readonly unknown[] }[] = [];
   const query = async (text: string, values: readonly unknown[] = []) => {
+    if (/for share/.test(text)) return [{ id: "c-1" }];
+    if (/author = 'contact'/.test(text)) return latestContactMessage ? [{ id: latestContactMessage }] : [];
+    if (/from public\.conversations/.test(text)) return channel ? [{ channel }] : [];
     if (/^\s*select/.test(text)) return [];
     inserted.push({ text, values });
     if ("code" in insertResult) throw Object.assign(new Error("pg"), { code: insertResult.code });
@@ -32,8 +42,18 @@ describe("createConversationSender", () => {
       messageId: "m-1",
     });
     expect(inserted).toHaveLength(1);
-    expect(inserted[0]?.text).toMatch(/values \(\$1, \$2, 'out', 'agent', \$3, 'sent', \$4\)/);
-    expect(inserted[0]?.values).toEqual(["org-1", "c-1", "Hola", "k-1"]);
+    expect(inserted[0]?.text).toMatch(/values \(\$1, \$2, 'out', 'agent', \$3, \$5, \$4\)/);
+    // Sin canal que envíe el worker (el chat web lee la fila): nace enviado.
+    expect(inserted[0]?.values).toEqual(["org-1", "c-1", "Hola", "k-1", "sent"]);
+  });
+
+  it("por WhatsApp nace pending: lo envía channels.send (message.outbound); por el chat web, sent", async () => {
+    const whatsapp = fakeDb({ id: "m-2" }, "whatsapp");
+    await createConversationSender(whatsapp.db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-4" });
+    expect(whatsapp.inserted[0]?.values.at(-1)).toBe("pending");
+    const webchat = fakeDb({ id: "m-3" }, "webchat");
+    await createConversationSender(webchat.db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-5" });
+    expect(webchat.inserted[0]?.values.at(-1)).toBe("sent");
   });
 
   it("si la base de datos lo rechaza porque la lleva una persona, lanza ConversationNotAgentModeError", async () => {
@@ -47,6 +67,28 @@ describe("createConversationSender", () => {
     const sent = createConversationSender(db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-3" });
     await expect(sent).rejects.toThrow("no se pudo guardar la respuesta (23505)");
     await expect(sent).rejects.not.toBeInstanceOf(ConversationNotAgentModeError);
+  });
+
+  it("con inReplyTo: si sigue siendo el último mensaje del cliente, guarda; si no, ConversationSupersededError y nada guardado (gate M1)", async () => {
+    const current = fakeDb({ id: "m-5" }, "whatsapp", "in-1");
+    await expect(
+      createConversationSender(current.db, { inReplyTo: "in-1" }).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-6" }),
+    ).resolves.toEqual({ messageId: "m-5" });
+    expect(current.inserted).toHaveLength(1);
+    const newer = fakeDb({ id: "m-6" }, "whatsapp", "in-2");
+    const sent = createConversationSender(newer.db, { inReplyTo: "in-1" }).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-7" });
+    await expect(sent).rejects.toBeInstanceOf(ConversationSupersededError);
+    expect(newer.inserted).toHaveLength(0);
+    // Sin inReplyTo (recordatorios, lo que aprueba una persona) no se mira.
+    const unchecked = fakeDb({ id: "m-7" }, "whatsapp", "in-2");
+    await createConversationSender(unchecked.db).send({ conversationId: "c-1", text: "Hola", idempotencyKey: "k-8" });
+    expect(unchecked.inserted).toHaveLength(1);
+  });
+
+  it("isSuperseded lo reconoce también por su nombre", () => {
+    expect(isSuperseded(new ConversationSupersededError("x"))).toBe(true);
+    expect(isSuperseded(Object.assign(new Error("x"), { name: "ConversationSupersededError" }))).toBe(true);
+    expect(isSuperseded(new Error("x"))).toBe(false);
   });
 
   it("isNotAgentMode lo reconoce también por su nombre (después de pasar por un paso de DBOS)", () => {

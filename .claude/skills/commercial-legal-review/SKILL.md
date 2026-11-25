@@ -8,6 +8,7 @@ description: >
   MSA", "is this NDA okay", "look at this SaaS agreement", or attaches an inbound
   agreement for review.
 argument-hint: '[file path | Drive link | [CLM ID] | paste text]'
+disable-model-invocation: true
 ---
 
 # /review

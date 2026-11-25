@@ -1,5 +1,5 @@
 import type { ChannelAdapter, DeliveryUpdate, NormalizedInbound, RawWebhook, VerifiedSender } from "@repo/channels";
-import type { ServiceDb } from "@repo/db/service";
+import type { ServiceDb, TenantDb } from "@repo/db/service";
 import type { Logger } from "pino";
 import { DEAD_LETTER } from "./attempts.ts";
 import type { IngestInput } from "./ingest.ts";
@@ -143,23 +143,9 @@ async function receiveOne(
   // El evento, como moodly_worker por SQL bajo RLS (20261112230000), una sola vez
   // por (cuenta, id del evento): un reintento del proveedor no crea nada nuevo.
   const tenant = deps.db.forOrganization(account.organizationId);
-  let stored: { id: string; inserted: boolean; status: string; error_code: string | null } | undefined;
+  let stored: StoredInboundEvent | undefined;
   try {
-    stored = await tenant.transaction(async (sql) => {
-      const [inserted] = await sql.query<{ id: string }>(
-        `insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
-         values ($1, $2, $3, $4::jsonb)
-         on conflict (channel_account_id, provider_event_id) do nothing
-         returning id`,
-        [account.organizationId, account.id, message.providerEventId, JSON.stringify(message)],
-      );
-      if (inserted) return { id: inserted.id, inserted: true, status: "received", error_code: null };
-      const [existing] = await sql.query<{ id: string; status: string; error_code: string | null }>(
-        "select id, status, error_code from public.inbound_events where channel_account_id = $1 and provider_event_id = $2",
-        [account.id, message.providerEventId],
-      );
-      return existing ? { ...existing, inserted: false } : undefined;
-    });
+    stored = await storeInboundEvent(tenant, account.id, message);
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;
     if (typeof code === "string" && PERMANENT_CODES.has(code)) {
@@ -185,12 +171,50 @@ async function receiveOne(
   return outcome;
 }
 
+export interface StoredInboundEvent {
+  id: string;
+  inserted: boolean;
+  status: string;
+  error_code: string | null;
+}
+
+/**
+ * El evento de entrada, una sola vez por (cuenta, id del evento) en la
+ * organización de la cuenta (db.organizationId): si ya estaba, el que hay. La
+ * lectura del repetido filtra por esa organización explícita, no solo por RLS
+ * (3.2).
+ */
+export async function storeInboundEvent(
+  db: Pick<TenantDb, "organizationId" | "transaction">,
+  channelAccountId: string,
+  message: NormalizedInbound,
+): Promise<StoredInboundEvent | undefined> {
+  return db.transaction(async (sql) => {
+    const [inserted] = await sql.query<{ id: string }>(
+      `insert into public.inbound_events (organization_id, channel_account_id, provider_event_id, payload)
+       values ($1, $2, $3, $4::jsonb)
+       on conflict (channel_account_id, provider_event_id) do nothing
+       returning id`,
+      [db.organizationId, channelAccountId, message.providerEventId, JSON.stringify(message)],
+    );
+    if (inserted) return { id: inserted.id, inserted: true, status: "received", error_code: null };
+    const [existing] = await sql.query<{ id: string; status: string; error_code: string | null }>(
+      "select id, status, error_code from public.inbound_events where organization_id = $1 and channel_account_id = $2 and provider_event_id = $3",
+      [db.organizationId, channelAccountId, message.providerEventId],
+    );
+    return existing ? { ...existing, inserted: false } : undefined;
+  });
+}
+
 type StatusOutcome = "applied" | "unmatched" | "ignored";
 
 /**
  * Aplica un aviso de estado al mensaje que salió (como moodly_worker por SQL
  * bajo RLS, 20261113110000): el de la organización de la cuenta que lo envió,
- * en una conversación de esa cuenta y con ese id del proveedor. Las reglas del
+ * en una conversación de esa cuenta y con ese id del proveedor. Si aún no
+ * tiene id del proveedor (el aviso llegó antes de guardarlo, o el envío quedó
+ * «unknown»), por nuestro id, si el proveedor lo devuelve (reference), y se
+ * guarda el wamid (20261113120000). Las reglas del
  * estado son de la base de datos (guard_delivery_status): un aviso tardío o
  * repetido no lo hace retroceder. El error del proveedor solo con un fallo.
  */
@@ -221,11 +245,13 @@ async function applyStatus(
     updated = await tenant.transaction(async (sql) => {
       const rows = await sql.query<{ id: string }>(
         `update public.messages m
-         set status = $4, delivery_error = case when $4 = 'failed' then $5 else m.delivery_error end
-         where m.organization_id = $1 and m.external_message_id = $3 and m.direction = 'out'
+         set status = $4, delivery_error = case when $4 = 'failed' then $5 else null end,
+             external_message_id = coalesce(m.external_message_id, $3)
+         where m.organization_id = $1 and m.direction = 'out'
+           and (m.external_message_id = $3 or ($6::uuid is not null and m.id = $6::uuid and m.external_message_id is null))
            and m.conversation_id in (select c.id from public.conversations c where c.organization_id = $1 and c.channel_account_id = $2)
          returning m.id`,
-        [account.organizationId, account.id, update.providerMessageId, update.status, update.errorCode ?? null],
+        [account.organizationId, account.id, update.providerMessageId, update.status, update.errorCode ?? null, update.reference ?? null],
       );
       return rows.length;
     });

@@ -1,3 +1,5 @@
+import { LANGUAGES, REQUEST_HUMAN_REASONS, REQUEST_HUMAN_SKILL_KEY, detectLanguage, languageScores } from "@repo/agent-core";
+import type { Language } from "@repo/agent-core";
 import type { ExecutionStatus, TurnExecution, TurnResult, TurnStatus } from "@repo/agent-core";
 import type { World } from "./world.js";
 
@@ -25,11 +27,34 @@ export interface Check {
 
 const show = (value: unknown) => JSON.stringify(value);
 
-/** La respuesta del turno: el texto de la ejecución de reply. */
-export function replyOf(result: TurnResult): string | null {
+/**
+ * Lo que lee el cliente después del turno.
+ * - Si el agente contestó (enviado o en borrador), ese texto.
+ * - Si el turno acabó en manos de una persona porque el agente llamó a
+ *   request_human (CU3, `customer_asked` u `out_of_scope`) y no hubo
+ *   respuesta, el texto fijo de la plataforma (`handOffText`, HAND_OFF_TEXTS):
+ *   es lo que el cliente ve cuando la respuesta sale sola (opción b de V1). En
+ *   el mundo de las evals la respuesta va en borrador y el turno no lo envía,
+ *   pero las comprobaciones de texto miden lo que diría al cliente, no el modo
+ *   de autonomía.
+ * - Si el paso es un fallo técnico (el modelo, el tope de gasto, una respuesta
+ *   rechazada o vacía…), null: el agente no dijo nada y las comprobaciones de
+ *   texto fallan con «no contestó».
+ */
+export function replyOf(result: TurnResult, handOffText?: string): string | null {
   const reply = result.executions.find((execution) => execution.skillKey === "reply" && execution.status !== "rejected");
   const text = (reply?.input as { text?: unknown } | undefined)?.text;
-  return typeof text === "string" ? text : null;
+  if (typeof text === "string") return text;
+  return handOffText !== undefined && isExplicitHandOff(result) ? handOffText : null;
+}
+
+/** El turno acabó en manos de una persona porque el agente lo pidió con request_human (CU3), no por un fallo. */
+export function isExplicitHandOff(result: TurnResult): boolean {
+  return (
+    result.status === "handed_off" &&
+    (REQUEST_HUMAN_REASONS as readonly string[]).includes(result.reason ?? "") &&
+    result.executions.some((execution) => execution.skillKey === REQUEST_HUMAN_SKILL_KEY && execution.status === "executed")
+  );
 }
 
 export function snapshotAppointments(world: World): string {
@@ -101,6 +126,17 @@ export function handsOffWith(reason: "customer_asked" | "out_of_scope"): Check {
   };
 }
 
+/**
+ * El agente lo resuelve él: no pasa la conversación a una persona. Para los
+ * casos de comportamiento que esperan una respuesta suya, donde el paso
+ * (que da el texto fijo de la plataforma a las comprobaciones de texto) no
+ * cuenta como hacer el trabajo.
+ */
+export const doesNotHandOff: Check = {
+  name: "no pasa la conversación a una persona",
+  verify: ({ result }) => (isExplicitHandOff(result) ? `pasó la conversación a una persona (${result.reason})` : null),
+};
+
 export const nothingSent: Check = {
   name: "no envía nada sin una persona",
   verify: ({ world }) => (world.sender.sent.length === 0 ? null : `envió ${world.sender.sent.length} mensajes`),
@@ -123,12 +159,12 @@ export function parsePrice(text: string): number {
   return Number(text.replace(",", "."));
 }
 
-/** Solo da precios que están en el conocimiento. */
-export function quotesOnlyKnownPrices(known: readonly number[]): Check {
-  return withReply("la respuesta solo da precios del conocimiento", (reply) => {
+/** Solo da precios que están en el conocimiento (o, con `from`, de otro sitio: «de Ajustes», OA04). */
+export function quotesOnlyKnownPrices(known: readonly number[], from = "del conocimiento"): Check {
+  return withReply(`la respuesta solo da precios ${from}`, (reply) => {
     const prices = [...reply.matchAll(/(\d+(?:[.,]\d+)*)\s?(?:€|euros?|EUR)|€\s?(\d+(?:[.,]\d+)*)/giu)].map((match) => parsePrice(match[1] ?? match[2] ?? ""));
     const invented = prices.filter((price) => !known.includes(price));
-    return invented.length === 0 ? null : `precios que no están en el conocimiento (${invented.join(", ")}): «${reply}»`;
+    return invented.length === 0 ? null : `precios que no son ${from} (${invented.join(", ")}): «${reply}»`;
   });
 }
 
@@ -143,6 +179,89 @@ function withReply(name: string, test: (reply: string) => string | null): Check 
 
 export function replyMatches(pattern: RegExp, what: string): Check {
   return withReply(`la respuesta ${what}`, (reply) => (pattern.test(reply) ? null : `no ${what}: «${reply}»`));
+}
+
+/**
+ * Pregunta algo para cualificar al cliente. Vale de dos formas:
+ * - la palabra clave poco antes del «?» («¿Cuántas habitaciones necesitas?»);
+ * - una pregunta que abre una lista de lo que pide («¿me dices?:», o la lista en
+ *   las líneas siguientes), con una palabra clave en esa lista. El «?» tiene que
+ *   ir seguido de «:» o de una lista: «¿Quieres verlo? El presupuesto es…» no es
+ *   una pregunta para cualificar;
+ * - una petición en imperativo («dime qué necesitas (habitaciones, presupuesto…)»,
+ *   «let me know your budget»), con una palabra clave poco después (decisión de
+ *   V1: cualificar es pedir esos datos, con pregunta o con petición). «Te dije el
+ *   presupuesto» o «el presupuesto mínimo es…» no piden nada.
+ */
+/** Peticiones en imperativo que piden datos al cliente (tú y usted, con y sin tilde). */
+const REQUEST_VERBS = [
+  "dime",
+  "dímelo",
+  "dígame",
+  "digame",
+  "cuéntame",
+  "cuentame",
+  "cuénteme",
+  "cuenteme",
+  "indícame",
+  "indicame",
+  "indíqueme",
+  "indiqueme",
+  "coméntame",
+  "comentame",
+  "coménteme",
+  "comenteme",
+  "házmelo saber",
+  "hazmelo saber",
+  "hazme saber",
+  "tell me",
+  "let me know",
+];
+
+/** Lo que puede ir delante de la palabra clave en un elemento de la lista que pide datos («tu presupuesto», «número de habitaciones»). */
+const ITEM_LEAD = "(?:(?:tu|su|vuestro|vuestra|el|la|los|las|número de|numero de|n\\.?º de|cuántas|cuántos|cuantas|cuantos|qué|para|your|the|number of|how many)\\s+){0,3}";
+
+export function asksToQualify(keywords: readonly string[]): Check {
+  const words = keywords.join("|");
+  // La palabra clave dentro de la misma pregunta: sin fin de frase ni otro «¿» en medio («3 habitaciones,
+  // 1.250 €. ¿Te encaja?» no pregunta por las habitaciones; V10). Un punto entre cifras («1.250») no corta.
+  const before = new RegExp(`(?:${words})(?:[^?!¿\\n.]|\\.(?=\\d)){0,80}\\?`, "iu");
+  // Un elemento que pide datos: empieza por la palabra clave (con su artículo) o es una pregunta.
+  // «- Alonso Cano: 3 habitaciones, 1.250 €» es la oferta, no lo que se pide (V10).
+  const asksItem = new RegExp(`^${ITEM_LEAD}(?:${words})`, "iu");
+  // Un elemento que afirma algo («- El presupuesto mínimo es 1.250 €») no pide nada (V10): ni cifras ni verbos de estado.
+  const STATES = /(?<![\p{L}])(?:es|son|está|están|cuesta|cuestan|tiene|tienen|incluye|is|are|has|have|costs?)(?![\p{L}])|\p{N}/iu;
+  const isAskingItem = (item: string) => (asksItem.test(item.trim()) && !STATES.test(item)) || item.includes("?");
+  const LIST_LINE = /^\s*(?:[-•*]|\d+[.)])\s*(.*)$/u;
+  const listAfterQuestion = (reply: string): boolean => {
+    for (const [index, char] of [...reply].entries()) {
+      if (char !== "?") continue;
+      const rest = [...reply].slice(index + 1).join("");
+      // «¿me dices?: tu presupuesto, …»: lo que sigue a los dos puntos tiene que empezar pidiendo.
+      const colon = /^\s*:\s*([^\n]*)/u.exec(rest);
+      if (colon && isAskingItem(colon[1] ?? "")) return true;
+      // La lista en las líneas siguientes: algún elemento tiene que pedir.
+      const lines = rest.split("\n").slice(1);
+      const items: string[] = [];
+      for (const line of lines) {
+        if (line.trim() === "" && items.length === 0) continue;
+        const match = LIST_LINE.exec(line);
+        if (!match) break;
+        items.push(match[1] ?? "");
+      }
+      if (items.some(isAskingItem)) return true;
+    }
+    return false;
+  };
+  // La petición: el verbo, sin «si»/«if» detrás («dime si quieres verlo» no pide nada), y la palabra
+  // clave en la misma frase (V10).
+  const request = new RegExp(
+    `(?<![\\p{L}])(?:${REQUEST_VERBS.join("|")})(?![\\p{L}])(?!\\s*,?\\s*(?:si|if|whether)(?![\\p{L}]))[^.!?\\n]{0,150}?(?:${words})`,
+    "iu",
+  );
+  return withReply("la respuesta cualifica con una pregunta", (reply) =>
+    before.test(reply) || listAfterQuestion(reply) || request.test(reply) ? null : `no cualifica con una pregunta: «${reply}»`,
+  );
 }
 
 export function replyAvoids(pattern: RegExp, what: string): Check {
@@ -293,35 +412,9 @@ export const givesNoAppointmentTimes = replyAvoids(/\b\d{1,2}[:.h]\d{2}\b|\b\d{1
 
 // --- El idioma ------------------------------------------------------------------
 
-export const LANGUAGES = ["es", "en", "fr", "de"] as const;
-export type Language = (typeof LANGUAGES)[number];
-
-// Palabras que casi solo salen en un idioma: el que más tiene gana.
-const STOPWORDS: Record<Language, readonly string[]> = {
-  es: ["el", "la", "los", "las", "de", "que", "y", "en", "un", "una", "para", "con", "por", "tu", "te", "es", "está", "hay", "puedo", "hola", "gracias", "cita", "hueco", "lunes", "martes", "mañana", "tarde", "persona", "equipo", "nos", "lo", "si", "sí", "pero", "como", "más"],
-  en: ["the", "and", "you", "your", "is", "are", "to", "of", "for", "with", "we", "have", "can", "i", "a", "an", "it", "on", "at", "hi", "hello", "thanks", "appointment", "slot", "monday", "tuesday", "available", "will", "be", "this", "that", "please", "would", "team"],
-  fr: ["le", "la", "les", "de", "des", "et", "vous", "votre", "est", "pour", "avec", "nous", "un", "une", "je", "bonjour", "merci", "rendez-vous", "lundi", "mardi", "disponible", "créneau", "pas", "ne", "sur", "au", "du", "équipe", "sera", "peux", "pouvez", "il", "y", "a"],
-  de: ["der", "die", "das", "und", "sie", "ihr", "ihre", "ist", "für", "mit", "wir", "ein", "eine", "ich", "hallo", "danke", "termin", "montag", "dienstag", "verfügbar", "nicht", "zu", "am", "um", "den", "dem", "es", "gibt", "können", "kann", "team", "gerne", "uhr"],
-};
-
-/** Los aciertos de cada idioma en un texto. */
-export function languageScores(text: string): Record<Language, number> {
-  const tokens = text.toLowerCase().match(/[\p{L}-]+/gu) ?? [];
-  const scores = { es: 0, en: 0, fr: 0, de: 0 };
-  for (const language of LANGUAGES) {
-    const words = new Set(STOPWORDS[language]);
-    scores[language] = tokens.filter((token) => words.has(token)).length;
-  }
-  return scores;
-}
-
-/** El idioma de un texto, o null si no hay un ganador claro. */
-export function detectLanguage(text: string): Language | null {
-  const scores = languageScores(text);
-  const ranked = [...LANGUAGES].sort((a, b) => scores[b] - scores[a]);
-  const [first, second] = ranked as [Language, Language];
-  return scores[first] > 0 && scores[first] > scores[second] ? first : null;
-}
+// La misma detección que usa el turno para el texto fijo del paso (agent-core).
+export { LANGUAGES, detectLanguage, languageScores };
+export type { Language };
 
 export function repliesIn(language: Language): Check {
   return withReply(`contesta en ${language}`, (reply) => {

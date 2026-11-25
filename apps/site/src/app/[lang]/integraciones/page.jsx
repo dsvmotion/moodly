@@ -171,7 +171,7 @@ export default function Integraciones() {
   const total = CATEGORIES.reduce((n, c) => n + c.items.length, 0);
   // Estado de cada una desde docs/scope.yaml (N-01): la unidad es «int-» + el nombre del logo.
   const unitId = (logo) => "int-" + logo.split(".")[0];
-  const byStatus = CATEGORIES.flatMap((c) => c.items).reduce((acc, [logo]) => { acc[availability(unitId(logo))] += 1; return acc; }, { available: 0, pilot: 0, roadmap: 0 });
+  const byStatus = CATEGORIES.flatMap((c) => c.items).reduce((acc, [logo]) => { acc[availability(unitId(logo))] += 1; return acc; }, { available: 0, building: 0, pilot: 0, roadmap: 0 });
   const visible = useMemo(() => CATEGORIES
     .filter((c) => cat === "all" || cat === "eu" || c.id === cat)
     .map((c) => ({ ...c, items: c.items.filter(([, name, use]) => (cat !== "eu" || EU.has(name)) && (name + " " + useText(name, use)).toLowerCase().includes(q.trim().toLowerCase())) }))

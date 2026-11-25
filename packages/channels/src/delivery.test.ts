@@ -59,6 +59,33 @@ const MATRIX: [string, string, string][] = [
 ["failed", "failed", "failed"],
 ];
 
+// «unknown» (20261113120000): la misma literal que 55_worker_outbound_messages.test.sql.
+const UNKNOWN_MATRIX: [string, string, string][] = [
+["received", "unknown", "unknown"],
+["pending", "unknown", "unknown"],
+["sent", "unknown", "sent"],
+["delivered", "unknown", "delivered"],
+["read", "unknown", "read"],
+["failed", "unknown", "failed"],
+["unknown", "unknown", "unknown"],
+["unknown", "pending", "unknown"],
+["unknown", "sent", "sent"],
+["unknown", "delivered", "delivered"],
+["unknown", "read", "read"],
+["unknown", "failed", "failed"],
+];
+
+describe("«unknown»: un envío que salió sin saber si llegó (20261113120000)", () => {
+  it.each(UNKNOWN_MATRIX)("%s + %s → %s", (current, incoming, expected) => {
+    expect(nextDeliveryStatus(current as Parameters<typeof nextDeliveryStatus>[0], incoming as (typeof DELIVERY_STATUSES)[number])).toBe(expected);
+  });
+
+  it("no es definitivo: cualquier aviso del proveedor lo resuelve, y nunca vuelve a pending", () => {
+    for (const incoming of ["sent", "delivered", "read", "failed"] as const) expect(nextDeliveryStatus("unknown", incoming)).toBe(incoming);
+    expect(nextDeliveryStatus("unknown", "pending")).toBe("unknown");
+  });
+});
+
 describe("nextDeliveryStatus y la base de datos dicen lo mismo", () => {
   it.each(MATRIX)("%s + %s → %s", (current, incoming, expected) => {
     expect(nextDeliveryStatus(current as Parameters<typeof nextDeliveryStatus>[0], incoming as (typeof DELIVERY_STATUSES)[number])).toBe(expected);
@@ -84,5 +111,10 @@ describe("deliveryUpdateSchema", () => {
     expect(deliveryUpdateSchema.safeParse({ ...update, accountExternalId: undefined }).success).toBe(false);
     expect(deliveryUpdateSchema.safeParse({ ...update, accountExternalId: "" }).success).toBe(false);
     expect(deliveryUpdateSchema.safeParse({ ...update, channel: "fax" }).success).toBe(false);
+  });
+
+  it("la referencia, si viene, es un id nuestro", () => {
+    expect(deliveryUpdateSchema.safeParse({ ...update, reference: "0a000000-0000-4000-8000-000000000001" }).success).toBe(true);
+    expect(deliveryUpdateSchema.safeParse({ ...update, reference: "cualquier cosa" }).success).toBe(false);
   });
 });

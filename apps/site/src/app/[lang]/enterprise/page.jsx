@@ -9,7 +9,7 @@ import { AvailabilityBadge } from "@/components/availability";
 // regla de V1 del 2026-11-11). null = sin unidad: no se enseña. Mismo índice en los cuatro idiomas.
 const UNITS = {
   pillars: ["OA05", "OA08", "SE04"],
-  deploy: ["PL-prod", "PL-cells", "PL-cells", null],
+  deploy: ["PL-prod", "PL-cells", null, null],
   governance: ["OA15", "PL-sso", "SE04", null, "OA14", "E11"],
 };
 for (const [lang, c] of Object.entries(COPY)) for (const [f, u] of Object.entries(UNITS)) {

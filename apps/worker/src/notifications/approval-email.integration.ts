@@ -97,6 +97,32 @@ async function waitFor(condition: () => boolean | Promise<boolean>, what: string
   }
 }
 
+/**
+ * Las filas de dbos.workflow_status de esos workflows, cuando hay `count` y
+ * ninguno está todavía en marcha. El último email llega antes de que DBOS
+ * marque el workflow como terminado: leerlas justo después daba PENDING a
+ * veces, con la máquina cargada. Si alguno acaba en un estado final que no es
+ * SUCCESS, la aserción de quien llama lo dice, sin esperar al tope.
+ */
+async function finishedWorkflows(workflowIds: readonly string[], count: number, output: () => string) {
+  const read = async () =>
+    (
+      await admin.query<{ status: string; queue_name: string }>(
+        "select status, queue_name from dbos.workflow_status where workflow_uuid = any($1::text[])",
+        [workflowIds],
+      )
+    ).rows;
+  await waitFor(
+    async () => {
+      const current = await read();
+      return current.length === count && current.every((row) => !["PENDING", "ENQUEUED"].includes(row.status));
+    },
+    `los ${count} workflows de entrega terminados`,
+    output,
+  );
+  return read();
+}
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     let raw = "";
@@ -278,9 +304,10 @@ describe("aviso por email de las aprobaciones nuevas (M-02)", () => {
       [[inX1, inY1, inZ1]],
     );
     expect(events).toHaveLength(3);
-    const { rows } = await admin.query<{ status: string; queue_name: string }>(
-      "select status, queue_name from dbos.workflow_status where workflow_uuid = any($1::text[])",
-      [events.map((event) => deliveryWorkflowId(event.id, APPROVAL_EMAIL_HANDLER_KEY))],
+    const rows = await finishedWorkflows(
+      events.map((event) => deliveryWorkflowId(event.id, APPROVAL_EMAIL_HANDLER_KEY)),
+      3,
+      worker.output,
     );
     expect(rows).toEqual([
       { status: "SUCCESS", queue_name: "notifications" },
@@ -354,10 +381,7 @@ describe("aviso por email del tope mensual (PL-ledger)", () => {
       [ids.orgY],
     );
     expect(events).toHaveLength(1);
-    const { rows } = await admin.query<{ status: string; queue_name: string }>(
-      "select status, queue_name from dbos.workflow_status where workflow_uuid = $1",
-      [deliveryWorkflowId(events[0]?.id as string, BUDGET_EMAIL_HANDLER_KEY)],
-    );
+    const rows = await finishedWorkflows([deliveryWorkflowId(events[0]?.id as string, BUDGET_EMAIL_HANDLER_KEY)], 1, worker.output);
     expect(rows).toEqual([{ status: "SUCCESS", queue_name: "notifications" }]);
     expect(worker.output()).not.toContain("@demo.test");
 
@@ -479,9 +503,10 @@ describe("aviso por email del paso a una persona (CU3)", () => {
     expect(y1Again).toHaveLength(2);
     await waitFor(() => new Set(handoffKeys([y1Again[1] as string])).size === 2, "el segundo aviso de Y1", worker.output);
 
-    const { rows } = await admin.query<{ status: string; queue_name: string }>(
-      "select status, queue_name from dbos.workflow_status where workflow_uuid = any($1::text[])",
-      [[...x1Events, ...xEvents, ...y1Again].map((id) => deliveryWorkflowId(id, HANDOFF_EMAIL_HANDLER_KEY))],
+    const rows = await finishedWorkflows(
+      [...x1Events, ...xEvents, ...y1Again].map((id) => deliveryWorkflowId(id, HANDOFF_EMAIL_HANDLER_KEY)),
+      4,
+      worker.output,
     );
     expect(rows).toHaveLength(4);
     expect(rows.every((row) => row.status === "SUCCESS" && row.queue_name === "notifications")).toBe(true);

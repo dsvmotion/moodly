@@ -101,13 +101,13 @@ select is(count(*)::int, 0, 'org_admin A aal2: sigue sin poder cambiar la organi
 -- ===========================================================================
 reset role;
 select pg_temp.login(:a_loc1_mgr);
-with u as (update public.locations set opening_hours = '{"lunes": "9-14"}' where id = :loc_a1 returning 1)
+with u as (update public.locations set opening_hours = '{"mon": ["09:00", "14:00"]}' where id = :loc_a1 returning 1)
 select is(count(*)::int, 1, 'location_manager aal1: sigue cambiando su local') from u;
-with u as (update public.locations set opening_hours = '{"lunes": "9-14"}' where id = :loc_a2 returning 1)
+with u as (update public.locations set opening_hours = '{"mon": ["09:00", "14:00"]}' where id = :loc_a2 returning 1)
 select is(count(*)::int, 0, 'location_manager aal1: no cambia un local ajeno') from u;
 reset role;
 select pg_temp.login(:a_region_mgr);
-with u as (update public.locations set opening_hours = '{"martes": "9-14"}' where region_id = :region_a_n returning 1)
+with u as (update public.locations set opening_hours = '{"tue": ["09:00", "14:00"]}' where region_id = :region_a_n returning 1)
 select ok((select count(*)::int from u) > 0, 'region_manager aal1: sigue cambiando los locales de su región');
 
 -- ===========================================================================

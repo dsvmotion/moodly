@@ -40,10 +40,11 @@ describe("navegación", () => {
     }
   });
 
-  it("Ajustes tiene las 13 secciones de MANUAL §9.4 en 5 grupos, sin repetir tramo de URL", () => {
+  it("Ajustes tiene las 14 secciones de MANUAL §9.4 en 5 grupos, sin repetir tramo de URL", () => {
     expect(SETTINGS_GROUPS.map((group) => group.key)).toEqual(["personal", "people", "business", "ai", "security"]);
+    // services: servicios, precios y equipo (OA04).
     expect(SETTINGS_SECTIONS.map((section) => section.slug).sort()).toEqual(
-      ["audit", "billing", "general", "integrations", "locations", "models", "plan", "preferences", "privacy", "profile", "roles", "security", "team"],
+      ["audit", "billing", "general", "integrations", "locations", "models", "plan", "preferences", "privacy", "profile", "roles", "security", "services", "team"],
     );
     expect(settingsSectionBySlug("locations")?.key).toBe("locations");
     expect(settingsSectionBySlug("api")).toBeNull();

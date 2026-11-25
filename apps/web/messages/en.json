@@ -66,6 +66,7 @@
     "coach": "Coach",
     "approvals": "Approvals",
     "inbox": "Inbox",
+    "calendar": "Calendar",
     "tasks": "Tasks",
     "activity": "Activity",
     "analytics": "Reports",
@@ -313,7 +314,8 @@
       "models": "AI models",
       "integrations": "Integrations",
       "security": "Security and access",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "services": "Services and team"
     },
     "pending": {
       "notYet": "Not available yet",
@@ -410,6 +412,38 @@
     "noAgentsTitle": "You have no agents yet",
     "noAgentsDescription": "Your agents appear once you belong to an organization: accept the invitation you were sent."
   },
+  "calendarPage": {
+    "title": "Calendar",
+    "description": "Appointments at the locations you can see, each in its location's local time. View only for now.",
+    "views": "View",
+    "day": "Day",
+    "week": "Week",
+    "today": "Today",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "emptyTitle": "No appointments",
+    "empty": "There are no appointments on these days at the locations in your scope.",
+    "emptyDay": "No appointments",
+    "count": "{count, plural, one {# appointment} other {# appointments}}",
+    "unknownContact": "Client",
+    "unknownService": "Service",
+    "unknownResource": "No staff member or resource",
+    "with": "with {resource}",
+    "status": {
+      "booked": "Booked",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "no_show": "No-show"
+    },
+    "origin": {
+      "agent": "Booked by an agent",
+      "user": "Added by the team",
+      "sync": "Synced"
+    },
+    "truncated": "Only the first {count} appointments are shown. Pick a location or the day view to see the rest."
+  },
   "approvalsPage": {
     "title": "Approvals",
     "description": "What the agent proposes and is waiting for a person. Approving sends the reply or makes the booking; rejecting does nothing.",
@@ -434,9 +468,55 @@
     },
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
-      "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired."
+      "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired.",
+      "slot_passed": "This appointment's time has already passed: it can't be approved. Reject it."
     },
-    "count": "{count, plural, one {# pending} other {# pending}}"
+    "count": "{count, plural, one {# pending} other {# pending}}",
+    "openDetail": "View details",
+    "close": "Close",
+    "detail": {
+      "what": "What you're approving",
+      "service": "Service",
+      "resource": "With",
+      "startsAt": "Time",
+      "from": "From",
+      "to": "To",
+      "slotPassed": "This appointment's time has already passed: it can't be approved. Reject it and, if needed, reply to the customer from the inbox.",
+      "location": "Location",
+      "wholeOrganization": "Whole organization",
+      "decides": "Decided by",
+      "requested": "Requested",
+      "expires": "Expires",
+      "conversation": "Conversation",
+      "unknownContact": "Unnamed contact",
+      "noMessages": "No messages.",
+      "openConversation": "Open the conversation in the inbox",
+      "noConversation": "It doesn't come from a conversation with a customer.",
+      "why": "Why",
+      "agent": "Agent",
+      "model": "Model",
+      "cost": "Cost",
+      "tokens": "Tokens",
+      "tokensValue": "{in} in, {out} out",
+      "others": "Everything else it did in that turn",
+      "unknown": "No data",
+      "loading": "Loading the details…",
+      "authors": {
+        "contact": "Customer",
+        "agent": "Agent",
+        "user": "Team",
+        "system": "System"
+      },
+      "statuses": {
+        "suggested": "Suggested",
+        "drafted": "Draft",
+        "needs_approval": "Awaiting approval",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "executed": "Done",
+        "failed": "Failed"
+      }
+    }
   },
   "inboxPage": {
     "title": "Inbox",
@@ -488,7 +568,8 @@
     },
     "status": {
       "pending": "Not sent yet",
-      "failed": "Could not be sent"
+      "failed": "Could not be sent",
+      "unknown": "Sent, but delivery could not be confirmed: check with the customer before resending"
     },
     "channels": {
       "whatsapp": "WhatsApp",
@@ -513,6 +594,11 @@
       "not_allowed": "You can't do this here: the conversation is not in your scope, someone already changed who is handling it, or it is closed.",
       "channel_unavailable": "You can't reply on this channel from here yet.",
       "failed": "It didn't work. Please try again."
+    },
+    "handoffNotice": {
+      "title": "A conversation was handed to you",
+      "description": "The agent stopped replying and handed it to the team.",
+      "open": "View the conversation"
     }
   },
   "testChat": {
@@ -711,6 +797,10 @@
       "outlook-calendar": {
         "name": "Outlook / Microsoft 365",
         "description": "Agents check the calendar of your Microsoft 365 or Outlook account. Read-only for now."
+      },
+      "koibox": {
+        "name": "Koibox",
+        "description": "The agents read your centre's Koibox schedule with your account's API key. Paste it here: it is stored encrypted and only the platform uses it."
       }
     },
     "errors": {
@@ -718,6 +808,86 @@
       "not_allowed": "You are not allowed to change this integration.",
       "unavailable": "Integrations are not available in this environment yet.",
       "platform_failed": "We could not reach the integration provider. Nothing has changed: try again in a few minutes."
+    },
+    "apiKeyLabel": "Koibox API key",
+    "saveKey": "Save key",
+    "changeKey": "Change key",
+    "keyNotices": {
+      "invalid": "That integration does not exist.",
+      "invalid_key": "That key does not look valid: paste it as is, without spaces.",
+      "not_allowed": "You are not allowed to change this integration.",
+      "unavailable": "Adding keys is not available in this environment yet.",
+      "too_many": "Too many attempts for this integration: wait a few minutes and try again.",
+      "checking": "Checking the key with Koibox…",
+      "applied": "Key checked: Koibox is connected.",
+      "rejected": "Koibox did not accept that key. Check it is your account's key and paste it again.",
+      "rejected_kept": "Koibox did not accept the last key you sent: the previous one still works.",
+      "still_checking": "We are still checking the key. Look again in a few minutes."
     }
+  },
+  "servicesPage": {
+    "title": "Services and team",
+    "description": "What can be booked, how long it takes and what it costs, and who or what does it at each location. The agents use it to offer slots and book.",
+    "mfaRequired": "You need the second factor to change services, prices and team.",
+    "mfaLink": "Turn it on in Security",
+    "tabsLabel": "Services and team",
+    "tabs": {
+      "services": "Services",
+      "team": "Team and resources"
+    },
+    "errors": {
+      "invalid": "Check the details: something can't be saved like this.",
+      "not_allowed": "You don't have permission to change this.",
+      "synced": "This comes from an integration: change it there."
+    },
+    "saved": "Saved",
+    "fields": {
+      "name": "Name",
+      "duration": "Duration (min)",
+      "price": "Price",
+      "currency": "Currency",
+      "offeredAt": "Offered at",
+      "status": "Status",
+      "kind": "Type",
+      "location": "Location",
+      "services": "Services they do"
+    },
+    "pricePlaceholder": "No price",
+    "priceHelp": "The agents that book appointments quote this price to whoever asks. Leave it empty if you don't want to publish it: without a price, they quote none and pass the question to the team.",
+    "allLocations": "All locations",
+    "create": "Create",
+    "save": "Save",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "active": "Active",
+    "inactive": "Deactivated",
+    "kinds": {
+      "staff": "Professional",
+      "room": "Room",
+      "equipment": "Equipment"
+    },
+    "noServicesYet": "There are no services offered at this location yet.",
+    "servicesHelp": "Only active services offered at the chosen location can be picked.",
+    "noServices": "None",
+    "synced": "This comes from an integration and is synced from there: here you can only view it.",
+    "noPrice": "No price",
+    "minutes": "{count, plural, one {# minute} other {# minutes}}",
+    "addService": "New service",
+    "servicesEmptyTitle": "No services yet",
+    "servicesEmpty": "Create the services that can be booked, with their duration and price.",
+    "emptyReadOnly": "They'll show up here when someone with permission creates them.",
+    "close": "Close",
+    "newService": "New service",
+    "newServiceDescription": "What can be booked, how long it takes and, if you like, what it costs.",
+    "addResource": "New professional or resource",
+    "resourcesEmptyTitle": "No team or resources yet",
+    "resourcesEmpty": "Add who or what serves at each location and which services they do: without it there are no slots to book.",
+    "newResource": "New professional or resource",
+    "newResourceDescription": "A person, a room or equipment at a location, and the services they do.",
+    "hoursTitle": "Change opening hours",
+    "opensAt": "{day}: opens at",
+    "closesAt": "{day}: closes at",
+    "closed": "Closed",
+    "hoursHelp": "The agents only offer slots within these hours, in the location's time zone."
   }
 }
