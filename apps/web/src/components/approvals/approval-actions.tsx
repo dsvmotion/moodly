@@ -7,8 +7,12 @@ import { decideApproval, type DecideState } from "@/app/app/approvals/actions";
 
 const initial: DecideState = { error: null };
 
-/** Aprobar o rechazar una aprobación. Quien decide lo dice la base de datos (RLS). */
-export function ApprovalActions({ id }: { id: string }) {
+/**
+ * Aprobar o rechazar una aprobación. Quien decide lo dice la base de datos
+ * (RLS). `approveDisabled`: una reserva cuya hora ya pasó (OA02); la acción lo
+ * vuelve a comprobar en el servidor.
+ */
+export function ApprovalActions({ id, approveDisabled = false }: { id: string; approveDisabled?: boolean }) {
   const t = useTranslations("approvalsPage");
   const [state, action, pending] = useActionState(decideApproval, initial);
   return (
@@ -18,7 +22,7 @@ export function ApprovalActions({ id }: { id: string }) {
         <Button type="submit" name="decision" value="rejected" variant="outline" size="sm" disabled={pending} data-testid="approval-reject">
           {t("reject")}
         </Button>
-        <Button type="submit" name="decision" value="approved" size="sm" disabled={pending} data-testid="approval-approve">
+        <Button type="submit" name="decision" value="approved" size="sm" disabled={pending || approveDisabled} data-testid="approval-approve">
           {t("approve")}
         </Button>
       </div>

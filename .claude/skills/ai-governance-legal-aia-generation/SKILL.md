@@ -9,6 +9,7 @@ description: >
   AIA", "generate an AIA", "we need to document this AI system", "AI risk
   assessment for X", or follows a conditional triage result.
 argument-hint: "[describe the use case or system, or pass a triage result]"
+disable-model-invocation: true
 ---
 
 # /aia-generation

@@ -11,6 +11,10 @@
     "./platform": {
       "types": "./dist/platform/index.d.ts",
       "default": "./dist/platform/index.js"
+    },
+    "./key-ingress": {
+      "types": "./dist/key-ingress/index.d.ts",
+      "default": "./dist/key-ingress/index.js"
     }
   },
   "scripts": {

@@ -68,6 +68,9 @@ if (phase === "after") {
   );
 }
 const worker = createWorker(config, logger, {
+  // El publicador del outbox, cada segundo en vez de cada 5 s: cada turno o aviso del test
+  // empieza por un evento de dominio, y así no espera a la vuelta de producción.
+  schedulesTesting: { outboxPublish: "* * * * * *" },
   eventHandlers: handlers,
   onLeaseLost: (err) => {
     logger.fatal({ err }, "se perdió el lock del executor");

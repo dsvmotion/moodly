@@ -642,6 +642,8 @@ Reglas:
   - cada persona ve lo pendiente de los locales de su alcance (RLS), con la vista previa, el tipo, el local y la caducidad;
   - aprobar o rechazar es un `UPDATE` con su sesión: RLS (`approvals_decide`) y `guard_approval` deciden si puede, ponen quién decidió y cuándo, y emiten `approval.decided`;
   - cada decisión deja su evento de seguridad (`agent.approval_approved` o `agent.approval_rejected`).
+  - **el detalle (OA02, 2026-11-13),** en el panel lateral (P4, `?record=<id>`): lo que se aprueba según la skill (el texto entero de una respuesta; servicio, recurso y hora de una reserva o un cambio, en la zona del local), la conversación de la que salió (los últimos mensajes y el enlace a la bandeja) y por qué (agente, modelo, coste, tokens y lo demás que hizo en ese turno). Se lee con la sesión de quien mira (RLS) y solo para una aprobación de su lista;
+  - **una reserva o un cambio cuya hora ya pasó no se aprueba** (OA02): el panel lo dice y la acción lo rechaza (`agent.approval_refused`). Si llegara a aprobarse, al ejecutarla falla cerrada: la skill y la base de datos rechazan una hora pasada.
 
 ### 5.8 Coordinación entre agentes **[DISEÑO: ADR 0009, propuesto; outbox implementado en W3]**
 
@@ -915,7 +917,7 @@ Los segmentos de ruta están en inglés y son **identificadores estables**: no s
 | `/app` | P1 | Inicio y bandeja del día |
 | `/app/inbox` · `/[id]` | P2 + P3 | Bandeja multicanal; conversación completa con las acciones del agente intercaladas; tomar el control y devolverlo. **Construida (2026-11-10):** lista y conversación, tomar el control y devolverlo (`conversations.mode`) y responder como persona; sin tiempo real todavía (decisión de producto pendiente) |
 | `/app/approvals` | P2 + P4 | Cola de aprobaciones con vista previa de la acción |
-| `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`) |
+| `/app/calendar` | Calendario | Citas por sede y recurso (agente `reception`). **Construida la consulta (OA03, primer incremento):** vista de día y de semana, por sede, cada cita en la hora de su sede; servicio, profesional o recurso, cliente (si RLS deja verlo), estado y origen (agente, equipo o sincronizada); solo lectura, con la sesión de quien mira. Reservar, mover y cancelar desde aquí, después |
 | `/app/contacts` · `/[id]` | P2 · P3 | Clientes finales |
 | `/app/leads` | P2 (kanban) | Leads y oportunidades por etapa |
 | `/app/invoices` | P2 | Borradores de facturas e inventario |
