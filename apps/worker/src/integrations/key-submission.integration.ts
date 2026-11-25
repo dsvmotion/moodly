@@ -1,4 +1,5 @@
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
+import { KEY_SUBMISSION_TTL_MS } from "@repo/config";
 import { createServiceDb } from "@repo/db/service";
 import { IngressKeyUnavailableError, createLocalIngressKeyring, sealSubmission, type IngressKeyring, type IngressPublicKey } from "@repo/integrations/key-ingress";
 import pg from "pg";
@@ -361,6 +362,26 @@ describe("la caducidad cuenta desde el envío (ADR 0055 §2; nit de V1 en #337)"
     const { id } = await koibox(ORG_A, "pending");
     const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - 14 * 60_000) });
     await expect(applySubmission({ ...deps, ttlMs: TTL }, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "applied" });
+  });
+
+  it("el plazo de la transacción es el que recibe el worker, no un literal del SQL: con 5 min, uno de hace 10 caduca", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - 10 * 60_000) });
+    await expect(applySubmission({ ...deps, ttlMs: 5 * 60_000 }, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "expired" });
+    expect(await integration(id)).toMatchObject({ status: "pending", secret_id: null, last_submission_id: null });
+    expect(await submissionExists(sub)).toBe(false);
+  });
+
+  it("sin plazo explícito, el del worker es KEY_SUBMISSION_TTL_MS de @repo/config (el mismo de la web): un minuto después, caducado", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - KEY_SUBMISSION_TTL_MS - 60_000) });
+    await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "expired" });
+  });
+
+  it("y un minuto antes de KEY_SUBMISSION_TTL_MS, sin plazo explícito, todavía se aplica", async () => {
+    const { id } = await koibox(ORG_A, "pending");
+    const sub = await submit(ORG_A, id, GOOD_1, { createdAt: new Date(Date.now() - KEY_SUBMISSION_TTL_MS + 60_000) });
+    await expect(applySubmission(deps, input(ORG_A, id, sub))).resolves.toMatchObject({ outcome: "applied" });
   });
 });
 
