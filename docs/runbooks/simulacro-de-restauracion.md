@@ -43,7 +43,7 @@ El volcado puede llevar datos personales (`auth.users`, contactos, mensajes). Po
 
 Pruebas en negativo (el simulacro tiene que fallar cuando algo no cuadra; ver `scripts/supabase/tests/restore-drill.test.sh`): contra las comprobaciones de la primera versión, 5 fallos pasaban sin que se detectaran (un rol propio con `BYPASSRLS`, un `public` vacío, un `psql: error:`/`FATAL` en la restauración del esquema y otro en la de datos, y un volcado que falla a medias); con las comprobaciones actuales se detectan los 5. Además, con una migración en el repositorio que la base no tiene, sale con 1 y dice qué versión falta. Y los errores de SQL de la restauración de datos (que `psql -f` imprime como `psql:<fichero>:<línea>: ERROR:  <código>`) salen en el informe solo como su SQLSTATE (por ejemplo `23505`), sin el mensaje, el detalle ni el fichero y la línea: el mensaje por defecto lleva el valor de la fila. Hay un caso en negativo que inyecta esa línea y exige que se detecte.
 
-La fila de staging se rellena con la primera corrida real desde `main` (número de la ejecución, recuentos y tiempos). Hasta entonces la puerta **no** está cumplida.
+La fila de staging es la primera corrida real desde `main` (número de la ejecución, recuentos y tiempos). Con ella queda cumplida la puerta «un simulacro de restauración» de M1, por el camino lógico (volcado + restauración). No cubre lo que dice la sección 1: la restauración del proyecto entero de Supabase sigue sin probar. Cada corrida real nueva añade su fila.
 
 ## 4. Qué da Supabase y cómo se restaura un proyecto entero
 
