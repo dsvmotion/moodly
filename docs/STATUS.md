@@ -1,13 +1,16 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Último lead: V1, 2026-11-24 (cierre) · main `aa79e63`
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `e504000` (#347)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
-- En vuelo: nada en marcha; todas las sesiones paradas en un punto estable, con lo suyo empujado.
-- Primero: Ola 0 en el orden de abajo (de uno en uno: main exige rama al día). Procedimiento: `docs/specs/ola0-00-como-mergear.md`.
-- Staging: al día con `aa79e63`. «Despliegue a staging» [45493823125](https://github.com/dsvmotion/moodly/actions/runs/45493823125) en verde (migraciones, web y worker); Railway `20a790c5` SUCCESS (la imagen con el SDK de AWS se construyó bien); worker `/health` 200. Railway en Hobby desde el 24-11.
-- Preguntas para Diego: «Decisiones para Diego», abajo.
+- Lee antes: `docs/reports/2026-11-25-panorama.md` (contexto) y `docs/reports/ola0-followups.md` (seguimientos y su destino). PR de docs de la fase: #345 (borrador hasta el cierre).
+- Hecho el 25-11: 13 PRs en `main` (lista en `docs/PLAN.md`, Ola 0). **Puerta 3 de M1 cumplida** (simulacro real, [corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616)). CI de `main` y «Despliegue a staging» en verde sobre `e504000`, el último commit (21:25 UTC).
+- `main` en rojo dos veces, las dos resueltas: `677a813` (test intermitente de la ingesta, arreglado en #348) y `102987d` (puerto 54322 ocupado en el runner, paso «Supabase local (mínimo)»; el commit siguiente pasó).
+- En vuelo: nada. Ningún worker en marcha. Sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH, #317) y `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk, #334).
+- **Primero, preguntas para Diego:** (1) ¿#317 lleva el arreglo de «reserva pasada»? (comentario 7168631756 del PR); (2) ¿#334 con dos archivos fuera de spec y `/health` 503 con un relleno aparcado?; (3) ¿cerrar #281 y #302?; (4) ¿adelantar a esta fase el arreglo del puerto 54322?; (5) el resto de `ola0-08`.
+- Con (1) y (2): poner al día y mergear #317 y #334, lanzar `ola0-06` (#312), y después `ola0-09a` y `ola0-09b` (specs escritas). Luego, cierre de fase: `scope.yaml`, STATUS y PLAN (filas 16–23 de los seguimientos).
+- Cómo: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
 
 ## a) Ola 0 — integración (en orden)
 | # | PR | Estado | Le falta |
@@ -30,7 +33,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 - **#271** (borradores legales): ¿entran como borradores o se quedan en la rama hasta el abogado? · **#260** (frase `eval:intents`): ¿sí o cerrar? · **#270** (umbral `complex`): correr `eval:intents` real antes. · **#159** (skill `ask_team`, CU2): rehacer sobre main · **#160**: superado, ¿cerrar?
 - **Agente de lanzamiento y redes (GTM):** ¿se arranca? Si sí: repos de diseño/motion/UX que usará, sector y país de inicio; no hay conectores de Instagram/LinkedIn/Threads/X y cada publicación la aprueba una persona.
 - **Producto abierto:** email y dominio de contacto de los decks; reparto entre cofundadores; términos de la nota de 200.000 €.
-- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). Falta subir el cambio del script al toolkit (push denegado desde la sesión; parche en `docs/reports/ola1-01-toolkit.patch`).
+- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). El script está en el `main` del toolkit (`1b6cb02`) y una sesión real desde `677a813` lo confirmó: lista las 20 visibles, arranca sin el texto del hook y usa una oculta desde el índice.
 - **Heredadas** (Realtime público, Fluid de Vercel, mensaje del sistema en el paso a persona, bandeja, marca, `/app-movil`, lote C de reservas…): report de cierre §5.
 
 ## c) Tareas manuales de Diego
@@ -46,7 +49,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 - Antes del primer dato real: Supabase Pro, lista completa de zonas sensibles + revisión humana + F03, DPAs (F10), Nango autoalojado en la UE.
 
 ## d) Construido, no verificado en real
-WhatsApp (gate 1 de M1) · Outlook · Google Calendar: reservar contra ocupado y fallo real · Koibox de punta a punta · worker con KMS · OA02 aprobar con edición · OA04 en staging · OA03 agenda · CU3 por WhatsApp · M-10 bandeja en vivo · alerta de despliegue FAILED/atascado · relleno del outbox en staging · simulacro de restauración en staging · enrutado por intención (apagado) · avisos por email de tope y de aprobaciones. Detalle: report de cierre §3.
+WhatsApp (gate 1 de M1) · Outlook · Google Calendar: reservar contra ocupado y fallo real · Koibox de punta a punta · worker con KMS · OA02 aprobar con edición · OA04 en staging · OA03 agenda · CU3 por WhatsApp · M-10 bandeja en vivo · alerta de despliegue FAILED/atascado · relleno del outbox en staging · enrutado por intención (apagado) · avisos por email de tope y de aprobaciones. Detalle: report de cierre §3.
 
 ## e) Notas
 - CI: el e2e a veces muere en «Supabase local (mínimo)» con el puerto 54322 ocupado, antes de ningún test; se arregla relanzando una vez. Si GitHub lo cancela por concurrencia del mismo PR, cancelar la corrida vieja y relanzar.
