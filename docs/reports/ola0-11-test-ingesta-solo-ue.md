@@ -26,6 +26,11 @@ Spec: docs/specs/ola0-11-test-ingesta-solo-ue.md · Date: 2026-11-25 · Branch/P
 
 Entorno: sesión en la nube montada con el anexo B de `docs/reports/2026-11-24-cierre-v1.md` (Node 24.22.3, Supabase CLI 2.118.0, Docker). `pnpm db:start && pnpm db:reset && pnpm db:seed` y `pnpm turbo run build --filter=@repo/worker^...` en verde antes de las corridas.
 
+## Reviewer (`reviewer`, Opus): PASS
+Two low-severity notes, both deliberately not acted on:
+- pino writes asynchronously (SonicBoom), so `SUCCESS` doesn't strictly guarantee the line is already in the pipe. In practice the window is closed: the write goes out before `handle()` returns, DBOS needs a write to the database to mark `SUCCESS`, and the test makes one more query (`chunks`) before reading the output. It's the same pattern as the neighbouring tests. Waiting until the line appears would make the assertion redundant, so it's left as is.
+- If the `DELETE` in the `finally` failed, its error would hide the original one. That's unlikely, and `afterAll` cleans up anyway.
+
 ## Files changed
 - `apps/worker/src/knowledge/ingest.integration.ts`: el test de «Solo UE» espera a `status === "error"` **y** `deliveries(id) === "SUCCESS"` antes de leer la salida (como sus vecinos, con el mismo comentario), y sus aserciones van en `try` con un `finally` que borra `org_model_settings` y pone `policySet = false`.
 - `docs/reports/ola0-11-test-ingesta-solo-ue.md`: este report.
