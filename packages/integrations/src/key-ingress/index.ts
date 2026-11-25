@@ -4,6 +4,7 @@
 export {
   SUBMITTED_KEY_MAX,
   SUBMITTED_KEY_MIN,
+  IngressKeyUnavailableError,
   SubmissionRejectedError,
   createLocalIngressKeyring,
   isAcceptableSubmittedKey,

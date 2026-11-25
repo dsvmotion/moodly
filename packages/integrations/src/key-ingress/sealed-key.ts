@@ -14,7 +14,8 @@ import { constants, createCipheriv, createDecipheriv, createPrivateKey, createPu
 //   depende del orden en que se cambian la web y el worker, y un key_ref que no
 //   es nuestro no le hace usar otra clave.
 // - En staging y producción la parte privada vive en AWS KMS (sin verificar en
-//   real todavía); en desarrollo y tests, un par local con la misma interfaz.
+//   real todavía; apps/worker/src/secrets/kms.ts); en desarrollo y tests, un
+//   par local con la misma interfaz.
 //
 // El valor en claro solo existe en memoria: nunca se registra ni va a un error.
 
@@ -52,6 +53,14 @@ export interface IngressPublicKey {
 /** El envío no se puede abrir: otra clave, otro contexto, un byte cambiado o un valor que no vale. */
 export class SubmissionRejectedError extends Error {
   override readonly name = "SubmissionRejectedError";
+}
+
+/**
+ * La clave de ingreso no responde ahora (KMS: red, límites, permisos): no dice
+ * nada del envío, así que no se descarta y quien llama lo reintenta.
+ */
+export class IngressKeyUnavailableError extends Error {
+  override readonly name = "IngressKeyUnavailableError";
 }
 
 export function submissionAad(context: SubmissionContext): string {
@@ -120,7 +129,9 @@ export async function openSubmission(keyring: IngressKeyring, context: Submissio
   let dataKey: Buffer;
   try {
     dataKey = await keyring.unwrap(sealed.keyRef, Buffer.from(sealed.encryptedDataKey, "base64"));
-  } catch {
+  } catch (err) {
+    // Un fallo pasajero de la clave de ingreso se reintenta; lo demás es que el envío no se abre.
+    if (err instanceof IngressKeyUnavailableError) throw err;
     throw new SubmissionRejectedError("la clave de datos no se puede descifrar");
   }
   try {

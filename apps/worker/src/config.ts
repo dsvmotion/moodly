@@ -71,10 +71,21 @@ export interface WorkerConfig {
    * para desarrollo y tests: la maestra de SecretVault (SECRET_VAULT_LOCAL_KEY,
    * 32 bytes en base64) y la privada de ingreso (INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY,
    * PEM PKCS#8 en base64, key_ref «local:v1»). Las dos o ninguna. En staging y
-   * producción no se ponen: allí irán las de AWS KMS (sin construir todavía), y
-   * mientras tanto los envíos de claves solo caducan. Nunca van a los logs.
+   * producción no se ponen: allí van las de AWS KMS (`kms`), y sin ninguna de
+   * las dos los envíos de claves solo caducan. Nunca van a los logs.
    */
   localKeys: { vaultMasterKey: string; ingressPrivateKeyPem: string } | null;
+  /**
+   * AWS KMS para staging y producción (ADR 0034 y 0055; runbook
+   * docs/runbooks/kms-staging.md): la región (AWS_REGION, eu-central-1), el ARN
+   * de la clave de SecretVault (SECRET_VAULT_KMS_KEY_ID) y los de las claves de
+   * ingreso que acepta el worker (INTEGRATION_INGRESS_KMS_KEY_IDS, separados por
+   * comas; dos solo durante una rotación). Las dos claves o ninguna, y nunca a la
+   * vez que las locales. Las credenciales (AWS_ACCESS_KEY_ID y
+   * AWS_SECRET_ACCESS_KEY) las lee el SDK del entorno; aquí solo se comprueba
+   * que están. Los ARN no son secretos.
+   */
+  kms: { region: string; secretVaultKeyArn: string; ingressKeyArns: string[] } | null;
 }
 
 // El pooler de Supabase en modo transacción escucha en el 6543 y no admite
@@ -127,6 +138,12 @@ function visibleSecret(name: string, min: number, max: number) {
     .refine((value) => value === "" || pattern.test(value), `${name} no parece un secreto: de ${min} a ${max} caracteres visibles, sin espacios`)
     .optional();
 }
+
+// Solo claves de una región (las del runbook), por su ARN completo: es lo que KMS
+// devuelve como KeyId al descifrar, y lo que se guarda como key_ref.
+const KMS_KEY_ARN = /^arn:aws:kms:([a-z]{2}(?:-[a-z]+)+-\d):(\d{12}):key\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// Los datos se quedan en la UE (ADR 0034: KMS en eu-central-1).
+const KMS_REGION = "eu-central-1";
 
 const schema = z.object({
   WORKER_SYSTEM_DATABASE_URL: systemDatabaseUrl,
@@ -228,6 +245,23 @@ const schema = z.object({
       "INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: una clave privada PEM (PKCS#8) en base64",
     )
     .optional(),
+  // AWS KMS (staging y producción). Vacías cuentan como ausentes.
+  AWS_REGION: z.string().transform((value) => value.trim()).optional(),
+  AWS_ACCESS_KEY_ID: z.string().transform((value) => value.trim()).optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().transform((value) => value.trim()).optional(),
+  SECRET_VAULT_KMS_KEY_ID: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value === "" || KMS_KEY_ARN.test(value), "SECRET_VAULT_KMS_KEY_ID: el ARN de una clave de KMS (arn:aws:kms:<región>:<cuenta>:key/<id>), no un alias")
+    .optional(),
+  INTEGRATION_INGRESS_KMS_KEY_IDS: z
+    .string()
+    .transform((value) => value.trim())
+    .refine(
+      (value) => value === "" || value.split(",").every((arn) => KMS_KEY_ARN.test(arn.trim())),
+      "INTEGRATION_INGRESS_KMS_KEY_IDS: ARN de claves de KMS separados por comas, no alias",
+    )
+    .optional(),
   // on/off, true/false o 1/0 (sin distinguir mayúsculas); otra cosa para el arranque con un mensaje claro.
   INTENT_ROUTING: z
     .string()
@@ -272,7 +306,33 @@ export function loadConfig(env: Record<string, string | undefined>): WorkerConfi
     koiboxApiBase: parseKoiboxApiBase(parsed.data.KOIBOX_API_BASE),
     whatsapp: whatsappConfig(parsed.data),
     localKeys: localKeysConfig(parsed.data),
+    kms: kmsConfig(parsed.data),
   };
+}
+
+function kmsConfig(data: {
+  AWS_REGION?: string | undefined;
+  AWS_ACCESS_KEY_ID?: string | undefined;
+  AWS_SECRET_ACCESS_KEY?: string | undefined;
+  SECRET_VAULT_KMS_KEY_ID?: string | undefined;
+  INTEGRATION_INGRESS_KMS_KEY_IDS?: string | undefined;
+  SECRET_VAULT_LOCAL_KEY?: string | undefined;
+  INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY?: string | undefined;
+}): WorkerConfig["kms"] {
+  const vault = data.SECRET_VAULT_KMS_KEY_ID || "";
+  const ingress = [...new Set((data.INTEGRATION_INGRESS_KMS_KEY_IDS || "").split(",").map((arn) => arn.trim()).filter(Boolean))];
+  if (!vault && ingress.length === 0) return null;
+  const invalid = (reason: string) => new WorkerConfigError(`Configuración del worker no válida: ${reason}`);
+  if (!vault || ingress.length === 0) throw invalid("SECRET_VAULT_KMS_KEY_ID e INTEGRATION_INGRESS_KMS_KEY_IDS, las dos o ninguna");
+  if (data.SECRET_VAULT_LOCAL_KEY || data.INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY) throw invalid("las claves de KMS y las locales no van a la vez");
+  if (data.AWS_REGION !== KMS_REGION) throw invalid(`con KMS, AWS_REGION tiene que ser ${KMS_REGION}`);
+  if (!data.AWS_ACCESS_KEY_ID || !data.AWS_SECRET_ACCESS_KEY) throw invalid("con KMS hacen falta AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY");
+  if (ingress.length > 2) throw invalid("INTEGRATION_INGRESS_KMS_KEY_IDS: como mucho dos claves (la vieja y la nueva durante una rotación)");
+  for (const arn of [vault, ...ingress]) {
+    if (KMS_KEY_ARN.exec(arn)?.[1] !== KMS_REGION) throw invalid(`las claves de KMS tienen que ser de ${KMS_REGION}`);
+  }
+  if (ingress.includes(vault)) throw invalid("la clave de SecretVault y la de ingreso son claves distintas");
+  return { region: KMS_REGION, secretVaultKeyArn: vault, ingressKeyArns: ingress };
 }
 
 function localKeysConfig(data: { SECRET_VAULT_LOCAL_KEY?: string | undefined; INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY?: string | undefined }): WorkerConfig["localKeys"] {

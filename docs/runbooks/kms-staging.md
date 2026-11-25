@@ -5,7 +5,7 @@
 **Cuánto se tarda:** unos 30 minutos.
 **Qué no hacer:** no pegues en el chat, en GitHub ni en el repositorio ninguna clave de acceso de AWS. Las claves de acceso solo van en las variables del servicio `worker` de Railway.
 
-> Estado del código (2026-11-24): la web ya lee sus dos variables (paso 5) y cifra con ellas; el worker abre los envíos con un par local en desarrollo y en los tests, pero todavía no lee las variables de KMS del paso 4. Hasta que lo haga, crear todo esto no cambia nada en staging. Los nombres de las variables del paso 4 son los que leerá ese código.
+> Estado del código (2026-11-24): la web ya cifra con sus dos variables (paso 5). El worker ya lee las del paso 4 (`apps/worker/src/secrets/kms.ts`): con ellas usa KMS para SecretVault y para abrir los envíos, y sin ellas solo caducan. Al arrancar rechaza una configuración a medias, un alias en lugar de un ARN, una región que no es `eu-central-1` o que falten las claves de acceso. Probado con un KMS falso y con el cliente real del SDK contra un KMS falso en loopback; **sin verificar en real** hasta que existan estas claves.
 
 ## 0. La cuenta de AWS
 
@@ -113,7 +113,7 @@ La web **no** recibe ninguna clave de acceso de AWS ni permiso de KMS (ADR 0050 
 
 - Con el usuario `moodly-staging-worker` no se puede entrar en la consola, y en **Permissions** solo aparece la política del paso 3.
 - En CloudTrail → **Event history**, filtrando por **Event source** `kms.amazonaws.com`, aparece cada `Encrypt` y `Decrypt` del worker con el usuario `moodly-staging-worker` (cuando haya código que las use).
-- La prueba de extremo a extremo (pegar una clave de Koibox en staging y verla activa) llega con el incremento 2. Hasta entonces, nada de esto está «verificado en real».
+- La prueba de extremo a extremo: pega una clave de Koibox en Ajustes → Integraciones de staging y comprueba que queda «Conectado». En el log del worker deben salir «claves de integraciones con AWS KMS» al arrancar y `integrations.key_applied` al aplicar la clave, y en CloudTrail un `Decrypt` de la clave de ingreso y un `Encrypt` de la de SecretVault. Hasta entonces, nada de esto está «verificado en real».
 
 ## Rotación
 
