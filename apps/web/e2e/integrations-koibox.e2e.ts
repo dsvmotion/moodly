@@ -190,14 +190,38 @@ test.describe("Integraciones · Koibox (clave del cliente)", () => {
     await expect(card(page).getByTestId("integration-key-notice")).toHaveText(/sigue funcionando la anterior/);
   });
 
+  test("un envío que nadie procesa a tiempo (caducó): «no se pudo comprobar a tiempo», también tras recargar", async ({ page }) => {
+    await signIn(page, "a_org_admin");
+    await page.goto("/app/settings/integrations");
+    await paste(page, KEY_2);
+    await expect(card(page).getByTestId("integration-key-notice")).toHaveText("Comprobando la clave con Koibox…");
+    // Sin worker en los e2e: el envío se queda sin procesar. Como si hubieran pasado 17 minutos.
+    await page.evaluate(() => {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i) ?? "";
+        if (!key.startsWith("key-submission:")) continue;
+        const pending = JSON.parse(sessionStorage.getItem(key) ?? "{}") as { sentAt: number };
+        sessionStorage.setItem(key, JSON.stringify({ ...pending, sentAt: Date.now() - 17 * 60_000 }));
+      }
+    });
+    await page.reload();
+    await expect(card(page).getByTestId("integration-key-notice")).toHaveText(/No se pudo comprobar la clave a tiempo/);
+    // Y ya no se retoma: otra recarga no vuelve a esperar ese envío.
+    await page.reload();
+    await expect(card(page).getByTestId("integration-key-notice")).not.toHaveText(/Comprobando|No se pudo comprobar/);
+    // Lo que el worker borraría al caducar.
+    const row = await integration();
+    await admin.query("delete from public.integration_secret_submissions where integration_id = $1", [row?.id ?? ""]);
+  });
+
   test("el freno de la base de datos: con 5 envíos en 15 minutos, «demasiados intentos»", async ({ page }) => {
     const row = await integration();
     if (!row) throw new Error("no hay integración");
-    // Llevamos 2; con 3 eventos más (como si se hubieran enviado) llega a 5.
+    // Llevamos 3; con 2 eventos más (como si se hubieran enviado) llegan a 5, y el siguiente es el 6.º.
     await admin.query(
       `insert into public.domain_events (organization_id, type, payload)
        select $1, 'integration.key_submitted', jsonb_build_object('submission_id', gen_random_uuid(), 'integration_id', $2::text, 'provider', 'koibox')
-         from generate_series(1, 3)`,
+         from generate_series(1, 2)`,
       [ORG_A, row.id],
     );
     await signIn(page, "a_org_admin");
