@@ -8,6 +8,7 @@ description: >
   monitor", "policy sweep", or wants to find where the privacy policy no longer
   matches what the team actually does.
 argument-hint: "[describe a proposed new practice — or omit / use --sweep for crawl mode]"
+disable-model-invocation: true
 ---
 
 # /policy-monitor

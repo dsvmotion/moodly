@@ -1,7 +1,9 @@
 # NNN: <task name>
 
 Phase / wave: 
-Model: Sonnet · Effort: Medium
+Model: Opus · Effort: Medium   <!-- see the Models table in docs/WORKFLOW.md -->
+Skills: <0–2 names from .claude/toolkit/SKILLS-INDEX.md, or "none">
+Reviewer required: <yes / no>
 Can run in parallel with: <spec ids, or "none">
 
 ## Goal

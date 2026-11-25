@@ -5,7 +5,7 @@ Model: Sonnet · Effort: Medium
 Can run in parallel with: no es una tarea; es el procedimiento que siguen las demás.
 
 ## Goal
-Que el worker que mergea siga siempre el mismo procedimiento seguro de CLAUDE.md («Mergeo autónomo»), sin mirar conversaciones antiguas.
+Que quien mergea (el Lead de la fase; `docs/WORKFLOW.md`) siga siempre el mismo procedimiento seguro de CLAUDE.md («Mergeo autónomo»), sin mirar conversaciones antiguas.
 
 ## Reglas
 - **De uno en uno.** La regla de `main` exige rama al día (`strict_required_status_checks_policy`): tras cada merge, el siguiente PR se pone al día con `main` y vuelve a pasar el CI completo (~25 min). Se pueden *preparar* varios PRs en paralelo, pero se mergean en serie.

@@ -6,6 +6,7 @@ description: >
   what could go wrong, how likely, how bad, what mitigates it. Use when user
   says "deep dive on this risk", "risk assessment for [feature]", "what could
   go wrong with", or when launch-review flags a novel issue.
+disable-model-invocation: true
 ---
 
 # Feature Risk Assessment
