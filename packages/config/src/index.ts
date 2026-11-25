@@ -16,6 +16,13 @@ export const NOTIFICATION_EMAIL_FROM = "notificaciones@moodlycrm.com";
 export const WHATSAPP_GRAPH_API_VERSION = "v23.0";
 
 /**
+ * Cuánto vive el envío de la clave de una integración sin procesar (ADR 0055
+ * §2): pasado este tiempo desde el envío, el worker ya no lo aplica y lo borra.
+ * La web lo usa para decir «no se pudo comprobar a tiempo».
+ */
+export const KEY_SUBMISSION_TTL_MS = 15 * 60 * 1000;
+
+/**
  * Tipos de agente canónicos (MANUAL §5). Fuente única para `apps/web` y el
  * backend (`agent_types`): clave estable en inglés (BD/API), nombre por defecto
  * en español y token de color de marca (ver packages/ui, `--agent-*`).
