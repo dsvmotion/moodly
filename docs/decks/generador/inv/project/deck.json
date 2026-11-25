@@ -1,0 +1,79 @@
+{
+  "v": 4,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-11T17:20:00Z"
+  },
+  "lists": "css",
+  "title": "Moodly: presentación para inversores",
+  "cover": "cover",
+  "order": [
+    "cover",
+    "problema",
+    "coste",
+    "producto",
+    "demo",
+    "plataforma",
+    "aprendizaje",
+    "ahorro",
+    "porque",
+    "tam",
+    "horizontal",
+    "negocio",
+    "margenes",
+    "crecimiento",
+    "competencia",
+    "estado",
+    "equipo",
+    "fondos",
+    "cierre",
+    "anexo",
+    "fuentes",
+    "retorno",
+    "ventajas",
+    "tesis",
+    "usp",
+    "motor",
+    "foso",
+    "economia",
+    "plancoste",
+    "cuenta",
+    "hoja",
+    "mercado",
+    "confianza",
+    "riesgos"
+  ],
+  "sections": {
+    "principal": {
+      "description": "Versión corta para la primera reunión: problema, producto, mercado, negocio, plan, equipo y ronda.",
+      "start": "cover"
+    },
+    "anexo": {
+      "description": "Material de apoyo: propuesta de valor, motor, defensa, sectores, costes, cinco años, hoja de ruta, competencia, seguridad y riesgos.",
+      "start": "anexo"
+    }
+  },
+  "faces": {
+    "labil-grotesk": {
+      "family": "Labil Grotesk",
+      "src": "project/ds/moodly/fonts/LabilGrotesk-Regular.woff2"
+    },
+    "labil-grotesk-thin": {
+      "family": "Labil Grotesk Thin",
+      "src": "project/ds/moodly/fonts/LabilGrotesk-Thin.woff2"
+    },
+    "plus-jakarta-sans": {
+      "family": "Plus Jakarta Sans",
+      "href": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500&display=swap"
+    }
+  },
+  "designSystems": [
+    {
+      "title": "Moodly AI",
+      "namespace": "moodly",
+      "artifact": "https://claude.ai/artifact/QJ3fALw4PVmWUqiyJqFc5P",
+      "version": "1792361541-e3bd",
+      "copiedAt": "2026-11-11T17:20:00Z"
+    }
+  ]
+}

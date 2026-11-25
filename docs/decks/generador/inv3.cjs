@@ -1,0 +1,38 @@
+// Third pass: researched market, cost of the problem, named competitors, traction targets, founder profile.
+module.exports = function (k, S, N) {
+  const { C } = k;
+  Object.assign(N, {
+    coste: 'Es una estimación propia, no un dato medido en clientes. Local de 8 personas: caso prudente, 15 horas a la semana en estas tareas (supuesto sin fuente); caso central, el 10,2 % del tiempo de trabajo que Sage atribuye a tareas administrativas en España. Coste por hora de 14,20 euros: salario medio de recepcionista según Indeed más cotizaciones. A eso se suma una parte ilustrativa de ingresos perdidos por citas a las que no se acude y llamadas sin atender, con datos de una revisión Cochrane y de un proveedor estadounidense. La cadena son 20 locales iguales. El valor del tiempo no es ahorro en caja: no todo se puede automatizar. Abre las fuentes antes de enseñar las cifras.',
+    tam: 'Cálculo de abajo arriba. TAM: unos 13,7 millones de microempresas con empleados en la UE al plan de 98 euros, 1,56 millones de pequeñas y 251.000 medianas al de 298 euros. Supuesto discutible: no hay dato europeo de microempresas con empleados y se aplica la proporción española, 42,8 %. SAM: solo servicios y comercio (81 % de las empresas) y solo las que ya usan IA (17 % de las pequeñas y 30,4 % de las medianas según Eurostat 2025; a las micro se les aplica el 17 %, probablemente optimista). El SOM es un objetivo propio. No hay TAM mundial defendible: los recuentos globales de pymes son antiguos.',
+    competencia: 'Dilo antes de que lo digan: hoy van por delante en clientes, en capital, en voz y en integraciones ya hechas. HeyDiga declara más de 200 clientes y unos 6,5 millones levantados con Kfund; GuruSup, 1,3 millones; las herramientas de reservas como Treatwell, Fresha o Doctoralia ya venden su recepcionista de IA a su propia base, y Vodafone empuja la suya a pymes. Lo que no hemos encontrado en ninguno: memoria que aprende de las correcciones del equipo, autonomía por niveles con aprobación, y un solo producto que cubra recepción, atención, ventas y administración. Los datos son los que publica cada empresa o la prensa; el precio de GuruSup aparece de forma contradictoria.',
+    estado: 'La tracción hoy es técnica. En lo comercial no hay nada firmado: el objetivo es cerrar de 4 a 6 empresas piloto a corto plazo y llegar a 10 o 12 con más trabajo. Una carta de intención firmada cambia esta diapositiva.',
+    equipo: 'Completa el perfil con hechos concretos: qué has entregado antes, para quién, y por qué este problema. Di claro que el primer uso del dinero es dejar de ser un equipo de uno.',
+  });
+  const big = (bg, tag, val, unit, def) => k.tile(bg, k.lab(tag, k.onSoft(bg), 30) + '\n<div style="flex:1"></div>\n' + `<p style="font-family:${k.FT};font-size:84px;line-height:1.05;letter-spacing:-4px">${val}</p>\n` + k.p(def, 26, k.onSoft(bg)), { pad: '32px 36px', gap: 10 });
+  const fact = (v, t) => k.col(`<p style="font-family:${k.FD};font-size:44px;line-height:1.1;letter-spacing:-1px">${v}</p>\n` + k.p(t, 24, C.muted), 6, ';flex:1;border-top:1px solid #0000004d;padding:16px 0px 0px');
+  S.problema = S.problema.replace('Coste para el cliente, en horas y ventas perdidas: [medir en el piloto]', 'Lo que cuesta, en la diapositiva siguiente');
+  S.coste = k.slide('coste', { foot: 'Estimación propia sobre fuentes públicas, no medida en clientes · supuestos en las notas', gap: 32, body: k.pill('Lo que cuesta hoy') + '\n' + k.h2('Entre 16.000 y 37.000 € al año por local') + '\n' + k.row(
+    big(C.white, 'Un local con 8 personas', '16.000–37.000 €', 'al año', 'Al año: tiempo del equipo en atender, reservar y cobrar, más citas y llamadas perdidas') + '\n'
+    + big(C.ink, 'Una cadena de 20 locales', '320.000–745.000 €', 'al año', 'Al año: el equivalente a entre 7 y 16 personas a jornada completa'), 16, ';align-items:stretch;flex:1')
+    + '\n' + k.row(fact('10,2 %', 'del tiempo de trabajo en España se va en tareas administrativas · Sage') + '\n' + fact('80,5 días', 'de plazo medio de pago en España · CEPYME, 2025') + '\n' + fact('94,6 %', 'de los internautas en España usa WhatsApp · CNMC, 2025'), 24) });
+  const mkt = (bg, tag, val, def) => k.tile(bg, k.lab(tag, k.onSoft(bg), 28) + '\n<div style="flex:1"></div>\n' + `<p style="font-family:${k.FT};font-size:92px;line-height:1.05;letter-spacing:-4px">${val}</p>\n` + k.p(def, 26, k.onSoft(bg)), { pad: '36px', gap: 12 });
+  S.tam = k.slide('tam', { foot: 'Cálculo propio: empresas (Eurostat 2024, INE 2025) por los precios propuestos · supuestos en las notas', gap: 32, body: k.pill('Mercado') + '\n' + k.h2('Europa: 22.700 M€ al año de mercado total') + '\n' + k.row(
+    mkt(C.white, 'TAM · Unión Europea', '22.700 M€', 'Empresas con empleados, hasta 249 personas, por la cuota anual de su plan') + '\n'
+    + mkt(C.white, 'SAM · alcanzable', '3.200 M€', 'Solo servicios y comercio, y solo las que ya usan IA') + '\n'
+    + mkt(C.ink, 'SOM · objetivo a 24 meses', '0,6 M€', '300 empresas con la mezcla de planes propuesta'), 16, ';align-items:stretch;flex:1')
+    + '\n' + k.row(fact('2.140 M€', 'España: 1,51 millones de empresas con empleados') + '\n' + fact('31.900 M€', 'UE, Reino Unido y Estados Unidos') + '\n' + fact('≈ 50.000 M$', 'mercado de agentes de IA en 2030, según analistas'), 24) });
+  S.competencia = k.compare('competencia', { tag: 'Competencia', title: 'Frente a los que ya venden', fs: 24, pad: '14px 20px', firstW: 300,
+    foot: 'Datos publicados por cada empresa o por la prensa, a noviembre de 2026 · sin contrastar en origen',
+    head: ['', 'HeyDiga', 'GuruSup', 'Bewe · Linda', 'Fin (Intercom)', 'Moodly'], rows: [
+      ['Canales', 'Voz y WhatsApp', 'WhatsApp, email, voz, chat', 'Web, Instagram, WhatsApp', 'Voz, email, chat, WhatsApp', 'WhatsApp, email, chat; voz después'],
+      ['Qué trabajo hace', 'Atiende y reserva en agendas', 'Soporte con acciones por integración', 'Reserva dentro de su suite', 'Resuelve soporte', 'Atiende, vende, cobra y organiza'],
+      ['Control', 'Traspaso y registro de llamadas', 'Permisos y registro por agente', 'Sin dato', 'Traspaso a una persona', 'Niveles, aprobación y traza'],
+      ['Precio publicado', '49–279 € al mes', 'Sin precio claro', '≈ 29–89 $ al mes', '0,99 $ por resolución', '98–298 € al mes, propuesto'],
+      ['Hoy', '200+ clientes, 6,5 M€ levantados', '800+ agentes, 1,3 M€ levantados', '100.000 pymes', '30.000+ empresas', 'Sin clientes todavía']] });
+  S.estado = k.numbers('estado', { tag: 'Tracción y validación', title: 'La base está probada.', soft: 'La validación comercial empieza con el piloto.', foot: 'A 11 de noviembre de 2026',
+    nums: [['≈ 2.380', 'tests automáticos'], ['1.145', 'tests de aislamiento entre empresas'], ['24 de 24', 'casos de ataque superados'], ['59', 'cambios integrados en 12 días']], track: { done: 1, label: 'Hito 1 de 5 en curso: base segura' },
+    tiles: [{ bg: C.ink, title: 'Validación técnica', text: 'En pruebas: acceso con segundo factor, ejecución duradera y un agente que reserva por chat con un modelo real.' }, { bg: C.white, title: 'Validación comercial', text: 'Nada firmado todavía. Objetivo: de 4 a 6 empresas piloto a corto plazo y de 10 a 12 con más trabajo.' }] });
+  S.mercado = S.mercado.replace('Conversaciones abiertas, ninguna carta firmada todavía.', 'Nada firmado aún. Objetivo: 4–6 pilotos pronto y 10–12 después.');
+  S.equipo = S.equipo.replace('[Perfil: qué has construido antes, tu experiencia técnica y de negocio, por qué este problema]', 'Diseñador de producto en Madrid. Viene del 3D, el motion y el diseño gráfico; ahora construye plataformas de IA. [Añadir proyectos y clientes]');
+  S.__order.splice(S.__order.indexOf('problema') + 1, 0, 'coste');
+};
