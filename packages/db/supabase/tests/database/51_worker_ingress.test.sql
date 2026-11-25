@@ -43,7 +43,8 @@ select is(
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name)
    from information_schema.column_privileges
    where grantee = 'moodly_worker' and privilege_type = 'SELECT' and table_name in ('contact_identities', 'contacts', 'domain_events')),
-  'contact_identities.contact_id, contact_identities.external_id, contact_identities.kind, contacts.id, domain_events.id, domain_events.payload, domain_events.type',
+  'contact_identities.contact_id, contact_identities.external_id, contact_identities.kind, contact_identities.organization_id, '
+  || 'contacts.id, contacts.organization_id, domain_events.id, domain_events.organization_id, domain_events.payload, domain_events.type',
   'lee solo lo que necesita del contacto, su identidad y el evento de su mensaje');
 select ok(not has_table_privilege('moodly_worker', 'public.inbound_events', 'delete')
           and not has_table_privilege('moodly_worker', 'public.contacts', 'delete')

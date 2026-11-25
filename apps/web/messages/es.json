@@ -66,6 +66,7 @@
     "coach": "Coach",
     "approvals": "Aprobaciones",
     "inbox": "Bandeja",
+    "calendar": "Agenda",
     "tasks": "Tareas",
     "activity": "Actividad",
     "analytics": "Informes",
@@ -411,6 +412,38 @@
     "noAgentsTitle": "Aún no tienes agentes",
     "noAgentsDescription": "Tus agentes aparecen cuando perteneces a una organización: acepta la invitación que te hayan enviado."
   },
+  "calendarPage": {
+    "title": "Agenda",
+    "description": "Las citas de las sedes que ves, cada una en la hora de su sede. Por ahora solo se consultan.",
+    "views": "Vista",
+    "day": "Día",
+    "week": "Semana",
+    "today": "Hoy",
+    "previousDay": "Día anterior",
+    "nextDay": "Día siguiente",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Semana siguiente",
+    "emptyTitle": "Sin citas",
+    "empty": "No hay citas en estos días en las sedes de tu alcance.",
+    "emptyDay": "Sin citas",
+    "count": "{count, plural, one {# cita} other {# citas}}",
+    "unknownContact": "Cliente",
+    "unknownService": "Servicio",
+    "unknownResource": "Sin profesional ni recurso",
+    "with": "con {resource}",
+    "status": {
+      "booked": "Reservada",
+      "cancelled": "Cancelada",
+      "completed": "Hecha",
+      "no_show": "No vino"
+    },
+    "origin": {
+      "agent": "La reservó un agente",
+      "user": "La apuntó el equipo",
+      "sync": "Sincronizada"
+    },
+    "truncated": "Solo se muestran las primeras {count} citas. Elige una sede o la vista de día para ver el resto."
+  },
   "approvalsPage": {
     "title": "Aprobaciones",
     "description": "Lo que el agente propone y espera a una persona. Aprobar envía la respuesta o hace la reserva; rechazar no hace nada.",
@@ -435,9 +468,55 @@
     },
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
-      "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado."
+      "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado.",
+      "slot_passed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala."
     },
-    "count": "{count, plural, one {# pendiente} other {# pendientes}}"
+    "count": "{count, plural, one {# pendiente} other {# pendientes}}",
+    "openDetail": "Ver detalle",
+    "close": "Cerrar",
+    "detail": {
+      "what": "Qué se aprueba",
+      "service": "Servicio",
+      "resource": "Con",
+      "startsAt": "Hora",
+      "from": "De",
+      "to": "A",
+      "slotPassed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala y, si hace falta, contesta al cliente desde la bandeja.",
+      "location": "Local",
+      "wholeOrganization": "Toda la organización",
+      "decides": "La decide",
+      "requested": "Pedida",
+      "expires": "Caduca",
+      "conversation": "Conversación",
+      "unknownContact": "Contacto sin nombre",
+      "noMessages": "Sin mensajes.",
+      "openConversation": "Abrir la conversación en la bandeja",
+      "noConversation": "No viene de una conversación con un cliente.",
+      "why": "Por qué",
+      "agent": "Agente",
+      "model": "Modelo",
+      "cost": "Coste",
+      "tokens": "Tokens",
+      "tokensValue": "{in} de entrada, {out} de salida",
+      "others": "Lo demás que hizo en ese turno",
+      "unknown": "Sin dato",
+      "loading": "Cargando el detalle…",
+      "authors": {
+        "contact": "Cliente",
+        "agent": "Agente",
+        "user": "Equipo",
+        "system": "Sistema"
+      },
+      "statuses": {
+        "suggested": "Sugerida",
+        "drafted": "En borrador",
+        "needs_approval": "Pendiente de aprobación",
+        "approved": "Aprobada",
+        "rejected": "Rechazada",
+        "executed": "Hecha",
+        "failed": "Fallida"
+      }
+    }
   },
   "inboxPage": {
     "title": "Bandeja",
@@ -718,6 +797,10 @@
       "outlook-calendar": {
         "name": "Outlook / Microsoft 365",
         "description": "Los agentes consultan el calendario de tu cuenta de Microsoft 365 u Outlook. Por ahora, solo lectura."
+      },
+      "koibox": {
+        "name": "Koibox",
+        "description": "Los agentes consultan la agenda de tu centro en Koibox con la clave de API de tu cuenta. Pégala aquí: se guarda cifrada y solo la usa la plataforma."
       }
     },
     "errors": {
@@ -725,6 +808,21 @@
       "not_allowed": "No tienes permiso para cambiar esta integración.",
       "unavailable": "Las integraciones todavía no están disponibles en este entorno.",
       "platform_failed": "No hemos podido hablar con el proveedor de la integración. No ha cambiado nada: inténtalo de nuevo en unos minutos."
+    },
+    "apiKeyLabel": "Clave de API de Koibox",
+    "saveKey": "Guardar clave",
+    "changeKey": "Cambiar clave",
+    "keyNotices": {
+      "invalid": "Esa integración no existe.",
+      "invalid_key": "Esa clave no tiene una forma válida: pégala tal cual, sin espacios.",
+      "not_allowed": "No tienes permiso para cambiar esta integración.",
+      "unavailable": "El alta de claves todavía no está disponible en este entorno.",
+      "too_many": "Demasiados intentos con esta integración: espera unos minutos y vuelve a probar.",
+      "checking": "Comprobando la clave con Koibox…",
+      "applied": "Clave comprobada: Koibox está conectado.",
+      "rejected": "Koibox no ha aceptado esa clave. Revisa que sea la de tu cuenta y vuelve a pegarla.",
+      "rejected_kept": "Koibox no ha aceptado la última clave que enviaste: sigue funcionando la anterior.",
+      "still_checking": "Seguimos comprobando la clave. Vuelve a mirar en unos minutos."
     }
   },
   "servicesPage": {

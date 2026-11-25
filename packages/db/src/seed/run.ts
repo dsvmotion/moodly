@@ -6,7 +6,7 @@
 // - Genera una contraseña nueva para cada usuario en cada ejecución y la
 //   escribe solo en packages/db/.seed/credentials.local.json (ignorado por
 //   git, permisos 0600). No se imprime por pantalla.
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,9 @@ import { totp } from "./totp.ts";
 import {
   SEED_APPROVALS_ORG,
   SEED_VOLUME,
+  seedAppointments,
   seedApprovals,
+  seedCalendarContacts,
   seedCustomAgentTypes,
   seedExtraMemberships,
   seedGuests,
@@ -26,6 +28,8 @@ import {
   seedOrganizations,
   seedPlatformStaff,
   seedRegions,
+  seedResources,
+  seedServices,
   seedUsers,
   type PlatformStaffRole,
   type SeedUser,
@@ -38,6 +42,14 @@ const credentialsFile = resolve(packageRoot, ".seed/credentials.local.json");
 // `pnpm --filter @repo/web env:local` y `pnpm --filter @repo/worker env:local`
 // las copian allí. Ignorado por git, permisos 0600.
 const serverKeysFile = resolve(packageRoot, ".seed/server-keys.local.json");
+
+function localIngressKeyPair(): { privatePem: string; publicSpki: string } {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
+  return {
+    privatePem: privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
+    publicSpki: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+  };
+}
 
 function check(label: string, error: { message: string } | null): void {
   if (error) throw new Error(`${label}: ${error.message}`);
@@ -170,6 +182,77 @@ async function deleteAgentRuns(dbUrl: string, column: "id" | "organization_id", 
   }
 }
 
+// La agenda (OA03): servicios, recursos y citas, borrados y vueltos a crear en
+// cada ejecución con la conexión del dueño (role none): las citas de un agente
+// no pasan por la validación de huecos de R-08, que es para las de la API, y
+// sus domain_events (appointment.created) salen ya publicados para que un worker
+// en marcha no programe recordatorios. La hora de cada cita, la de su sede.
+async function seedCalendar(dbUrl: string): Promise<void> {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query("begin");
+    const appointmentIds = seedAppointments.map((a) => a.id);
+    // También las citas que otros (un e2e, el worker en local) hayan creado con los
+    // servicios o recursos del seed: si no, borrarlos chocaría con su clave ajena.
+    await client.query(
+      `delete from public.appointments
+       where id = any($1::uuid[]) or service_id = any($2::uuid[]) or resource_id = any($3::uuid[])`,
+      [appointmentIds, seedServices.map((s) => s.id), seedResources.map((r) => r.id)],
+    );
+    await client.query("delete from public.booking_resources where id = any($1::uuid[])", [seedResources.map((r) => r.id)]);
+    await client.query("delete from public.services where id = any($1::uuid[])", [seedServices.map((s) => s.id)]);
+    for (const contact of seedCalendarContacts) {
+      await client.query(
+        `insert into public.contacts (id, organization_id, display_name, preferred_location_id) values ($1, $2, $3, $4)
+         on conflict (id) do update set display_name = excluded.display_name, preferred_location_id = excluded.preferred_location_id`,
+        [contact.id, contact.organizationId, contact.name, contact.preferredLocationId],
+      );
+    }
+    for (const service of seedServices) {
+      await client.query(
+        "insert into public.services (id, organization_id, location_id, name, duration_minutes) values ($1, $2, $3, $4, $5)",
+        [service.id, service.organizationId, service.locationId, service.name, service.durationMinutes],
+      );
+    }
+    for (const resource of seedResources) {
+      await client.query(
+        "insert into public.booking_resources (id, organization_id, location_id, name, kind) values ($1, $2, $3, $4, $5)",
+        [resource.id, resource.organizationId, resource.locationId, resource.name, resource.kind],
+      );
+      for (const serviceId of resource.serviceIds) {
+        await client.query("insert into public.resource_services (organization_id, resource_id, service_id) values ($1, $2, $3)", [
+          resource.organizationId,
+          resource.id,
+          serviceId,
+        ]);
+      }
+    }
+    for (const a of seedAppointments) {
+      // Hoy en la zona de la sede, más dayOffset días, a localTime, y de vuelta a un instante.
+      await client.query(
+        `insert into public.appointments (id, organization_id, location_id, service_id, resource_id, contact_id, starts_at, status, idempotency_key, booked_by)
+         select $1, $2, $3, $4, $5, $6,
+                ((date_trunc('day', now() at time zone l.timezone) + make_interval(days => $7) + $8::time) at time zone l.timezone),
+                $9, $10, $11
+         from public.locations l where l.id = $3 and l.organization_id = $2`,
+        [a.id, a.organizationId, a.locationId, a.serviceId, a.resourceId, a.contactId, a.dayOffset, a.localTime, a.status, `seed:${a.key}`, a.bookedBy],
+      );
+    }
+    await client.query(
+      `update public.domain_events set published_at = now()
+       where type like 'appointment.%' and published_at is null and payload->>'appointment_id' = any($1::text[])`,
+      [appointmentIds],
+    );
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
 function readServerKeys(): Record<string, string> {
   if (!existsSync(serverKeysFile)) return {};
   return JSON.parse(readFileSync(serverKeysFile, "utf8")) as Record<string, string>;
@@ -239,10 +322,25 @@ async function main(): Promise<void> {
   // El rol de los datos de las organizaciones bajo RLS (ADR 0049, PL-T1).
   const workerRlsPassword = serverKeys.worker_rls_password ?? randomBytes(24).toString("base64url");
   await enableWorkerDbLogin(local.dbUrl, workerRlsPassword, "moodly_worker");
+  // El alta de claves de integraciones en local (ADR 0055): el par de la clave
+  // de ingreso (la web cifra con la pública, el worker abre con la privada) y la
+  // clave maestra local de SecretVault (ADR 0034). En staging y producción, KMS.
+  const ingress = serverKeys.integration_ingress_private_pem && serverKeys.integration_ingress_public_spki
+    ? { privatePem: serverKeys.integration_ingress_private_pem, publicSpki: serverKeys.integration_ingress_public_spki }
+    : localIngressKeyPair();
+  const secretVaultKey = serverKeys.secret_vault_local ?? randomBytes(32).toString("base64");
   writeFileSync(
     serverKeysFile,
     JSON.stringify(
-      { ...serverKeys, login_throttle: loginThrottleKey, worker_db_password: workerDbPassword, worker_rls_password: workerRlsPassword },
+      {
+        ...serverKeys,
+        login_throttle: loginThrottleKey,
+        worker_db_password: workerDbPassword,
+        worker_rls_password: workerRlsPassword,
+        integration_ingress_private_pem: ingress.privatePem,
+        integration_ingress_public_spki: ingress.publicSpki,
+        secret_vault_local: secretVaultKey,
+      },
       null,
       2,
     ),
@@ -353,54 +451,6 @@ async function main(): Promise<void> {
     .limit(1)
     .single();
   check("agent_skills", bookingAgent.error);
-  await deleteAgentRuns(
-    local.dbUrl,
-    "id",
-    seedApprovals.map((approval) => approval.runId),
-  );
-  const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
-  for (const approval of seedApprovals) {
-    const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
-    const run = await admin.from("agent_runs").insert({
-      id: approval.runId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      agent_id: bookingAgent.data?.agent_id ?? "",
-      trigger: "inbound_message",
-      status: "awaiting_approval",
-    });
-    check("agent_runs", run.error);
-    const execution = await admin.from("executions").insert({
-      id: approval.executionId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      run_id: approval.runId,
-      skill_key: approval.skillKey,
-      skill_version: 1,
-      effect_class: approval.effectClass,
-      autonomy_applied: "draft",
-      input: approval.input,
-      target: { kind: "none" },
-      input_hash: inputHash,
-      preview: { summary: approval.summary },
-      status: "drafted",
-      idempotency_key: `seed:${approval.key}`,
-    });
-    check("executions", execution.error);
-    const pending = await admin.from("approvals").insert({
-      id: approval.approvalId,
-      execution_id: approval.executionId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      effect_class: approval.effectClass,
-      input_hash: inputHash,
-      required_role: approval.requiredRole ?? "staff",
-      reason: approval.summary,
-      expires_at: expiresAt,
-    });
-    check("approvals", pending.error);
-    seededApprovalIds.push(approval.approvalId);
-  }
 
   // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
   // control. Las conversaciones se borran y se vuelven a crear con sus mensajes
@@ -496,6 +546,74 @@ async function main(): Promise<void> {
       })),
     );
     check("messages", messages.error);
+  }
+  // Las aprobaciones pendientes de Demo A (paso 4d-3d), después de las
+  // conversaciones de la bandeja: alguna sale de una de ellas (OA02).
+  await deleteAgentRuns(
+    local.dbUrl,
+    "id",
+    seedApprovals.map((approval) => approval.runId),
+  );
+  const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
+  for (const approval of seedApprovals) {
+    // La que sale de una conversación (OA02): su run apunta al primer mensaje
+    // del cliente (trigger_ref), como los del worker. trigger_ref no cambia:
+    // por eso las aprobaciones se crean después de las conversaciones.
+    const conversation = seedInboxConversations.find((row) => row.key === approval.conversationKey);
+    let triggerRef: string | null = null;
+    if (conversation) {
+      const first = await admin
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversation.id)
+        .eq("author", "contact")
+        .order("created_at")
+        .limit(1)
+        .single();
+      check("messages (aprobaciones)", first.error);
+      triggerRef = first.data?.id ?? null;
+    }
+    const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
+    const run = await admin.from("agent_runs").insert({
+      id: approval.runId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      agent_id: bookingAgent.data?.agent_id ?? "",
+      trigger: "inbound_message",
+      trigger_ref: triggerRef,
+      status: "awaiting_approval",
+    });
+    check("agent_runs", run.error);
+    const execution = await admin.from("executions").insert({
+      id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      run_id: approval.runId,
+      skill_key: approval.skillKey,
+      skill_version: 1,
+      effect_class: approval.effectClass,
+      autonomy_applied: "draft",
+      input: approval.input,
+      target: { kind: "none" },
+      input_hash: inputHash,
+      preview: { summary: approval.summary },
+      status: "drafted",
+      idempotency_key: `seed:${approval.key}`,
+    });
+    check("executions", execution.error);
+    const pending = await admin.from("approvals").insert({
+      id: approval.approvalId,
+      execution_id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      effect_class: approval.effectClass,
+      input_hash: inputHash,
+      required_role: approval.requiredRole ?? "staff",
+      reason: approval.summary,
+      expires_at: expiresAt,
+    });
+    check("approvals", pending.error);
+    seededApprovalIds.push(approval.approvalId);
   }
   // Cada mensaje de un cliente deja un message.received para el agente. Los del
   // seed son historia, no mensajes nuevos: se marcan como publicados para que
@@ -654,6 +772,8 @@ async function main(): Promise<void> {
     );
     await pendingApprovals("F2", [{ key: "f2", location: SEED_VOLUME.f2, ...SEED_VOLUME.f2Approval }]);
   }
+
+  await seedCalendar(local.dbUrl);
 
   // Cada aprobación nueva deja un approval.created para el aviso por email (M-02).
   // Las del seed son datos de demo, no aprobaciones nuevas: se marcan como

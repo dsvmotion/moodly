@@ -289,6 +289,12 @@ export interface SeedApproval {
   summary: string;
   /** El rol mínimo que la decide (private.can_decide_approval); por defecto, staff. */
   requiredRole?: "staff" | "location_manager";
+  /**
+   * La conversación de la bandeja de la que salió (seedInboxConversations.key):
+   * su run apunta al primer mensaje del cliente (trigger_ref), como los del
+   * worker. Para el detalle de la aprobación (OA02).
+   */
+  conversationKey?: string;
 }
 
 export const seedApprovals: readonly SeedApproval[] = [
@@ -302,6 +308,7 @@ export const seedApprovals: readonly SeedApproval[] = [
     effectClass: "external_message",
     input: { text: "Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?" },
     summary: "Responder: «Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?»",
+    conversationKey: "a2_human",
   },
   {
     key: "a2_booking",
@@ -507,3 +514,95 @@ export const SEED_VOLUME = {
   f1Approval: (n: number) => ({ runId: volumeId("5eed00f3", n), executionId: volumeId("5eed00f4", n), approvalId: volumeId("5eed00f5", n) }),
 } as const;
 
+
+/**
+ * La agenda (OA03): servicios, recursos y citas de Demo A (una sede por cita, para
+ * ver quién ve qué) y de Demo F (F1 en Madrid y F2 en Canarias, para la zona
+ * horaria). La hora de cada cita es la de su sede: `dayOffset` días después de hoy
+ * en esa zona, a `localTime`. El seed las borra y las vuelve a crear en cada
+ * ejecución. Las de un agente entran por la conexión de la plataforma (como una
+ * migración): la validación de huecos de R-08 es para las de la API.
+ */
+export interface SeedService {
+  id: string;
+  organizationId: string;
+  locationId: string | null;
+  name: string;
+  durationMinutes: number;
+}
+
+export interface SeedResource {
+  id: string;
+  organizationId: string;
+  locationId: string;
+  name: string;
+  kind: "staff" | "room" | "equipment";
+  serviceIds: readonly string[];
+}
+
+export interface SeedAppointment {
+  key: string;
+  id: string;
+  organizationId: string;
+  locationId: string;
+  serviceId: string;
+  resourceId: string;
+  contactId: string;
+  dayOffset: number;
+  /** HH:MM en la zona de la sede. */
+  localTime: string;
+  status: "booked" | "cancelled" | "completed" | "no_show";
+  bookedBy: "agent" | "user" | "sync";
+}
+
+/** Contactos que solo tienen cita, sin conversación: su sede preferida decide quién los ve (contacts_select). */
+export interface SeedCalendarContact {
+  id: string;
+  organizationId: string;
+  name: string;
+  preferredLocationId: string | null;
+}
+
+const calendarId = volumeId;
+const SVC_A_CORTE = calendarId("5eed0010", 1);
+const SVC_A_COLOR = calendarId("5eed0010", 2);
+const SVC_F_CONSULTA = calendarId("5eed0010", 3);
+const RES_A1 = calendarId("5eed0011", 1);
+const RES_A2 = calendarId("5eed0011", 2);
+const RES_A3 = calendarId("5eed0011", 3);
+const RES_F1 = calendarId("5eed0011", 4);
+const RES_F2 = calendarId("5eed0011", 5);
+const CONTACT_A3 = calendarId("5eed000c", 0xc9);
+
+export const seedServices: readonly SeedService[] = [
+  { id: SVC_A_CORTE, organizationId: ORG_A, locationId: null, name: "Corte (agenda)", durationMinutes: 30 },
+  { id: SVC_A_COLOR, organizationId: ORG_A, locationId: null, name: "Color (agenda)", durationMinutes: 60 },
+  { id: SVC_F_CONSULTA, organizationId: ORG_F, locationId: null, name: "Consulta (agenda)", durationMinutes: 30 },
+];
+
+export const seedResources: readonly SeedResource[] = [
+  { id: RES_A1, organizationId: ORG_A, locationId: LOC_A1, name: "Laura · A1", kind: "staff", serviceIds: [SVC_A_CORTE, SVC_A_COLOR] },
+  { id: RES_A2, organizationId: ORG_A, locationId: LOC_A2, name: "Nerea · A2", kind: "staff", serviceIds: [SVC_A_CORTE, SVC_A_COLOR] },
+  { id: RES_A3, organizationId: ORG_A, locationId: LOC_A3, name: "Cabina · A3", kind: "room", serviceIds: [SVC_A_CORTE] },
+  { id: RES_F1, organizationId: ORG_F, locationId: LOC_F1, name: "Consulta · F1", kind: "room", serviceIds: [SVC_F_CONSULTA] },
+  { id: RES_F2, organizationId: ORG_F, locationId: LOC_F2, name: "Consulta · F2", kind: "room", serviceIds: [SVC_F_CONSULTA] },
+];
+
+export const seedCalendarContacts: readonly SeedCalendarContact[] = [
+  { id: CONTACT_A3, organizationId: ORG_A, name: "Ana Gómez", preferredLocationId: LOC_A3 },
+];
+
+export const seedAppointments: readonly SeedAppointment[] = [
+  // A1: Lucía (conversación en A1), de un agente; Marta, apuntada por el equipo y ya hecha.
+  { key: "a1_agent", id: calendarId("5eed0012", 1), organizationId: ORG_A, locationId: LOC_A1, serviceId: SVC_A_COLOR, resourceId: RES_A1, contactId: "5eed000c-0000-4000-8000-0000000000c1", dayOffset: 0, localTime: "10:00", status: "booked", bookedBy: "agent" },
+  { key: "a1_user", id: calendarId("5eed0012", 2), organizationId: ORG_A, locationId: LOC_A1, serviceId: SVC_A_CORTE, resourceId: RES_A1, contactId: "5eed000c-0000-4000-8000-0000000000c3", dayOffset: 1, localTime: "12:30", status: "completed", bookedBy: "user" },
+  // A2: Jorge (conversación en A2), sincronizada de un calendario externo; y una cancelada de «Empresa Sol»,
+  // un contacto de toda la organización que solo ve el org_admin (el equipo de A2 ve la cita sin el nombre).
+  { key: "a2_sync", id: calendarId("5eed0012", 3), organizationId: ORG_A, locationId: LOC_A2, serviceId: SVC_A_CORTE, resourceId: RES_A2, contactId: "5eed000c-0000-4000-8000-0000000000c2", dayOffset: 0, localTime: "16:00", status: "booked", bookedBy: "sync" },
+  { key: "a2_cancelled", id: calendarId("5eed0012", 4), organizationId: ORG_A, locationId: LOC_A2, serviceId: SVC_A_COLOR, resourceId: RES_A2, contactId: "5eed000c-0000-4000-8000-0000000000c4", dayOffset: 0, localTime: "11:00", status: "cancelled", bookedBy: "agent" },
+  // A3 (sin región): solo la ve el org_admin.
+  { key: "a3_agent", id: calendarId("5eed0012", 5), organizationId: ORG_A, locationId: LOC_A3, serviceId: SVC_A_CORTE, resourceId: RES_A3, contactId: CONTACT_A3, dayOffset: 0, localTime: "09:15", status: "booked", bookedBy: "agent" },
+  // Demo F: la misma hora local en Madrid y en Canarias, que son instantes distintos.
+  { key: "f1_madrid", id: calendarId("5eed0012", 6), organizationId: ORG_F, locationId: LOC_F1, serviceId: SVC_F_CONSULTA, resourceId: RES_F1, contactId: volumeId("5eed00f2", 1), dayOffset: 0, localTime: "10:00", status: "booked", bookedBy: "agent" },
+  { key: "f2_canary", id: calendarId("5eed0012", 7), organizationId: ORG_F, locationId: LOC_F2, serviceId: SVC_F_CONSULTA, resourceId: RES_F2, contactId: volumeId("5eed00f2", 0), dayOffset: 0, localTime: "10:00", status: "booked", bookedBy: "user" },
+];

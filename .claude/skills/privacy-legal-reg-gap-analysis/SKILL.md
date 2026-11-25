@@ -6,6 +6,7 @@ description: >
   reg drops, the user asks "does [regulation] affect us", "gap analysis for
   [state privacy law]", "compliance check against [reg]", or pastes regulatory text.
 argument-hint: "[regulation name, or paste reg text/summary]"
+disable-model-invocation: true
 ---
 
 # /reg-gap-analysis

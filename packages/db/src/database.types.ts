@@ -595,6 +595,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"integration_secret_submissions": {
+                  Row: {
+                    "ciphertext": string,"created_at": string,"encrypted_data_key": string,"id": string,"integration_id": string,"key_ref": string,"organization_id": string,"provider": string,"submitted_by": string | null
+                  }
+                  Insert: {
+                    "ciphertext": string,"created_at"?: string,"encrypted_data_key": string,"id": string,"integration_id": string,"key_ref": string,"organization_id": string,"provider": string,"submitted_by"?: string | null
+                  }
+                  Update: {
+                    "ciphertext"?: string,"created_at"?: string,"encrypted_data_key"?: string,"id"?: string,"integration_id"?: string,"key_ref"?: string,"organization_id"?: string,"provider"?: string,"submitted_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "integration_secret_submissions_integration_same_org"
+      columns: ["integration_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "integrations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "integration_secret_submissions_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "integration_secret_submissions_submitted_by_fkey"
+      columns: ["submitted_by"]
+isOneToOne: false
+      referencedRelation: "users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"integration_secrets": {
                   Row: {
                     "ciphertext": string,"created_at": string,"encrypted_data_key": string,"id": string,"key_ref": string,"kind": string,"name": string,"organization_id": string,"rotated_at": string | null
@@ -616,13 +647,13 @@ isOneToOne: false
                   ]
                 },"integrations": {
                   Row: {
-                    "connected_by": string | null,"created_at": string,"external_connection_id": string | null,"id": string,"kind": string,"last_health_check": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
+                    "connected_by": string | null,"created_at": string,"external_connection_id": string | null,"id": string,"kind": string,"last_health_check": string | null,"last_submission_at": string | null,"last_submission_id": string | null,"last_submission_result": string | null,"location_id": string | null,"organization_id": string,"provider": string,"scopes": (string)[],"secret_id": string | null,"server_version": string | null,"status": string,"updated_at": string
                   }
                   Insert: {
-                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind": string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind": string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"last_submission_result"?: string | null,"location_id"?: string | null,"organization_id": string,"provider": string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
+                    "connected_by"?: string | null,"created_at"?: string,"external_connection_id"?: string | null,"id"?: string,"kind"?: string,"last_health_check"?: string | null,"last_submission_at"?: string | null,"last_submission_id"?: string | null,"last_submission_result"?: string | null,"location_id"?: string | null,"organization_id"?: string,"provider"?: string,"scopes"?: (string)[],"secret_id"?: string | null,"server_version"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
