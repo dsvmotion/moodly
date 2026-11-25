@@ -48,6 +48,9 @@ const embedder: Embedder = {
 const config = loadConfig(process.env);
 const logger = createLogger(config.logLevel);
 const worker = createWorker(config, logger, {
+  // El publicador del outbox, cada segundo en vez de cada 5 s: cada turno o aviso del test
+  // empieza por un evento de dominio, y así no espera a la vuelta de producción.
+  schedulesTesting: { outboxPublish: "* * * * * *" },
   // Por dónde iría de verdad: el gateway, gestionado por la plataforma y sin región UE garantizada.
   eventHandlers: () => [logHandler, createIngestHandler({ embedder, route: { provider: "vercel-ai-gateway", region: "other", connection: "managed" } })],
   onLeaseLost: (err) => {

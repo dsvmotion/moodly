@@ -5,6 +5,7 @@ description: >
   spends lawyer time on the ones that need it. Built for sales and BD to self-serve
   before pinging legal. Loaded by /commercial-legal:review when an NDA is detected.
 user-invocable: false
+disable-model-invocation: true
 ---
 
 # NDA Review

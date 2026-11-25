@@ -4,7 +4,8 @@
 // @repo/channels, firmado con INGRESS_TEST_SECRET. Solo el consumidor de log:
 // lo que se prueba es la entrada, no el turno del agente. Fallos inyectados por
 // el id del evento del proveedor: «fail-twice-…» falla los dos primeros
-// intentos y «fail-always-…», todos (hasta el dead_letter), con esperas cortas.
+// intentos y «fail-always-…», todos (hasta el dead_letter), con esperas cortas
+// y el barrido cada 5 s.
 //
 // Y channels.send (O-01) con el adaptador de WhatsApp de verdad contra la Graph
 // API falsa del test (WHATSAPP_TEST_GRAPH_URL), sin esperas entre reintentos.
@@ -73,6 +74,9 @@ const worker = createWorker(config, logger, {
       if (seen < 4 && (id.startsWith("fail-record-") || id.startsWith("fail-recdead-"))) throw new Error("apunte inyectado que falla");
     },
   },
+  // El barrido, cada 5 s en vez de cada minuto: los tests que lo esperan no pasan un minuto parados.
+  // El publicador del outbox se queda en el de producción: un test comprueba que la entrada no lo espera.
+  schedulesTesting: { ingestSweep: "*/5 * * * * *" },
   eventHandlers: [logHandler, createChannelSendHandler({ adapters: new Map([["whatsapp", whatsapp]]), retryDelaysMs: [0, 0] })],
   // webchat firma por cuenta (como el token del chat web); email, por plataforma (como Meta).
   // Y WhatsApp, el adaptador de verdad (O-01): Meta firma con el secreto de la app y

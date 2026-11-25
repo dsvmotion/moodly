@@ -8,6 +8,7 @@ description: >
   user says "change my [thing]", "update my profile", "edit my playbook",
   "tune my config", or "customize".
 argument-hint: "[section name, or describe what you want to change]"
+disable-model-invocation: true
 ---
 
 # /customize

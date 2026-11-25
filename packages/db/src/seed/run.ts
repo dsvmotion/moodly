@@ -451,54 +451,6 @@ async function main(): Promise<void> {
     .limit(1)
     .single();
   check("agent_skills", bookingAgent.error);
-  await deleteAgentRuns(
-    local.dbUrl,
-    "id",
-    seedApprovals.map((approval) => approval.runId),
-  );
-  const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
-  for (const approval of seedApprovals) {
-    const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
-    const run = await admin.from("agent_runs").insert({
-      id: approval.runId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      agent_id: bookingAgent.data?.agent_id ?? "",
-      trigger: "inbound_message",
-      status: "awaiting_approval",
-    });
-    check("agent_runs", run.error);
-    const execution = await admin.from("executions").insert({
-      id: approval.executionId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      run_id: approval.runId,
-      skill_key: approval.skillKey,
-      skill_version: 1,
-      effect_class: approval.effectClass,
-      autonomy_applied: "draft",
-      input: approval.input,
-      target: { kind: "none" },
-      input_hash: inputHash,
-      preview: { summary: approval.summary },
-      status: "drafted",
-      idempotency_key: `seed:${approval.key}`,
-    });
-    check("executions", execution.error);
-    const pending = await admin.from("approvals").insert({
-      id: approval.approvalId,
-      execution_id: approval.executionId,
-      organization_id: SEED_APPROVALS_ORG,
-      location_id: approval.locationId,
-      effect_class: approval.effectClass,
-      input_hash: inputHash,
-      required_role: approval.requiredRole ?? "staff",
-      reason: approval.summary,
-      expires_at: expiresAt,
-    });
-    check("approvals", pending.error);
-    seededApprovalIds.push(approval.approvalId);
-  }
 
   // La bandeja de conversaciones (V2): las de Demo A y la de C1 para tomar el
   // control. Las conversaciones se borran y se vuelven a crear con sus mensajes
@@ -594,6 +546,74 @@ async function main(): Promise<void> {
       })),
     );
     check("messages", messages.error);
+  }
+  // Las aprobaciones pendientes de Demo A (paso 4d-3d), después de las
+  // conversaciones de la bandeja: alguna sale de una de ellas (OA02).
+  await deleteAgentRuns(
+    local.dbUrl,
+    "id",
+    seedApprovals.map((approval) => approval.runId),
+  );
+  const expiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
+  for (const approval of seedApprovals) {
+    // La que sale de una conversación (OA02): su run apunta al primer mensaje
+    // del cliente (trigger_ref), como los del worker. trigger_ref no cambia:
+    // por eso las aprobaciones se crean después de las conversaciones.
+    const conversation = seedInboxConversations.find((row) => row.key === approval.conversationKey);
+    let triggerRef: string | null = null;
+    if (conversation) {
+      const first = await admin
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversation.id)
+        .eq("author", "contact")
+        .order("created_at")
+        .limit(1)
+        .single();
+      check("messages (aprobaciones)", first.error);
+      triggerRef = first.data?.id ?? null;
+    }
+    const inputHash = createHash("sha256").update(`seed:${approval.key}`).digest("hex");
+    const run = await admin.from("agent_runs").insert({
+      id: approval.runId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      agent_id: bookingAgent.data?.agent_id ?? "",
+      trigger: "inbound_message",
+      trigger_ref: triggerRef,
+      status: "awaiting_approval",
+    });
+    check("agent_runs", run.error);
+    const execution = await admin.from("executions").insert({
+      id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      run_id: approval.runId,
+      skill_key: approval.skillKey,
+      skill_version: 1,
+      effect_class: approval.effectClass,
+      autonomy_applied: "draft",
+      input: approval.input,
+      target: { kind: "none" },
+      input_hash: inputHash,
+      preview: { summary: approval.summary },
+      status: "drafted",
+      idempotency_key: `seed:${approval.key}`,
+    });
+    check("executions", execution.error);
+    const pending = await admin.from("approvals").insert({
+      id: approval.approvalId,
+      execution_id: approval.executionId,
+      organization_id: SEED_APPROVALS_ORG,
+      location_id: approval.locationId,
+      effect_class: approval.effectClass,
+      input_hash: inputHash,
+      required_role: approval.requiredRole ?? "staff",
+      reason: approval.summary,
+      expires_at: expiresAt,
+    });
+    check("approvals", pending.error);
+    seededApprovalIds.push(approval.approvalId);
   }
   // Cada mensaje de un cliente deja un message.received para el agente. Los del
   // seed son historia, no mensajes nuevos: se marcan como publicados para que

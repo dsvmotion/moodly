@@ -28,6 +28,7 @@ export type SecurityEvent =
   | "goal.deleted"
   | "agent.approval_approved"
   | "agent.approval_rejected"
+  | "agent.approval_refused"
   | "inbox.conversation_taken_over"
   | "inbox.conversation_handed_back"
   | "inbox.staff_message_sent"
