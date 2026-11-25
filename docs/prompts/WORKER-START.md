@@ -6,7 +6,7 @@ You are a WORKER session. Your task: docs/specs/NNN-name.md
 2. Implement step by step. Touch only the files in the spec.
 3. Run the spec's verify commands. Fix the failures that are inside scope.
 4. If the spec touches auth, RLS, migrations, customer data, agent permissions, payments,
-   integrations or the worker: run the `reviewer` agent (model: opus) and fix what it finds.
+   integrations or the worker: run the `reviewer` agent and fix what it finds.
 5. Write docs/reports/NNN-name.md from docs/reports/_TEMPLATE.md. Your status line goes
    in the report: don't touch docs/STATUS.md or docs/scope.yaml.
 6. Commit on branch `task/NNN-name`, push, open the PR and mark it ready for review once

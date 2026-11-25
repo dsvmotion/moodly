@@ -61,7 +61,7 @@ work, not the sessions.
 | Worker: any other code | Opus | Medium |
 | Worker: docs only or mechanical | Sonnet | High |
 | explore agent | Haiku | — |
-| reviewer agent | Opus (launched with `model: opus`) | — |
+| reviewer agent | Opus | — |
 
 ## Where to run
 - Lead and workers: cloud sessions. The lead launches each worker as a new session and
