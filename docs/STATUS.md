@@ -30,7 +30,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 - **#271** (borradores legales): ¿entran como borradores o se quedan en la rama hasta el abogado? · **#260** (frase `eval:intents`): ¿sí o cerrar? · **#270** (umbral `complex`): correr `eval:intents` real antes. · **#159** (skill `ask_team`, CU2): rehacer sobre main · **#160**: superado, ¿cerrar?
 - **Agente de lanzamiento y redes (GTM):** ¿se arranca? Si sí: repos de diseño/motion/UX que usará, sector y país de inicio; no hay conectores de Instagram/LinkedIn/Threads/X y cada publicación la aprueba una persona.
 - **Producto abierto:** email y dominio de contacto de los decks; reparto entre cofundadores; términos de la nota de 200.000 €.
-- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). Falta subir el cambio del script al toolkit (push denegado desde la sesión; parche en `docs/reports/ola1-01-toolkit.patch`).
+- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). Falta subir el cambio del script al toolkit (push denegado desde la sesión; parche en la descripción del PR #341).
 - **Heredadas** (Realtime público, Fluid de Vercel, mensaje del sistema en el paso a persona, bandeja, marca, `/app-movil`, lote C de reservas…): report de cierre §5.
 
 ## c) Tareas manuales de Diego
