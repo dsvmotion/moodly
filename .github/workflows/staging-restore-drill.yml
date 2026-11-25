@@ -1,0 +1,104 @@
+name: Staging · simulacro de restauración
+
+# PL-prod (puerta de M1: «se ha hecho un simulacro de restauración»). Se lanza a
+# mano desde main (Actions → «Staging · simulacro de restauración» → Run workflow).
+#
+# Demuestra de verdad que la base de datos de staging se puede reconstruir desde
+# un volcado propio:
+#   1. `supabase db dump` del proyecto de staging (roles, esquema y datos);
+#   2. lo restaura en un Postgres desechable (la imagen de Supabase, la misma
+#      versión mayor que el proyecto) que corre como servicio del runner;
+#   3. comprueba el recuento de filas por tabla (volcado frente a restaurado),
+#      que RLS sigue activado y forzado en public, el número de políticas, los
+#      roles y que las migraciones aplicadas son las del repositorio;
+#   4. imprime solo recuentos, códigos SQLSTATE y tiempos (el RTO del simulacro).
+#
+# Solo LEE staging (el mismo acceso que `supabase db push`, con los secretos del
+# entorno `staging`): no hace DDL ni escribe nada en ningún proyecto alojado. El
+# volcado puede llevar datos personales: vive en un directorio 0700 del runner,
+# que se borra al salir, y NO se sube como artefacto.
+#
+# Lo que NO prueba: restaurar un proyecto entero desde las copias de Supabase
+# (backups diarios o PITR). Eso lo hace una persona desde el panel; los pasos
+# están en docs/runbooks/simulacro-de-restauracion.md.
+#
+# Secretos del entorno `staging` (los mismos del despliegue):
+#   SUPABASE_ACCESS_TOKEN  token personal de Supabase (Account → Access Tokens)
+#   SUPABASE_DB_PASSWORD   contraseña de la base de datos del proyecto de staging
+
+on:
+  workflow_dispatch:
+
+# Sin permisos por defecto; el job pide solo los suyos.
+permissions: {}
+
+concurrency:
+  group: staging-restore-drill
+  cancel-in-progress: false
+
+env:
+  SUPABASE_PROJECT_REF: sgeswmdqstonegceusej
+
+jobs:
+  drill:
+    name: staging · simulacro de restauración
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    permissions:
+      contents: read
+    # Los secretos no van en el env del job: solo los ven los pasos que los
+    # usan (comprobarlos, `link` y el simulacro), no las acciones de terceros.
+    env:
+      # La contraseña del Postgres desechable (no es un secreto: el servicio
+      # nace y muere con este job, y solo escucha en el runner).
+      DISPOSABLE_PG_PASSWORD: drill-disposable-local-only
+    services:
+      restore-target:
+        # La misma imagen (versión mayor 17) que usa el Supabase local; sus
+        # roles y extensiones son los de la plataforma.
+        image: public.ecr.aws/supabase/postgres:17.6.1.054
+        env:
+          POSTGRES_PASSWORD: drill-disposable-local-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Misma versión que en local, en el CI y en el despliegue.
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.118.0
+
+      - name: Secretos del entorno staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta el secreto $name en el entorno staging de GitHub"
+              exit 1
+            fi
+          done
+
+      - name: Enlazar con el proyecto de staging
+        working-directory: packages/db
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Simulacro de restauración
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          DRILL_SOURCE: linked
+          DRILL_TARGET_URL: postgresql://supabase_admin:${{ env.DISPOSABLE_PG_PASSWORD }}@127.0.0.1:5432/postgres
+        run: bash scripts/supabase/restore-drill.sh
