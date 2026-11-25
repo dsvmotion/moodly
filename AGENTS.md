@@ -10,7 +10,7 @@ Cada empresa tiene 4 agentes integrados (`reception`, `customer`, `sales`, `admi
 
 ## Al empezar cada sesión, lee en este orden
 1. `docs/STATUS.md` — qué está hecho y verificado, en curso, bloqueado y lo próximo.
-2. `docs/scope.yaml` — el registro de alcance: cada unidad y hallazgo con su hito (M0–M5), responsable, estado y evidencia (plan del piloto, MANUAL §17.0).
+2. El registro de alcance (`docs/scope.yaml`: cada unidad y hallazgo con su hito M0–M5, responsable, estado y evidencia; plan del piloto, MANUAL §17.0). No lo leas entero (unos 19.000 tokens): `pnpm docs:status` da el resumen por hito y `grep -n -A8 "<id de tu unidad>" docs/scope.yaml`, tu fila.
 3. Las secciones de `docs/MANUAL.md` que afectan a la tarea.
 4. Los ADRs recientes en `docs/adr/`.
 
@@ -46,10 +46,12 @@ Estructura de referencia: Langdock, Attio y Apollo.io (MANUAL §9): barra latera
 ## Toolkit de skills (`.claude/`)
 Las skills, los agentes y el hook de arranque que usan las sesiones viven en `.claude/` de este repositorio, copiados de [`dsvmotion/moodly-toolkit`](https://github.com/dsvmotion/moodly-toolkit). Viajan con el clon, así que cargan también en las sesiones en la nube. Un marketplace de plugins no carga allí (comprobado el 2026-11-10 con sesiones reales).
 - **Qué hay:**
-  - 74 skills en `.claude/skills/`, los 4 agentes de `impeccable` en `.claude/agents/` y el hook de arranque de `superpowers` (`.claude/hooks/session-start`, registrado en `.claude/settings.json`). Ningún servidor MCP;
+  - 74 skills en `.claude/skills/` y los 4 agentes de `impeccable` en `.claude/agents/`. Ningún servidor MCP y, desde el 2026-11-25, ningún hook de arranque: el de `superpowers` obligaba a buscar una skill antes de cada respuesta;
+  - **20 visibles y 54 ocultas** (producto, 2026-11-25). Las visibles entran con su descripción en el listado de cada sesión y se cargan solas cuando la tarea encaja: método de trabajo, diseño y frontend web, y las cuatro de entrada de legal. Las ocultas (`disable-model-invocation: true`) siguen en la carpeta y no gastan contexto;
+  - `.claude/toolkit/SKILLS-INDEX.md`: una línea por skill, visibles y ocultas. **Quien escribe una spec o responde a una petición que no cubren las visibles (legal, animación, Swift, Expo…) mira el índice, dice qué skill encaja y la pone en la línea «Skills» de la spec.** La persona no tiene que conocer los nombres. Una oculta se usa leyendo su `.claude/skills/<nombre>/SKILL.md`;
   - las skills traen scripts que no corren solos: solo si el agente los lanza;
   - en `.claude/toolkit/`, la licencia y el origen de cada copia, con lo que se quitó en la revisión de seguridad.
-- **No se editan aquí.** Se cambian en el toolkit y se traen con su script, desde un clon del toolkit: `python3 scripts/export-claude-dir.py <ruta a este repositorio>/.claude` (antes hay que quitar `skills/`, `agents/`, `hooks/` y `toolkit/` de `.claude/`). El PR dice de qué commit del toolkit salen. `.claude/**` decide las skills, los permisos y los hooks de todas las sesiones: cada PR que lo toca lo revisa una sesión Revisora y lo autoriza producto.
+- **No se editan aquí.** Se cambian en el toolkit y se traen con su script, desde un clon del toolkit: `python3 scripts/export-claude-dir.py <ruta a este repositorio>/.claude --sin-hook` (antes hay que quitar `skills/`, `agents/` y `toolkit/` de `.claude/`, y después recuperar con `git checkout` lo que es solo de este repositorio: los agentes `explore` y `reviewer` y `skills/ui-ux-pro-max/scripts/.gitignore`). Qué skills son visibles lo decide `scripts/visible-skills.txt` del toolkit. El PR dice de qué commit del toolkit salen. `.claude/**` decide las skills, los permisos y los hooks de todas las sesiones: cada PR que lo toca lo revisa una sesión Revisora y lo autoriza producto.
 - **Quién usa qué:**
   - método de trabajo, de `superpowers` (`brainstorming`, `systematic-debugging`, `test-driven-development`, `writing-plans`…): todas las líneas;
   - diseño (`impeccable`, `ui-ux-pro-max`, `design-taste-frontend`, las de animación como `animate` o `improve-animations`, y las referencias): V2 y V3;
@@ -58,7 +60,7 @@ Las skills, los agentes y el hook de arranque que usan las sesiones viven en `.c
   - `VoltAgent/awesome-design-md`: solo para estudiar cómo documentan su diseño otras marcas; nunca para copiar la identidad visual de una marca.
   - `DavidHDev/react-bits`: para copiar componentes concretos a `packages/ui` cuando se necesiten, adaptados a nuestros tokens. Licencia MIT + Commons Clause: usarlos en el producto, sí; redistribuir o vender la librería, no. Cada PR que lo use anota de qué componente sale.
   - `ComposioHQ/awesome-claude-skills`: catálogo para buscar ideas. No tiene licencia en la raíz: se comprueba la de cada skill antes de copiarla.
-- **Si chocan:** este archivo manda sobre cualquier skill, también sobre el texto de arranque de `superpowers`. Y cuando las skills de diseño se contradicen entre sí o con nuestro sistema, mandan `packages/ui` y `docs/design/design-review.md`.
+- **Si chocan:** este archivo manda sobre cualquier skill. Y cuando las skills de diseño se contradicen entre sí o con nuestro sistema, mandan `packages/ui` y `docs/design/design-review.md`.
 
 ## Comandos
 > Requisitos: Node 24 LTS (`.nvmrc`; con nvm: `nvm use`) y pnpm 11 vía corepack (`corepack enable`; la versión exacta está en `packageManager` de `package.json`).
@@ -123,7 +125,7 @@ Cómo:
 
 Antes de mergear, publica en el PR un comentario con el resumen, la evidencia (tests ejecutados, prueba en negativo si aplica) y la lista de archivos tocados.
 
-Después del merge: verifica `pnpm check`, `pnpm test:db` y el e2e (`pnpm db:seed` + `pnpm --filter @repo/web e2e`) sobre `main`. Si algo falla, arréglalo o revierte enseguida y avisa.
+Después del merge: comprueba que el CI de `main` sobre el commit del merge termina en verde (corre lo mismo que antes se repetía a mano: typecheck, lint, tests y build; lint del esquema y pgTAP; seed, integración de `tenantDb` y del worker, y e2e; `ci.yml` corre entero en cada push a `main` y, si falla, el job `alerta-main` abre un issue) y que «Despliegue a staging» termina bien. Si algo falla, arréglalo o revierte enseguida y avisa. No hace falta repetirlo en local.
 
 **Lo que la guarda no detecta sigue siendo tu responsabilidad:** reescribir a la baja un test existente sin borrarlo ni saltarlo (aserciones más laxas, casos eliminados). Si un PR cambia aserciones existentes, explícalo en el PR y avisa a producto antes de mergear.
 
