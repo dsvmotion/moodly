@@ -1,7 +1,7 @@
 ---
 name: reviewer
-description: Read-only code reviewer for critical changes (auth, payments, customer data, agent permissions). Give it a spec path and a branch or diff.
-model: sonnet
+description: Read-only code reviewer for critical changes (auth, RLS, migrations, payments, customer data, agent permissions, integrations, the worker). Give it a spec path and a branch or diff.
+model: opus
 tools: Read, Grep, Glob, Bash
 ---
 Review the change against its spec in docs/specs/. Check:
