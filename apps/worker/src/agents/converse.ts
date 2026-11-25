@@ -247,8 +247,17 @@ type Loaded =
  * del mensaje que lo lanzó (trigger_ref, sin clave ajena: por eso cada tabla
  * lleva la organización explícita, además de RLS); la organización, la del
  * worker, nunca un argumento del modelo. Sin las respuestas al cliente ni las
- * lecturas, y sin las que el equipo ya rechazó o dejó caducar. Exportada para
- * el test que la prueba sin RLS.
+ * lecturas.
+ *
+ * Pendiente para el agente es exactamente lo que el equipo ve en la bandeja
+ * (approvals-data.ts): una aprobación que existe, está pending y no ha
+ * caducado (expires_at > now(); nadie la pasa a «expired», se lee por la
+ * hora). Así no cuentan las ejecuciones sin aprobación (las de antes de que el
+ * worker las creara, que se quedaban en borrador para siempre), las ya
+ * aprobadas, las rechazadas ni las caducadas. Y una reserva o un cambio de cita
+ * (input.starts_at) cuya hora ya pasó tampoco: no tiene sentido decir que
+ * espera. Un starts_at que no es una fecha no la quita (no se adivina).
+ * Exportada para el test que la prueba sin RLS.
  */
 export async function loadPendingRequests(
   sql: Pick<TenantSql, "query">,
@@ -266,11 +275,15 @@ export async function loadPendingRequests(
        and e.status in ('drafted', 'needs_approval')
        and e.effect_class not in ('read', 'external_message')
        and jsonb_typeof(e.preview->'summary') = 'string'
-       and not exists (
+       and exists (
          select 1 from public.approvals a
          where a.execution_id = e.id and a.organization_id = $3
-           and (a.status in ('rejected', 'expired') or a.expires_at <= now())
+           and a.status = 'pending' and a.expires_at > now()
        )
+       and case
+             when pg_input_is_valid(e.input->>'starts_at', 'timestamptz') then (e.input->>'starts_at')::timestamptz > now()
+             else true
+           end
      order by e.created_at desc
      limit $2`,
     [conversationId, MAX_PROMPT_PENDING + 1, organizationId],
