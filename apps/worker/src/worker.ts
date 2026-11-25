@@ -108,6 +108,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
   let pool: pg.Pool | undefined;
   let ingress: RequestHandler | undefined;
   let launched = false;
+  let outbox: ReturnType<typeof registerOutboxWorkflows> | undefined;
   const adapters = new Map((options.channelAdapters ?? []).map((adapter) => [adapter.channel as string, adapter]));
   let phase: WorkerPhase = "checking";
   function channels(request: IncomingMessage, response: ServerResponse): void {
@@ -131,6 +132,8 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
         await pool.query("select 1");
       },
       oldestPendingEventAt: () => db.outbox.oldestPendingAt(),
+      // Un relleno aparcado (W3) deja /health en degraded hasta que lo reanuden.
+      parkedBackfills: async () => (outbox ? outbox.parkedBackfills() : 0),
     },
     async start() {
       // Antes del lock y de DBOS: sin moodly_worker, cada turno fallaría después
@@ -152,7 +155,7 @@ export function createWorker(config: WorkerConfig, logger: Logger, options: Work
       });
       phase = "launching";
       registerSmokeWorkflow();
-      const outbox = registerOutboxWorkflows({ db, registry, logger });
+      outbox = registerOutboxWorkflows({ db, registry, logger });
       const ingest = registerIngest({ db, logger, enqueueDeliveries: outbox.enqueueDeliveries, ...options.ingestTesting });
       // El pool es nuestro y no de DBOS por un fallo de DBOS 5.3.0 con pg 9
       // (system-db-pool.ts). La URL se le sigue pasando: DBOS la usa (sin

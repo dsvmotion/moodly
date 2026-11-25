@@ -24,6 +24,13 @@ export interface WorkerProbe {
   pingDatabase(): Promise<void>;
   /** Hora de creación del evento del outbox más antiguo sin publicar, o null. */
   oldestPendingEventAt(): Promise<Date | null>;
+  /**
+   * Cuántos rellenos del outbox (W3) aparcó DBOS y siguen así
+   * (MAX_RECOVERY_ATTEMPTS_EXCEEDED): no se reintentan solos y lo que tenían que
+   * entregar no llega hasta que una persona los reanude. Los que canceló una
+   * persona no cuentan. Sin él, no se mira.
+   */
+  parkedBackfills?(): Promise<number>;
 }
 
 export interface HealthOptions {
@@ -46,9 +53,11 @@ export interface HealthReport {
 /** Lo que va al log, nunca a la respuesta. */
 export interface HealthDetail {
   phase: WorkerPhase;
-  checks?: { database: Check; dbos: Check; outbox: Check };
+  checks?: { database: Check; dbos: Check; outbox: Check; backfill?: Check };
   /** Edad del evento sin publicar más antiguo, en segundos (0 si no hay). */
   outboxOldestPendingSeconds?: number;
+  /** Rellenos del outbox aparcados (solo si el probe los mira y se pudieron leer). */
+  parkedBackfills?: number;
 }
 
 export interface HealthResult {
@@ -85,9 +94,11 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
   if (phase === "checking") return { httpStatus: 503, body: { status: "starting" }, detail: { phase } };
   if (phase !== "running") return { httpStatus: 200, body: { status: "starting" }, detail: { phase } };
 
-  const [database, outbox] = await Promise.allSettled([
+  const watchesBackfills = probe.parkedBackfills !== undefined;
+  const [database, outbox, parked] = await Promise.allSettled([
     withTimeout(probe.pingDatabase(), timeout),
     withTimeout(probe.oldestPendingEventAt(), timeout),
+    probe.parkedBackfills ? withTimeout(probe.parkedBackfills(), timeout) : Promise.resolve(null),
   ]);
   const oldest = outbox.status === "fulfilled" ? outbox.value : null;
   const ageMs = oldest ? Math.max(0, now() - oldest.getTime()) : 0;
@@ -96,8 +107,10 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
     // La fase «running» es DBOS lanzado; no se vuelve a «running» sin lanzarlo.
     dbos: "ok",
     outbox: outbox.status === "fulfilled" && ageMs <= maxAge ? "ok" : "fail",
+    // Un relleno aparcado no se arregla solo: degraded hasta que lo reanuden.
+    ...(watchesBackfills ? { backfill: (parked.status === "fulfilled" && parked.value === 0 ? "ok" : "fail") as Check } : {}),
   } as const;
-  const healthy = checks.database === "ok" && checks.dbos === "ok" && checks.outbox === "ok";
+  const healthy = checks.database === "ok" && checks.dbos === "ok" && checks.outbox === "ok" && checks.backfill !== "fail";
   return {
     httpStatus: healthy ? 200 : 503,
     body: { status: healthy ? "ok" : "degraded" },
@@ -105,6 +118,7 @@ export async function evaluateHealth(options: HealthOptions): Promise<HealthResu
       phase,
       checks,
       ...(outbox.status === "fulfilled" ? { outboxOldestPendingSeconds: Math.floor(ageMs / 1000) } : {}),
+      ...(watchesBackfills && parked.status === "fulfilled" && parked.value !== null ? { parkedBackfills: parked.value } : {}),
     },
   };
 }

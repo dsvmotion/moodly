@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { eventPayloads, isEventType, parsePayload } from "./catalog.ts";
 import { MAX_BACKFILL_HOURS, createEventRegistry, type EventHandler } from "./handlers.ts";
-import { MAX_BACKFILL_ATTEMPTS, backfillWorkflowId, deliveryWorkflowId, nextBackfillAttempt } from "./outbox.ts";
+import { PARKED_STATUSES as INGEST_PARKED, RESUMABLE_STATUSES as INGEST_RESUMABLE } from "../ingress/ingest.ts";
+import { PARKED_STATUSES, RESUMABLE_STATUSES } from "../workflow-status.ts";
+import { MAX_BACKFILL_ATTEMPTS, backfillWorkflowId, countParkedBackfills, deliveryWorkflowId, nextBackfillAttempt } from "./outbox.ts";
 
 const INVITATION = "5eed0000-0000-4000-8000-0000000000a1";
 const USER = "5eed0000-0000-4000-8000-0000000000b1";
@@ -95,18 +97,52 @@ describe("registro de consumidores", () => {
     expect(backfillWorkflowId("x", "invitation.created")).not.toBe(backfillWorkflowId("x", "approval.decided"));
   });
 
-  it("un relleno que terminó en error se vuelve a lanzar, hasta tres intentos; nunca si alguno acabó bien, sigue o se canceló", () => {
+  it("un relleno que terminó en error se vuelve a lanzar, hasta tres intentos; nunca si alguno acabó bien, sigue o está aparcado", () => {
     expect(MAX_BACKFILL_ATTEMPTS).toBe(3);
     expect(nextBackfillAttempt([])).toBe(1);
     expect(nextBackfillAttempt([null])).toBe(1);
     expect(nextBackfillAttempt(["ERROR"])).toBe(2);
-    expect(nextBackfillAttempt(["MAX_RECOVERY_ATTEMPTS_EXCEEDED", null])).toBe(2);
+    expect(nextBackfillAttempt(["ERROR", null])).toBe(2);
     expect(nextBackfillAttempt(["ERROR", "ERROR"])).toBe(3);
     expect(nextBackfillAttempt(["ERROR", "ERROR", "ERROR"])).toBeNull();
-    for (const status of ["SUCCESS", "PENDING", "ENQUEUED", "CANCELLED"]) {
+    // Aparcados, como en la entrada de canales: MAX_RECOVERY tiró el proceso
+    // demasiadas veces y CANCELLED lo paró alguien; los miran las personas.
+    for (const status of ["SUCCESS", "PENDING", "ENQUEUED", "CANCELLED", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"]) {
       expect(nextBackfillAttempt([status])).toBeNull();
       expect(nextBackfillAttempt(["ERROR", status])).toBeNull();
     }
+  });
+
+  it("el relleno y la entrada de canales usan el mismo criterio: solo ERROR se reintenta; CANCELLED y MAX_RECOVERY se aparcan", () => {
+    expect(RESUMABLE_STATUSES).toEqual(["ERROR"]);
+    expect(PARKED_STATUSES).toEqual(["CANCELLED", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"]);
+    expect(INGEST_RESUMABLE).toBe(RESUMABLE_STATUSES);
+    expect(INGEST_PARKED).toBe(PARKED_STATUSES);
+    for (const status of PARKED_STATUSES) expect(nextBackfillAttempt([status])).toBeNull();
+    for (const status of RESUMABLE_STATUSES) expect(nextBackfillAttempt([status])).toBe(2);
+  });
+
+  it("cuenta los rellenos que DBOS aparcó (MAX_RECOVERY) leyendo su estado cada vez: uno que reanuda una persona deja de contar", async () => {
+    const statuses = new Map<string, string | null>([
+      ["a", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"],
+      ["b", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"],
+      ["c", "SUCCESS"],
+      ["d", "ERROR"],
+      ["e", null],
+      // Lo canceló una persona: ya es una decisión suya, no algo que vigilar
+      // (si contara, /health no saldría de degraded sin rellenar lo que no quiso).
+      ["f", "CANCELLED"],
+    ]);
+    const statusOf = async (id: string) => statuses.get(id) ?? null;
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    // Ni un ERROR (se relanza en el siguiente arranque) ni un CANCELLED.
+    expect(await countParkedBackfills(ids, statusOf)).toBe(2);
+    // DBOS.resumeWorkflow lo deja en ENQUEUED: ya no está aparcado.
+    statuses.set("a", "ENQUEUED");
+    expect(await countParkedBackfills(ids, statusOf)).toBe(1);
+    statuses.set("b", "SUCCESS");
+    expect(await countParkedBackfills(ids, statusOf)).toBe(0);
+    expect(await countParkedBackfills([], statusOf)).toBe(0);
   });
 
   it("el ID de una entrega es el mismo cada vez: volver a encolar no crea otra", () => {
