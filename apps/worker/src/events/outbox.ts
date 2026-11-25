@@ -78,6 +78,24 @@ export function nextBackfillAttempt(statuses: readonly (string | null)[]): numbe
   return null;
 }
 
+/**
+ * Cuántos de estos rellenos están aparcados ahora. Lee el estado cada vez (no
+ * el del arranque): uno que una persona reanuda (DBOS resumeWorkflow, `dbos
+ * workflow resume`) deja de contar sin reiniciar el worker. Un ERROR no cuenta:
+ * el siguiente arranque lo relanza.
+ */
+export async function countParkedBackfills(
+  workflowIDs: Iterable<string>,
+  statusOf: (workflowID: string) => Promise<string | null>,
+): Promise<number> {
+  let parked = 0;
+  for (const workflowID of workflowIDs) {
+    const status = await statusOf(workflowID);
+    if (status !== null && isParked(status)) parked += 1;
+  }
+  return parked;
+}
+
 /** Desde cuándo rellenaba el primer intento: los siguientes rellenan la misma ventana, no una más corta. */
 async function firstAttemptSince(workflowID: string): Promise<string | null> {
   const [first] = await DBOS.listWorkflows({ workflowIDs: [workflowID], loadInput: true, loadOutput: false });
@@ -269,6 +287,10 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
 
   const backfillWorkflow = DBOS.registerWorkflow(backfill, { name: BACKFILL_WORKFLOW });
 
+  // El último intento de cada par (consumidor, tipo) visto o lanzado al
+  // arrancar: /health mira si alguno está aparcado (parkedBackfills).
+  const watched = new Map<string, string>();
+
   /**
    * Lanza los rellenos que falten, sin esperarlos: el worker arranca igual y
    * cada uno deja en el log cuántos encoló. Un par (consumidor, tipo) que ya
@@ -288,7 +310,9 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
           if (status === null || !isResumable(status)) break;
         }
         const attempt = nextBackfillAttempt(statuses);
+        const pair = `${handler.key}:${type}`;
         if (attempt === null) {
+          watched.set(pair, backfillWorkflowId(handler.key, type, statuses.length));
           const last = statuses.at(-1);
           if (last && isParked(last)) {
             log.error({ handler: handler.key, type, status: last, attempt: statuses.length }, "backfill: aparcado, no se reintenta");
@@ -298,9 +322,13 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
           continue;
         }
         const workflowID = backfillWorkflowId(handler.key, type, attempt);
-        const since =
-          (attempt > 1 ? await firstAttemptSince(backfillWorkflowId(handler.key, type, 1)) : null) ??
-          new Date(now.getTime() - handler.backfill.maxAgeHours * 3_600_000).toISOString();
+        watched.set(pair, workflowID);
+        const firstSince = attempt > 1 ? await firstAttemptSince(backfillWorkflowId(handler.key, type, 1)) : null;
+        if (attempt > 1 && firstSince === null) {
+          // La ventana queda más corta que la del primero: lo que solo cubría él no llega.
+          log.warn({ handler: handler.key, type, attempt }, "backfill: no se pudo leer el since del primer intento, se rellena desde ahora");
+        }
+        const since = firstSince ?? new Date(now.getTime() - handler.backfill.maxAgeHours * 3_600_000).toISOString();
         if (attempt > 1) log.warn({ handler: handler.key, type, attempt }, "backfill: el anterior terminó en error, se vuelve a lanzar");
         const handle = await DBOS.startWorkflow(backfillWorkflow, { workflowID })({ handler: handler.key, type, since });
         void handle.getResult().then(
@@ -311,7 +339,20 @@ export function registerOutboxWorkflows({ db, registry, logger }: OutboxOptions)
     }
   }
 
-  return { deliver: deliverWorkflow, publish: publishWorkflow, prune: pruneWorkflow, backfill: backfillWorkflow, enqueueDeliveries, startBackfills };
+  /** Cuántos rellenos están aparcados ahora (para /health): 0 antes de startBackfills. */
+  function parkedBackfills(): Promise<number> {
+    return countParkedBackfills(watched.values(), async (workflowID) => (await DBOS.getWorkflowStatus(workflowID))?.status ?? null);
+  }
+
+  return {
+    deliver: deliverWorkflow,
+    publish: publishWorkflow,
+    prune: pruneWorkflow,
+    backfill: backfillWorkflow,
+    enqueueDeliveries,
+    startBackfills,
+    parkedBackfills,
+  };
 }
 
 /** La cola de entregas y las programaciones viven en la base de datos: después de DBOS.launch(). */

@@ -71,6 +71,35 @@ describe("evaluateHealth", () => {
     expect(result.detail.outboxOldestPendingSeconds).toBeUndefined();
   });
 
+  it("503 degraded mientras haya un relleno del outbox aparcado (W3): así lo ve la alerta de staging", async () => {
+    const result = await evaluateHealth({ ...base, probe: probe({ parkedBackfills: async () => 1 }) });
+    expect(result.httpStatus).toBe(503);
+    expect(result.body).toEqual({ status: "degraded" });
+    expect(result.detail.checks).toEqual({ database: "ok", dbos: "ok", outbox: "ok", backfill: "fail" });
+    expect(result.detail.parkedBackfills).toBe(1);
+  });
+
+  it("sin rellenos aparcados, sano", async () => {
+    const result = await evaluateHealth({ ...base, probe: probe({ parkedBackfills: async () => 0 }) });
+    expect(result.httpStatus).toBe(200);
+    expect(result.detail.checks).toEqual({ database: "ok", dbos: "ok", outbox: "ok", backfill: "ok" });
+    expect(result.detail.parkedBackfills).toBe(0);
+  });
+
+  it("503 si no se puede saber si hay rellenos aparcados", async () => {
+    const result = await evaluateHealth({
+      ...base,
+      probe: probe({
+        parkedBackfills: async () => {
+          throw new Error("dbos: no responde");
+        },
+      }),
+    });
+    expect(result.httpStatus).toBe(503);
+    expect(result.detail.checks?.backfill).toBe("fail");
+    expect(result.detail.parkedBackfills).toBeUndefined();
+  });
+
   it("503 si una comprobación se cuelga más del tope", async () => {
     vi.useFakeTimers();
     try {

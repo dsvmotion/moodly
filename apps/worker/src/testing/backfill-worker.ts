@@ -8,7 +8,9 @@
 //                          ejecución) y test.late, que llega a la vez pero sin
 //                          relleno: lo de antes no le debe llegar.
 //
-//   BACKFILL_PHASE=… node backfill-worker.ts <archivo>
+//   BACKFILL_PHASE=… [HEALTH_PORT=…] node backfill-worker.ts <archivo>
+//
+// Con HEALTH_PORT, también el /health de main.ts en ese puerto (127.0.0.1).
 import { appendFileSync } from "node:fs";
 import type { SkillDefinition } from "@repo/agent-core";
 import { z } from "zod";
@@ -17,6 +19,7 @@ import { codeSkills } from "../agents/converse.ts";
 import { loadConfig } from "../config.ts";
 import type { EventHandler } from "../events/handlers.ts";
 import { logHandler } from "../events/log-handler.ts";
+import { createHealthServer } from "../health.ts";
 import { createLogger } from "../logger.ts";
 import { createWorker } from "../worker.ts";
 
@@ -80,4 +83,7 @@ const worker = createWorker(config, logger, {
 process.on("SIGTERM", () => {
   void worker.stop().then(() => process.exit(0));
 });
+const healthPort = process.env["HEALTH_PORT"];
+// Un segundo de caché en vez de diez: el test espera a que cambie.
+if (healthPort) createHealthServer({ probe: worker.probe, logger, cacheMs: 1_000 }).listen(Number(healthPort), "127.0.0.1");
 await worker.start();
