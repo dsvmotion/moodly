@@ -1,18 +1,17 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `2682926` (#293)
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `ce487e9` (#348)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
-- Contexto estable: `docs/reports/2026-11-25-panorama.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
-- Mergeado el 25-11: #344, #313, #342, #343, #341, #330, #293. Staging desplegado con `8895fa6` (verde); el despliegue de `2682926` estaba corriendo a las 19:02 UTC.
-- **Puerta 3 de M1 cumplida:** simulacro de restauración real contra staging en verde ([corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616), 109 s; `docs/runbooks/simulacro-de-restauracion.md`). Sin explicar todavía: dos líneas del log del Postgres desechable (`password authentication failed for user "postgres"` y `role "supabase_realtime_admin" does not exist`).
-- **`main` en rojo una vez:** CI sobre `677a813` (#341, solo docs) falló en `apps/worker/src/knowledge/ingest.integration.ts` (test de «Solo UE»; lee el log antes de que termine la entrega). `c0707e1` volvió a verde. Arreglo: `ola0-11` (session_016SLeJQ9nFHCsW4EgxVmCP7).
-- Turno de merge (19:05 UTC): #336 con CI corriendo. Cola: #338, #324, #325 (los tres listos) y #317 (listo; **espera el visto bueno de Diego** al arreglo de «reserva pasada», comentario 7168631756 del PR). Todos necesitan ponerse al día antes de mergear.
-- Workers en vuelo: `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk, #334), `ola0-05` (session_016SLeJQoh3cNKGVqh1ouoko, docs) y `ola0-11`. Terminados sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH), `ola0-02` (session_016SLeJRNUkf8s7cUEM71Uy8), `ola0-07` (session_016SLeJSHsj38gTWnJyiXfCu).
-- Después: `ola0-06` (#312, cuando #317 esté en `main`) y la limpieza (`ola0-09`, spec por escribir).
-- Esperan a Diego: #317; cerrar #281 (todo está ya en `main`) y #302 (#293 ya entró); que el entorno `staging` de GitHub solo admita `main`; el resto de `ola0-08`.
-- Follow-ups sin clasificar: reports de `ola0-01`, `ola0-02`, `ola0-04`, `ola0-07`, `ola0-10`; fila de `scope.yaml` para el control 3.2 (#331, #336) y `MNT-01` (#281); nota de la Revisora en #293 (documentar `schedulesTesting`).
+- Contexto estable: `docs/reports/2026-11-25-panorama.md`. Seguimientos y su destino: `docs/reports/ola0-followups.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
+- Mergeado el 25-11 (11): #344, #313, #342, #343, #341, #330, #293, #336, #338, #324, #348. Staging desplegado en verde hasta `8895fa6` comprobado; lo posterior, sin comprobar al escribir esto.
+- **Puerta 3 de M1 cumplida:** simulacro de restauración real contra staging en verde ([corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616), 109 s; `docs/runbooks/simulacro-de-restauracion.md`).
+- **`main` en rojo una vez:** CI sobre `677a813` por un test intermitente de la ingesta; arreglado en #348.
+- Turno de merge (20:30 UTC): #325 con CI corriendo; después #347 (docs del cierre de V1; el worker está metiendo la fila del runbook).
+- **Esperan a Diego:** #317 (listo; arreglo de «reserva pasada», comentario 7168631756 del PR), #334 (listo; dos archivos fuera de spec y `/health` 503 con un relleno aparcado), cerrar #281 y #302, y el resto de la tabla «De Diego» de los seguimientos.
+- Workers: en vuelo, `ola0-05` (session_016SLeJQoh3cNKGVqh1ouoko). Sin archivar hasta que entren sus PRs: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH), `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk), `ola0-07` (session_016SLeJSHsj38gTWnJyiXfCu).
+- Después: `ola0-06` (#312, cuando #317 esté en `main`) y la limpieza (`ola0-09a`/`ola0-09b`, specs por escribir).
 - Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
 
 ## a) Ola 0 — integración (en orden)
