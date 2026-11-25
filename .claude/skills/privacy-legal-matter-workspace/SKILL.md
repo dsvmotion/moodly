@@ -6,6 +6,7 @@ description: >
   practitioners. Use when the user wants to open a new matter, switch matters, list
   matters, close/archive a matter, or work at practice-level only.
 argument-hint: "<new | list | switch | close | none> [slug]"
+disable-model-invocation: true
 ---
 
 # /matter-workspace
