@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
+import { parseApprovalInput, slotHasPassed } from "@/lib/approval-input";
 import { securityEvent } from "@/lib/observability/logger";
 import { createClient } from "@/lib/supabase/server";
 import { idSchema } from "@/lib/validation";
@@ -11,12 +12,15 @@ import { idSchema } from "@/lib/validation";
 // barrera es la base de datos: RLS (approvals_decide) exige el rol y el
 // alcance que pide, aal2 cuando toca y que siga pendiente y sin caducar;
 // guard_approval pone quién decidió y cuándo, y emite approval.decided, que el
-// worker ejecuta (agent.approval). Aquí solo se valida la forma.
+// worker ejecuta (agent.approval). Aquí se valida la forma y, al aprobar, que
+// una reserva o un cambio de cita no sea para una hora que ya pasó (revisión de
+// V10, OA02): al ejecutarla fallaría igual (la skill y la base de datos
+// rechazan el pasado), pero la persona creería que la aprobó.
 
 const decisionSchema = z.object({ id: idSchema, decision: z.enum(["approved", "rejected"]) });
 
 export interface DecideState {
-  error: "invalid" | "not_allowed" | null;
+  error: "invalid" | "not_allowed" | "slot_passed" | null;
 }
 
 export async function decideApproval(_prev: DecideState, formData: FormData): Promise<DecideState> {
@@ -26,6 +30,14 @@ export async function decideApproval(_prev: DecideState, formData: FormData): Pr
   const { id, decision } = parsed.data;
 
   const supabase = await createClient();
+  if (decision === "approved") {
+    const { data: pending } = await supabase.from("approvals").select("execution:executions(skill_key, input)").eq("id", id).maybeSingle();
+    const execution = pending?.execution;
+    if (execution && slotHasPassed(parseApprovalInput(execution.skill_key, execution.input), new Date())) {
+      securityEvent("agent.approval_refused", { userId: user.id, approvalId: id, reason: "slot_passed" });
+      return { error: "slot_passed" };
+    }
+  }
   const { data, error } = await supabase
     .from("approvals")
     .update({ status: decision })

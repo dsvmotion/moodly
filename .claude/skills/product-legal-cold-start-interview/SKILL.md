@@ -6,6 +6,7 @@ description: >
   counsel, or when the plugin config has placeholders. Run with --redo to
   re-interview, or --check-integrations to re-probe connectors only.
 argument-hint: "[--redo] [--check-integrations to re-probe integrations only]"
+disable-model-invocation: true
 ---
 
 # /cold-start-interview

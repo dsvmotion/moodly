@@ -20,6 +20,7 @@ import { createApprovalEmailHandler } from "./notifications/approval-email.ts";
 import { createBudgetEmailHandler } from "./notifications/budget-email.ts";
 import { createHandoffEmailHandler } from "./notifications/handoff-email.ts";
 import { registerReminders } from "./reminders/reminders.ts";
+import { createKmsApi, createKmsIngressKeyring, createKmsKeyProvider } from "./secrets/kms.ts";
 import { createLocalKeyProvider, createSecretVault } from "./secrets/vault.ts";
 import { registerWaitlistOffers } from "./waitlist/offers.ts";
 import { createWorker } from "./worker.ts";
@@ -50,12 +51,22 @@ if (!whatsapp) logger.warn("sin WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN y WHA
 // integración y el turno del agente, para que un calendario conectado cuente al
 // ofrecer huecos. Sin las dos claves de Nango no hay plataforma.
 const platform = config.nango ? createNangoPlatform({ secretKey: config.nango.secretKey, host: config.nango.host }) : null;
-// El alta de claves de integraciones (ADR 0055): con las claves locales en
-// desarrollo; en staging y producción, sin claves todavía (irán en AWS KMS),
-// los envíos solo caducan a los 15 minutos.
-const keyring = config.localKeys ? createLocalIngressKeyring([{ keyRef: "local:v1", privateKeyPem: config.localKeys.ingressPrivateKeyPem }]) : null;
-const vault = config.localKeys ? createSecretVault(createLocalKeyProvider(config.localKeys.vaultMasterKey)) : null;
-if (!keyring) logger.warn("sin claves de ingreso ni de SecretVault: las claves de integraciones que se envíen solo caducan");
+// El alta de claves de integraciones (ADR 0055) y SecretVault (ADR 0034): en
+// staging y producción, AWS KMS; en desarrollo, las claves locales. Sin
+// ninguna, los envíos solo caducan a los 15 minutos.
+const kms = config.kms ? createKmsApi(config.kms.region) : null;
+const keyring = config.kms && kms
+  ? createKmsIngressKeyring(kms, config.kms.ingressKeyArns)
+  : config.localKeys
+    ? createLocalIngressKeyring([{ keyRef: "local:v1", privateKeyPem: config.localKeys.ingressPrivateKeyPem }])
+    : null;
+const vault = config.kms && kms
+  ? createSecretVault(createKmsKeyProvider(kms, config.kms.secretVaultKeyArn))
+  : config.localKeys
+    ? createSecretVault(createLocalKeyProvider(config.localKeys.vaultMasterKey))
+    : null;
+if (config.kms) logger.info({ ingressKeys: config.kms.ingressKeyArns.length }, "claves de integraciones con AWS KMS");
+else if (!keyring) logger.warn("sin claves de ingreso ni de SecretVault: las claves de integraciones que se envíen solo caducan");
 const waiting = new AbortController();
 const worker = createWorker(config, logger, {
   signal: waiting.signal,

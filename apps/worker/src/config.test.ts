@@ -32,6 +32,7 @@ describe("loadConfig", () => {
       koiboxApiBase: "https://api.koibox.cloud",
       whatsapp: null,
       localKeys: null,
+      kms: null,
     });
   });
 
@@ -63,6 +64,52 @@ describe("loadConfig", () => {
       );
       expect(() => loadConfig({ ...valid, SECRET_VAULT_LOCAL_KEY: vaultKey, INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: "bm8tZXMtcGVt" })).toThrow(
         expect.objectContaining({ message: expect.not.stringContaining("bm8tZXMtcGVt") }),
+      );
+    });
+  });
+
+  describe("AWS KMS (ADR 0034 y 0055; runbook kms-staging)", () => {
+    const vaultArn = "arn:aws:kms:eu-central-1:111122223333:key/11111111-2222-4333-8444-555555555555";
+    const ingressA = "arn:aws:kms:eu-central-1:111122223333:key/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    const ingressB = "arn:aws:kms:eu-central-1:111122223333:key/ffffffff-0000-4111-8222-333333333333";
+    // Credenciales armadas en tiempo de ejecución (gitleaks); config solo comprueba que están.
+    const aws = { AWS_REGION: "eu-central-1", AWS_ACCESS_KEY_ID: ["AKIA", "EXAMPLE"].join(""), AWS_SECRET_ACCESS_KEY: ["solo", "test"].join("-") };
+    const kmsEnv = { ...valid, ...aws, SECRET_VAULT_KMS_KEY_ID: vaultArn, INTEGRATION_INGRESS_KMS_KEY_IDS: ingressA };
+
+    it("la región, el ARN de SecretVault y la lista de ARN de ingreso; las credenciales no se copian a la configuración", () => {
+      const config = loadConfig(kmsEnv);
+      expect(config.kms).toEqual({ region: "eu-central-1", secretVaultKeyArn: vaultArn, ingressKeyArns: [ingressA] });
+      expect(JSON.stringify(config)).not.toContain(aws.AWS_SECRET_ACCESS_KEY);
+      expect(JSON.stringify(config)).not.toContain(aws.AWS_ACCESS_KEY_ID);
+    });
+
+    it("dos claves de ingreso durante una rotación, separadas por comas (sin repetir)", () => {
+      expect(loadConfig({ ...kmsEnv, INTEGRATION_INGRESS_KMS_KEY_IDS: ` ${ingressA} , ${ingressB},${ingressA}` }).kms?.ingressKeyArns).toEqual([ingressA, ingressB]);
+    });
+
+    it("sin ninguna, no hay KMS; vacías cuentan como ausentes", () => {
+      expect(loadConfig({ ...valid, ...aws }).kms).toBeNull();
+      expect(loadConfig({ ...valid, SECRET_VAULT_KMS_KEY_ID: "", INTEGRATION_INGRESS_KMS_KEY_IDS: " " }).kms).toBeNull();
+    });
+
+    it("a medias, con las locales a la vez, fuera de eu-central-1 o sin credenciales es un error al arrancar", () => {
+      expect(() => loadConfig({ ...valid, ...aws, SECRET_VAULT_KMS_KEY_ID: vaultArn })).toThrow(/las dos o ninguna/);
+      expect(() => loadConfig({ ...valid, ...aws, INTEGRATION_INGRESS_KMS_KEY_IDS: ingressA })).toThrow(/las dos o ninguna/);
+      expect(() =>
+        loadConfig({ ...kmsEnv, SECRET_VAULT_LOCAL_KEY: Buffer.alloc(32, 7).toString("base64"), INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY: Buffer.from("-----BEGIN PRIVATE KEY-----\n").toString("base64") }),
+      ).toThrow(/no van a la vez/);
+      expect(() => loadConfig({ ...kmsEnv, AWS_REGION: "us-east-1" })).toThrow(/eu-central-1/);
+      expect(() => loadConfig({ ...kmsEnv, AWS_REGION: undefined })).toThrow(/eu-central-1/);
+      expect(() => loadConfig({ ...kmsEnv, SECRET_VAULT_KMS_KEY_ID: vaultArn.replace("eu-central-1", "us-east-1") })).toThrow(/eu-central-1/);
+      expect(() => loadConfig({ ...kmsEnv, AWS_SECRET_ACCESS_KEY: "" })).toThrow(/AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY/);
+      expect(() => loadConfig({ ...kmsEnv, INTEGRATION_INGRESS_KMS_KEY_IDS: [ingressA, ingressB, ingressA.replace("aaaaaaaa", "bbbbbbbb")].join(",") })).toThrow(/como mucho dos/);
+      expect(() => loadConfig({ ...kmsEnv, INTEGRATION_INGRESS_KMS_KEY_IDS: vaultArn })).toThrow(/claves distintas/);
+    });
+
+    it("un alias o algo que no es un ARN de clave no vale (el error nombra la variable, no el valor)", () => {
+      expect(() => loadConfig({ ...kmsEnv, SECRET_VAULT_KMS_KEY_ID: "alias/moodly-staging-secret-vault" })).toThrow(/SECRET_VAULT_KMS_KEY_ID/);
+      expect(() => loadConfig({ ...kmsEnv, INTEGRATION_INGRESS_KMS_KEY_IDS: "arn:aws:kms:eu-central-1:111122223333:alias/x" })).toThrow(
+        expect.objectContaining({ message: expect.not.stringContaining("alias/x") }),
       );
     });
   });

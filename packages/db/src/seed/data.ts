@@ -289,6 +289,12 @@ export interface SeedApproval {
   summary: string;
   /** El rol mínimo que la decide (private.can_decide_approval); por defecto, staff. */
   requiredRole?: "staff" | "location_manager";
+  /**
+   * La conversación de la bandeja de la que salió (seedInboxConversations.key):
+   * su run apunta al primer mensaje del cliente (trigger_ref), como los del
+   * worker. Para el detalle de la aprobación (OA02).
+   */
+  conversationKey?: string;
 }
 
 export const seedApprovals: readonly SeedApproval[] = [
@@ -302,6 +308,7 @@ export const seedApprovals: readonly SeedApproval[] = [
     effectClass: "external_message",
     input: { text: "Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?" },
     summary: "Responder: «Hola, tenemos hueco el lunes a las 9:00. ¿Te va bien?»",
+    conversationKey: "a2_human",
   },
   {
     key: "a2_booking",
