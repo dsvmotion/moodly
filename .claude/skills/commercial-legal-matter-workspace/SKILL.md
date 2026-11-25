@@ -6,6 +6,7 @@ description: >
   matter, list matters, archive a matter, or detach to practice-level context, or
   when another skill needs to know which matter it's working in.
 argument-hint: "<new | list | switch | close | none> [slug]"
+disable-model-invocation: true
 ---
 
 # /matter-workspace

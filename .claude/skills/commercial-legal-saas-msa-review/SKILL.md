@@ -6,6 +6,7 @@ description: >
   data portability, uptime SLAs, and subprocessor rights. Loaded by
   /commercial-legal:review when a SaaS or subscription agreement is detected.
 user-invocable: false
+disable-model-invocation: true
 ---
 
 # SaaS / Subscription Agreement Review

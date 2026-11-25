@@ -7,6 +7,7 @@ description: >
   me the amendment history", "where's the latest [clause]", "how has [provision]
   evolved", or uploads multiple versions of an agreement.
 argument-hint: "[file(s) | [CLM ID (coming soon)] | [repository link (coming soon)]] [--provision <clause name>]"
+disable-model-invocation: true
 ---
 
 # /amendment-history
