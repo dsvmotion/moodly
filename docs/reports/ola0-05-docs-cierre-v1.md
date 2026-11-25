@@ -1,6 +1,6 @@
 # Report ola0-05: Docs del cierre de V1 (CLAUDE.md/AGENTS.md, runbook de KMS)
 
-Spec: docs/specs/ola0-05-docs-cierre-v1.md · Date: 2026-11-25 · Branch/PR: `task/ola0-05-docs-cierre-v1` · PR: ver el mensaje al Lead
+Spec: docs/specs/ola0-05-docs-cierre-v1.md · Date: 2026-11-25 · Branch/PR: `task/ola0-05-docs-cierre-v1` · PR: #347 (https://github.com/dsvmotion/moodly/pull/347)
 
 ## Result: PASS (con una salvedad: `pnpm test` corrido con Node 22, no con el 24 del repo)
 
