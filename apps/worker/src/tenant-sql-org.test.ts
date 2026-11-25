@@ -12,7 +12,8 @@ import { describe, expect, it } from "vitest";
 // - un insert nombra organization_id entre sus columnas;
 // - cualquier otra (select, update, delete) tiene al menos tantos filtros
 //   «organization_id =» como tablas de public nombra (una por tabla, también
-//   en los join y las subconsultas).
+//   en los join, las subconsultas y detrás de cada coma del from o del
+//   delete … using).
 // Una consulta cuyo SQL no es un texto literal no se puede leer: o es una
 // excepción de la lista, con su porqué, o no vale.
 
@@ -99,26 +100,81 @@ function cleanSql(sql: string): string {
     .trim();
 }
 
+/** El índice justo después del paréntesis que cierra el que abre en «open». */
+function afterParens(text: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < text.length; i += 1) {
+    if (text[i] === "(") depth += 1;
+    else if (text[i] === ")" && --depth === 0) return i + 1;
+  }
+  return text.length;
+}
+
+const ITEM = /^\s*(?:only\s+)?("?[a-z_][a-z0-9_]*"?)(?:\.("?[a-z_][a-z0-9_]*"?))?/i;
+const ALIAS = /^\s+(?:as\s+)?([a-z_][a-z0-9_]*)/i;
+
 /**
- * Las tablas que nombra una consulta, con su alias: detrás de from, join,
- * update, into o delete from. Con esquema public o sin esquema (el search_path
- * del worker resuelve una tabla sin esquema en public). No cuentan las
- * funciones («from jsonb_each(…)»), las subconsultas ni otros esquemas.
+ * Un elemento de un from, un join, un update o un insert, desde «at»: la tabla
+ * (o null si es una función, una subconsulta u otro esquema) y dónde acaba,
+ * con su alias y la lista de columnas del alias («as d(key, value)»).
+ */
+function readItem(text: string, at: number): { ref: TableRef | null; end: number } {
+  let end: number;
+  let ref: TableRef | null = null;
+  const lead = /^\s*/.exec(text.slice(at))?.[0].length ?? 0;
+  if (text[at + lead] === "(") {
+    end = afterParens(text, at + lead); // una subconsulta
+  } else {
+    const item = ITEM.exec(text.slice(at));
+    if (!item) return { ref: null, end: at };
+    end = at + item[0].length;
+    const call = /^\s*\(/.exec(text.slice(end));
+    if (call) {
+      end = afterParens(text, end + call[0].length - 1); // una función de tabla o una llamada
+    } else {
+      const first = (item[1] ?? "").replace(/"/g, "").toLowerCase();
+      const second = item[2]?.replace(/"/g, "").toLowerCase();
+      const schema = second ? first : null;
+      const table = second ?? first;
+      const counts = schema ? schema === "public" : !OTHER_SCHEMAS.has(table) && !NOT_ALIAS.has(table);
+      if (!counts) return { ref: null, end };
+      ref = { table, name: table, aliased: false };
+    }
+  }
+  const alias = ALIAS.exec(text.slice(end));
+  const name = alias?.[1]?.toLowerCase();
+  if (name !== undefined && !NOT_ALIAS.has(name)) {
+    end += alias?.[0].length ?? 0;
+    if (ref) ref = { ...ref, name, aliased: true };
+    const columns = /^\s*\(/.exec(text.slice(end));
+    if (columns) end = afterParens(text, end + columns[0].length - 1);
+  }
+  return { ref, end };
+}
+
+/**
+ * Las tablas que nombra una consulta, con su alias: detrás de from (y de cada
+ * coma de su lista), join, update, into, delete from y delete … using (y sus
+ * comas). Con esquema public o sin esquema (el search_path del worker resuelve
+ * una tabla sin esquema en public). No cuentan las funciones («from
+ * jsonb_each(…)»), las subconsultas ni otros esquemas; sí las tablas que van
+ * detrás de ellas en la misma lista.
  */
 function tableRefs(text: string): TableRef[] {
   const refs: TableRef[] = [];
-  const pattern = /\b(?:from|join|update|into)\s+(?:only\s+)?("?[a-z_][a-z0-9_]*"?)(?:\.("?[a-z_][a-z0-9_]*"?))?(\s*\()?(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?/gi;
-  for (const match of text.matchAll(pattern)) {
-    const first = (match[1] ?? "").replace(/"/g, "").toLowerCase();
-    const second = match[2]?.replace(/"/g, "").toLowerCase();
-    if (match[3]) continue; // una función de tabla o una llamada
-    const schema = second ? first : null;
-    const table = second ?? first;
-    if (schema && schema !== "public") continue;
-    if (!schema && (OTHER_SCHEMAS.has(table) || NOT_ALIAS.has(table))) continue;
-    const alias = match[4]?.toLowerCase();
-    const aliased = alias !== undefined && !NOT_ALIAS.has(alias);
-    refs.push({ table, name: aliased ? alias : table, aliased });
+  for (const match of text.matchAll(/\b(from|using|join|update|into)\b/gi)) {
+    const keyword = (match[1] ?? "").toLowerCase();
+    // «join … using (columna)»: la lista de columnas del join, no una tabla.
+    if (keyword === "using" && /^\s*\(/.test(text.slice((match.index ?? 0) + match[0].length))) continue;
+    const list = keyword === "from" || keyword === "using";
+    let at = (match.index ?? 0) + match[0].length;
+    for (;;) {
+      const { ref, end } = readItem(text, at);
+      if (ref) refs.push(ref);
+      const comma = list && end > at ? /^\s*,/.exec(text.slice(end)) : null;
+      if (!comma) break;
+      at = end + comma[0].length;
+    }
   }
   return refs;
 }
@@ -254,6 +310,49 @@ describe("la regla (para que el test mida algo)", () => {
     expect(violation("select id from public.messages where $1 = organization_id")).toBeNull();
     expect(violation("select key from jsonb_each($1) as d(key, value)")).toBeNull();
     expect(violation("select * from private.thing where id = $1")).toBeNull();
+  });
+
+  it("la nota de V10: una tabla detrás de una coma en el from y la del delete … using también cuentan", () => {
+    // Detrás de una coma en el from, con o sin alias y con o sin esquema.
+    expect(
+      violation("select m.id from public.messages m, public.conversations c where m.organization_id = $1 and c.id = m.conversation_id"),
+    ).not.toBeNull();
+    expect(
+      violation("select m.id from public.messages m, public.conversations c where m.organization_id = $1 and c.organization_id = $1"),
+    ).toBeNull();
+    expect(violation("select 1 from public.messages m, conversations where m.organization_id = $1")).not.toBeNull();
+    expect(
+      violation(
+        "select 1 from public.messages as m, public.conversations as c, public.contacts k where m.organization_id = $1 and c.organization_id = $1",
+      ),
+    ).not.toBeNull();
+    // Una función con alias de columnas («d(key, value)») delante de la coma: la tabla de detrás cuenta igual.
+    expect(violation("select d.key from jsonb_each($1) as d(key, value), public.messages m where m.id = $2")).not.toBeNull();
+    expect(violation("select d.key from jsonb_each($1) as d(key, value), public.messages m where m.organization_id = $2")).toBeNull();
+    // Y una subconsulta delante de la coma.
+    expect(violation("select 1 from (select 1) s, public.messages m where m.id = $1")).not.toBeNull();
+    // delete … using: la tabla del using cuenta.
+    expect(
+      violation("delete from public.executions e using public.agent_runs r where e.organization_id = $1 and e.run_id = r.id"),
+    ).not.toBeNull();
+    expect(
+      violation(
+        "delete from public.executions e using public.agent_runs r where e.organization_id = $1 and r.organization_id = $1 and e.run_id = r.id",
+      ),
+    ).toBeNull();
+    expect(
+      violation(
+        "delete from public.executions e using public.agent_runs r, public.messages m where e.organization_id = $1 and r.organization_id = $1",
+      ),
+    ).not.toBeNull();
+    // «join … using (columna)» no es una tabla.
+    expect(
+      violation(
+        "select 1 from public.messages m join public.conversations c using (id) where m.organization_id = $1 and c.organization_id = $1",
+      ),
+    ).toBeNull();
+    // Las comas de la lista del select no son tablas.
+    expect(violation("select a, b, c from public.messages where organization_id = $1")).toBeNull();
   });
 
   it("lee el SQL literal de cada llamada, y marca como ilegible el que lleva ${}", () => {

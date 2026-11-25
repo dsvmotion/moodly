@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
+import { keyCheckState } from "@/lib/integrations/key-check";
 import type { IntegrationStatus } from "@/lib/integrations/status";
 import { disconnectKeyIntegration, keySubmissionStatus, submitIntegrationKey } from "./key-actions";
 
@@ -19,10 +20,44 @@ type Notice =
   | "applied"
   | "rejected"
   | "rejected_kept"
-  | "still_checking";
+  | "still_checking"
+  | "timed_out";
 
+// El primer minuto se pregunta a menudo; después, cada poco, hasta la caducidad.
 const POLL_MS = 1500;
-const POLL_LIMIT_MS = 60_000;
+const SLOW_POLL_MS = 15_000;
+const FAST_FOR_MS = 60_000;
+
+/**
+ * El envío en curso, en sessionStorage: si la persona recarga, la tarjeta sigue
+ * esperándolo (y dice «no se pudo comprobar a tiempo» si caducó). Solo el id del
+ * envío y la hora: nunca la clave. Si el navegador no deja, sin más.
+ */
+interface PendingSubmission {
+  submissionId: string;
+  sentAt: number;
+  wasActive: boolean;
+}
+const storageKey = (provider: string) => `key-submission:${provider}`;
+function readPending(provider: string): PendingSubmission | null {
+  try {
+    const raw = window.sessionStorage.getItem(storageKey(provider));
+    const parsed = raw ? (JSON.parse(raw) as Partial<PendingSubmission>) : null;
+    return parsed && typeof parsed.submissionId === "string" && typeof parsed.sentAt === "number"
+      ? { submissionId: parsed.submissionId, sentAt: parsed.sentAt, wasActive: parsed.wasActive === true }
+      : null;
+  } catch {
+    return null;
+  }
+}
+function writePending(provider: string, pending: PendingSubmission | null): void {
+  try {
+    if (pending) window.sessionStorage.setItem(storageKey(provider), JSON.stringify(pending));
+    else window.sessionStorage.removeItem(storageKey(provider));
+  } catch {
+    // Sin almacenamiento: al recargar no se retoma, y no pasa nada más.
+  }
+}
 
 // Una integración con clave del cliente (ADR 0055). La persona pega la clave;
 // el servidor la cifra hacia el worker y el worker la comprueba con el
@@ -49,29 +84,43 @@ export function KeyIntegrationCard({
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState<Notice | null>(lastRejected ? "rejected_kept" : null);
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  function poll(submissionId: string, wasActive: boolean, startedAt: number) {
-    timer.current = setTimeout(async () => {
-      const result = await keySubmissionStatus(provider, submissionId);
-      if (result === "applied" || result === "rejected") {
-        setNotice(result === "applied" ? "applied" : wasActive ? "rejected_kept" : "rejected");
-        router.refresh();
-        return;
-      }
-      if (Date.now() - startedAt > POLL_LIMIT_MS) {
-        setNotice("still_checking");
-        router.refresh();
-        return;
-      }
-      poll(submissionId, wasActive, startedAt);
-    }, POLL_MS);
+  function poll(pending: PendingSubmission, delayMs?: number) {
+    const fast = Date.now() - pending.sentAt < FAST_FOR_MS;
+    timer.current = setTimeout(
+      async () => {
+        const result = await keySubmissionStatus(provider, pending.submissionId);
+        if (result === null) return;
+        const state = keyCheckState(result, pending.sentAt, Date.now());
+        if (state === "applied" || state === "rejected") {
+          writePending(provider, null);
+          setNotice(state === "applied" ? "applied" : pending.wasActive ? "rejected_kept" : "rejected");
+          router.refresh();
+          return;
+        }
+        if (state === "timed_out") {
+          writePending(provider, null);
+          setNotice("timed_out");
+          router.refresh();
+          return;
+        }
+        setNotice(fast ? "checking" : "still_checking");
+        poll(pending);
+      },
+      delayMs ?? (fast ? POLL_MS : SLOW_POLL_MS),
+    );
   }
+
+  // Al montar: si había un envío en curso (recarga), se retoma.
+  useEffect(() => {
+    const pending = readPending(provider);
+    // La primera pregunta, enseguida: su respuesta pone el aviso.
+    if (pending) poll(pending, 0);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // Solo al montar: poll cierra sobre lo que necesita.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,14 +135,17 @@ export function KeyIntegrationCard({
         setNotice(result.error);
         return;
       }
+      const pending = { submissionId: result.submissionId, sentAt: Date.now(), wasActive };
+      writePending(provider, pending);
       setNotice("checking");
       router.refresh();
-      poll(result.submissionId, wasActive, Date.now());
+      poll(pending);
     });
   }
 
   function remove() {
     if (timer.current) clearTimeout(timer.current);
+    writePending(provider, null);
     setNotice(null);
     startTransition(async () => {
       const result = await disconnectKeyIntegration(provider);
