@@ -27,7 +27,7 @@ In the Claude app, "new chat" = /clear and "edit my message" = /rewind.
 ## 4. Token discipline
 - Search before reading (grep/glob). Read the relevant line ranges, not whole files. Don't re-read files already in context unless they changed.
 - Keep tool output small: quiet flags (`-q`, `--silent`), `| tail -40`, `| grep -E "error|warn|fail"`. Never dump full install, build or test logs.
-- Subagents only for high-volume searches whose details I won't need again, in sessions with many turns left. Run them on Haiku or Sonnet, and have them return a ≤200-word summary.
+- Subagents only for high-volume searches whose details I won't need again, in sessions with many turns left. Run them on Haiku or Sonnet (the `reviewer` agent on Opus), and have them return a ≤200-word summary.
 - Don't run parallel agents for work one context can do in sequence.
 - Do related edits in one pass. Don't redo work that already passed its checks.
 - Don't use web search or extended thinking unless the task needs them.
@@ -43,6 +43,6 @@ In the Claude app, "new chat" = /clear and "edit my message" = /rewind.
 
 ## 7. My habits (remind me if I slip)
 - One task = one session. Choose model and effort at the start and leave them.
-- Default effort is Medium. Heavy sessions go before 14:00 (Spain) or at weekends.
+- Default effort is Medium (lead sessions and sensitive worker specs: High; see docs/WORKFLOW.md). Heavy sessions go before 14:00 (Spain) or at weekends.
 - Recurring files live in the Project, not pasted into chats.
 - Weekly: `/usage` over the whole week; fix anything above 10%.
