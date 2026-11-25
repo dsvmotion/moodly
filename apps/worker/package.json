@@ -20,6 +20,7 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "3.1165.0",
     "@dbos-inc/dbos-sdk": "5.4.0",
     "@repo/agent-core": "workspace:*",
     "@repo/channels": "workspace:*",

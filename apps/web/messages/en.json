@@ -805,6 +805,10 @@
       "outlook-calendar": {
         "name": "Outlook / Microsoft 365",
         "description": "Agents check the calendar of your Microsoft 365 or Outlook account. Read-only for now."
+      },
+      "koibox": {
+        "name": "Koibox",
+        "description": "The agents read your centre's Koibox schedule with your account's API key. Paste it here: it is stored encrypted and only the platform uses it."
       }
     },
     "errors": {
@@ -812,6 +816,21 @@
       "not_allowed": "You are not allowed to change this integration.",
       "unavailable": "Integrations are not available in this environment yet.",
       "platform_failed": "We could not reach the integration provider. Nothing has changed: try again in a few minutes."
+    },
+    "apiKeyLabel": "Koibox API key",
+    "saveKey": "Save key",
+    "changeKey": "Change key",
+    "keyNotices": {
+      "invalid": "That integration does not exist.",
+      "invalid_key": "That key does not look valid: paste it as is, without spaces.",
+      "not_allowed": "You are not allowed to change this integration.",
+      "unavailable": "Adding keys is not available in this environment yet.",
+      "too_many": "Too many attempts for this integration: wait a few minutes and try again.",
+      "checking": "Checking the key with Koibox…",
+      "applied": "Key checked: Koibox is connected.",
+      "rejected": "Koibox did not accept that key. Check it is your account's key and paste it again.",
+      "rejected_kept": "Koibox did not accept the last key you sent: the previous one still works.",
+      "still_checking": "We are still checking the key. Look again in a few minutes."
     }
   },
   "servicesPage": {
