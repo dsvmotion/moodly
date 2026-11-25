@@ -33,8 +33,15 @@ No he metido la frase de `eval:intents` de #260 (decisión pendiente de Diego).
 ## Paso 3: runbook de KMS (`docs/runbooks/kms-staging.md`)
 **Sin cambios: ya estaba corregido.** #337 (`aa79e63`) ya cambió el paso 4 a `INTEGRATION_INGRESS_KMS_KEY_IDS` (plural, lista separada por comas) y la rotación ya dice «`<ARN viejo>,<ARN nuevo>`» y vuelve a un solo ARN al final. `grep -rn "INTEGRATION_INGRESS_KMS_KEY_ID\b" docs apps packages` no devuelve nada fuera de la propia spec. También comprobé las frases del paso 6 contra el código: `claves de integraciones con AWS KMS` (`apps/worker/src/main.ts:68`) y `integrations.key_applied` (se emite como ``integrations.key_${outcome}`` en `key-submission.ts:384`, con `outcome = "applied"`). No toqué el archivo.
 
+## Hallazgos de la Revisora automática sobre `8f4ded1` (COMMENT, sin aprobar: zona sensible)
+1. **medium, `AGENTS.md:102`**: la frase quita «sin verificar en real» y no dice si la corrida salió en verde; remite a una tabla que en `main` seguía «pendiente». **Real en ese commit; resuelto** al rellenar la fila de staging en este PR (la corrida 45676891616 desde `c0707e1` terminó `RESULTADO: OK`, 109 s; recuentos y tiempos comprobados contra su log).
+2. **medium, `CLAUDE.md:102`**: el mismo cambio en el espejo, afirmaba una corrida «por dato del Lead» sin evidencia en el diff. **Real; resuelto** por lo mismo: la evidencia ahora está en el diff, en la tabla del runbook.
+3. **low, report línea 63**: el report decía que el runbook de `main` seguía en «pendiente». **Real; resuelto** (esa frase ya no aplica).
+Queda un resto fuera de mi alcance: la línea 46 del runbook («Hasta entonces la puerta **no** está cumplida») sigue diciendo que falta la corrida. Por indicación del Lead no la toqué; conviene reescribirla en el PR de cierre de fase.
+
 ## Files changed
 - `CLAUDE.md`, `AGENTS.md` (idénticos)
+- `docs/runbooks/simulacro-de-restauracion.md` (solo la fila de staging de la tabla «Resultado», a petición del Lead: corrida 45676891616; comprobé recuentos y tiempos contra el log real de la corrida)
 - `docs/reports/ola0-05-docs-cierre-v1.md`
 
 ## Deviations from spec (and why)
@@ -60,7 +67,7 @@ El formato es el de SE13 (`{id, name, milestone, owner, status, evidence, note}`
 ### Condición de «Supabase Pro» para `docs/STATUS.md` (condiciones de salida a producción)
 Va en la línea «Antes del primer dato real» (hoy empieza por «Supabase Pro, lista completa…») y en el bloque Bloqueado, junto a «Restauración completa de Supabase desde el panel»:
 
-> **Supabase Pro (backups diarios) en staging y producción antes del primer dato real.** Hoy staging está en Free (Diego, 2026-11-24): no hay copias diarias ni PITR, y la restauración completa desde el panel no se puede probar hasta pasar a Pro. Lo único probado es el simulacro con volcado propio (`Staging · simulacro de restauración`, PL-prod), con una primera corrida real desde `main` el 2026-11-25 (dato del Lead; el runbook de `main` aún mostraba «pendiente» al corregirlo: lo rellena el Lead).
+> **Supabase Pro (backups diarios) en staging y producción antes del primer dato real.** Hoy staging está en Free (Diego, 2026-11-24): no hay copias diarias ni PITR, y la restauración completa desde el panel no se puede probar hasta pasar a Pro. Lo único probado es el simulacro con volcado propio (`Staging · simulacro de restauración`, PL-prod), con una primera corrida real desde `main` el 2026-11-25 (dato del Lead; la fila de staging del runbook la rellena este mismo PR).
 
 ### Filas a poner al día (de la spec; las decide el Lead)
 `PL-prod` (evidencia #330 y la corrida real del 2026-11-25 que da el Lead), `OPS-01` (#293/#302 según decida Diego), `int-koibox` (#329, #333, #335, #337, #338: «construido, sin verificar en real»; falta una cuenta real de Koibox, claves de KMS y Nango), `OA02` (#313, #317), `OA03` (#315, lectura), `N-01` done (#311). No he verificado los estados actuales de esas filas ni de esos PRs: no estaban en mi alcance.
