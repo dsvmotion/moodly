@@ -9,7 +9,6 @@ description: >
   "what systems do we have", "classify this ai system", "eu ai act
   register", or "ai system registry".
 argument-hint: "[list | add | edit <id> | classify <id> | show <id>]"
-disable-model-invocation: true
 ---
 
 # /ai-inventory

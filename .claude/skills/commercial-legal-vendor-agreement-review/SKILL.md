@@ -6,7 +6,6 @@ description: >
   specific redline language, and routes to the right approver. Loaded by
   /commercial-legal:review when a vendor MSA, services agreement, or similar is detected.
 user-invocable: false
-disable-model-invocation: true
 ---
 
 # Vendor Agreement Review

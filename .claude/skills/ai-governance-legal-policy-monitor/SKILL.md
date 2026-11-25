@@ -7,7 +7,6 @@ description: >
   this", "we want to start doing X — does the policy need updating", "run the
   policy monitor", or on a recurring schedule.
 argument-hint: "[describe a proposed new AI practice — or omit / use --sweep for crawl mode]"
-disable-model-invocation: true
 ---
 
 # /policy-monitor

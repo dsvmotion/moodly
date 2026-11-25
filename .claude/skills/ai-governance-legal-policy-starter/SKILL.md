@@ -8,7 +8,6 @@ description: >
   needs a GenAI policy", or similar requests to generate a first-cut internal
   AI policy.
 argument-hint: "[optional — scope hint, e.g. 'firm-wide', 'legal team only', 'update existing']"
-disable-model-invocation: true
 ---
 
 # /policy-starter

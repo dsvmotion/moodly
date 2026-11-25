@@ -8,7 +8,6 @@ description: >
   request, or says "DSAR came in", "access request", "right to be forgotten", or
   "someone wants their data".
 argument-hint: "[paste the request, or describe it]"
-disable-model-invocation: true
 ---
 
 # /dsar-response

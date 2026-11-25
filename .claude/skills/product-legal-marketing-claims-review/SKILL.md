@@ -6,7 +6,6 @@ description: >
   "can we say this", "is this puffery or a problem", or pastes marketing content
   (landing pages, emails, ads, taglines).
 argument-hint: "[paste copy, or file path]"
-disable-model-invocation: true
 ---
 
 # /marketing-claims-review

@@ -8,7 +8,6 @@ description: >
   "change my [thing]", "update my profile", "edit my framework", "retune
   my calibration", or "customize".
 argument-hint: "[section name, or describe what you want to change]"
-disable-model-invocation: true
 ---
 
 # /customize

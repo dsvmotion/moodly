@@ -7,7 +7,6 @@ description: >
   privacy plugin", "onboard me", "configure privacy", or wants to re-run the
   interview or re-check integrations.
 argument-hint: "[--redo to re-run] [--check-integrations to re-probe integrations only]"
-disable-model-invocation: true
 ---
 
 # /cold-start-interview

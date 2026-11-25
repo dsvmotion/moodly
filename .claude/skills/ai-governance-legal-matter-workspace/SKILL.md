@@ -7,7 +7,6 @@ description: >
   user says "new matter", "switch matter", "list matters", "close matter", or when
   any substantive skill needs to know which matter it's working in.
 argument-hint: "<new | list | switch | close | none> [slug]"
-disable-model-invocation: true
 ---
 
 # /matter-workspace

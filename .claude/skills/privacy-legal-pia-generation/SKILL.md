@@ -7,7 +7,6 @@ description: >
   for this", "privacy review this feature", or describes a new data processing
   activity.
 argument-hint: "[feature name or description]"
-disable-model-invocation: true
 ---
 
 # /pia-generation

@@ -8,7 +8,6 @@ description: >
   contracts", "onboard me", or "let's get started". This is the only skill that
   should run on a fresh install.
 argument-hint: "[--redo to re-run on an already-configured plugin] [--check-integrations to re-probe integrations only] [--side sales|purchasing to re-run only the playbook section for one side]"
-disable-model-invocation: true
 ---
 
 # /cold-start-interview

@@ -7,7 +7,6 @@ description: >
   this to the renewal tracker", or on a scheduled basis. Receives handoffs from
   saas-msa-review.
 argument-hint: "[--days N to change window | --missed for lapsed windows]"
-disable-model-invocation: true
 ---
 
 # /renewal-tracker

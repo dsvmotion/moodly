@@ -6,7 +6,6 @@ description: >
   Use when the user says "review this DPA", "check this data processing addendum",
   "customer sent their DPA", "is this DPA okay", or attaches a DPA.
 argument-hint: "[file | Drive link | paste text]"
-disable-model-invocation: true
 ---
 
 # /dpa-review

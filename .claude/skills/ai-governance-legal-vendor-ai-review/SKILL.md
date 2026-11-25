@@ -7,7 +7,6 @@ description: >
   "what did we agree to with [vendor]", "vendor sent an AI addendum", "is this AI
   contract okay", or attaches vendor AI terms.
 argument-hint: "[vendor name, or attach the contract]"
-disable-model-invocation: true
 ---
 
 # /vendor-ai-review

@@ -7,7 +7,6 @@ description: >
   "route this for approval", or when another skill finds an issue that exceeds the
   reviewer's authority.
 argument-hint: "[describe the issue, or reference a review memo]"
-disable-model-invocation: true
 ---
 
 # /escalation-flagger

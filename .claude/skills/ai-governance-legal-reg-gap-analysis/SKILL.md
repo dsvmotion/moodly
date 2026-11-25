@@ -8,7 +8,6 @@ description: >
   for EU AI Act", "compliance check against [AI law or guidance]", or pastes
   regulatory text.
 argument-hint: "[regulation name, or paste regulatory text, or attach a document]"
-disable-model-invocation: true
 ---
 
 # /reg-gap-analysis

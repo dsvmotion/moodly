@@ -8,7 +8,6 @@ description: >
   or when user says "set up ai governance plugin", "onboard me", "configure ai
   governance".
 argument-hint: "[--redo | --check-integrations]"
-disable-model-invocation: true
 ---
 
 # /cold-start-interview

@@ -7,7 +7,6 @@ description: >
   "review playbook proposals", "what playbook updates are pending", or wants to
   step through deviation-driven playbook changes.
 argument-hint: "[no arguments needed — works from the pending proposals file]"
-disable-model-invocation: true
 ---
 
 # /review-proposals

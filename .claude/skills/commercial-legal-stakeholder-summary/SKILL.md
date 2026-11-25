@@ -6,7 +6,6 @@ description: >
   and what do I need to know." Use when user says "summarize for the business",
   "write this up for [stakeholder]", "explain this to procurement", "non-legal
   summary", or when a review is done and needs to go to someone outside legal.
-disable-model-invocation: true
 ---
 
 # Stakeholder Summary
