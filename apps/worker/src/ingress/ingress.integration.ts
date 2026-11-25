@@ -9,7 +9,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { deliveryWorkflowId } from "../events/outbox.ts";
 import { localAdminDatabaseUrl, localSupabaseApi, localSystemDatabaseUrl, localWorkerDatabaseUrl } from "../testing/local-system-db.ts";
-import { ingestWorkflowId } from "./ingest.ts";
+import { ingestWorkflowId, SWEEP_WORKFLOW } from "./ingest.ts";
 import { MAX_INBOUND_PAYLOAD_BYTES } from "./receive.ts";
 
 // La entrada de canales de punta a punta (ADR 0052 §2, O-01): un webhook firmado
@@ -103,6 +103,21 @@ async function messagesFrom(providerMessageId: string) {
     [providerMessageId],
   );
   return rows;
+}
+
+/** El created_at del último barrido de la entrada, para contar los que vengan después. */
+async function lastSweep(): Promise<number> {
+  const { rows } = await admin.query<{ created_at: string | null }>("select max(created_at) as created_at from dbos.workflow_status where name = $1", [SWEEP_WORKFLOW]);
+  return Number(rows[0]?.created_at ?? 0);
+}
+
+/** Cuántos barridos de la entrada empezaron después de `since` y ya terminaron bien. */
+async function sweepsAfter(since: number): Promise<number> {
+  const { rows } = await admin.query<{ n: string }>(
+    "select count(*) as n from dbos.workflow_status where name = $1 and created_at > $2 and status = 'SUCCESS'",
+    [SWEEP_WORKFLOW, since],
+  );
+  return Number(rows[0]?.n ?? 0);
 }
 
 async function workflowStatus(workflowId: string): Promise<string | undefined> {
@@ -346,7 +361,7 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     await waitFor(async () => (await workflowStatus(workflowId)) !== "PENDING", "el workflow del primer evento termina");
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
     await admin.query("update dbos.workflow_status set status = 'ERROR' where workflow_uuid = $1", [workflowId]);
-    // El barrido corre cada minuto (a los 23 s).
+    // El barrido corre cada minuto (a los 23 s); en estos tests, cada 5 s (ingress-worker.ts).
     await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el barrido lo reanuda", 75_000);
     expect(await messagesFrom(ids.firstMessage ?? "")).toHaveLength(1);
     expect(output).toContain("eventos de entrada parados, vueltos a intentar");
@@ -373,8 +388,14 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     expect(event).toMatchObject({ status: "failed", attempts: 5, message_id: null });
     const workflowId = ingestWorkflowId(event?.id ?? "");
     await waitFor(async () => (await workflowStatus(workflowId)) === "SUCCESS", "el workflow termina (con dead_letter)");
-    // Un barrido más, para ver que no lo vuelve a rebobinar.
-    await new Promise((resolve) => setTimeout(resolve, 65_000));
+    // Dos barridos completos más, para ver que no lo vuelve a rebobinar: se cuentan
+    // en dbos.workflow_status, no se da por hecho que pasaron con una espera fija.
+    const since = await lastSweep();
+    // Con el barrido cada 5 s, dos vueltas son ~10 s; la cota deja que las esperas
+    // de arriba más esta quepan en el límite del test (200 s).
+    await waitFor(async () => (await sweepsAfter(since)) >= 2, "pasan dos barridos más", 50_000);
+    // El log del segundo barrido sale por un pipe: un segundo para que llegue entero.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
     const rewinds = output.split("\n").filter((line) => line.includes("rebobinado") && line.includes(workflowId));
     expect(rewinds).toHaveLength(1);
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");

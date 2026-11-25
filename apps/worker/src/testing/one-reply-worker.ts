@@ -66,6 +66,9 @@ const whatsapp = createWhatsAppAdapter({
   timeoutMs: 2_000,
 });
 const worker = createWorker(config, logger, {
+  // El publicador del outbox, cada segundo en vez de cada 5 s: cada turno o aviso del test
+  // empieza por un evento de dominio, y así no espera a la vuelta de producción.
+  schedulesTesting: { outboxPublish: "* * * * * *" },
   channelAdapters: [whatsapp],
   eventHandlers: [
     logHandler,

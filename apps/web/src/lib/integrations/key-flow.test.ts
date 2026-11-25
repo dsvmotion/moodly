@@ -1,6 +1,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { createLocalIngressKeyring, openSubmission, type SealedSubmission } from "@repo/integrations/key-ingress";
 import { describe, expect, it, vi } from "vitest";
+import { CHECK_GRACE_MS, keyCheckState } from "./key-check";
 import { insertErrorFor, submissionResult, submitKeyFlow, type KeyIntegrationStore } from "./key-flow";
 
 const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -118,4 +119,23 @@ it("SQLSTATE 54000 (el freno) es «too_many»; lo demás, «not_allowed»", () =
   expect(insertErrorFor("54000")).toBe("too_many");
   expect(insertErrorFor("42501")).toBe("not_allowed");
   expect(insertErrorFor(undefined)).toBe("not_allowed");
+});
+
+describe("keyCheckState (un envío que caducó sin procesarse)", () => {
+  const TTL = 15 * 60_000;
+  const sent = Date.parse("2026-11-24T20:00:00Z");
+
+  it("mientras no pase la caducidad más el margen, se sigue comprobando", () => {
+    expect(keyCheckState("checking", sent, sent + 60_000)).toBe("checking");
+    expect(keyCheckState("checking", sent, sent + TTL + CHECK_GRACE_MS)).toBe("checking");
+  });
+
+  it("pasada, «no se pudo comprobar a tiempo»", () => {
+    expect(keyCheckState("checking", sent, sent + TTL + CHECK_GRACE_MS + 1)).toBe("timed_out");
+  });
+
+  it("si el worker ya dejó el resultado, manda el resultado aunque sea tarde", () => {
+    expect(keyCheckState("applied", sent, sent + 2 * TTL)).toBe("applied");
+    expect(keyCheckState("rejected", sent, sent + 2 * TTL)).toBe("rejected");
+  });
 });

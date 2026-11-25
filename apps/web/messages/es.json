@@ -822,7 +822,8 @@
       "applied": "Clave comprobada: Koibox está conectado.",
       "rejected": "Koibox no ha aceptado esa clave. Revisa que sea la de tu cuenta y vuelve a pegarla.",
       "rejected_kept": "Koibox no ha aceptado la última clave que enviaste: sigue funcionando la anterior.",
-      "still_checking": "Seguimos comprobando la clave. Vuelve a mirar en unos minutos."
+      "still_checking": "Seguimos comprobando la clave. Vuelve a mirar en unos minutos.",
+      "timed_out": "No se pudo comprobar la clave a tiempo y no se ha guardado. Vuelve a pegarla."
     }
   },
   "servicesPage": {
