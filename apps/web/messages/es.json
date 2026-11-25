@@ -469,7 +469,8 @@
     "errors": {
       "invalid": "No se pudo leer la decisión. Vuelve a intentarlo.",
       "not_allowed": "No puedes decidir esta aprobación: no es de tu local, ya está decidida o ha caducado.",
-      "slot_passed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala."
+      "slot_passed": "La hora de esta cita ya pasó: no se puede aprobar. Recházala.",
+      "edit_invalid": "El texto no puede quedar vacío ni pasar de 4000 caracteres."
     },
     "count": "{count, plural, one {# pendiente} other {# pendientes}}",
     "openDetail": "Ver detalle",
@@ -516,6 +517,13 @@
         "executed": "Hecha",
         "failed": "Fallida"
       }
+    },
+    "edit": {
+      "label": "Texto que recibirá el cliente",
+      "help": "Es el que propuso el agente. Puedes corregirlo antes de aprobarlo.",
+      "edited": "Lo has corregido: se enviará tu versión.",
+      "approveEdited": "Aprobar con tu corrección",
+      "count": "{count} de {max} caracteres"
     }
   },
   "inboxPage": {

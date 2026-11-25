@@ -242,7 +242,17 @@ export function ApprovalsView({ rows, detail }: { rows: ApprovalViewRow[]; detai
         title={selected ? skillLabel(selected.skillKey) : ""}
         description={selected?.summary}
         closeLabel={t("close")}
-        footer={selected ? <ApprovalActions id={selected.id} approveDisabled={shown?.slotPassed ?? false} /> : null}
+        footer={
+          selected ? (
+            // key: al cambiar de aprobación o al llegar el detalle, el texto editable vuelve a ser el del agente.
+            <ApprovalActions
+              key={`${selected.id}:${shown ? "detail" : "loading"}`}
+              id={selected.id}
+              approveDisabled={shown?.slotPassed ?? false}
+              editableText={shown?.what.kind === "reply" ? shown.what.text : undefined}
+            />
+          ) : null
+        }
       >
         {shown ? <DetailBody detail={shown} /> : <p className="text-muted-foreground text-sm">{t("detail.loading")}</p>}
       </PreviewDrawer>

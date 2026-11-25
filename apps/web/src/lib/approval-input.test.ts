@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseApprovalInput, slotHasPassed } from "./approval-input";
+import { MAX_REPLY_LENGTH } from "@repo/config";
+import { parseApprovalInput, replyEditFor, slotHasPassed } from "./approval-input";
 
 const SERVICE = "5eed000a-0000-4000-8000-000000000001";
 const APPOINTMENT = "5eed000b-0000-4000-8000-000000000001";
@@ -56,5 +57,31 @@ describe("slotHasPassed", () => {
     expect(slotHasPassed(parseApprovalInput("reply", { text: "Hola" }), NOW)).toBe(false);
     expect(slotHasPassed(parseApprovalInput("cancel_appointment", { appointment_id: APPOINTMENT }), NOW)).toBe(false);
     expect(slotHasPassed({ kind: "other" }, NOW)).toBe(false);
+  });
+});
+
+describe("replyEditFor (OA02)", () => {
+  const reply = parseApprovalInput("reply", { text: "Hola, tenemos hueco el lunes." });
+
+  it("un texto distinto es una corrección, sin los espacios de los lados", () => {
+    expect(replyEditFor(reply, "  Hola, tenemos hueco el martes.  ")).toEqual({ ok: true, edited: { text: "Hola, tenemos hueco el martes." } });
+  });
+
+  it("el mismo texto (con o sin espacios) no es una corrección", () => {
+    expect(replyEditFor(reply, "Hola, tenemos hueco el lunes.")).toEqual({ ok: true, edited: null });
+    expect(replyEditFor(reply, "  Hola, tenemos hueco el lunes.\n")).toEqual({ ok: true, edited: null });
+  });
+
+  it("vacío o más largo que una respuesta: no vale", () => {
+    expect(MAX_REPLY_LENGTH).toBe(4000);
+    expect(replyEditFor(reply, "   ")).toEqual({ ok: false, reason: "invalid" });
+    expect(replyEditFor(reply, "a".repeat(MAX_REPLY_LENGTH + 1))).toEqual({ ok: false, reason: "invalid" });
+    expect(replyEditFor(reply, "a".repeat(MAX_REPLY_LENGTH))).toEqual({ ok: true, edited: { text: "a".repeat(MAX_REPLY_LENGTH) } });
+  });
+
+  it("solo se corrige una respuesta", () => {
+    const booking = parseApprovalInput("book_appointment", { service_id: "s", starts_at: "2030-06-03T10:00:00Z" });
+    expect(replyEditFor(booking, "Otra cosa")).toEqual({ ok: false, reason: "not_editable" });
+    expect(replyEditFor({ kind: "other" }, "Otra cosa")).toEqual({ ok: false, reason: "not_editable" });
   });
 });

@@ -1,6 +1,6 @@
 import { EFFECT_CLASSES } from "@repo/agent-core";
 import { describe, expect, it } from "vitest";
-import { APPROVAL_TTL_MS, AWAITING_PERSON, requiredRoleFor, settledReason } from "./approvals.ts";
+import { APPROVAL_TTL_MS, AWAITING_PERSON, EDITABLE_FIELDS, approvedInput, requiredRoleFor, settledReason } from "./approvals.ts";
 
 const LOCATION = "a2000000-0000-4000-8000-000000000001";
 
@@ -32,5 +32,29 @@ describe("una aprobación que llega tarde (gate M1)", () => {
     expect(settledReason("failed", { error: "send_failed" })).toBe("already_settled");
     expect(settledReason("failed", null)).toBe("already_settled");
     expect(settledReason("executed", { superseded: "newer_message" })).toBe("already_settled");
+  });
+});
+
+describe("lo que se ejecuta al aprobar con una corrección (OA02)", () => {
+  it("sin corrección, lo que propuso el agente, tal cual", () => {
+    const original = { text: "Hola" };
+    expect(approvedInput("reply", original, null)).toEqual({ ok: true, input: original, edited: false });
+    expect(approvedInput("book_appointment", { starts_at: "x" }, undefined)).toEqual({ ok: true, input: { starts_at: "x" }, edited: false });
+  });
+
+  it("con la corrección del texto de una respuesta, la respuesta con ese texto", () => {
+    expect(approvedInput("reply", { text: "Hola" }, { text: "Hola, corregido" })).toEqual({ ok: true, input: { text: "Hola, corregido" }, edited: true });
+  });
+
+  it("solo se corrige el texto de una respuesta: nada más, ni otra skill", () => {
+    expect(EDITABLE_FIELDS).toEqual({ reply: ["text"] });
+    expect(approvedInput("book_appointment", { starts_at: "2030-01-01T10:00:00Z" }, { starts_at: "2030-01-02T10:00:00Z" })).toEqual({
+      ok: false,
+      reason: "not_editable",
+    });
+    expect(approvedInput("reply", { text: "Hola" }, { text: "x", conversation_id: "otra" })).toEqual({ ok: false, reason: "edit_fields" });
+    expect(approvedInput("reply", { text: "Hola" }, {})).toEqual({ ok: false, reason: "edit_fields" });
+    expect(approvedInput("reply", { text: "Hola" }, ["x"])).toEqual({ ok: false, reason: "edit_fields" });
+    expect(approvedInput("reply", { text: "Hola" }, "x")).toEqual({ ok: false, reason: "edit_fields" });
   });
 });

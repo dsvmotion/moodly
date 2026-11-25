@@ -3,6 +3,7 @@
 // y la acción de aprobar. Una entrada que no tiene la forma esperada no se
 // adivina: queda como «other» y el detalle enseña solo el resumen.
 
+import { MAX_REPLY_LENGTH } from "@repo/config";
 import { z } from "zod";
 
 export type ApprovalInput =
@@ -53,4 +54,19 @@ export function parseApprovalInput(skillKey: string, input: unknown): ApprovalIn
 export function slotHasPassed(input: ApprovalInput, now: Date): boolean {
   if (input.kind !== "booking" && input.kind !== "reschedule") return false;
   return Date.parse(input.startsAt) <= now.getTime();
+}
+
+export type ReplyEdit = { ok: true; edited: { text: string } | null } | { ok: false; reason: "not_editable" | "invalid" };
+
+/**
+ * La corrección del texto de una respuesta al aprobarla (OA02), con las mismas
+ * reglas que la respuesta del agente (la skill reply y guard_approval): sin
+ * los espacios de los lados, entre 1 y MAX_REPLY_LENGTH caracteres. Si queda
+ * igual que la del agente, no hay corrección. Solo una respuesta se corrige.
+ */
+export function replyEditFor(input: ApprovalInput, text: string): ReplyEdit {
+  if (input.kind !== "reply") return { ok: false, reason: "not_editable" };
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_REPLY_LENGTH) return { ok: false, reason: "invalid" };
+  return { ok: true, edited: trimmed === input.text.trim() ? null : { text: trimmed } };
 }

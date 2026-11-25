@@ -469,7 +469,8 @@
     "errors": {
       "invalid": "The decision could not be read. Please try again.",
       "not_allowed": "You cannot decide this approval: it is not from your location, it was already decided or it has expired.",
-      "slot_passed": "This appointment's time has already passed: it can't be approved. Reject it."
+      "slot_passed": "This appointment's time has already passed: it can't be approved. Reject it.",
+      "edit_invalid": "The text can't be empty or longer than 4,000 characters."
     },
     "count": "{count, plural, one {# pending} other {# pending}}",
     "openDetail": "View details",
@@ -516,6 +517,13 @@
         "executed": "Done",
         "failed": "Failed"
       }
+    },
+    "edit": {
+      "label": "Text the customer will receive",
+      "help": "This is what the agent proposed. You can correct it before approving.",
+      "edited": "You've corrected it: your version will be sent.",
+      "approveEdited": "Approve with your correction",
+      "count": "{count} of {max} characters"
     }
   },
   "inboxPage": {
