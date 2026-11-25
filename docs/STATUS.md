@@ -1,15 +1,18 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `693d102` (#343)
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `2682926` (#293)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
 - Contexto estable: `docs/reports/2026-11-25-panorama.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
-- Mergeado el 25-11: #344, #313, #342, #343. Toolkit con el parche de las skills ocultas en su `main` (`1b6cb02`). Staging desplegado con `8895fa6` (CI de `main` y despliegue en verde; `f0e2c07` no tuvo corrida propia por un fallo de GitHub y queda cubierto por esa).
-- Turno de merge (17:45 UTC): #341 con CI corriendo. Cola, por orden: #336 (listo), #330 (listo; después, corrida real contra staging), #317 (listo; **espera el visto bueno de Diego** al arreglo de «reserva pasada», comentario 7168631756 del PR). Todos necesitan ponerse al día antes de mergear.
-- Workers en vuelo: `ola0-10` (session_016SLeJNM4bB8Z5BFFay38h1, #293) y `ola0-02` (session_016SLeJRNUkf8s7cUEM71Uy8, #338). Terminados sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH) y `ola0-04` (session_016SLeJSkg2HuVEnTvvzuAgK).
-- Después: `ola0-03` (#334, aserción aprobada; tras #293 por `outbox.ts`), `ola0-06` con `ola0-07`, `ola0-05`, limpieza. #302 se cierra cuando #293 esté en `main`.
-- Follow-ups sin clasificar: `ola0-01` (report, 5) y `ola0-04` (report en la rama de #330, 3). Antes de la corrida real del simulacro, Diego comprueba que el entorno `staging` de GitHub solo admite `main`.
+- Mergeado el 25-11: #344, #313, #342, #343, #341, #330, #293. Staging desplegado con `8895fa6` (verde); el despliegue de `2682926` estaba corriendo a las 19:02 UTC.
+- **Puerta 3 de M1 cumplida:** simulacro de restauración real contra staging en verde ([corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616), 109 s; `docs/runbooks/simulacro-de-restauracion.md`). Sin explicar todavía: dos líneas del log del Postgres desechable (`password authentication failed for user "postgres"` y `role "supabase_realtime_admin" does not exist`).
+- **`main` en rojo una vez:** CI sobre `677a813` (#341, solo docs) falló en `apps/worker/src/knowledge/ingest.integration.ts` (test de «Solo UE»; lee el log antes de que termine la entrega). `c0707e1` volvió a verde. Arreglo: `ola0-11` (session_016SLeJQ9nFHCsW4EgxVmCP7).
+- Turno de merge (19:05 UTC): #336 con CI corriendo. Cola: #338, #324, #325 (los tres listos) y #317 (listo; **espera el visto bueno de Diego** al arreglo de «reserva pasada», comentario 7168631756 del PR). Todos necesitan ponerse al día antes de mergear.
+- Workers en vuelo: `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk, #334), `ola0-05` (session_016SLeJQoh3cNKGVqh1ouoko, docs) y `ola0-11`. Terminados sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH), `ola0-02` (session_016SLeJRNUkf8s7cUEM71Uy8), `ola0-07` (session_016SLeJSHsj38gTWnJyiXfCu).
+- Después: `ola0-06` (#312, cuando #317 esté en `main`) y la limpieza (`ola0-09`, spec por escribir).
+- Esperan a Diego: #317; cerrar #281 (todo está ya en `main`) y #302 (#293 ya entró); que el entorno `staging` de GitHub solo admita `main`; el resto de `ola0-08`.
+- Follow-ups sin clasificar: reports de `ola0-01`, `ola0-02`, `ola0-04`, `ola0-07`, `ola0-10`; fila de `scope.yaml` para el control 3.2 (#331, #336) y `MNT-01` (#281); nota de la Revisora en #293 (documentar `schedulesTesting`).
 - Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
 
 ## a) Ola 0 — integración (en orden)
@@ -33,7 +36,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 - **#271** (borradores legales): ¿entran como borradores o se quedan en la rama hasta el abogado? · **#260** (frase `eval:intents`): ¿sí o cerrar? · **#270** (umbral `complex`): correr `eval:intents` real antes. · **#159** (skill `ask_team`, CU2): rehacer sobre main · **#160**: superado, ¿cerrar?
 - **Agente de lanzamiento y redes (GTM):** ¿se arranca? Si sí: repos de diseño/motion/UX que usará, sector y país de inicio; no hay conectores de Instagram/LinkedIn/Threads/X y cada publicación la aprueba una persona.
 - **Producto abierto:** email y dominio de contacto de los decks; reparto entre cofundadores; términos de la nota de 200.000 €.
-- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). Falta subir el cambio del script al toolkit (push denegado desde la sesión; parche en `docs/reports/ola1-01-toolkit.patch`).
+- **Toolkit:** decidido (2026-11-25): no se borra ninguna skill; 20 visibles, 54 ocultas con índice y sin hook de arranque (`docs/reports/ola1-01-podar-toolkit.md`). El script está en el `main` del toolkit (`1b6cb02`) y una sesión real desde `677a813` lo confirmó: lista las 20 visibles, arranca sin el texto del hook y usa una oculta desde el índice.
 - **Heredadas** (Realtime público, Fluid de Vercel, mensaje del sistema en el paso a persona, bandeja, marca, `/app-movil`, lote C de reservas…): report de cierre §5.
 
 ## c) Tareas manuales de Diego
@@ -49,7 +52,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 - Antes del primer dato real: Supabase Pro, lista completa de zonas sensibles + revisión humana + F03, DPAs (F10), Nango autoalojado en la UE.
 
 ## d) Construido, no verificado en real
-WhatsApp (gate 1 de M1) · Outlook · Google Calendar: reservar contra ocupado y fallo real · Koibox de punta a punta · worker con KMS · OA02 aprobar con edición · OA04 en staging · OA03 agenda · CU3 por WhatsApp · M-10 bandeja en vivo · alerta de despliegue FAILED/atascado · relleno del outbox en staging · simulacro de restauración en staging · enrutado por intención (apagado) · avisos por email de tope y de aprobaciones. Detalle: report de cierre §3.
+WhatsApp (gate 1 de M1) · Outlook · Google Calendar: reservar contra ocupado y fallo real · Koibox de punta a punta · worker con KMS · OA02 aprobar con edición · OA04 en staging · OA03 agenda · CU3 por WhatsApp · M-10 bandeja en vivo · alerta de despliegue FAILED/atascado · relleno del outbox en staging · enrutado por intención (apagado) · avisos por email de tope y de aprobaciones. Detalle: report de cierre §3.
 
 ## e) Notas
 - CI: el e2e a veces muere en «Supabase local (mínimo)» con el puerto 54322 ocupado, antes de ningún test; se arregla relanzando una vez. Si GitHub lo cancela por concurrencia del mismo PR, cancelar la corrida vieja y relanzar.

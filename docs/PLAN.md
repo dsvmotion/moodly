@@ -24,7 +24,7 @@ Mergear en orden, con CI verde y revisión, los PRs que quedaron abiertos al cer
 - El conflicto de puerto 54322 del runner de CI: hacerlo robusto (no solo relanzar).
 
 ### M1 · Platform spine · estado: en curso
-Puertas: (1) un mensaje de WhatsApp por el número de prueba real de Meta y un teléfono real recibe exactamente una respuesta, también con un segundo mensaje a mitad de turno — **construido, sin verificar en real** (bloqueado: acceso de Diego a Meta); (2) una organización UE completa un turno — pendiente de revisar contra la decisión de inferencia global (ADR 0051); (3) simulacro de restauración — #330 (Ola 0); (4) parar el worker de staging levanta una alerta — **hecho** (PL-health, #308, issue #314/#327).
+Puertas: (1) un mensaje de WhatsApp por el número de prueba real de Meta y un teléfono real recibe exactamente una respuesta, también con un segundo mensaje a mitad de turno — **construido, sin verificar en real** (bloqueado: acceso de Diego a Meta); (2) una organización UE completa un turno — pendiente de revisar contra la decisión de inferencia global (ADR 0051); (3) simulacro de restauración — **hecho** el 2026-11-25 por el camino lógico (volcado + restauración) contra staging desde `main` ([corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616), OK en 109 s; #330); la restauración del proyecto entero de Supabase sigue sin probar (necesita Pro); (4) parar el worker de staging levanta una alerta — **hecho** (PL-health, #308, issue #314/#327).
 - Pendiente además: KMS en staging (Diego) y prueba real de Koibox; Outlook real; WhatsApp real.
 
 ### M2 · Core service in staging · estado: en curso (16 en curso, 20 planificadas)
