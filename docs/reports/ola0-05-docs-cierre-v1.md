@@ -6,7 +6,7 @@ Spec: docs/specs/ola0-05-docs-cierre-v1.md · Date: 2026-11-25 · Branch/PR: `ta
 
 Mi parte: pasos 1, 2, 3 y 6 de la spec. Los pasos 4 y 5 (`docs/scope.yaml`, `docs/STATUS.md`) son del Lead: abajo va el texto listo para copiar. No he tocado esos dos archivos.
 
-**Línea de estado para STATUS.md:** `ola0-05` (parte del worker): CLAUDE.md/AGENTS.md al día con las variables de Nango, Koibox y AWS KMS (worker y web) y con los workflows «Staging · WhatsApp» y «Staging · simulacro de restauración»; runbook de KMS comprobado contra el código. Construido, **sin verificar en real**: WhatsApp (sin corrida con Meta), simulacro (sin corrida en verde), KMS (sin claves).
+**Línea de estado para STATUS.md:** `ola0-05` (parte del worker): CLAUDE.md/AGENTS.md al día con las variables de Nango, Koibox y AWS KMS (worker y web) y con los workflows «Staging · WhatsApp» y «Staging · simulacro de restauración»; runbook de KMS comprobado contra el código. Construido, **sin verificar en real**: WhatsApp (sin corrida con Meta) y KMS (sin claves). El simulacro de restauración ya tuvo su primera corrida real contra staging el 2026-11-25 (dato del Lead).
 
 ## Acceptance criteria
 | Criterion | Pass/Fail | Evidence |
@@ -19,7 +19,7 @@ Mi parte: pasos 1, 2, 3 y 6 de la spec. Los pasos 4 y 5 (`docs/scope.yaml`, `doc
 ## Qué cambia en las reglas (zona sensible: solo añade)
 `CLAUDE.md` y `AGENTS.md` (idénticos). No se quita ni se relaja ninguna regla; el diff solo amplía líneas de «Comandos»:
 1. **«Worker en staging (W2)»**, tras la frase de WhatsApp: `NANGO_API_KEY` + `NANGO_WEBHOOK_SIGNING_KEY` (+ `NANGO_HOST` opcional), `KOIBOX_API_BASE` (opcional), el bloque de AWS KMS (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `SECRET_VAULT_KMS_KEY_ID`, `INTEGRATION_INGRESS_KMS_KEY_IDS`; todas o ninguna; nunca a la vez que las locales), las locales de desarrollo (`SECRET_VAULT_LOCAL_KEY`, `INTEGRATION_INGRESS_LOCAL_PRIVATE_KEY`) y las de la web (`INTEGRATION_INGRESS_PUBLIC_KEY`, `INTEGRATION_INGRESS_KEY_REF`, `NANGO_API_KEY`, `NANGO_HOST`). Dice que las claves de AWS solo viven en el worker.
-2. Dos comandos nuevos: «Staging · WhatsApp» (`staging-whatsapp.yml`, acciones `setup` y `check`, runbook `docs/runbooks/whatsapp-staging.md`, «construido, sin verificar en real») y «Staging · simulacro de restauración» (`staging-restore-drill.yml`, solo desde `main`, sin corrida real en verde todavía; harness local `bash scripts/supabase/tests/restore-drill.test.sh`, necesita Docker, Supabase local y seed, no corre en el CI; runbook `docs/runbooks/simulacro-de-restauracion.md`).
+2. Dos comandos nuevos: «Staging · WhatsApp» (`staging-whatsapp.yml`, acciones `setup` y `check`, runbook `docs/runbooks/whatsapp-staging.md`, «construido, sin verificar en real») y «Staging · simulacro de restauración» (`staging-restore-drill.yml`, solo desde `main`; la primera corrida real contra staging fue el 2026-11-25 (resultado y tiempos en la tabla del runbook, sin el id ni cifras en las reglas); harness local `bash scripts/supabase/tests/restore-drill.test.sh`, necesita Docker, Supabase local y seed, no corre en el CI; runbook `docs/runbooks/simulacro-de-restauracion.md`).
 
 No he metido la frase de `eval:intents` de #260 (decisión pendiente de Diego).
 
@@ -60,10 +60,10 @@ El formato es el de SE13 (`{id, name, milestone, owner, status, evidence, note}`
 ### Condición de «Supabase Pro» para `docs/STATUS.md` (condiciones de salida a producción)
 Va en la línea «Antes del primer dato real» (hoy empieza por «Supabase Pro, lista completa…») y en el bloque Bloqueado, junto a «Restauración completa de Supabase desde el panel»:
 
-> **Supabase Pro (backups diarios) en staging y producción antes del primer dato real.** Hoy staging está en Free (Diego, 2026-11-24): no hay copias diarias ni PITR, y la restauración completa desde el panel no se puede probar hasta pasar a Pro. Lo único probado es el simulacro con volcado propio (`Staging · simulacro de restauración`, PL-prod), y todavía sin corrida real en verde.
+> **Supabase Pro (backups diarios) en staging y producción antes del primer dato real.** Hoy staging está en Free (Diego, 2026-11-24): no hay copias diarias ni PITR, y la restauración completa desde el panel no se puede probar hasta pasar a Pro. Lo único probado es el simulacro con volcado propio (`Staging · simulacro de restauración`, PL-prod), con una primera corrida real desde `main` el 2026-11-25 (dato del Lead; el runbook de `main` aún mostraba «pendiente» al corregirlo: lo rellena el Lead).
 
 ### Filas a poner al día (de la spec; las decide el Lead)
-`PL-prod` (evidencia #330; la corrida real cuando exista, hoy no hay), `OPS-01` (#293/#302 según decida Diego), `int-koibox` (#329, #333, #335, #337, #338: «construido, sin verificar en real»; falta una cuenta real de Koibox, claves de KMS y Nango), `OA02` (#313, #317), `OA03` (#315, lectura), `N-01` done (#311). No he verificado los estados actuales de esas filas ni de esos PRs: no estaban en mi alcance.
+`PL-prod` (evidencia #330 y la corrida real del 2026-11-25 que da el Lead), `OPS-01` (#293/#302 según decida Diego), `int-koibox` (#329, #333, #335, #337, #338: «construido, sin verificar en real»; falta una cuenta real de Koibox, claves de KMS y Nango), `OA02` (#313, #317), `OA03` (#315, lectura), `N-01` done (#311). No he verificado los estados actuales de esas filas ni de esos PRs: no estaban en mi alcance.
 
 ## Follow-ups for the lead (max 3)
 - Contrastar con el CI del PR: este entorno solo tiene Node 22 (`pnpm test` pasó igualmente).
