@@ -391,7 +391,11 @@ describe("la entrada de canales de punta a punta (ADR 0052 §2)", () => {
     // Dos barridos completos más, para ver que no lo vuelve a rebobinar: se cuentan
     // en dbos.workflow_status, no se da por hecho que pasaron con una espera fija.
     const since = await lastSweep();
-    await waitFor(async () => (await sweepsAfter(since)) >= 2, "pasan dos barridos más", 150_000);
+    // Con el barrido cada 5 s, dos vueltas son ~10 s; la cota deja que las esperas
+    // de arriba más esta quepan en el límite del test (200 s).
+    await waitFor(async () => (await sweepsAfter(since)) >= 2, "pasan dos barridos más", 50_000);
+    // El log del segundo barrido sale por un pipe: un segundo para que llegue entero.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
     const rewinds = output.split("\n").filter((line) => line.includes("rebobinado") && line.includes(workflowId));
     expect(rewinds).toHaveLength(1);
     expect(await workflowStatus(workflowId)).toBe("SUCCESS");
