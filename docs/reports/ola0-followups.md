@@ -1,10 +1,10 @@
 # Ola 0: seguimientos de los reports y dónde acaba cada uno
 
-Qué es: la lista de todo lo que los workers, el agente `reviewer` y la Revisora automática dejaron apuntado durante la Ola 0. La fase no se cierra mientras quede una fila en «sin clasificar» (`docs/WORKFLOW.md`, «Closing a phase»). La mantiene el Lead; última puesta al día: 2026-11-25 20:30 UTC.
+Qué es: la lista de todo lo que los workers, el agente `reviewer` y la Revisora automática dejaron apuntado durante la Ola 0. La fase no se cierra mientras quede una fila en «sin clasificar» (`docs/WORKFLOW.md`, «Closing a phase»). La mantiene el Lead; última puesta al día: 2026-11-25 21:20 UTC.
 
 Destinos posibles: **spec** (con su archivo), **fila** de `docs/scope.yaml`, **Diego** (decisión o tarea manual), **descartado** (con motivo).
 
-## Para la limpieza de la fase (`ola0-09`, spec por escribir cuando entren #317, #334 y #312)
+## Para la limpieza de la fase (specs escritas: `docs/specs/ola0-09a-limpieza-worker-y-web.md` y `docs/specs/ola0-09b-limpieza-simulacro.md`; se lanzan cuando entren #317, #334 y #312)
 | # | De dónde sale | Qué | Destino propuesto |
 | --- | --- | --- | --- |
 | 1 | `reviewer` sobre #338 | Si `keySubmissionStatus` devuelve `null` o lanza, la tarjeta de Koibox deja de sondear y se queda en «comprobando» con el campo desactivado hasta recargar (`key-integration-card.tsx`) | spec `ola0-09a` |
@@ -22,7 +22,7 @@ Destinos posibles: **spec** (con su archivo), **fila** de `docs/scope.yaml`, **D
 ## Para M2 (no caben en una limpieza)
 | # | De dónde sale | Qué | Destino propuesto |
 | --- | --- | --- | --- |
-| 12 | report `ola0-01` (`reviewer` sobre #317) | `valid_reply_edit` usa `btrim` y cuenta code points; Zod `.trim()` cuenta unidades UTF-16. Un texto de solo saltos de línea, o uno largo con emojis, pasa la base de datos y falla en el worker; falla seguro, pero nadie avisa a la persona | spec nueva de M2 (OA02) |
+| 12 | report `ola0-01` (`reviewer` sobre #317) | `valid_reply_edit` usa `btrim` y cuenta code points; Zod `.trim()` cuenta unidades UTF-16. Un texto de solo saltos de línea, o uno largo con emojis, pasa la base de datos y falla en el worker; falla seguro, pero nadie avisa a la persona | viñeta en `docs/PLAN.md`, M2 (spec al planificar M2) |
 | 13 | report `ola0-01` | Si la aprobación llega con `execution` nula, la web se salta la comprobación de hora pasada; la guarda de la base de datos (BK001) la sigue bloqueando | fila OA02 de `scope.yaml` (nota) |
 | 14 | report `ola0-02` | El freno de envíos de la base de datos tiene su propio `interval '15 minutes'` (migración `20261124100000`), distinto del plazo `KEY_SUBMISSION_TTL_MS` | fila int-koibox de `scope.yaml` (nota) |
 | 15 | report `ola0-03` | Un tope de 3 s en la consulta a DBOS sale como `backfill: fail`, igual que un relleno aparcado; el runbook lo distingue | fila W3 de `scope.yaml` (nota) |
@@ -34,9 +34,9 @@ Destinos posibles: **spec** (con su archivo), **fila** de `docs/scope.yaml`, **D
 | 17 | Fila `MNT-01` de `scope.yaml` (#324, #325; #281 la traía) | pendiente |
 | 18 | Filas SE14–SE18 y la condición «Supabase Pro antes del primer dato real» (texto en el report de `ola0-05`) | pendiente |
 | 19 | Poner al día PL-prod, OPS-01, int-koibox, OA02, OA03 y N-01 en `scope.yaml` | pendiente |
-| 20 | `docs/PLAN.md`: la numeración `ola0-06…` no coincide con las specs y no menciona #312 | pendiente |
+| 20 | `docs/PLAN.md`: la numeración `ola0-06…` no coincide con las specs y no menciona #312 | hecho el 2026-11-25 |
 | 21 | `docs/specs/ola1-01-podar-toolkit.md` sigue proponiendo borrar skills | pendiente |
-| 22 | `docs/STATUS.md` en 60 líneas o menos | pendiente |
+| 22 | `docs/STATUS.md` en 60 líneas o menos | se mantiene en cada empujón |
 | 23 | Mover «Comandos» de `CLAUDE.md` a `docs/COMMANDS.md` (aplazado hasta después de `ola0-05`) | spec para la Ola 1 |
 
 ## De Diego
@@ -50,7 +50,7 @@ Destinos posibles: **spec** (con su archivo), **fila** de `docs/scope.yaml`, **D
 | 29 | Rama `claude/export-skills-visibles` del toolkit: borrarla en GitHub (la sesión no puede) | orden |
 
 ## Para la Ola 1 (ya en `docs/PLAN.md`)
-- El puerto 54322 ocupado en el runner («Supabase local (mínimo)»): volvió a pasar el 2026-11-25 en #348; un relanzamiento lo resolvió.
+- El puerto 54322 ocupado en el runner («Supabase local (mínimo)»): el 2026-11-25 pasó dos veces, en #348 (un relanzamiento lo resolvió) y en el CI de `main` sobre `102987d` (rojo; el commit siguiente pasó). Pregunta abierta a Diego: adelantarlo a la Ola 0.
 - La puerta 2 de M1 (una organización UE completa un turno) no tiene spec ni dueño.
 
 ## Descartado

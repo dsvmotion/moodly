@@ -1,18 +1,16 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `ce487e9` (#348)
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `e504000` (#347)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
-- Contexto estable: `docs/reports/2026-11-25-panorama.md`. Seguimientos y su destino: `docs/reports/ola0-followups.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
-- Mergeado el 25-11 (11): #344, #313, #342, #343, #341, #330, #293, #336, #338, #324, #348. Staging desplegado en verde hasta `8895fa6` comprobado; lo posterior, sin comprobar al escribir esto.
-- **Puerta 3 de M1 cumplida:** simulacro de restauración real contra staging en verde ([corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616), 109 s; `docs/runbooks/simulacro-de-restauracion.md`).
-- **`main` en rojo una vez:** CI sobre `677a813` por un test intermitente de la ingesta; arreglado en #348.
-- Turno de merge (20:30 UTC): #325 con CI corriendo; después #347 (docs del cierre de V1; el worker está metiendo la fila del runbook).
-- **Esperan a Diego:** #317 (listo; arreglo de «reserva pasada», comentario 7168631756 del PR), #334 (listo; dos archivos fuera de spec y `/health` 503 con un relleno aparcado), cerrar #281 y #302, y el resto de la tabla «De Diego» de los seguimientos.
-- Workers: en vuelo, `ola0-05` (session_016SLeJQoh3cNKGVqh1ouoko). Sin archivar hasta que entren sus PRs: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH), `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk), `ola0-07` (session_016SLeJSHsj38gTWnJyiXfCu).
-- Después: `ola0-06` (#312, cuando #317 esté en `main`) y la limpieza (`ola0-09a`/`ola0-09b`, specs por escribir).
-- Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
+- Lee antes: `docs/reports/2026-11-25-panorama.md` (contexto) y `docs/reports/ola0-followups.md` (seguimientos y su destino). PR de docs de la fase: #345 (borrador hasta el cierre).
+- Hecho el 25-11: 13 PRs en `main` (lista en `docs/PLAN.md`, Ola 0). **Puerta 3 de M1 cumplida** (simulacro real, [corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616)). CI de `main` y «Despliegue a staging» en verde hasta `26c1ca3`; el de `e504000` estaba corriendo a las 21:15 UTC.
+- `main` en rojo dos veces, las dos resueltas: `677a813` (test intermitente de la ingesta, arreglado en #348) y `102987d` (puerto 54322 ocupado en el runner, paso «Supabase local (mínimo)»; el commit siguiente pasó).
+- En vuelo: nada. Ningún worker en marcha. Sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH, #317) y `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk, #334).
+- **Primero, preguntas para Diego:** (1) ¿#317 lleva el arreglo de «reserva pasada»? (comentario 7168631756 del PR); (2) ¿#334 con dos archivos fuera de spec y `/health` 503 con un relleno aparcado?; (3) ¿cerrar #281 y #302?; (4) ¿adelantar a esta fase el arreglo del puerto 54322?; (5) el resto de `ola0-08`.
+- Con (1) y (2): poner al día y mergear #317 y #334, lanzar `ola0-06` (#312), y después `ola0-09a` y `ola0-09b` (specs escritas). Luego, cierre de fase: `scope.yaml`, STATUS y PLAN (filas 16–23 de los seguimientos).
+- Cómo: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review`. No listar las corridas de `main` con el conector (salida enorme): usar un subagente.
 
 ## a) Ola 0 — integración (en orden)
 | # | PR | Estado | Le falta |
