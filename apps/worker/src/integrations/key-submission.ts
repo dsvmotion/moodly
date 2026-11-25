@@ -1,4 +1,5 @@
 import { DBOS } from "@dbos-inc/dbos-sdk";
+import { KEY_SUBMISSION_TTL_MS } from "@repo/config";
 import type { ServiceDb, TenantDb, TenantSql } from "@repo/db/service";
 import { KoiboxError, createKoiboxReader } from "@repo/integrations";
 import { SubmissionRejectedError, openSubmission, type IngressKeyring, type SubmissionContext } from "@repo/integrations/key-ingress";
@@ -33,7 +34,9 @@ import { KOIBOX_PROVIDER, koiboxSecretName } from "./koibox.ts";
 //   secreto») es un rechazo definitivo, no un fallo pasajero: no se reintenta
 //   (nota de V10 en #329).
 // - Caducidad: el workflow duerme hasta 15 minutos después del envío y lo borra
-//   si sigue ahí (falló antes de aplicarlo, o no hay claves para abrirlo).
+//   si sigue ahí (falló antes de aplicarlo, o no hay claves para abrirlo). El
+//   plazo es uno solo, KEY_SUBMISSION_TTL_MS de @repo/config (el mismo de la
+//   web), y la transacción lo recibe como parámetro, nunca como literal.
 //
 // integrations.key_cleanup (integration.disconnected):
 // - En una sola transacción con el mismo bloqueo: quita el secret_id solo si la
@@ -45,8 +48,6 @@ import { KOIBOX_PROVIDER, koiboxSecretName } from "./koibox.ts";
 export const KEY_SUBMISSION_HANDLER_KEY = "integrations.key_submission";
 export const KEY_SUBMISSION_WORKFLOW = "integrations.key_submission";
 export const KEY_CLEANUP_HANDLER_KEY = "integrations.key_cleanup";
-/** Lo que vive un envío sin procesar (ADR 0055 §2). */
-export const SUBMISSION_TTL_MS = 15 * 60 * 1000;
 
 /** Los proveedores con clave del cliente que sabe comprobar el worker. */
 const SUPPORTED_PROVIDERS = new Set([KOIBOX_PROVIDER]);
@@ -105,7 +106,7 @@ export interface KeySubmissionOptions {
   /** null: el worker no tiene SecretVault. Los envíos solo caducan. */
   vault: SecretVault | null;
   verify: KeyVerifier;
-  /** Solo para tests: cuánto vive un envío sin procesar. */
+  /** Solo para tests: cuánto vive un envío sin procesar (por defecto, KEY_SUBMISSION_TTL_MS). */
   ttlMs?: number;
 }
 
@@ -256,7 +257,7 @@ export async function applySubmission(
   const check = await options.verify(input.provider, apiKey);
   const sealed = check === "valid" ? await options.vault.seal(input.organizationId, apiKey) : null;
   try {
-    const outcome = await tenant.transaction((sql) => applyInTransaction(sql, input, sealed, check, options.ttlMs ?? SUBMISSION_TTL_MS));
+    const outcome = await tenant.transaction((sql) => applyInTransaction(sql, input, sealed, check, options.ttlMs ?? KEY_SUBMISSION_TTL_MS));
     return { outcome, createdAt };
   } catch (err) {
     if (isGuardRefusal(err)) return { outcome: "refused", createdAt };
@@ -334,7 +335,7 @@ export async function attemptUntil<T>(
 
 export function registerKeySubmissions(options: KeySubmissionOptions): EventHandler {
   const { db, logger } = options;
-  const ttlMs = options.ttlMs ?? SUBMISSION_TTL_MS;
+  const ttlMs = options.ttlMs ?? KEY_SUBMISSION_TTL_MS;
   const log = logger.child({ component: "integrations.key_submission" });
 
   async function processSubmission(input: KeySubmissionInput): Promise<void> {
