@@ -5,7 +5,7 @@ Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cie
 
 ## Handoff (para el próximo lead)
 - Lee antes: `docs/reports/2026-11-25-panorama.md` (contexto) y `docs/reports/ola0-followups.md` (seguimientos y su destino). PR de docs de la fase: #345 (borrador hasta el cierre).
-- Hecho el 25-11: 13 PRs en `main` (lista en `docs/PLAN.md`, Ola 0). **Puerta 3 de M1 cumplida** (simulacro real, [corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616)). CI de `main` y «Despliegue a staging» en verde hasta `26c1ca3`; el de `e504000` estaba corriendo a las 21:15 UTC.
+- Hecho el 25-11: 13 PRs en `main` (lista en `docs/PLAN.md`, Ola 0). **Puerta 3 de M1 cumplida** (simulacro real, [corrida 45676891616](https://github.com/dsvmotion/moodly/actions/runs/45676891616)). CI de `main` y «Despliegue a staging» en verde sobre `e504000`, el último commit (21:25 UTC).
 - `main` en rojo dos veces, las dos resueltas: `677a813` (test intermitente de la ingesta, arreglado en #348) y `102987d` (puerto 54322 ocupado en el runner, paso «Supabase local (mínimo)»; el commit siguiente pasó).
 - En vuelo: nada. Ningún worker en marcha. Sin archivar: `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH, #317) y `ola0-03` (session_016SLeJPsPktFVp4HZsQo7wk, #334).
 - **Primero, preguntas para Diego:** (1) ¿#317 lleva el arreglo de «reserva pasada»? (comentario 7168631756 del PR); (2) ¿#334 con dos archivos fuera de spec y `/health` 503 con un relleno aparcado?; (3) ¿cerrar #281 y #302?; (4) ¿adelantar a esta fase el arreglo del puerto 54322?; (5) el resto de `ola0-08`.
