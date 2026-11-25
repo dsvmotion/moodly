@@ -25,9 +25,10 @@ export interface WorkerProbe {
   /** Hora de creación del evento del outbox más antiguo sin publicar, o null. */
   oldestPendingEventAt(): Promise<Date | null>;
   /**
-   * Cuántos rellenos del outbox (W3) están aparcados ahora (CANCELLED o
-   * MAX_RECOVERY_ATTEMPTS_EXCEEDED): no se reintentan solos y lo que tenían que
-   * entregar no llega hasta que una persona los reanude. Sin él, no se mira.
+   * Cuántos rellenos del outbox (W3) aparcó DBOS y siguen así
+   * (MAX_RECOVERY_ATTEMPTS_EXCEEDED): no se reintentan solos y lo que tenían que
+   * entregar no llega hasta que una persona los reanude. Los que canceló una
+   * persona no cuentan. Sin él, no se mira.
    */
   parkedBackfills?(): Promise<number>;
 }

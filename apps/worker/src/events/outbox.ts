@@ -79,10 +79,19 @@ export function nextBackfillAttempt(statuses: readonly (string | null)[]): numbe
 }
 
 /**
- * Cuántos de estos rellenos están aparcados ahora. Lee el estado cada vez (no
- * el del arranque): uno que una persona reanuda (DBOS resumeWorkflow, `dbos
- * workflow resume`) deja de contar sin reiniciar el worker. Un ERROR no cuenta:
- * el siguiente arranque lo relanza.
+ * Lo que pone /health en degraded: el aparcado que dejó DBOS
+ * (MAX_RECOVERY_ATTEMPTS_EXCEEDED: el proceso cayó con él demasiadas veces).
+ * Un CANCELLED no: lo paró una persona y eso ya es una decisión suya; si
+ * contara, /health no saldría de degraded sin rellenar lo que no quiso. Los dos
+ * siguen sin reintentarse y dejan su línea en el log de cada arranque.
+ */
+const ALERTING_PARKED_STATUS = "MAX_RECOVERY_ATTEMPTS_EXCEEDED";
+
+/**
+ * Cuántos de estos rellenos aparcó DBOS y siguen así. Lee el estado cada vez
+ * (no el del arranque): uno que una persona reanuda (DBOS resumeWorkflow,
+ * `dbos workflow resume`) deja de contar sin reiniciar el worker. Un ERROR no
+ * cuenta: el siguiente arranque lo relanza.
  */
 export async function countParkedBackfills(
   workflowIDs: Iterable<string>,
@@ -90,8 +99,7 @@ export async function countParkedBackfills(
 ): Promise<number> {
   let parked = 0;
   for (const workflowID of workflowIDs) {
-    const status = await statusOf(workflowID);
-    if (status !== null && isParked(status)) parked += 1;
+    if ((await statusOf(workflowID)) === ALERTING_PARKED_STATUS) parked += 1;
   }
   return parked;
 }

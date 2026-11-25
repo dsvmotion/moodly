@@ -122,19 +122,22 @@ describe("registro de consumidores", () => {
     for (const status of RESUMABLE_STATUSES) expect(nextBackfillAttempt([status])).toBe(2);
   });
 
-  it("cuenta los rellenos aparcados leyendo su estado cada vez: uno que reanuda una persona deja de contar", async () => {
+  it("cuenta los rellenos que DBOS aparcó (MAX_RECOVERY) leyendo su estado cada vez: uno que reanuda una persona deja de contar", async () => {
     const statuses = new Map<string, string | null>([
-      ["a", "CANCELLED"],
+      ["a", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"],
       ["b", "MAX_RECOVERY_ATTEMPTS_EXCEEDED"],
       ["c", "SUCCESS"],
       ["d", "ERROR"],
       ["e", null],
+      // Lo canceló una persona: ya es una decisión suya, no algo que vigilar
+      // (si contara, /health no saldría de degraded sin rellenar lo que no quiso).
+      ["f", "CANCELLED"],
     ]);
     const statusOf = async (id: string) => statuses.get(id) ?? null;
-    const ids = ["a", "b", "c", "d", "e"];
-    // Solo los aparcados: un ERROR se relanza en el siguiente arranque.
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    // Ni un ERROR (se relanza en el siguiente arranque) ni un CANCELLED.
     expect(await countParkedBackfills(ids, statusOf)).toBe(2);
-    // DBOS.resumeWorkflow los deja en ENQUEUED: ya no están aparcados.
+    // DBOS.resumeWorkflow lo deja en ENQUEUED: ya no está aparcado.
     statuses.set("a", "ENQUEUED");
     expect(await countParkedBackfills(ids, statusOf)).toBe(1);
     statuses.set("b", "SUCCESS");
