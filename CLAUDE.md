@@ -31,7 +31,7 @@ Si dos documentos discrepan, manda el de mayor rango: ADR aceptado > `docs/MANUA
 - [ ] Flujo afectado ejecutado de extremo a extremo, con evidencia en el PR.
 - [ ] Si toca una integración con un tercero: probada contra la API real en staging, con su evidencia (ids del proveedor, logs); si no se pudo, «construido, sin verificar en real» y **Bloqueado** en `docs/STATUS.md` (ver Metodología).
 - [ ] Migraciones reversibles o con plan de vuelta atrás.
-- [ ] `docs/STATUS.md` actualizado; ADR nuevo si hubo decisión de arquitectura.
+- [ ] Estado al día: en el flujo lead + workers (`docs/WORKFLOW.md`), la línea de estado va en el report del worker y el Lead la pasa a `docs/STATUS.md`; fuera de ese flujo, `docs/STATUS.md` actualizado en el PR. ADR nuevo si hubo decisión de arquitectura.
 - [ ] El título del PR lleva el id de su unidad o hallazgo (`[M0][P-01]`, `[M3][RC7]`…) y el cuerpo dice el estado y la evidencia para su fila de `docs/scope.yaml`, que pone al día V1 después del merge: los PRs no tocan ese archivo (`docs/WORKSTREAMS.md`, regla 1).
 
 ## Stack (ver MANUAL §3.2 para el estado de cada elección)
@@ -153,7 +153,7 @@ Migraciones · políticas RLS · funciones `SECURITY DEFINER` · auth · secreto
 ## Trabajo en paralelo (Claude Code + Codex)
 Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
 
-## How we work (flujo lead + workers, 2026-11-24)
+## How we work (flujo lead + workers, 2026-11-24; un Lead por fase desde el 2026-11-25)
 
 @docs/CLAUDE-WORKFLOW-RULES.md
 @docs/WORKFLOW.md
@@ -161,5 +161,7 @@ Una tarea, una rama. Nunca dos agentes sobre la misma migración a la vez.
 - Source of truth: docs/PLAN.md (what), docs/STATUS.md (where we are),
   docs/specs/ (task details), docs/ARCHITECTURE.md (where code lives).
 - Read ARCHITECTURE.md before exploring; use the `explore` agent for searches.
-- Worker sessions do one spec and stop. Lead sessions plan and review; they don't implement.
+- One lead session per phase: it plans, hands out, reviews and merges; it doesn't implement.
+- Worker sessions do one spec and stop: branch, PR and report. In this flow workers don't merge and don't edit docs/STATUS.md; the lead merges, one PR at a time, with the procedure of «Mergeo autónomo» above (it applies to the lead, not to the PR's author).
+- 2 workers in parallel (3 only if fully independent). A phase closes only when every follow-up has an owner (docs/WORKFLOW.md, «Closing a phase»).
 - Every task ends with its verify commands run and a report in docs/reports/.
