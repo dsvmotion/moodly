@@ -1,13 +1,15 @@
 # Status (≤60 líneas; lo terminado vive en docs/reports/)
 
-Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Último lead: V1, 2026-11-24 (cierre) · main `aa79e63`
+Fase / ola actual: Ola 0, integración (docs/PLAN.md) · Lead de la Ola 0 desde el 2026-11-25 · main `f0e2c07` (#344)
 Historial completo anterior: `docs/reports/2026-11-24-status-anterior.md` · Cierre de V1: `docs/reports/2026-11-24-cierre-v1.md`
 
 ## Handoff (para el próximo lead)
-- En vuelo: nada en marcha; todas las sesiones paradas en un punto estable, con lo suyo empujado.
-- Primero: Ola 0 en el orden de abajo (de uno en uno: main exige rama al día). Procedimiento: `docs/specs/ola0-00-como-mergear.md`.
-- Staging: al día con `aa79e63`. «Despliegue a staging» [45493823125](https://github.com/dsvmotion/moodly/actions/runs/45493823125) en verde (migraciones, web y worker); Railway `20a790c5` SUCCESS (la imagen con el SDK de AWS se construyó bien); worker `/health` 200. Railway en Hobby desde el 24-11.
-- Preguntas para Diego: «Decisiones para Diego», abajo.
+- Contexto estable: `docs/reports/2026-11-25-panorama.md`. PR de docs de la fase: #345 (borrador hasta el cierre).
+- Mergeado hoy: #344 (flujo de un Lead por fase). Toolkit con el parche de las skills ocultas en su `main` (`1b6cb02`).
+- En vuelo (2026-11-25 16:30 UTC): worker `ola0-01` (session_016SLeJRETZZKuCE4L1VuebH: #313 → #317 → #336) y worker `ola0-04` (session_016SLeJSkg2HuVEnTvvzuAgK: #330). El Lead está pasando #342 → #343 → #341 (aprobados por Diego), de uno en uno.
+- Después: `ola0-02` (#338) con `ola0-10` (#293); luego `ola0-03` (#334, aserción aprobada); luego `ola0-06` con `ola0-07`; `ola0-05`; limpieza.
+- Staging: al día con `64ad5f9`; el CI de `main` sobre `f0e2c07` estaba corriendo al escribir esto.
+- Procedimiento de merge: `docs/specs/ola0-00-como-mergear.md`. Sacar de borrador: ruta REST `ccr/ready_for_review` (el conector falla).
 
 ## a) Ola 0 — integración (en orden)
 | # | PR | Estado | Le falta |

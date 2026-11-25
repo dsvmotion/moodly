@@ -47,6 +47,10 @@ Puertas: (1) un mensaje de WhatsApp por el número de prueba real de Meta y un t
 ## Registro de decisiones (lo más nuevo primero)
 | Fecha | Decisión | Por qué |
 | --- | --- | --- |
+| 2026-11-25 | OPS-01: entra #293 en la Ola 0 (`ola0-10`); #302 se cierra cuando #293 esté en `main` | Más medido y con prueba en negativo; cada merge espera menos CI |
+| 2026-11-25 | #334: visto bueno a la aserción cambiada («MAX_RECOVERY se reintenta» pasa a «se aparca») | Mismo criterio que la entrada de canales; no rebaja nada |
+| 2026-11-25 | Skills: no se borra ninguna; 20 visibles, 54 ocultas con índice y sin hook de arranque (#341–#343; toolkit `1b6cb02`) | Menos contexto por sesión sin perder nada |
+| 2026-11-25 | Un Lead por fase que también mergea; 2 workers en paralelo; reviewer en Opus (#344) | Nada pendiente sin dueño; contextos pequeños |
 | 2026-11-24 | Flujo nuevo lead + workers (este kit): specs y reports en el repo, sesiones cortas | Contextos pequeños; nada vive solo en una conversación |
 | 2026-11-24 | Railway pasa a Hobby (fin del trial); clave de evals renovada y presupuesto subido; Actions sin tope | El worker de staging se cayó el 22-11 por el trial; las evals reales fallaban por la clave |
 | 2026-11-24 | Supabase sigue en Free hasta antes del primer dato real; entonces Pro (staging y producción) | Free no tiene backups diarios; no hay datos reales todavía |
